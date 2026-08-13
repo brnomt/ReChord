@@ -426,14 +426,14 @@ void BSP_Init2(void)
     SysVariableInit2();
     SysInterruptInit2();
 
-    /* Defensively enable the mailbox PCLK (PCLK_MAILBOX_GATE=118 ->
-     * CRU_CLKGATE_CON[7] bit 6) in case the AP didn't leave it on. The
-     * write-enable+clock-enable pattern is 0x00010001<<(118%16)=0x00400040. */
-    *(volatile uint32_t *)(0x40180000u + 0x9Cu) |= 0x00400040u;
+    /* Defensively enable the mailbox PCLK (PCLK_MAILBOX_GATE=146 ->
+     * CRU_CLKGATE_CON[9] bit 2) in case the AP didn't leave it on. The
+     * write-enable+clock-enable pattern is 0x00010001<<(146%16)=0x00040004. */
+    *(volatile uint32_t *)(0x40180000u + 0xA4u) |= 0x00040004u;
 
-    /* Defensively enable the VOP/LCDC HCLK (HCLK_LCDC_GATE=99 ->
-     * CRU_CLKGATE_CON[6] bit 3) so the direct VOP panel writes don't fault. */
-    *(volatile uint32_t *)(0x40180000u + 0x98u) |= 0x00080008u;
+    /* Defensively enable the VOP/LCDC HCLK (HCLK_LCDC_GATE=127 ->
+     * CRU_CLKGATE_CON[7] bit 15) so the direct VOP panel writes don't fault. */
+    *(volatile uint32_t *)(0x40180000u + 0x9Cu) |= 0x80008000u;
 
     MailBoxEnableA2BInt(MAILBOX_ID_0, MAILBOX_INT_0);
     IntRegister2(INT_ID_MAILBOX0, (void*)BBSystemBIsr);

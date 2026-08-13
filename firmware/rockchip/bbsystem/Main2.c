@@ -667,7 +667,7 @@ int Main2(void)
             uint32_t col = (hb & 1) ? 0xF800u : 0x0000u;   /* red / black */
             uint32_t i;
             volatile uint16_t *fb = RCH_QEMU_FB;
-            for (i = 0; i < (320 * 170) / 2; i++)          /* whole fb */
+            for (i = 0; i < (128 * 160); i++)               /* whole 128x160 fb */
                 fb[i] = (uint16_t)col;
             /* loader display API (known-good top-bar rect + adjacent
              * palette codes 0x94/0x95 — the loader's status-bar colors) */
@@ -692,16 +692,17 @@ int Main2(void)
                 volatile uint32_t *vdat = (volatile uint32_t *)0x6007002Cu;
                 uint32_t k;
                 uint16_t c = (hb & 1) ? 0xF800u : 0x001Fu;  /* red / blue */
+                /* panel is 128x160 (SDK_160_128 LCD_WIDTH=128) */
                 *vcon = 0x800u;                    /* command mode */
                 *vcmd = 0x2Au;                     /* column address set */
                 *vdat = 0x00u; *vdat = 0x00u;      /* x0 = 0 */
-                *vdat = 0x01u; *vdat = 0x3Fu;      /* x1 = 319 */
+                *vdat = 0x00u; *vdat = 0x7Fu;      /* x1 = 127 */
                 *vcmd = 0x2Bu;                     /* row address set */
                 *vdat = 0x00u; *vdat = 0x00u;      /* y0 = 0 */
-                *vdat = 0x00u; *vdat = 0xA9u;      /* y1 = 169 */
+                *vdat = 0x00u; *vdat = 0x9Fu;      /* y1 = 159 */
                 *vcmd = 0x2Cu;                     /* memory write */
                 *vcon = 0x2u;                      /* data mode (2-phase) */
-                for (k = 0; k < (320u * 170u); k++)
+                for (k = 0; k < (128u * 160u); k++)
                     *vdat = c;                     /* one RGB565 pixel */
             }
 #endif

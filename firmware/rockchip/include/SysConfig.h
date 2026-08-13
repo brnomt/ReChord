@@ -93,8 +93,8 @@
 #endif
 
 /* ---- Display ---- */
-#define LCD_WIDTH       320
-#define LCD_HEIGHT      170
+#define LCD_WIDTH       128
+#define LCD_HEIGHT      160
 #define LCD_BPP         16
 #define LCD_PIXEL_1     1
 #define LCD_PIXEL_16    16
