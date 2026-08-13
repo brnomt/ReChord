@@ -682,12 +682,28 @@ int Main2(void)
                 RCH_QEMU_CTX(c2);
             }
 #else
-            /* ROM display API DISABLED — the hardcoded 0x02feXXXX addresses
-             * were wrong (zero occurrences in the stock IMG, and even-valued
-             * ARM-state pointers into a Thumb ROM), so they faulted here and
-             * prevented Main2 from ever reaching the mailbox-decode loop.
-             * We keep only the safe framebuffer write + delay. */
-            (void)hb;
+            /* VOP (i8080 display controller) direct fill — hardware path from
+             * TRM Ch.15, no ROM API. VOP @ 0x60070000: VopMcuCon +0x00,
+             * VopMcuCmd +0x28, VopMcuData +0x2C. ST7735S protocol: set window
+             * (0x2A/0x2B) -> memory-write (0x2C) -> RGB565 pixels. */
+            {
+                volatile uint32_t *vcon = (volatile uint32_t *)0x60070000u;
+                volatile uint32_t *vcmd = (volatile uint32_t *)0x60070028u;
+                volatile uint32_t *vdat = (volatile uint32_t *)0x6007002Cu;
+                uint32_t k;
+                uint16_t c = (hb & 1) ? 0xF800u : 0x001Fu;  /* red / blue */
+                *vcon = 0x800u;                    /* command mode */
+                *vcmd = 0x2Au;                     /* column address set */
+                *vdat = 0x00u; *vdat = 0x00u;      /* x0 = 0 */
+                *vdat = 0x01u; *vdat = 0x3Fu;      /* x1 = 319 */
+                *vcmd = 0x2Bu;                     /* row address set */
+                *vdat = 0x00u; *vdat = 0x00u;      /* y0 = 0 */
+                *vdat = 0x00u; *vdat = 0xA9u;      /* y1 = 169 */
+                *vcmd = 0x2Cu;                     /* memory write */
+                *vcon = 0x2u;                      /* data mode (2-phase) */
+                for (k = 0; k < (320u * 170u); k++)
+                    *vdat = c;                     /* one RGB565 pixel */
+            }
 #endif
             /* BOOT_DONE marker (0xfeed0002) for rechord_ui_event */
             RCH_QEMU_BOOTLOG[2] = 0xfeed0002u;
