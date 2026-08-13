@@ -32,6 +32,11 @@ tools/__pycache__/
 # repo, leaked RKnanoD SDKs). 440MB+ raw — see docs/community.md. Local only.
 community/
 
+# Rockchip confidential / copyrighted docs (RKnanoD Datasheet & TRM).
+# Reference-only, do not redistribute. See docs/TRM-notes.md.
+community/RKNanoD.pdf
+community/Rockchip RKNanoD TRM V1.0.pdf
+
 # OS files
 .DS_Store
 Thumbs.db
