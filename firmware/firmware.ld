@@ -46,7 +46,6 @@ SECTIONS
         *(.rodata*)
         *(.ARM.extab*)
         *(.ARM.exidx*)
-        *(.bb_vect)
         . = ALIGN(4);
         *(.driver_code)
         . = ALIGN(4);
@@ -69,6 +68,14 @@ SECTIONS
     {
         KEEP(*(.vectors))
     } > FW_CODE
+
+    /* ---- Vector table (exceptions_table2). The SDK names this section
+           "bb_vect" (no leading dot). It MUST be 256-byte aligned so VTOR's
+           low 7 bits (forced to 0) still point at the real table. ---- */
+    .bb_vect ALIGN(256) :
+    {
+        KEEP(*(bb_vect))
+    } > FW_RAM
 
     /* ---- SDK named data sections ---- */
     .data ALIGN(4) :
