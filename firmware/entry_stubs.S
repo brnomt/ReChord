@@ -43,10 +43,11 @@
 
     /* firmware_entry @ 0x03000010 — bootloader jumps here, r0 = boot params
      * V0.17: back to the V0.1 boot path — branch to the SDK's Main2
-     * (BSP_Init2 real HW init). V0.1 was the ONLY build that showed colors
-     * (azure->green->red per user); V0.8-V0.16 (pure-C display tests over
-     * the ROM, no SDK kernel) never showed anything. The SDK kernel boot
-     * is the path that makes the display behave. */
+     * (BSP_Init2 real HW init). NOTE (V0.18 correction): V0.1's
+     * azure->green->red colors were LIKELY THE STOCK BOOT ANIMATION, not
+     * our code — V0.1-V0.16 never actually showed custom output. The
+     * direct VOP register path (TRM Ch.15) is the first display test that
+     * does not depend on the ROM API or the boot animation. */
     .global firmware_entry
     .thumb_func
 firmware_entry:
