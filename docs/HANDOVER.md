@@ -193,6 +193,20 @@ arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb -Os -ffunction-sections -fdata-section
 
 ## 7. The current mystery: why no fault screen? (NEXT AGENT, START HERE)
 
+**UPDATE (round 12): the AP<->BB handshake mechanism is now CONFIRMED from the
+SDK** (`driver/BB/BBSystem.c`). The AP side (`StartBBSystem`) does:
+`ScuSoftResetCtr(CAL_CORE_SRST, TRUE)` → `ModuleOverlay(...)` →
+`ScuSoftResetCtr(CAL_CORE_SRST, FALSE)` (releases the CAL_M3/core1) → then
+`while(!BbSystemStartOK)` with a ~200 ms timeout. core1's reset vector IS
+`firmware_entry` (0x03000010). The BB must reply
+`MSGBOX_CMD_SYSTEM_START_OK` (0x0001) on B2A channel 0; the AP's
+`BBSystemAIsr` sets `BbSystemStartOK=1`. Our Main2.c already sends that
+reply correctly. So the ~23 s freeze is NOT the boot handshake (that only
+waits 200 ms) — it is a later command the AP sends on menu-press, which
+needs the BB's decode/file ISRs (MailBoxDecService/MailBoxFileService) to
+answer. Those ISRs were broken by a **misaligned vector table** (fixed:
+`exceptions_table2` is now 256-aligned at 0x03021600).
+
 **UPDATE (V0.15, fresh-instance session): ROOT CAUSE FOUND via Ghidra** —
 the stock `firmware_entry` @ 0x03000010 is an **HW-init callback that RETURNS**
 to the ROM. Stock disasm: `push {r4,lr}; mov r4,r0; bl boot_param_layout;
