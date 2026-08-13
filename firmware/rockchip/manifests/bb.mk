@@ -1,6 +1,5 @@
 # ReChord BB baseline from audio/bbsystem/system after NON2_EXCLUDE and SPECIAL_EXCLUDE.
 BB_SRCS := \
-  firmware/rockchip/driver/mailbox/mailbox.c \
   firmware/rockchip/audio/AAC/pAAC2.c \
   firmware/rockchip/audio/AudioControl/AudioControl.c \
   firmware/rockchip/audio/AudioControl/HoldonPlay.c \
@@ -50,8 +49,6 @@ BB_SRCS := \
 BB_INCLUDE_DIRS := \
   firmware/rockchip/include \
   firmware/rockchip \
-  firmware/rockchip/driver \
-  firmware/rockchip/driver/mailbox \
   firmware/rockchip/driver/MemDev \
   firmware/rockchip/audio/Include \
   firmware/rockchip/audio/AudioControl \

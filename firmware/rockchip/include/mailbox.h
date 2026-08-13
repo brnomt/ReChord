@@ -13,10 +13,11 @@
 #define MAILBOX_ID_2        2
 #define MAILBOX_ID_3        3
 
-#define MAILBOX_INT_0       0
-#define MAILBOX_INT_1       1
-#define MAILBOX_INT_2       2
-#define MAILBOX_INT_3       3
+/* interrupt-enable BITMASKS (real SDK: 1<<n, NOT the channel number) */
+#define MAILBOX_INT_0       ((uint32)(1 << 0))
+#define MAILBOX_INT_1       ((uint32)(1 << 1))
+#define MAILBOX_INT_2       ((uint32)(1 << 2))
+#define MAILBOX_INT_3       ((uint32)(1 << 3))
 
 #define MAILBOX_CHANNEL_0   0
 #define MAILBOX_CHANNEL_1   1
