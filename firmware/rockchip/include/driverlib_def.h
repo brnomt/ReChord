@@ -28,24 +28,31 @@
 #include "armcc_compat.h"
 
 /* ================= SoC peripheral bases ================= */
-#define RKNANO_CRU_BASE      0x20000000UL   /* Clock & Reset Unit */
-#define RKNANO_INTC_BASE     0x400B0000UL   /* Interrupt controller */
+#define RKNANO_CRU_BASE      0x40180000UL   /* Clock & Reset Unit (real SDK hw_memap.h) */
+#define RKNANO_INTC_BASE     0x400B0000UL   /* Interrupt controller (TODO: verify) */
 
-/* ================= CRU (Clock & Reset Unit) ================= */
+/* ================= CRU (Clock & Reset Unit) — layout matches real SDK
+ *      Hw_cru.h CRUReg_t @ CRU_BASE 0x40180000 ================= */
 typedef struct {
-    volatile uint32_t CRU_APLL_CON[6];      /* +0x000 APLL config */
-    volatile uint32_t CRU_DPLL_CON[6];      /* +0x018 DPLL config */
-    volatile uint32_t CRU_GPLL_CON[6];      /* +0x030 GPLL config */
-    volatile uint32_t CRU_CPLL_CON[6];      /* +0x048 CPLL config */
-    volatile uint32_t CRU_MODE_CON;         /* +0x060 clock mode */
-    volatile uint32_t CRU_CLKSEL_CON[32];   /* +0x064 clock selectors */
-    volatile uint32_t CRU_CLKGATE_CON[8];  /* +0x0E4 clock gates */
-    volatile uint32_t CRU_SOFTRST[8];       /* +0x104 soft resets */
-    volatile uint32_t CRU_GLB_CNT_TH;       /* +0x124 */
-    volatile uint32_t CRU_GLB_CNT;          /* +0x128 */
-    volatile uint32_t CRU_GLB_RST_ST;       /* +0x12C */
-    volatile uint32_t CRU_GLB_SRST_FST;     /* +0x130 */
-    volatile uint32_t CRU_GLB_SRST_SND;     /* +0x134 */
+    volatile uint32_t CRU_APLL_CON0;        /* +0x00 */
+    volatile uint32_t CRU_APLL_CON1;        /* +0x04 */
+    volatile uint32_t CRU_APLL_CON2;        /* +0x08 */
+    volatile uint32_t reserved1;            /* +0x0C */
+    volatile uint32_t CRU_MODE_CON;         /* +0x10 */
+    volatile uint32_t CRU_CLKSEL_CON[13];   /* +0x14 */
+    volatile uint32_t reserved2[2];         /* +0x48 */
+    volatile uint32_t CRU_CLK_FRACDIV_CON0; /* +0x50 */
+    volatile uint32_t CRU_CLK_FRACDIV_CON1; /* +0x54 */
+    volatile uint32_t reserved3[10];        /* +0x58 */
+    volatile uint32_t CRU_CLKGATE_CON[10];  /* +0x80 */
+    volatile uint32_t reserved4[6];         /* +0xA8 */
+    volatile uint32_t CRU_SOFTRST[4];       /* +0xC0 */
+    volatile uint32_t reserved5[4];         /* +0xD0 */
+    volatile uint32_t CRU_STCLK_CON0;       /* +0xE0 */
+    volatile uint32_t CRU_STCLK_CON1;       /* +0xE4 */
+    volatile uint32_t reserved6[3];         /* +0xE8 */
+    volatile uint32_t CRU_GLB_SRST_FST_VALUE; /* +0xF4 */
+    volatile uint32_t CRU_GLB_CNT_TH;       /* +0xF8 */
 } RKNANO_CRU;
 
 #define CRU ((volatile RKNANO_CRU *)RKNANO_CRU_BASE)
