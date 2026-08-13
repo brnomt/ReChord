@@ -682,16 +682,12 @@ int Main2(void)
                 RCH_QEMU_CTX(c2);
             }
 #else
-            if (((uint32_t(*)(uint32_t))0x02fef124u)(0x19b) == 0) {
-                uint32_t c1 = ((uint32_t(*)(uint32_t))0x02fea848u)(1);
-                uint32_t c2 = ((uint32_t(*)(uint32_t))0x02fea824u)(2);
-                ((void(*)(uint32_t))0x02feb0f6u)((hb & 1) ? 0x95u : 0x94u);
-                ((void(*)(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t))0x02fea8f4u)
-                    (0, 3, 320, 16, 2, 0x58);
-                ((void(*)(uint32_t))0x02feabeau)(1);
-                ((void(*)(uint32_t))0x02fea848u)(c1);
-                ((void(*)(uint32_t))0x02fea824u)(c2);
-            }
+            /* ROM display API DISABLED — the hardcoded 0x02feXXXX addresses
+             * were wrong (zero occurrences in the stock IMG, and even-valued
+             * ARM-state pointers into a Thumb ROM), so they faulted here and
+             * prevented Main2 from ever reaching the mailbox-decode loop.
+             * We keep only the safe framebuffer write + delay. */
+            (void)hb;
 #endif
             /* BOOT_DONE marker (0xfeed0002) for rechord_ui_event */
             RCH_QEMU_BOOTLOG[2] = 0xfeed0002u;
