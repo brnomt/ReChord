@@ -52,7 +52,7 @@
 firmware_entry:
     push {r4}
     mov  r4, r0
-    b    rechord_main              /* our app main (never returns) */
+    b    Main2                    /* SDK BB kernel: handshake + decode loop (never returns) */
     /* NOTE: NO rom_hw_init here — V0.1/V0.17 proved the display works
      * WITHOUT the stock HW-init (which re-configures the LCD). HW init is
      * deferred to the audio milestone (M2), where it is actually needed. */
