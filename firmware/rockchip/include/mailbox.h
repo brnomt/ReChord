@@ -49,12 +49,21 @@
 #define MEDIA_MSGBOX_CMD_FILE_TELL_CMPL     0x0112
 #define MEDIA_MSGBOX_CMD_FILE_GET_LENGTH    0x0113
 #define MEDIA_MSGBOX_CMD_FILE_GET_LENGTH_CMPL 0x0114
-/* ---- API ---- */
-API int  MailBoxWriteB2ACmd(uint32 cmd, uint32 id, uint32 channel);
-API int  MailBoxWriteB2AData(uint32 data, uint32 id, uint32 channel);
-API int  MailBoxReadA2BCmd(uint32 id, uint32 channel);
-API int  MailBoxReadA2BData(uint32 id, uint32 channel);
-API void MailBoxClearA2BInt(uint32 id, uint32 int_sel);
+/* ---- API (real mailbox.c signatures: reads return uint32, others rk_err_t) ---- */
+API uint32   MailBoxReadA2BCmd(uint32 id, uint32 channel);
+API uint32   MailBoxReadA2BData(uint32 id, uint32 channel);
+API uint32   MailBoxReadB2ACmd(uint32 id, uint32 channel);
+API uint32   MailBoxReadB2AData(uint32 id, uint32 channel);
+API rk_err_t MailBoxWriteA2BCmd(uint32 cmd, uint32 id, uint32 channel);
+API rk_err_t MailBoxWriteA2BData(uint32 data, uint32 id, uint32 channel);
+API rk_err_t MailBoxWriteB2ACmd(uint32 cmd, uint32 id, uint32 channel);
+API rk_err_t MailBoxWriteB2AData(uint32 data, uint32 id, uint32 channel);
+API rk_err_t MailBoxClearA2BInt(uint32 id, uint32 int_sel);
+API rk_err_t MailBoxClearB2AInt(uint32 id, uint32 int_sel);
+API rk_err_t MailBoxEnableA2BInt(uint32 id, uint32 int_sel);
+API rk_err_t MailBoxEnableB2AInt(uint32 id, uint32 int_sel);
+API rk_err_t MailBoxDisableA2BInt(uint32 id, uint32 int_sel);
+API rk_err_t MailBoxDisableB2AInt(uint32 id, uint32 int_sel);
 API void MailBoxInit(void);
 
 #endif /* MAILBOX_H */

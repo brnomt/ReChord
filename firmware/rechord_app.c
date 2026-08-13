@@ -162,6 +162,16 @@ uint32_t rechord_firmware_entry(void *param)
 extern void ScatterLoader2(void);
 extern void BSP_Init2(void);
 
+/* ---- BB mailbox handshake: register the decode/file servers and send the
+ *      SYSTEM_START_OK heartbeat so the AP knows the BB is alive ---- */
+extern void RegHifiDecodeServer(void);
+extern void RegHifiFileServer(void);
+extern int  MailBoxWriteB2ACmd(uint32_t cmd, uint32_t id, uint32_t channel);
+extern int  MailBoxWriteB2AData(uint32_t data, uint32_t id, uint32_t channel);
+#define MSGBOX_CMD_SYSTEM_START_OK 0x0001u
+#define MAILBOX_ID_0    0u
+#define MAILBOX_CHANNEL_0 0u
+
 static volatile uint32_t g_redraw = 0;
 static volatile uint32_t g_menu_sel = 0;
 
@@ -314,6 +324,13 @@ void rechord_main(void)
 {
     ScatterLoader2();    /* zero the SDK BSS region */
     BSP_Init2();         /* board init (interrupts, systick, mailbox) */
+
+    /* ---- BB mailbox handshake: register the decode/file servers and send
+     *      SYSTEM_START_OK so the AP stops waiting (un-freezes menus). ---- */
+    RegHifiDecodeServer();
+    RegHifiFileServer();
+    MailBoxWriteB2ACmd(MSGBOX_CMD_SYSTEM_START_OK, MAILBOX_ID_0, MAILBOX_CHANNEL_0);
+    MailBoxWriteB2AData(0, MAILBOX_ID_0, MAILBOX_CHANNEL_0);
 
     boot_log[2] = BOOT_DONE;
 
