@@ -354,41 +354,9 @@ void rechord_ui_event(void)
 {
     static uint32_t calls = 0;
     uint32_t n = calls++;
-    uint32_t color;
-    uint32_t ctx_a, ctx_b;
 
-    /* don't draw before our boot init completes */
-    if (boot_log[2] != BOOT_DONE)
-        return;
-
-    boot_log[3] = n;                        /* telemetry: call count */
-
-    /* wait for the display to be ready, like the loader; bail if not */
-    if (ROM_DISP_WAIT(0x19b) != 0)
-        return;
-
-    /* save display context, exactly like the loader */
-    ctx_a = ROM_DISP_CTX_A(1);
-    ctx_b = ROM_DISP_CTX_B(2);
-
-    /* crash telemetry: if a fault was logged, hold a stable PC color */
-    if (crash_log[0] == CRASH_MAGIC) {
-        uint32_t pc = crash_log[1];
-        color = (uint16_t)(((pc >> 16) & 0xF8) << 8) |
-                (uint16_t)(((pc >> 8) & 0xFC) << 3) |
-                (uint16_t)((pc >> 3) & 0x1F);
-        crash_log[0] = 0;                   /* consumed */
-    } else {
-        color = (n & 1) ? 0x001F : 0xF800;  /* blue / red alternating */
-    }
-
-    ROM_DISP_COLOR(color);
-    ROM_DISP_RECT(0, 0, 320, 170, 2, 0x58);        /* full screen */
-    ROM_DISP_COLOR(0xFFFF);
-    ROM_DISP_RECT(0, 3, 320, 16, 2, 0x58);         /* white top bar (known-good) */
-    ROM_DISP_REFRESH(1);
-
-    /* restore display context, exactly like the loader */
-    ROM_DISP_CTX_A(ctx_a);
-    ROM_DISP_CTX_B(ctx_b);
+    /* ROM display API DISABLED — the hardcoded 0x02feXXXX addresses fault the
+     * Thumb ROM (even ARM-state pointers), crashing the BB on the first UI
+     * event. Keep only telemetry; no display until the real ROM API is mapped. */
+    boot_log[3] = n;
 }

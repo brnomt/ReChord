@@ -426,6 +426,11 @@ void BSP_Init2(void)
     SysVariableInit2();
     SysInterruptInit2();
 
+    /* Defensively enable the mailbox PCLK (PCLK_MAILBOX_GATE=118 ->
+     * CRU_CLKGATE_CON[7] bit 6) in case the AP didn't leave it on. The
+     * write-enable+clock-enable pattern is 0x00010001<<(118%16)=0x00400040. */
+    *(volatile uint32_t *)(0x40180000u + 0x9Cu) |= 0x00400040u;
+
     MailBoxEnableA2BInt(MAILBOX_ID_0, MAILBOX_INT_0);
     IntRegister2(INT_ID_MAILBOX0, (void*)BBSystemBIsr);
     IntPendingClear2(INT_ID_MAILBOX0);
