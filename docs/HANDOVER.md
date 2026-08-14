@@ -202,10 +202,15 @@ SDK** (`driver/BB/BBSystem.c`). The AP side (`StartBBSystem`) does:
 `MSGBOX_CMD_SYSTEM_START_OK` (0x0001) on B2A channel 0; the AP's
 `BBSystemAIsr` sets `BbSystemStartOK=1`. Our Main2.c already sends that
 reply correctly. So the ~23 s freeze is NOT the boot handshake (that only
-waits 200 ms) — it is a later command the AP sends on menu-press, which
-needs the BB's decode/file ISRs (MailBoxDecService/MailBoxFileService) to
-answer. Those ISRs were broken by a **misaligned vector table** (fixed:
-`exceptions_table2` is now 256-aligned at 0x03021600).
+waits 200 ms) — it is the AP codec's `while(!gOpenDone)` wait
+(20,000,000 × DelayUs(1) ≈ 20 s, in PCMFunction/CodecOpen) after it sends
+DEC_OPEN. The AP's decode ISR (AudioControl.c ~2786) sets gOpenDone=1 on
+BOTH DEC_OPEN_ERR and DEC_OPEN_CMPL, so ANY reply breaks the wait; our
+CodecOpen2 stub returning 0 → DEC_OPEN_ERR is therefore a VALID answer. The
+freeze only happens when the BB's decode/file ISRs
+(MailBoxDecService/MailBoxFileService) never fire — because the **vector
+table was misaligned** (fixed: `exceptions_table2` is now 256-aligned at
+0x03021600).
 
 **UPDATE (V0.15, fresh-instance session): ROOT CAUSE FOUND via Ghidra** —
 the stock `firmware_entry` @ 0x03000010 is an **HW-init callback that RETURNS**
