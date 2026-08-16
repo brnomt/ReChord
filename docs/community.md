@@ -21,6 +21,9 @@
 | `https://gitlab.com/brian0218/RKNanoD_Wireless_Audio_SDK_V1.5/` | SDK leak | RKnanoD Wireless Audio SDK v1.5 |
 | `https://github.com/xinghuaman/RKNanoD_MP3_V1.3_20161102` | SDK leak | RKnanoD MP3 SDK v1.3 (2016-11-02) |
 | `https://github.com/linuxhan/rk3399-table-RKNanoC` | SDK leak | RK3399 VR SDK con **RKnanoC** (sensor/audio MCU) |
+| `https://livetrack.club/debrick` | Guia | **Debrick Echo Mini** via maskrom (guardada en `community/debrick-livetrack.md`) |
+| `https://github.com/rockchip-linux/rkdeveloptool` | Herramienta | Rockchip USB flash/debrick tool (clonado en `community/rkdeveloptool/`) |
+| `https://github.com/rockchip-linux/rkbin` | Repo | Rockchip binary blobs: bootloaders/miniloader (clonado en `community/rkbin/`) |
 
 ---
 
@@ -177,3 +180,32 @@ Estructura: `App/`, `BBSystem/`, `Codecs/`, `Cpu/NanoD/`, `Driver/`
   metodología + los strides/firmas).
 - Los SDK leakeados son RKnanoD genéricos (MP3/Wireless/VR); el SDK exacto
   del Echo Mini (con la capa FiiO) **no está** en ellos.
+
+---
+
+## 7. Recovery / debrick (maskrom) — aportado por el usuario
+
+Nuevos recursos de recovery aportados en sesión (clonados/guardados en
+`community/`):
+
+- **`rkdeveloptool`** (`community/rkdeveloptool/`) — herramienta oficial de
+  Rockchip para flashear por USB (maskrom). Compilable en Mac/Linux.
+- **`rkbin`** (`community/rkbin/`) — blobs binarios de Rockchip
+  (bootloaders/miniloader/DDR). Referencia para la cadena de arranque.
+- **`debrick-livetrack.md`** (`community/debrick-livetrack.md`) — guía de
+  debrick del Echo Mini (EchoThemes / livetrack.club).
+
+### 7.1 Recovery por hardware (maskrom) — importante
+
+El Echo Mini **sí entra en modo maskrom** (bootloader USB de Rockchip,
+`idVendor=2207`), lo que permite recuperar un brick real sin depender del
+método "copiar IMG + reboot" (que exige que el dispositivo arranque):
+
+1. Apagar con el agujero **RST** (clip), no con el botón power.
+2. Mantener **todos los botones menos power**.
+3. Conectar USB manteniendo los botones (pantalla negra = normal).
+4. Confirmar maskrom en `dmesg`: `idVendor=2207, idProduct=262d`.
+5. Flashear un IMG bueno con `rkdeveloptool`.
+
+Esto refuerza la regla de "recovery simple": incluso si un flash nuestro deja
+el dispositivo sin arrancar, existe un camino de recuperación por hardware.

@@ -83,9 +83,14 @@ Backup of the stock IMG is saved as `build/stock_restore_HIFIEC37.IMG`.
 2. Connect device → storage mode. If the device won't enter storage mode,
    power off and retry; the bootloader A/B fallback may also auto-restore.
 3. Copy the **stock** IMG to root as `HIFIEC37.IMG`, remove TF card, reboot.
-4. If the device won't boot at all: check Fiio/Snowsky forums for
-   maskrom / factory-tool recovery (Rockusb driver ships with the
-   RKNanoD SDK).
+4. If the device won't boot at all, use **maskrom recovery** (a hardware
+   path that works even when normal boot fails):
+   - Press the **RST hole** (paperclip) to power off — NOT the power button.
+   - Hold **all buttons except power** while plugging in USB (screen stays black).
+   - Confirm maskrom in `dmesg`: `idVendor=2207` (Rockchip), `idProduct=262d`.
+   - Flash a known-good `HIFIEC37.IMG` with **rkdeveloptool**
+     (`community/rkdeveloptool/`).
+   - Full guide: `community/debrick-livetrack.md` (saved from livetrack.club/debrick).
 
 ---
 
