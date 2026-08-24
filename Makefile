@@ -81,8 +81,8 @@ AP_CODEC_LIBS := \
   $(SDK_LIB)/Audio/Wav/RkNanoD_BWAV_20151223.lib
 
 .PHONY: all bb ap build-bb build-ap link-bb link-ap build-sdk link-firmware \
-        toolchain manifests compile-check pack-img pack-bb-img \
-        extract-section3 clean
+        toolchain manifests compile-check pack-img pack-bb-img pack-bb-stub-img \
+        bb-stub extract-section3 clean
 
 # The default remains the currently linkable BB firmware. AP is intentionally
 # opt-in until its missing source modules and linker layout are restored.
@@ -156,6 +156,34 @@ link-bb: $(BB_RECHORD_OBJS) $(BB_OBJS)
 		$(BB_RECHORD_OBJS) $(BB_OBJS) -o $(BB_ELF)
 	$(OBJCOPY) -O binary -j .fw_header -j .text $(BB_ELF) $(BB_BIN)
 	@echo "Built: $(BB_BIN)"
+
+# ---- minimal dummy BB (mailbox responder, no SDK) ------------------------
+# Links startup.o + stubs.o + fault.o + entry_stubs.o + bb_stub.o only:
+# bb_stub.c provides rechord_hw_init/rechord_main that entry_stubs.S calls,
+# plus its own RAM vector table (bb_vect) and direct-MMIO mailbox ISRs.
+BB_STUB_ELF := $(BB_BUILD_DIR)/rechord_bb_stub.elf
+BB_STUB_BIN := $(BB_BUILD_DIR)/section3_stub.bin
+BB_STUB_OBJS := $(BB_BUILD_DIR)/startup.o $(BB_BUILD_DIR)/stubs.o \
+                $(BB_BUILD_DIR)/fault.o $(BB_BUILD_DIR)/entry_stubs.o \
+                $(BB_BUILD_DIR)/bb_stub.o
+
+$(BB_BUILD_DIR)/bb_stub.o: firmware/bb_stub/bb_stub.c
+	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	$(CC) $(ARCH_FLAGS) -Os -Wall -c $< -o $@
+
+bb-stub: $(BB_STUB_OBJS)
+	$(CC) $(ARCH_FLAGS) -T $(BB_LINKER) -nostartfiles -ffreestanding \
+		$(BB_STUB_OBJS) -o $(BB_STUB_ELF)
+	$(OBJCOPY) -O binary -j .fw_header -j .text $(BB_STUB_ELF) $(BB_STUB_BIN)
+	@$(SIZE) $(BB_STUB_ELF)
+	@echo "Built: $(BB_STUB_BIN)"
+
+# Pack the dummy BB into a flashable IMG (stock AP preserved).
+# --keep-stock-tail: preserve stock section_3 bytes beyond our small stub so
+# the stock AP's scatter-table/overlay references into that flash region
+# stay valid (blank-UI-text / crash fix; see docs/re/AP-MAILBOX-GUIDE.md).
+pack-bb-stub-img: $(BB_STUB_BIN)
+	$(PYTHON) tools/pack_img.py --pack $(BB_STUB_BIN) --keep-stock-tail -o $(BUILD_DIR)/ReChord_BB_Stub.IMG
 
 # Attempt the AP (fw1) link to enumerate remaining undefined symbols.
 # The AP (fw1) is the resident A_CORE: UI + drivers + filesystem. The codec

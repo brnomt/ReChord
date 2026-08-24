@@ -86,3 +86,44 @@ typedef enum {
 
 #define MAX_OPEN_FILES  16
 #define SORT_FILENUM_DEFINE  0
+
+/* MEDIA_MSGBOX_FILE_CMD — copied VERBATIM from filesys/file.h (the owner
+ * of these IDs). We cannot include that header here: the synthetic header
+ * stack (fat.h/media_lib.h/FileInfo.h) conflicts with its declarations.
+ * If filesys/file.h ever changes, re-sync this enum. NOTE: before Aug 2026
+ * these IDs came from the mailbox.h shim with WRONG 0x0102-style values
+ * that the stock AP does not recognize (file channel silently dead).
+ * (Guarded: this file's main include-guard ends above — see line 14.) */
+#ifndef MEDIA_MSGBOX_FILE_CMD_DEFINED
+#define MEDIA_MSGBOX_FILE_CMD_DEFINED
+typedef enum
+{
+    MEDIA_MSGBOX_CMD_FILE_NULL = 100,
+
+    MEDIA_MSGBOX_CMD_FILE_OPEN_CMPL,      /* 101 */
+    MEDIA_MSGBOX_CMD_FILE_OPEN_HANDSHK,   /* 102 */
+
+    MEDIA_MSGBOX_CMD_FILE_CREATE_CMPL,    /* 103 */
+    MEDIA_MSGBOX_CMD_FILE_CREATE_HANDSHK, /* 104 */
+
+    MEDIA_MSGBOX_CMD_FILE_SEEK,           /* 105 */
+    MEDIA_MSGBOX_CMD_FILE_SEEK_CMPL,      /* 106 */
+
+    MEDIA_MSGBOX_CMD_FILE_READ,           /* 107 */
+    MEDIA_MSGBOX_CMD_FILE_READ_CMPL,      /* 108 */
+
+    MEDIA_MSGBOX_CMD_FILE_WRITE,          /* 109 */
+    MEDIA_MSGBOX_CMD_FILE_WRITE_CMPL,     /* 110 */
+
+    MEDIA_MSGBOX_CMD_FILE_TELL,           /* 111 */
+    MEDIA_MSGBOX_CMD_FILE_TELL_CMPL,      /* 112 */
+
+    MEDIA_MSGBOX_CMD_FILE_GET_LENGTH,     /* 113 */
+    MEDIA_MSGBOX_CMD_FILE_GET_LENGTH_CMPL,/* 114 */
+
+    MEDIA_MSGBOX_CMD_FILE_CLOSE,          /* 115 */
+    MEDIA_MSGBOX_CMD_FILE_CLOSE_CMPL,     /* 116 */
+    MEDIA_MSGBOX_CMD_FILE_CLOSE_HANDSHK,  /* 117 */
+
+} MEDIA_MSGBOX_FILE_CMD;
+#endif /* MEDIA_MSGBOX_FILE_CMD_DEFINED */

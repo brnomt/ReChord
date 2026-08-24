@@ -1,7 +1,21 @@
-/* mailbox.h — CPU <-> DSP (GOODE) mailbox protocol.
- * MailBoxWriteB2ACmd / MailBoxReadA2BCmd bridge the CPU and the GOODE
- * DSP chip. Command IDs follow the RKnanoD media protocol (sequential).
- * Derived from SDK usage in Main2.c / AudioControl.c. */
+/* mailbox.h — ReChord compatibility shim for the RKnanoD inter-core mailbox.
+ *
+ * IMPORTANT — command IDs: this header is included EARLY (SysInclude.h /
+ * DriverInclude.h), BEFORE the SDK headers that declare the media commands
+ * as ENUMS. Defining MEDIA_MSGBOX_CMD_* as macros here breaks those enum
+ * declarations (the macro expands inside the enumerator list), so this shim
+ * must NOT define them. Include the owning SDK header instead:
+ *   - MSGBOX_SYSTEM_CMD        driver/BB/BBSystem.h          (enum)
+ *   - MEDIA_MSGBOX_DECODE_CMD  audio/Include/audio_main.h    (enum)
+ *   - MEDIA_MSGBOX_FILE_CMD    filesys/file.h                (enum)
+ *   - MEDIA_MSGBOX_ENCODE_CMD  audio/RecordControl/RecordControl.h (enum)
+ *
+ * The system commands are kept here as macros (correct, sequential values —
+ * the pre-2026 shim had BB_HOLD=3/ACK=4/EXIT=5, which the stock AP does not
+ * recognize) because several BB files (BSP2.c, Debug2.c) include only
+ * SysInclude.h and would otherwise have no definition. Nothing in the tree
+ * includes BBSystem.h, so there is no enum collision for these.
+ */
 #ifndef MAILBOX_H
 #define MAILBOX_H
 
@@ -24,32 +38,16 @@
 #define MAILBOX_CHANNEL_2   2
 #define MAILBOX_CHANNEL_3   3
 
-/* ---- Media mailbox commands (CPU -> DSP) ---- */
+/* ---- MSGBOX_SYSTEM_CMD (BBSystem.h enum values — sequential from 0) ----
+ * ch0 system: 0=NULL, 1=START_OK, 2=BB_HOLD, 3=BB_HOLD_ACK,
+ *             4=BB_HOLD_EXIT, 5=PRINT_LOG, 6=PRINT_LOG_OK */
 #define MSGBOX_CMD_SYSTEM_START_OK          0x0001
-#define MSGBOX_CMD_SYSTEM_PRINT_LOG_OK     0x0002
-#define MSGBOX_CMD_BB_HOLD                 0x0003
-#define MSGBOX_CMD_BB_HOLD_ACK             0x0004
-#define MSGBOX_CMD_BB_HOLD_EXIT            0x0005
+#define MSGBOX_CMD_BB_HOLD                  0x0002
+#define MSGBOX_CMD_BB_HOLD_ACK              0x0003
+#define MSGBOX_CMD_BB_HOLD_EXIT             0x0004
+#define MSGBOX_CMD_SYSTEM_PRINT_LOG         0x0005
+#define MSGBOX_CMD_SYSTEM_PRINT_LOG_OK      0x0006
 
-#define MEDIA_MSGBOX_CMD_FILE_OPEN          0x0102
-#define MEDIA_MSGBOX_CMD_FILE_OPEN_HANDSHK  0x0103
-#define MEDIA_MSGBOX_CMD_FILE_OPEN_CMPL     0x0104
-#define MEDIA_MSGBOX_CMD_FILE_CLOSE         0x0105
-#define MEDIA_MSGBOX_CMD_FILE_CLOSE_HANDSHK 0x0106
-#define MEDIA_MSGBOX_CMD_FILE_CLOSE_CMPL    0x0107
-#define MEDIA_MSGBOX_CMD_FILE_CREATE        0x0108
-#define MEDIA_MSGBOX_CMD_FILE_CREATE_HANDSHK 0x0109
-#define MEDIA_MSGBOX_CMD_FILE_CREATE_CMPL   0x010A
-#define MEDIA_MSGBOX_CMD_FILE_READ          0x010B
-#define MEDIA_MSGBOX_CMD_FILE_READ_CMPL     0x010C
-#define MEDIA_MSGBOX_CMD_FILE_WRITE         0x010D
-#define MEDIA_MSGBOX_CMD_FILE_WRITE_CMPL    0x010E
-#define MEDIA_MSGBOX_CMD_FILE_SEEK          0x010F
-#define MEDIA_MSGBOX_CMD_FILE_SEEK_CMPL     0x0110
-#define MEDIA_MSGBOX_CMD_FILE_TELL          0x0111
-#define MEDIA_MSGBOX_CMD_FILE_TELL_CMPL     0x0112
-#define MEDIA_MSGBOX_CMD_FILE_GET_LENGTH    0x0113
-#define MEDIA_MSGBOX_CMD_FILE_GET_LENGTH_CMPL 0x0114
 /* ---- API (real mailbox.c signatures: reads return uint32, others rk_err_t) ---- */
 API uint32   MailBoxReadA2BCmd(uint32 id, uint32 channel);
 API uint32   MailBoxReadA2BData(uint32 id, uint32 channel);
@@ -68,4 +66,3 @@ API rk_err_t MailBoxDisableB2AInt(uint32 id, uint32 int_sel);
 API void MailBoxInit(void);
 
 #endif /* MAILBOX_H */
-

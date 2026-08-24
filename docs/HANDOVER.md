@@ -208,6 +208,17 @@ arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb -Os -ffunction-sections -fdata-section
 
 ## 7. The current mystery: why no fault screen? (NEXT AGENT, START HERE)
 
+**UPDATE (2026-08, mailbox session): see `docs/re/AP-MAILBOX-GUIDE.md`** —
+verified mailbox map (base 0x40110000, struct 0x50, IRQ 9–12, real command
+IDs), the three causes of "blank top text + freeze" (ROM text-draw callback
+@0x0300710a lives in section_3; zero-padded section_3 tail corrupts fw1
+scatter data — use `pack_img.py --keep-stock-tail`; V0.20 registers ISRs but
+never runs the Main2 reply loop → AP blocks 20 s on DEC_OPEN), and a
+minimal ACK-everything dummy BB: `firmware/bb_stub/bb_stub.c`
+(`make bb-stub` / `make pack-bb-stub-img`). Also fixed: the old
+`include/mailbox.h` shim had wrong command IDs (real ones are sequential:
+BB_HOLD=2/ACK=3/EXIT=4, FILE_* from 100).
+
 **UPDATE (round 12): the AP<->BB handshake mechanism is now CONFIRMED from the
 SDK** (`driver/BB/BBSystem.c`). The AP side (`StartBBSystem`) does:
 `ScuSoftResetCtr(CAL_CORE_SRST, TRUE)` → `ModuleOverlay(...)` →

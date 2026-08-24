@@ -67,8 +67,17 @@ def extract_section3(img: bytes, out_path: Path) -> int:
     return len(section)
 
 
-def pack_section3(stock_img: bytes, custom_section3: bytes, out_path: Path) -> Path:
-    """Splice a custom section_3 into a stock IMG, preserving everything else."""
+def pack_section3(stock_img: bytes, custom_section3: bytes, out_path: Path,
+                  keep_stock_tail: bool = False) -> Path:
+    """Splice a custom section_3 into a stock IMG, preserving everything else.
+
+    keep_stock_tail=True keeps the STOCK bytes of the section_3 flash region
+    beyond the custom image instead of zero-padding. The fw1 (AP) memory-map
+    table XIP-copies data from inside this region (e.g. entry 88 ->
+    IMG 0x8A5A4, see docs/fw1-packing.md), so zero-padding corrupts load-time
+    AP tables (string/font/pointer data) -> blank UI text and crashes.
+    With the stock tail intact, a smaller custom BB only replaces the bytes
+    it actually occupies."""
     if len(stock_img) != IMG_SIZE:
         raise ValueError(
             f"stock IMG size {len(stock_img)} != expected {IMG_SIZE}"
@@ -81,9 +90,9 @@ def pack_section3(stock_img: bytes, custom_section3: bytes, out_path: Path) -> P
     # Start from a mutable copy of stock
     out = bytearray(stock_img)
 
-    # Write custom section_3, zero-pad the remainder
+    # Write custom section_3; pad the remainder (zeros or preserved stock tail)
     out[SECTION3_OFFSET : SECTION3_OFFSET + len(custom_section3)] = custom_section3
-    if len(custom_section3) < SECTION3_SIZE:
+    if len(custom_section3) < SECTION3_SIZE and not keep_stock_tail:
         pad_start = SECTION3_OFFSET + len(custom_section3)
         out[pad_start:SECTION3_END] = b"\x00" * (SECTION3_SIZE - len(custom_section3))
 
@@ -97,6 +106,7 @@ def pack_section3(stock_img: bytes, custom_section3: bytes, out_path: Path) -> P
     print(f"packed {len(custom_section3):,} bytes of section_3 into {out_path}")
     print(f"  section_3 fill: {len(custom_section3):,}/{SECTION3_SIZE:,} "
           f"({100 * len(custom_section3) / SECTION3_SIZE:.1f}%)")
+    print(f"  tail: {'stock bytes preserved' if keep_stock_tail else 'zero-padded'}")
     print(f"  trailer preserved: 0x{trailer:08X}")
     print(f"  output size: {len(out):,} bytes")
 
@@ -241,6 +251,14 @@ def main() -> int:
         metavar="BIN",
         help="pack a custom section_3 .bin into stock IMG",
     )
+    ap.add_argument(
+        "--keep-stock-tail",
+        action="store_true",
+        help="keep stock bytes beyond the custom section_3 instead of "
+             "zero-padding (protects fw1 scatter-table data that XIPs "
+             "from the section_3 flash region — recommended when the AP "
+             "stays stock)",
+    )
     mode.add_argument(
         "--identity-test",
         action="store_true",
@@ -292,7 +310,8 @@ def main() -> int:
             print(f"ERROR: section_3 bin not found: {args.pack}", file=sys.stderr)
             return 1
         custom = args.pack.read_bytes()
-        pack_section3(stock_img, custom, args.output)
+        pack_section3(stock_img, custom, args.output,
+                      keep_stock_tail=args.keep_stock_tail)
         return 0
 
     if args.pack_full:
