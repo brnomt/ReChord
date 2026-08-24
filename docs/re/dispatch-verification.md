@@ -1,6 +1,18 @@
 # Dispatch verification (Ghidra, stock binaries)
 
-Status: **Model 1 CONFIRMED** — `fw1` = AP/UI, `section_3` = BB/audio.
+Status: **UNRESOLVED — the evidence contradicts itself.** Do not treat either
+model as settled.
+
+- **"BB/audio" model** (README/HANDOVER, dispatch-map CORRECCIÓN): `fw1` =
+  AP/UI, `section_3` = BB/audio, two builds of the same SDK over a mailbox.
+- **"whole app" model** (bootloader-analysis UPDATE): `section_3` contains the
+  full app (UI + audio + USB + IPC).
+
+The UI functions below are physically inside `section_3_0x00081A14.bin`,
+which is strong evidence for "whole app" — but both fw1 and section_3 are
+builds of the *same* SDK, so shared UI/font code may simply be linked into
+section_3 without being the active UI. Static analysis alone cannot settle it
+because the ROM's post-`firmware_entry` dispatch is in the invisible mask ROM.
 
 ## What was verified
 
@@ -28,15 +40,20 @@ Status: **Model 1 CONFIRMED** — `fw1` = AP/UI, `section_3` = BB/audio.
 
 ## Conclusion
 
-- `fw1` (AP) = the UI we are **not** replacing. It boots, draws the cassette,
-  and sends mailbox commands (decode/file) to the BB.
-- `section_3` (BB) = the audio/DSP half we replace. It receives A2B commands
-  and replies B2A. `firmware_entry` is its reset vector, and it must return to
-  the ROM (not run a standalone main).
-- Mailbox base `0x40110000` confirmed in both halves.
+- `firmware_entry` @ `0x03000010` returns to the ROM — **verified** (matches
+  stock disassembly exactly).
+- Mailbox base `0x40110000` in both `section_3` and `fw1` (ap_region.bin) —
+  **verified**.
+- **`section_3` physically contains UI code** (`music_menu_draw`, `MusicService`,
+  `MusicInit`, `GUI_TextDisplay`, `Font12_CompiType`) **and** audio code
+  (`HifiFile*`, `DSP_GOODEF*`, `ipc_post_cmd`) **and** USB (`main2_entry`).
+- Whether section_3 is the *active* UI or the *BB* is **unresolved** — it
+  depends on the ROM's post-`firmware_entry` dispatch, which is not statically
+  observable.
 
-## Still unresolved (mask ROM, invisible — no bytes/xrefs)
-
-The ROM's post-`firmware_entry` behavior on core1 (the BB) is not directly
-observable. It is why the exact dispatch entry for the BB's service loop must
-be confirmed on-wire (UART) rather than assumed.
+**Implication for the plan:** Phase 2 (wire the BB service loop) cannot be
+completed correctly until this is resolved, because "the correct dispatch
+entry" differs by model. The only definitive resolution is an **on-wire UART
+trace** (Phase 3) — flash a minimal `firmware_entry` that logs "boot reached"
+and returns to the ROM, then observe which dispatch offsets the ROM actually
+invokes.
