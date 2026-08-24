@@ -27,10 +27,22 @@ No PC flashing tool is required. The player reads the IMG from internal flash an
 ## Build pipeline (current status)
 
 ```bash
-mingw32-make all            # build-sdk + link-firmware
-                            # → build/rechord_full.elf (998 KB)
-                            # → build/section3_custom.bin (50 KB, flat section_3)
-python tools/pack_img.py --pack build/section3_custom.bin -o build/custom.IMG
+mingw32-make release        # SAFE default: custom BB + STOCK AP
+                            # → build/ReChord_BB.IMG (hardware-verified to boot)
+```
+
+> **⚠️ DO NOT flash `ReChord_APBB.IMG` (custom AP + custom BB).** It
+> **bricked a device on 2026-08-25** (maskrom recovery required). The custom
+> fw1 memory-map table does not reproduce the stock 91-entry table, which
+> lays out the whole system RAM (UI framebuffer, audio buffers, FAT cache,
+> stacks) for the Mask ROM. See `make apbb-experimental` and
+> `docs/fw1-packing.md` before touching fw1.
+
+Legacy (still works):
+
+```bash
+mingw32-make all            # = make release
+python tools/pack_img.py --pack build/bb/section3_custom.bin --keep-stock-tail -o build/custom.IMG
 ```
 
 **Status:**

@@ -175,6 +175,13 @@ def pack_full(stock_img: bytes, fw1: bytes, custom_section3: bytes, out_path: Pa
     print(f"  fw1: SP 0x{load_base:08X}, {count} entries, {len(payload):,} bytes payload")
     print(f"  section_3: {len(custom_section3):,} bytes")
     print(f"  trailer preserved: 0x{trailer:08X}")
+    print()
+    print("  !!! WARNING: custom fw1 memory-map table is NOT validated —")
+    print("  !!! this combination BRICKED a device on 2026-08-25 (the stock")
+    print("  !!! 91-entry table also lays out the UI framebuffer, audio buffers,")
+    print("  !!! FAT cache and stacks; a custom table must reproduce all of it).")
+    print("  !!! Flash only with maskrom recovery ready. Safe default:")
+    print("  !!!   make release  ->  build/ReChord_BB.IMG (stock AP + custom BB)")
     return out_path
 
 

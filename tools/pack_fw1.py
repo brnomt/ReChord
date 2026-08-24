@@ -18,8 +18,15 @@ IMPORTANT (see docs/fw1-packing.md section 4):
     SYS_CODE @ 0x03060000 + SYS_DATA @ 0x03000000, codecs/UI/BT/USB as
     overlay modules). A flat ELF linked at those addresses produces a
     structurally-correct container but is NOT the overlay layout the device
-    expects; it needs hardware-UART validation (fw1valid/fw2valid) before it
-    can be considered flashable.
+    expects.
+  * **KNOWN TO BRICK ON HARDWARE (2026-08-25).** The stock fw1 header's
+    memory-map table (91 entries) describes the ENTIRE system RAM layout —
+    UI framebuffer loaded from flash (0x03024868), audio buffers, FAT cache,
+    stacks — which the Mask ROM sets up at boot. The 3-entry table this tool
+    emits from a flat ELF replaces all of that with just our segments and
+    the device hard-bricks (no USB-storage fallback; maskrom recovery
+    required). Until the stock table format is fully reverse-engineered and
+    reproduced, images from this tool are for offline analysis ONLY.
 
 Usage:
     python tools/pack_fw1.py build/ap/rechord_ap.elf -o build/ap/fw1_custom.img

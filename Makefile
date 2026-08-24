@@ -83,11 +83,21 @@ AP_CODEC_LIBS := \
 
 .PHONY: all bb ap build-bb build-ap link-bb link-ap build-sdk link-firmware \
         toolchain manifests compile-check pack-img pack-bb-img pack-bb-stub-img \
-        bb-stub release extract-section3 clean
+        bb-stub release pack-full apbb-experimental extract-section3 clean
 
-# Single-command product build: both halves (AP/UI + BB/audio) packed into one
-# flashable IMG. `release` is the documented entry point; `all` is the alias.
-release: bb ap pack-full
+# Single-command SAFE product build: custom BB (audio/DSP) + STOCK AP (UI),
+# packed into one flashable IMG. This combination is hardware-verified to
+# boot (cassette UI + working mailbox). `release` is the documented entry
+# point; `all` is the alias.
+#
+# DO NOT ship a custom fw1 (AP) in the default build: the fw1 memory-map
+# table format is NOT fully reverse-engineered — the stock table's 91
+# entries describe the whole system RAM layout (UI framebuffer, audio
+# buffers, FAT cache, stacks) that the Mask ROM sets up at boot. Our
+# 3-entry replacement destroys that layout and BRICKS the device
+# (confirmed on hardware 2026-08-25). Use `make apbb-experimental` for
+# fw1-replacement research only.
+release: bb pack-bb-img
 
 all: release
 
@@ -230,17 +240,31 @@ pack-img:
 	$(PYTHON) tools/pack_img.py --identity-test
 
 # Produce a test IMG containing the custom BB while preserving the stock AP.
+# --keep-stock-tail: the stock fw1 memory-map table XIP-copies data from
+# inside the section_3 flash region, so zero-padding it corrupts the AP.
 pack-bb-img: $(BB_BIN)
-	$(PYTHON) tools/pack_img.py --pack $(BB_BIN) -o $(BUILD_DIR)/ReChord_BB.IMG
+	$(PYTHON) tools/pack_img.py --pack $(BB_BIN) --keep-stock-tail -o $(BUILD_DIR)/ReChord_BB.IMG
 
 # Emit the fw1 (AP) RKnanoFW scatter image from the AP ELF.
 FW1_IMG := $(AP_BUILD_DIR)/fw1_custom.img
 pack-fw1: $(AP_ELF)
 	$(PYTHON) tools/pack_fw1.py $(AP_ELF) -o $(FW1_IMG)
 
-# Pack BOTH halves (fw1 + section_3) into one flashable IMG.
+# Pack BOTH halves (fw1 + section_3) into one IMG. EXPERIMENTAL — KNOWN TO
+# BRICK on hardware (2026-08-25): the custom fw1 memory-map table does not
+# reproduce the stock 91-entry system RAM layout. Not part of `release`.
 pack-full: $(FW1_IMG) $(BB_BIN)
 	$(PYTHON) tools/pack_img.py --pack-full --fw1 $(FW1_IMG) --bb $(BB_BIN) -o $(BUILD_DIR)/ReChord_APBB.IMG
+
+# Explicit, loud alias for the bricking combination (research only).
+apbb-experimental: bb ap pack-full
+	@echo ""
+	@echo "==================================================================="
+	@echo " WARNING: ReChord_APBB.IMG replaces fw1 (AP) with a custom image."
+	@echo " The fw1 memory-map table is NOT validated — THIS BRICKED A DEVICE"
+	@echo " on 2026-08-25. Flash only with maskrom recovery ready."
+	@echo " Safe default: make release -> build/ReChord_BB.IMG"
+	@echo "==================================================================="
 
 extract-section3:
 	$(PYTHON) tools/pack_img.py --extract -o $(BUILD_DIR)/section3_stock.bin

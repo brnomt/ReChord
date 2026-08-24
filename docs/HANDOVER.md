@@ -208,6 +208,22 @@ arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb -Os -ffunction-sections -fdata-section
 
 ## 7. The current mystery: why no fault screen? (NEXT AGENT, START HERE)
 
+**INCIDENT (2026-08-25, `ReChord_APBB.IMG` @ 00:35): HARD BRICK — do not repeat.**
+Flashing a custom fw1 (AP) bricked the device (no boot, no USB-storage
+fallback; recovered via maskrom). Root cause: the fw1 RKnanoFW header's
+memory-map table is the **whole-system RAM layout** — the stock 91 entries
+cover the UI framebuffer load from flash (0x03024868), audio buffers
+(0x03005AFC), FAT cache (0x0301E778), stacks and the code copies — which the
+Mask ROM sets up at boot. `pack_fw1.py` emits only 3 entries from our flat
+ELF (data copy / bss zero / text copy), destroying that layout, AND copies
+0x194E4 bytes of AP `.data` over 0x03000000. Until the stock table format is
+fully reverse-engineered and reproduced (all 91 entries), a custom fw1 is
+unflashable. Fixes landed: `make release` now = custom BB + STOCK AP only
+(`ReChord_BB.IMG`, hardware-proven); the AP+BB pack is gated behind
+`make apbb-experimental` with loud warnings in the Makefile, pack_fw1.py and
+pack_img.py --pack-full.
+
+
 **UPDATE (2026-08, mailbox session): see `docs/re/AP-MAILBOX-GUIDE.md`** —
 verified mailbox map (base 0x40110000, struct 0x50, IRQ 9–12, real command
 IDs), the three causes of "blank top text + freeze" (ROM text-draw callback
