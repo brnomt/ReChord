@@ -88,7 +88,13 @@ AP_CODEC_LIBS := \
 
 .PHONY: all bb ap build-bb build-ap link-bb link-ap build-sdk link-firmware \
         toolchain manifests compile-check pack-img pack-bb-img pack-bb-stub-img \
-        bb-stub release pack-full apbb-experimental extract-section3 clean
+        bb-stub release pack-full apbb-experimental test-dsp extract-section3 clean
+
+# Host unit test for the freestanding DSP core (runs on the build machine, no
+# hardware). Verifies the biquad math before it ever touches the device.
+test-dsp: firmware/rechord_dsp_core.c firmware/rechord_dsp_core.h firmware/test_dsp_core.c
+	$(CC) -O2 -o $(BUILD_DIR)/test_dsp_core firmware/test_dsp_core.c firmware/rechord_dsp_core.c -lm
+	$(BUILD_DIR)/test_dsp_core
 
 # Single-command SAFE product build: custom BB (audio/DSP) + STOCK AP (UI),
 # packed into one flashable IMG. This combination is hardware-verified to
