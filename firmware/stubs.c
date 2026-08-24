@@ -381,15 +381,28 @@ __attribute__((weak)) void IntMasterEnable(void)
     __asm volatile("cpsie i" ::: "memory");
 }
 
-/* ---- ARM intrinsics the SDK calls as functions (real impls) ---- */
-__attribute__((naked)) void __SETPRIMASK2(void)     { __asm__ volatile("cpsid i; bx lr"); }
-__attribute__((naked)) void __RESETPRIMASK2(void)   { __asm__ volatile("cpsie i; bx lr"); }
+/* ---- ARM intrinsics the SDK calls as functions (real impls) ----
+ *
+ * IMPORTANT — the Rockchip SDK's naming for the PRIMASK pair is INVERTED
+ * relative to what the instruction names suggest. Authoritative source is
+ * the SDK's own assembly (bbsystem/Cortex-m32.S and system/os/Os.S):
+ *   __SETPRIMASK2    -> CPSIE i   (ENABLE interrupts)
+ *   __RESETPRIMASK2  -> CPSID i   (DISABLE interrupts)
+ * The previous stubs here used the intuitive (but wrong) mapping, so
+ * IntMasterEnable2() actually DISABLED interrupts. BSP_Init2() ends with
+ * IntMasterEnable2(), so the full BB booted with interrupts off: mailbox
+ * ISRs never fired, no DEC_OPEN reply, AP waited ~20 s, watchdog reset.
+ * (The stub bypassed this with a bare `cpsie i`.) The FAULTMASK pair is NOT
+ * inverted — SETFAULTMASK = CPSID f, RESETFAULTMASK = CPSIE f — matching
+ * the SDK. */
+__attribute__((naked)) void __SETPRIMASK2(void)     { __asm__ volatile("cpsie i; bx lr"); }
+__attribute__((naked)) void __RESETPRIMASK2(void)   { __asm__ volatile("cpsid i; bx lr"); }
 __attribute__((naked)) void __SETFAULTMASK2(void)   { __asm__ volatile("cpsid f; bx lr"); }
 __attribute__((naked)) void __RESETFAULTMASK2(void) { __asm__ volatile("cpsie f; bx lr"); }
 __attribute__((naked)) void __WFI2(void)            { __asm__ volatile("wfi; bx lr"); }
 
 /* Non-"2" variants — the A_CORE (AP) build calls these names. */
-__attribute__((naked)) void __SETPRIMASK(void)     { __asm__ volatile("cpsid i; bx lr"); }
-__attribute__((naked)) void __RESETPRIMASK(void)   { __asm__ volatile("cpsie i; bx lr"); }
+__attribute__((naked)) void __SETPRIMASK(void)     { __asm__ volatile("cpsie i; bx lr"); }
+__attribute__((naked)) void __RESETPRIMASK(void)   { __asm__ volatile("cpsid i; bx lr"); }
 __attribute__((naked)) void __SETFAULTMASK(void)   { __asm__ volatile("cpsid f; bx lr"); }
 __attribute__((naked)) void __RESETFAULTMASK(void) { __asm__ volatile("cpsie f; bx lr"); }
