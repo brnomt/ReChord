@@ -35,14 +35,21 @@ loaded over SPI. Therefore:
 
 ## Where this leaves the fork strategy
 
-The "DSP fork first" plan assumed a Cortex-M3 EQ hook. The verified stock
-DSP is an external chip over SPI. This is a significant scope change and
-needs a decision before any more code is written:
+**Key finding: the GOODE chip is an EFFECTS coprocessor, not the DAC.**
+The DAC is **integrated in the SoC** (`docs/HARDWARE.md`: "Audio DAC:
+Integrated — 90dB SNR"), and the ROM HAL exposes a full audio-output path
+independent of the GOODE chip: `rom_dac_mute/unmute`, `rom_i2s_master_config`,
+`rom_audio_path_route`, `rom_sample_rate_set`. So the audio chain is:
 
-- Option 1: reverse the GOODE DSP SPI protocol (external-chip RE).
-- Option 2: revert to the SDK's Cortex-M3 `EffectProcess` EQ by making the
-  decode loop call `rechord_dsp.c` *instead of* `DSP_GOODEF_Process` — but
-  this changes the audio path and may require the external chip to be
-  configured for pass-through (unknown).
+```
+codec decode (M3) -> [optional GOODE DSP over SPI] -> integrated DAC (I2S)
+```
 
-Neither is a one-line patch. Both need the GOODE chip's role clarified first.
+This means **M3 pass-through EQ IS viable**: skip `DSP_GOODEF_Process` and do
+EQ on the M3 with `rechord_dsp.c`, then feed the integrated DAC directly. The
+GOODE chip is optional in the audio path, not mandatory for output.
+
+`eq_key_handler` @ `0x03020810` decompiles to `halt_baddata` (bad-instruction
+data) — consistent with an overlay module that isn't statically loaded at that
+address, reinforcing that the EQ/DSP code is overlay-based, not a simple
+in-place function.
