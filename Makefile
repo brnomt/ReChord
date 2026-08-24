@@ -56,6 +56,7 @@ BB_RECHORD_OBJS := \
     $(BB_BUILD_DIR)/rechord_win.o \
     $(BB_BUILD_DIR)/rechord_app.o \
     $(BB_BUILD_DIR)/rechord_dsp.o \
+    $(BB_BUILD_DIR)/rechord_dsp_core.o \
     $(BB_BUILD_DIR)/entry_stubs.o
 
 BB_ELF := $(BB_BUILD_DIR)/rechord_bb.elf
@@ -176,7 +177,13 @@ $(BB_BUILD_DIR)/rechord_app.o: firmware/rechord_app.c
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 
 $(BB_BUILD_DIR)/rechord_dsp.o: firmware/rockchip/audio/RkEQ/Effect/rechord_dsp.c \
-		firmware/rockchip/audio/RkEQ/Effect/rechord_dsp.h
+		firmware/rockchip/audio/RkEQ/Effect/rechord_dsp.h \
+		firmware/rechord_dsp_core.h
+	@$(MKDIR_P) $(dir $@)
+	$(CC) $(BB_CFLAGS) -c $< -o $@
+
+$(BB_BUILD_DIR)/rechord_dsp_core.o: firmware/rechord_dsp_core.c \
+		firmware/rechord_dsp_core.h
 	@$(MKDIR_P) $(dir $@)
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 
