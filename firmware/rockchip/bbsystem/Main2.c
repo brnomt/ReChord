@@ -632,6 +632,10 @@ int Main2(void)
 
     while (1)
     {
+#if 0  /* ReChord heartbeat DISABLED — the BB is the audio core and must not
+       * touch the AP-owned framebuffer (0x03024868) or drive the VOP display
+       * controller (0x60070000). Doing so raced the AP's own UI and caused
+       * the menu-entry crashes on this dual-core SoC. */
         /* ReChord V0.17 heartbeat: flip the whole framebuffer 0x03024868
          * red/black AND push it through the loader's own display API
          * (fef124 wait -> fea848/fea824 save -> feb0f6 color -> fea8f4
@@ -711,6 +715,7 @@ int Main2(void)
             hb++;
             for (i = 0; i < RCH_QEMU_DELAY; i++) ;
         }
+#endif /* ReChord heartbeat */
 
         //system enter IDLE
         IntMasterDisable2();
