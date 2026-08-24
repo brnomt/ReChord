@@ -1,40 +1,48 @@
-# M3 → DAC output path (Ghidra trace)
+# M3 → DAC output path (resolved)
 
-Status: **Phase 1 — complete enough to plan the patch.** The DSP model is now
-understood.
+Status: **RESOLVED.** The EQ patch point is in SDK source we already compile —
+no binary patching needed.
 
-## Renames applied (persisted in Ghidra project)
+## The audio path (verified in source, not Ghidra)
 
-| Old (wrong) name | Address | New name | Why |
-|---|---|---|---|
-| `AudioDecoding` | `0x03086e2c` | `WMA_AudioDecoding` | it is the WMA codec |
-| `FUN_03004608` | `0x03004608` | `TextConfigParser` | text/`[]<>` parser |
-| `ed25519_test` | `0x0300f8ba` | `GOODE_DSP_Stream` | GOODE SPI PCM streaming |
-| `eq_key_handler` | `0x03020810` | `EqApplyOverlayEntry` | overlay EQ-apply entry |
-| `Http_Close` | `0x0304d022` | `MusicScanLoop` | music index scan loop |
-| `FUN_0302c950` | `0x0302c950` | `CodecFeedDispatch` | codec function-pointer table |
+The decode→DAC loop is the SDK's own `AudioDecoding()` in
+`firmware/rockchip/system/sysservice/Service.c:247`, driven by the DMA ISR:
 
-## Verified model
+```
+DMA IRQ (DAC needs data)
+  -> AudioDmaIsrHandler()                    Service.c:76
+    -> AudioDecoding()                       Service.c:247
+      -> codec decode -> AudioPtr            (24-bit PCM)
+      -> Bit_Convertor_DEC()                 Service.c:326  shift samples to bit 0
+      -> EffectProcess((EQ_TYPE*)AudioPtr, AudioLen)   Service.c:390  <== OUR M3 EQ
+      -> Bit_Convertor_shift()               Service.c:453  shift back
+      -> (buffer handed to DMA -> I2S -> integrated DAC)
+```
 
-1. **DAC is direct I2S, 24-bit stereo** (`AudioPlayback_Start` → `rom_i2s_master_config(0x17)`
-   → `rom_playback_start(mode1,2ch,0x17)` → `rom_dac_mute`).
-2. **The GOODE chip does continuous EQ in hardware.** The M3 only re-programs
-   it on EQ-change events (`MainUI_KeyHandler` event `0x20000040` →
-   `DSP_GOODEF_Init("WOOOOONXBIN")` → `GOODE_DSP_Stream`). It is NOT inline
-   in the per-frame decode loop.
-3. **The per-frame codec feed** is `CodecFeedDispatch` @ `0x0302c950`: a
-   function-pointer table (`DAT_0302caa0 + codec_type*4`), calling the active
-   codec with sub-function `0xe`. The dispatch tail lands in the codec body
-   (`0x0300cc9a`).
+`EffectProcess` is OUR function (`rechord_dsp.c` → `rechord_dsp_core`), reached
+every frame under `#ifdef _RK_EQ_`, which `make bb` defines via `-D_RK_EQ_`.
 
-## Implication for "own the DSP"
+## The GOODE chip is a FiiO binary addition, absent from our source
 
-To run our `rechord_dsp.c` on the M3:
-1. **Neutralize the GOODE chip** — stop `MainUI_KeyHandler` from re-programming
-   it (or leave it flat), so its hardware EQ is bypassed.
-2. **Insert M3 DSP** in `CodecFeedDispatch` (after the codec returns the frame,
-   before the buffer goes to `rom_playback_start`/DMA), running
-   `rechord_dsp.c`'s biquads (24-bit-in-32 = `EQ_TYPE long`).
+`DSP_GOODEF_Init/Process/Reload` (documented in `fiio_map.h` at
+`0x0300f7dc`/`0x0300fb0e`/`0x0301022c`) are FiiO's external GOODE DSP driver,
+driven from `MainUI_KeyHandler` on EQ-change events. They are NOT in the
+Rockchip SDK source we compile, so **our BB build does not drive the GOODE
+chip at all.** The M3 SDK EQ path (`EffectProcess`) is the one in our build.
 
-The exact buffer handoff within `CodecFeedDispatch`'s codec body is the last
-narrow detail; the patch point is this dispatch, not `DSP_GOODEF_Process`.
+## Conclusion
+
+- M3 pass-through EQ needs **no binary patch**: `Service.c:390` already calls
+  our `EffectProcess`, which is wired to the host-tested `rechord_dsp_core`.
+- The GOODE chip is neutralized by omission (not in our source).
+- `rechord_main` calls `Main2()` (the SDK audio service loop), which reaches
+  `AudioDmaIsrHandler` → `AudioDecoding` → `EffectProcess`.
+
+## Remaining (Phase 3 — hardware only)
+
+1. Flash `make release` → `build/ReChord_BB.IMG`.
+2. Play a track, toggle EQ presets + bass.
+3. Verify audio plays and EQ is audible; no crash, no UI regression.
+
+This is a hardware-verification gate, not a code or RE gate — the code path is
+in source and already wired end-to-end.
