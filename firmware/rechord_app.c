@@ -176,6 +176,7 @@ void rechord_hw_init(void *param)
  */
 extern void ScatterLoader2(void);
 extern void BSP_Init2(void);
+extern int  Main2(void);   /* SDK BB audio service loop (never returns) */
 
 /* ---- BB mailbox handshake: register the decode/file servers and send the
  *      SYSTEM_START_OK heartbeat so the AP knows the BB is alive ---- */
@@ -337,25 +338,20 @@ void rechord_key_handler(void)
 
 void rechord_main(void)
 {
-    ScatterLoader2();    /* zero the SDK BSS region */
-    BSP_Init2();         /* board init (interrupts, systick, mailbox) */
+    boot_log[0] = 0x53544F42u;   /* 'BOTS' — telemetry for a debugger */
 
-    /* ---- BB mailbox handshake: register the decode/file servers and send
-     *      SYSTEM_START_OK so the AP stops waiting (un-freezes menus). ---- */
-    RegHifiDecodeServer();
-    RegHifiFileServer();
-    MailBoxWriteB2ACmd(MSGBOX_CMD_SYSTEM_START_OK, MAILBOX_ID_0, MAILBOX_CHANNEL_0);
-    MailBoxWriteB2AData(0, MAILBOX_ID_0, MAILBOX_CHANNEL_0);
+    /* Run the SDK BB service loop. Main2() is what consumes the decode/file
+     * mailbox flags set by MailBoxDecService / MailBoxFileService and replies
+     * *_ERR / *_CMPL back to the AP. The previous body here re-ran the setup
+     * (ScatterLoader2/BSP_Init2/Reg*Server/START_OK) but replaced Main2's
+     * service loop with a UI draw loop. The UI loop never displays (the AP
+     * owns the screen), so those flags were never consumed, no reply was ever
+     * sent, the AP waited ~20 s on DEC_OPEN, and the watchdog powered the
+     * device off on every menu entry. */
+    Main2();
 
-    boot_log[2] = BOOT_DONE;
-
-    g_redraw = 1;        /* draw the initial menu */
-    for (;;) {
-        if (g_redraw) {
-            g_redraw = 0;
-            rechord_draw_menu();
-        }
-    }
+    for (;;)
+        ;
 }
 
 /*

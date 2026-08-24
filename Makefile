@@ -17,6 +17,11 @@ else
     PYTHON ?= python3
 endif
 
+# Portable dir create / remove (the previous recipes shelled out to PowerShell,
+# which broke builds on Linux/macOS). Python is already a required dependency.
+MKDIR_P := $(PYTHON) -c "import os,sys; os.makedirs(sys.argv[1], exist_ok=True)"
+RMDIR_R := $(PYTHON) -c "import shutil,sys; shutil.rmtree(sys.argv[1], ignore_errors=True)"
+
 CROSS_COMPILE ?= arm-none-eabi-
 CC      := $(CROSS_COMPILE)gcc
 OBJCOPY := $(CROSS_COMPILE)objcopy
@@ -129,48 +134,48 @@ build-bb: toolchain manifests $(BB_OBJS)
 	@echo "BB SDK compiled: $(words $(BB_OBJS)) objects"
 
 $(BB_OBJ_DIR)/%.o: firmware/rockchip/%
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 
 $(BB_BUILD_DIR)/startup.o: firmware/startup/startup.c
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 
 $(BB_BUILD_DIR)/stubs.o: firmware/stubs.c
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 
 $(BB_BUILD_DIR)/fault.o: firmware/fault.c
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 
 $(AP_BUILD_DIR)/stubs.o: firmware/stubs.c
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(AP_CFLAGS) -c $< -o $@
 
 $(AP_BUILD_DIR)/fault.o: firmware/fault.c
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(AP_CFLAGS) -c $< -o $@
 
 $(AP_BUILD_DIR)/ap_startup.o: firmware/startup/ap_startup.c
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(AP_CFLAGS) -c $< -o $@
 
 $(BB_BUILD_DIR)/rechord_win.o: firmware/rechord_win.c
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 
 $(BB_BUILD_DIR)/rechord_app.o: firmware/rechord_app.c
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 
 $(BB_BUILD_DIR)/rechord_dsp.o: firmware/rockchip/audio/RkEQ/Effect/rechord_dsp.c \
 		firmware/rockchip/audio/RkEQ/Effect/rechord_dsp.h
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 
 $(BB_BUILD_DIR)/entry_stubs.o: firmware/entry_stubs.S
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(ARCH_FLAGS) -c $< -o $@
 
 link-bb: $(BB_RECHORD_OBJS) $(BB_OBJS)
@@ -190,7 +195,7 @@ BB_STUB_OBJS := $(BB_BUILD_DIR)/startup.o $(BB_BUILD_DIR)/stubs.o \
                 $(BB_BUILD_DIR)/bb_stub.o
 
 $(BB_BUILD_DIR)/bb_stub.o: firmware/bb_stub/bb_stub.c firmware/rechord_version.h
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(ARCH_FLAGS) -Os -Wall -Ifirmware -c $< -o $@
 
 bb-stub: $(BB_STUB_OBJS)
@@ -228,7 +233,7 @@ build-ap: toolchain manifests $(AP_OBJS)
 	@echo "AP SDK compile passed: $(words $(AP_OBJS)) imported objects"
 
 $(AP_OBJ_DIR)/%.o: firmware/rockchip/%
-	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	@$(MKDIR_P) $(dir $@)
 	$(CC) $(AP_CFLAGS) -c $< -o $@
 
 # ---- checks and packaging ------------------------------------------------
@@ -270,4 +275,4 @@ extract-section3:
 	$(PYTHON) tools/pack_img.py --extract -o $(BUILD_DIR)/section3_stock.bin
 
 clean:
-	@powershell -NoProfile -Command "if (Test-Path 'build') { Remove-Item -Recurse -Force 'build' }"
+	@$(RMDIR_R) build
