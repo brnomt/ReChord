@@ -1,54 +1,40 @@
 # M3 → DAC output path (Ghidra trace)
 
-Status: **Phase 1 — substantially mapped, one gap remains.**
+Status: **Phase 1 — complete enough to plan the patch.** The DSP model is now
+understood.
 
-## What is now verified (stock `section_3_0x00081A14.bin`)
+## Renames applied (persisted in Ghidra project)
 
-### Playback init path — `AudioPlayback_Start` @ `0x0302a398`
-After codec open, the integrated DAC is driven **directly over I2S, 24-bit,
-stereo**, with NO GOODE DSP step inline:
+| Old (wrong) name | Address | New name | Why |
+|---|---|---|---|
+| `AudioDecoding` | `0x03086e2c` | `WMA_AudioDecoding` | it is the WMA codec |
+| `FUN_03004608` | `0x03004608` | `TextConfigParser` | text/`[]<>` parser |
+| `ed25519_test` | `0x0300f8ba` | `GOODE_DSP_Stream` | GOODE SPI PCM streaming |
+| `eq_key_handler` | `0x03020810` | `EqApplyOverlayEntry` | overlay EQ-apply entry |
+| `Http_Close` | `0x0304d022` | `MusicScanLoop` | music index scan loop |
+| `FUN_0302c950` | `0x0302c950` | `CodecFeedDispatch` | codec function-pointer table |
 
-```
-rom_dma_config(4,1)
-rom_i2s_master_config(0, 0x17, 0, 1)          ; 0x17 = 24-bit
-rom_playback_start(1, 2, 1, rate, 0, 0x17, 0)  ; mode 1, 2ch, 24-bit
-rom_i2s_dma_start(1, 4, 0)
-rom_audio_path_route(1, 4)
-rom_audio_path_disable(1, 4)
-rom_dac_mute(1, 4)
-dac_gain_curve_apply(0x50)
-```
+## Verified model
 
-### The GOODE DSP is out-of-band, not inline
-`DSP_GOODEF_Init/Process` are called from **`MainUI_KeyHandler`** on EQ-apply
-events (`0x20000040`), not from the playback loop. They re-run the effect
-after an EQ change; they do not sit between codec and DAC on every frame.
+1. **DAC is direct I2S, 24-bit stereo** (`AudioPlayback_Start` → `rom_i2s_master_config(0x17)`
+   → `rom_playback_start(mode1,2ch,0x17)` → `rom_dac_mute`).
+2. **The GOODE chip does continuous EQ in hardware.** The M3 only re-programs
+   it on EQ-change events (`MainUI_KeyHandler` event `0x20000040` →
+   `DSP_GOODEF_Init("WOOOOONXBIN")` → `GOODE_DSP_Stream`). It is NOT inline
+   in the per-frame decode loop.
+3. **The per-frame codec feed** is `CodecFeedDispatch` @ `0x0302c950`: a
+   function-pointer table (`DAT_0302caa0 + codec_type*4`), calling the active
+   codec with sub-function `0xe`. The dispatch tail lands in the codec body
+   (`0x0300cc9a`).
 
-### Dead ends (Ghidra auto-names are unreliable)
-- `AudioDecoding` @ `0x03086e2c` = **WMA codec**, not output path.
-- `MusicService` @ `0x03029afc` / `0x0302b646` = message/event dispatcher.
-- `FUN_03004608` = text/string parser (not the DAC-feed call its caller site
-  suggested).
-- `eq_key_handler` @ `0x03020810` = `halt_baddata` (overlay, not static).
+## Implication for "own the DSP"
 
-## The one remaining gap
+To run our `rechord_dsp.c` on the M3:
+1. **Neutralize the GOODE chip** — stop `MainUI_KeyHandler` from re-programming
+   it (or leave it flat), so its hardware EQ is bypassed.
+2. **Insert M3 DSP** in `CodecFeedDispatch` (after the codec returns the frame,
+   before the buffer goes to `rom_playback_start`/DMA), running
+   `rechord_dsp.c`'s biquads (24-bit-in-32 = `EQ_TYPE long`).
 
-The **per-frame codec → DAC loop** (where decoded PCM is written into the
-buffer that `rom_playback_start`/DMA consumes) has not been pinned to a single
-function. It lives in a codec/audio task whose entry is overlay-dispatched,
-and the names are garbage. Candidate to trace next: the caller of
-`rom_playback_start`, and the `rom_buffer_ready(5)` poll loop in the service.
-
-## Conclusion for the DSP fork
-
-- **M3 pass-through EQ is viable and simpler than feared**: the DAC path is a
-  clean ROM-HAL sequence (24-bit/32), and the GOODE chip is optional/out-of-band.
-- `rechord_dsp.c` (`EQ_TYPE = long` = 24-bit-in-32) matches the buffer width.
-- The only missing piece is the exact PCM handoff function — a narrow,
-  localized Ghidra trace (find who writes the DMA buffer), not a redesign.
-
-## Next concrete step
-Trace the write path into the DMA/I2S buffer: xrefs on the buffer pointer
-passed to `rom_playback_start` / `rom_i2s_dma_start`, or the codec task that
-polls `rom_buffer_ready(5)` and fills the frame. Once that function is named,
-Phase 2 (insert `rechord_dsp.c`) has its patch point.
+The exact buffer handoff within `CodecFeedDispatch`'s codec body is the last
+narrow detail; the patch point is this dispatch, not `DSP_GOODEF_Process`.
