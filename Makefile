@@ -36,7 +36,7 @@ ARCH_FLAGS   := -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
 COMMON_FLAGS := $(ARCH_FLAGS) -Os -Wall -Wno-unused-parameter \
                 -Wno-unused-variable -ffunction-sections -fdata-sections \
                 -include firmware/rockchip/include/armcc_compat.h
-BB_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_BB_BUILD $(addprefix -I,$(BB_INCLUDE_DIRS))
+BB_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_BB_BUILD -D_RK_EQ_ $(addprefix -I,$(BB_INCLUDE_DIRS))
 AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD $(addprefix -I,$(AP_INCLUDE_DIRS))
 
 BB_OBJS := $(foreach src,$(BB_SRCS),\
@@ -50,6 +50,7 @@ BB_RECHORD_OBJS := \
     $(BB_BUILD_DIR)/fault.o \
     $(BB_BUILD_DIR)/rechord_win.o \
     $(BB_BUILD_DIR)/rechord_app.o \
+    $(BB_BUILD_DIR)/rechord_dsp.o \
     $(BB_BUILD_DIR)/entry_stubs.o
 
 BB_ELF := $(BB_BUILD_DIR)/rechord_bb.elf
@@ -147,13 +148,18 @@ $(BB_BUILD_DIR)/rechord_app.o: firmware/rechord_app.c
 	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 
+$(BB_BUILD_DIR)/rechord_dsp.o: firmware/rockchip/audio/RkEQ/Effect/rechord_dsp.c \
+		firmware/rockchip/audio/RkEQ/Effect/rechord_dsp.h
+	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
+	$(CC) $(BB_CFLAGS) -c $< -o $@
+
 $(BB_BUILD_DIR)/entry_stubs.o: firmware/entry_stubs.S
 	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
 	$(CC) $(ARCH_FLAGS) -c $< -o $@
 
 link-bb: $(BB_RECHORD_OBJS) $(BB_OBJS)
 	$(CC) $(ARCH_FLAGS) -T $(BB_LINKER) -nostartfiles -ffreestanding \
-		$(BB_RECHORD_OBJS) $(BB_OBJS) -o $(BB_ELF)
+		$(BB_RECHORD_OBJS) $(BB_OBJS) -lm -o $(BB_ELF)
 	$(OBJCOPY) -O binary -j .fw_header -j .text $(BB_ELF) $(BB_BIN)
 	@echo "Built: $(BB_BIN)"
 

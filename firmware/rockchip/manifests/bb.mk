@@ -1,4 +1,6 @@
 # ReChord BB baseline from audio/bbsystem/system after NON2_EXCLUDE and SPECIAL_EXCLUDE.
+# NOTE: audio/RkEQ/Effect/Effect.c is intentionally NOT listed — the modular
+# from-source EQ (rechord_dsp.c) replaces it and the RkNano_EQ .lib.
 BB_SRCS := \
   firmware/rockchip/driver/mailbox/mailbox.c \
   firmware/rockchip/audio/AAC/pAAC2.c \
@@ -15,7 +17,6 @@ BB_SRCS := \
   firmware/rockchip/audio/HIFI/hifi_get_bits.c \
   firmware/rockchip/audio/Mp3/pMP32.c \
   firmware/rockchip/audio/Ogg/pOGG2.c \
-  firmware/rockchip/audio/RkEQ/Effect/Effect.c \
   firmware/rockchip/audio/sbc/sbc_encode/sbc_enc_interface.c \
   firmware/rockchip/audio/SSRC/resample_interface.c \
   firmware/rockchip/audio/Wav/pWAV.c \
