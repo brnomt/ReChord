@@ -37,6 +37,28 @@
  */
 #include <stdint.h>
 
+#include "rechord_version.h"
+
+/* ------------------------------------------------------------------ */
+/* Version branding (from source, not an IMG byte-patch)               */
+/* ------------------------------------------------------------------ */
+/* The stock AP reads its "Software:<version>" label from a UTF-16LE
+ * string table in section_3 (RAM 0x0301506C). Because that byte range sits
+ * in the preserved stock tail beyond our stub, we overwrite it at boot so
+ * the visible version reads our brand. "Software:RC 3.7.0" is 2 UTF-16 code
+ * units longer than stock "Software:3.7.0", so it overlaps the adjacent
+ * Chinese "软件" version label — cosmetic only, documented in the guide. */
+static void rechord_write_version_string(void)
+{
+    static const char swver[] = "Software:" RECHORD_VERSION_STRING;
+    volatile uint16_t *dst = (volatile uint16_t *)RECHORD_SW_VER_RAM;
+    uint32_t i;
+
+    for (i = 0; swver[i] != '\0'; i++)
+        dst[i] = (uint16_t)swver[i];
+    dst[i] = 0;                       /* UTF-16LE null terminator */
+}
+
 /* ------------------------------------------------------------------ */
 /* Hardware map                                                        */
 /* ------------------------------------------------------------------ */
@@ -332,6 +354,9 @@ void rechord_main(void)
     uint32_t i;
 
     boot_log[0] = 0x53544F42u;                      /* 'BOTS' */
+
+    /* Brand the visible version string before the AP reads it. */
+    rechord_write_version_string();
 
     /* .bss lives past the loaded binary (objcopy emits .fw_header+.text
      * only), so manually zero the state we care about. */

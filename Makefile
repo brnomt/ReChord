@@ -167,9 +167,9 @@ BB_STUB_OBJS := $(BB_BUILD_DIR)/startup.o $(BB_BUILD_DIR)/stubs.o \
                 $(BB_BUILD_DIR)/fault.o $(BB_BUILD_DIR)/entry_stubs.o \
                 $(BB_BUILD_DIR)/bb_stub.o
 
-$(BB_BUILD_DIR)/bb_stub.o: firmware/bb_stub/bb_stub.c
+$(BB_BUILD_DIR)/bb_stub.o: firmware/bb_stub/bb_stub.c firmware/rechord_version.h
 	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"
-	$(CC) $(ARCH_FLAGS) -Os -Wall -c $< -o $@
+	$(CC) $(ARCH_FLAGS) -Os -Wall -Ifirmware -c $< -o $@
 
 bb-stub: $(BB_STUB_OBJS)
 	$(CC) $(ARCH_FLAGS) -T $(BB_LINKER) -nostartfiles -ffreestanding \
