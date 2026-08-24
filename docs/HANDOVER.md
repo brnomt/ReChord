@@ -31,10 +31,10 @@
 ### Pipeline (all working, `make all`)
 
 ```
-make build-sdk      → firmware/rockchip/**/*.c → build/objs/<subdir>/*.o (44)
-make link-firmware  → build/rechord_full.elf + build/section3_custom.bin
-python tools/pack_img.py --pack build/section3_custom.bin -o build/custom.IMG
-copy custom.IMG → device root as HIFIEC37.IMG, remove TF, reboot
+make build-bb       → firmware/rockchip/**/*.c → build/bb/objs/*.o (45)
+make link-bb        → build/bb/rechord_bb.elf + build/bb/section3_custom.bin
+make pack-bb-img    → build/ReChord_BB.IMG (spliced into stock IMG)
+copy ReChord_BB.IMG → device root as HIFIEC37.IMG, remove TF, reboot
 ```
 
 Windows note: use `/c/winlibs/mingw64/bin/mingw32-make`.
@@ -62,6 +62,21 @@ not one monolithic app:
 menu item, the AP (stock UI) sends a mailbox command to our BB — and our stubs
 don't answer → the AP waits forever → watchdog/power-off. **This is a deadlock,
 not a hard fault** (see §7).
+
+### V0.20 boot path: Option B (ROM HW init + from-source main)
+
+`firmware_entry` (entry_stubs.S @ 0x03000010) now does:
+1. `bl rechord_hw_init` — runs the stock ROM init sequence (boot_param_layout,
+   rom_alloc, rom_hw_init, rom_early_init) so PLLs, clocks, and the LCD
+   controller are properly configured.
+2. `b rechord_main` — our from-source app: ScatterLoader2 (zero BSS),
+   BSP_Init2 (board init), mailbox handshake (SYSTEM_START_OK), then our own
+   UI loop with the ReChord menu drawn into the LCD framebuffer at 0x03024868.
+
+**Critical fix:** the ROM HW init macros (ROM_ALLOC, ROM_HW_INIT, etc.) now
+have the Thumb bit (`|1`) on their addresses. Without it, calling these ROM
+functions through function pointers (`BLX`) enters ARM state on Cortex-M3 and
+faults immediately. This was the hidden root cause of V0.15 crashing on real HW.
 
 ### Why the cassette UI appears even though we replaced all the code
 
@@ -299,7 +314,9 @@ firmware/
 │   ├── system/          #   os (Task/Thread/Msg/Win), fileseek,
 │   │                    #   module_overlay, sysservice (battery, backlight…)
 │   └── include/         #   armcc_compat.h + integration headers
-├── startup/startup.c    # RKnanoFW header + firmware_entry → Main2
+├── startup/startup.c    # RKnanoFW header
+├── rechord_app.c        # rechord_hw_init (ROM init) + rechord_main (UI loop)
+├── entry_stubs.S        # firmware_entry → rechord_hw_init → rechord_main
 ├── fault.c              # real hard-fault handler + framebuffer renderer
 ├── stubs.c              # link stubs: globals, weak funcs, ARM intrinsics,
 │                        #   newlib syscalls

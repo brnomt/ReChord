@@ -13,7 +13,7 @@
  * This file:
  *   1. Provides the RKnanoFW header (pack_img only splices, does not
  *      rewrite the magic — it must be correct here).
- *   2. Defines firmware_entry @ 0x03000010 -> calls the SDK's Main2.
+ *   2. firmware_entry @ 0x03000010 is in entry_stubs.S: rechord_hw_init -> rechord_main.
  *   3. Provides a minimal vector table + Default_Handler for Cortex-M3.
  */
 #include <stdint.h>

@@ -11,7 +11,10 @@ firmware/
 │   │                  #   sysservice (battery, backlight, Service, Hook)
 │   └── include/       #   armcc_compat.h + integration headers
 ├── startup/
-│   └── startup.c      # RKnanoFW header + firmware_entry @ 0x03000010 -> Main2
+│   └── startup.c      # RKnanoFW header
+├── entry_stubs.S     # firmware_entry @ 0x03000010 -> rechord_hw_init -> rechord_main
+├── rechord_app.c     # rechord_hw_init (ROM init) + rechord_main (from-source UI)
+├── rechord_win.c     # MainMenuWin (WIN structure for the SDK UI framework)
 ├── stubs.c            # link stubs: globals (zero), weak funcs, newlib syscalls
 ├── firmware.ld        # linker script (SDK sections + segment-table buffers)
 └── resource/          # resource_api.h
@@ -20,10 +23,10 @@ firmware/
 ## Build
 
 ```
-make build-sdk      # compile firmware/rockchip/**/*.c -> build/objs/
-make link-firmware  # link -> build/rechord_full.elf + section3_custom.bin
-make all            # both
-make pack-img       # splice section_3 into HIFIEC37.IMG (identity test)
+make build-bb       # compile BB SDK (firmware/rockchip/**/*.c) -> build/bb/objs/
+make link-bb        # link -> build/bb/rechord_bb.elf + section3_custom.bin
+make pack-bb-img    # splice section_3 into stock IMG -> build/ReChord_BB.IMG
+make all            # build-bb + link-bb
 ```
 
 ## Archived decompilation (spec only, not compiled)

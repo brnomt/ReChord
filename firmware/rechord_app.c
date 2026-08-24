@@ -48,11 +48,15 @@ typedef void (*rom_refresh_fn)(uint32_t);
 #define ROM_DISP_RECT   ((rom_rect_fn)(0x02fea8f4 | 1))   /* fill rect(x,y,w,h,a5,a6) */
 #define ROM_DISP_REFRESH ((rom_refresh_fn)(0x02feabea | 1)) /* refresh(1) */
 
-/* ---- ROM HW services used by the stock firmware_entry mirror ---- */
-#define ROM_ALLOC       ((void *(*)(uint32_t))0x02feeedc)  /* rom_alloc */
-#define ROM_HW_INIT     ((void (*)(uint32_t))0x02feeebe)   /* rom_hw_init */
-#define ROM_HW_INIT2    ((void (*)(uint32_t))0x02feee7c)   /* rom_hw_init2 */
-#define ROM_EARLY_INIT  ((void (*)(void))0x02fe860e)       /* rom_early_init */
+/* ---- ROM HW services used by the stock firmware_entry mirror ----
+ * NOTE: all addresses MUST have bit 0 set (|1) for Thumb function pointers
+ * on Cortex-M3. Without it, BLX to these addresses enters ARM state and
+ * faults immediately. This was the root cause of V0.15 crashing on real HW
+ * when it tried to call rom_hw_init through a function pointer. ---- */
+#define ROM_ALLOC       ((void *(*)(uint32_t))(0x02feeedc | 1))  /* rom_alloc */
+#define ROM_HW_INIT     ((void (*)(uint32_t))(0x02feeebe | 1))   /* rom_hw_init */
+#define ROM_HW_INIT2    ((void (*)(uint32_t))(0x02feee7c | 1))   /* rom_hw_init2 */
+#define ROM_EARLY_INIT  ((void (*)(void))(0x02fe860e | 1))       /* rom_early_init */
 
 /* ---- telemetry RAM (inside our .text.boot padding; see entry_stubs.S) ---- */
 #define crash_log ((volatile uint32_t *)0x03000100u)   /* fault.c crash log */
@@ -153,11 +157,22 @@ uint32_t rechord_firmware_entry(void *param)
 }
 
 /*
+ * rechord_hw_init — ROM hardware initialization (Option B boot path).
+ * Called from entry_stubs.S with boot params in r0. Runs the stock init
+ * sequence (PLLs, clocks, LCD controller, rom_early_init) so the hardware
+ * is ready, then returns. After this, entry_stubs.S branches to rechord_main.
+ */
+void rechord_hw_init(void *param)
+{
+    rechord_firmware_entry(param);
+}
+
+/*
  * rechord_main — our app main (camino B, from-source).
  *
- * Called from firmware_entry AFTER the full stock HW init. Zeroes BSS
- * (ScatterLoader2), inits the board (BSP_Init2), then runs our own UI
- * loop — no return to the ROM, no full NANO_OS yet (that is M1b).
+ * Called from firmware_entry AFTER rechord_hw_init sets up the hardware.
+ * Zeroes BSS (ScatterLoader2), inits the board (BSP_Init2), registers
+ * mailbox servers, then runs our own UI loop.
  */
 extern void ScatterLoader2(void);
 extern void BSP_Init2(void);

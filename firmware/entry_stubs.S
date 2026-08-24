@@ -42,21 +42,26 @@
     .equ ROM_HW_INIT2, 0x02feee7c    /* rom_hw_init2 (tail-call target) */
 
     /* firmware_entry @ 0x03000010 — bootloader jumps here, r0 = boot params
-     * V0.17: back to the V0.1 boot path — branch to the SDK's Main2
-     * (BSP_Init2 real HW init). NOTE (V0.18 correction): V0.1's
-     * azure->green->red colors were LIKELY THE STOCK BOOT ANIMATION, not
-     * our code — V0.1-V0.16 never actually showed custom output. The
-     * direct VOP register path (TRM Ch.15) is the first display test that
-     * does not depend on the ROM API or the boot animation. */
+     *
+     * Option B boot path (V0.20):
+     *   1. rechord_hw_init(r0) — runs the stock ROM init sequence
+     *      (boot_param_layout + rom_alloc + rom_hw_init + rom_early_init)
+     *      so PLLs, clocks, and the LCD controller are properly configured.
+     *   2. rechord_main() — our from-source app: ScatterLoader2, BSP_Init2,
+     *      mailbox handshake (SYSTEM_START_OK), then our own UI loop with
+     *      the ReChord menu drawn into the LCD framebuffer.
+     *
+     * This replaces V0.17's `b Main2` (which skipped rom_hw_init, leaving
+     * the VOP/display uninitialized — heartbeat VOP writes went nowhere).
+     * The ROM HW init must run first so the LCD DMA scans from our
+     * framebuffer at 0x03024868. */
     .global firmware_entry
     .thumb_func
 firmware_entry:
     push {r4}
     mov  r4, r0
-    b    Main2                    /* SDK BB kernel: handshake + decode loop (never returns) */
-    /* NOTE: NO rom_hw_init here — V0.1/V0.17 proved the display works
-     * WITHOUT the stock HW-init (which re-configures the LCD). HW init is
-     * deferred to the audio milestone (M2), where it is actually needed. */
+    bl   rechord_hw_init         /* ROM HW init (PLLs, clocks, LCD) — r0 = boot params */
+    b    rechord_main            /* from-source main: mailbox + UI (never returns) */
 
     /* --- ROM/loader dispatch trampolines (bx lr = return) ---
      * NOTE: stub_03000162 stays a 2-byte `bx lr`: the bytes at 0x03000164+
