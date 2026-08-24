@@ -36,8 +36,8 @@ ARCH_FLAGS   := -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
 COMMON_FLAGS := $(ARCH_FLAGS) -Os -Wall -Wno-unused-parameter \
                 -Wno-unused-variable -ffunction-sections -fdata-sections \
                 -include firmware/rockchip/include/armcc_compat.h
-BB_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_BB_BUILD -D_RK_EQ_ $(addprefix -I,$(BB_INCLUDE_DIRS))
-AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD $(addprefix -I,$(AP_INCLUDE_DIRS))
+BB_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_BB_BUILD -D_RK_EQ_ -Ifirmware $(addprefix -I,$(BB_INCLUDE_DIRS))
+AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
 
 BB_OBJS := $(foreach src,$(BB_SRCS),\
              $(BB_OBJ_DIR)/$(patsubst firmware/rockchip/%,%,$(src)).o)
@@ -83,18 +83,24 @@ AP_CODEC_LIBS := \
 
 .PHONY: all bb ap build-bb build-ap link-bb link-ap build-sdk link-firmware \
         toolchain manifests compile-check pack-img pack-bb-img pack-bb-stub-img \
-        bb-stub extract-section3 clean
+        bb-stub release extract-section3 clean
 
-# The default remains the currently linkable BB firmware. AP is intentionally
-# opt-in until its missing source modules and linker layout are restored.
-all: bb
+# Single-command product build: both halves (AP/UI + BB/audio) packed into one
+# flashable IMG. `release` is the documented entry point; `all` is the alias.
+release: bb ap pack-full
+
+all: release
 
 bb: build-bb link-bb
 	@echo ""
 	@echo "ReChord BB firmware built:"
 	@$(SIZE) $(BB_ELF)
 
-ap: build-ap
+# AP (fw1) image: compile + link + emit the scatter image consumed by pack-full.
+ap: build-ap link-ap pack-fw1
+	@echo ""
+	@echo "ReChord AP firmware built:"
+	@$(SIZE) $(AP_ELF)
 
 # Backward-compatible aliases used by existing documentation and scripts.
 build-sdk: build-bb
@@ -204,12 +210,12 @@ link-ap: $(AP_OBJS) $(AP_BUILD_DIR)/ap_startup.o $(AP_BUILD_DIR)/stubs.o $(AP_BU
 	@echo "AP linked: $(AP_ELF) -> $(AP_BIN)"
 
 # ---- AP / fw1 ------------------------------------------------------------
-# This target compiles the 165 AP sources currently present in the repository.
-# It does not link yet: AP_MISSING_SRCS documents 33 effective Keil inputs that
-# must be imported or replaced first, and fw1 still needs its own linker script.
+# Compiles the resident A_CORE AP (UI + drivers + filesystem + LCD). The
+# codec .lib / audio / image / BT / FM / record overlay sources live in the
+# BB/overlays, so their entry points are weak stubs in stubs.c. Links and
+# packs cleanly (see link-ap / pack-fw1 / pack-full).
 build-ap: toolchain manifests $(AP_OBJS)
-	@echo "AP SDK compile check passed: $(words $(AP_OBJS)) imported objects"
-	@echo "AP link remains blocked by $(words $(AP_MISSING_SRCS)) missing sources"
+	@echo "AP SDK compile passed: $(words $(AP_OBJS)) imported objects"
 
 $(AP_OBJ_DIR)/%.o: firmware/rockchip/%
 	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(dir $@)' | Out-Null"

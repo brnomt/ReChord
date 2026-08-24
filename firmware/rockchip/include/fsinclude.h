@@ -90,9 +90,10 @@ typedef enum {
 /* MEDIA_MSGBOX_FILE_CMD — copied VERBATIM from filesys/file.h (the owner
  * of these IDs). We cannot include that header here: the synthetic header
  * stack (fat.h/media_lib.h/FileInfo.h) conflicts with its declarations.
- * If filesys/file.h ever changes, re-sync this enum. NOTE: before Aug 2026
- * these IDs came from the mailbox.h shim with WRONG 0x0102-style values
- * that the stock AP does not recognize (file channel silently dead).
+ * If filesys/file.h ever changes, re-sync this enum AND firmware/ipc.h (the
+ * shared contract doc for the AP build). NOTE: before Aug 2026 these IDs
+ * came from the mailbox.h shim with WRONG 0x0102-style values that the
+ * stock AP does not recognize (file channel silently dead).
  * (Guarded: this file's main include-guard ends above — see line 14.) */
 #ifndef MEDIA_MSGBOX_FILE_CMD_DEFINED
 #define MEDIA_MSGBOX_FILE_CMD_DEFINED
