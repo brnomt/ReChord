@@ -43,29 +43,28 @@
 
     /* firmware_entry @ 0x03000010 — core1 (BB) reset vector, r0 = boot params.
      *
-     * Option A (stock-mirror) boot path: firmware_entry is an HW-init
-     * CALLBACK that RETURNS to the ROM. Verified against the stock binary
-     * (Ghidra, section_3 @ 0x03000010):
-     *     push {r4,lr}; mov r4,r0; bl boot_param_layout;
-     *     bl rom_alloc(0x1dc); [rom_hw_init(0x1dc/0x16f/0x16f)
-     *     rom_hw_init2(0x171) rom_hw_init(0x170)]; bl rom_early_init();
-     *     ldrh r0,[r4]; cmp r0,#0xb;
-     *     pop.w {r4,lr}; movw r0,#0x18f|0x191; b.w rom_hw_init2
-     * rechord_firmware_entry() is the C body of that exact sequence; it
-     * returns 0x18f (early) or 0x191 (app) in r0. We tail-call rom_hw_init2
-     * with that code so control returns to the ROM, exactly like stock.
+     * Option B boot path: run the stock ROM HW-init sequence, then transfer
+     * directly to rechord_main -> Main2() (the SDK audio service loop) and
+     * never return. Main2() is what registers the mailbox decode/file servers
+     * and sends the SYSTEM_START_OK handshake that the AP waits for (~200 ms),
+     * so reaching it IS the boot handshake.
      *
-     * (V0.20 had replaced this with Option B: `bl rechord_hw_init;
-     * b rechord_main` — a standalone main that never returned to the ROM.
-     * That is what caused the menu-hang resets on hardware.) */
+     * The stock section_3 firmware_entry is an HW-init callback that RETURNS
+     * to the ROM (verified in Ghidra); the ROM then re-enters the BB app via
+     * a reset vector (PowerOn_Reset2 -> Main2) that our build does not include.
+     * Rather than mirror that un-observable re-entry, we run Main2 directly —
+     * the same entry pattern the bb_stub proved boots + navigates on hardware
+     * (docs/re/AP-MAILBOX-GUIDE.md Appendix B).
+     *
+     * (V0.20 had this exact entry but with rechord_main = a UI draw loop, so
+     * Main2 never ran and mailbox replies were never sent -> the menu-hang.
+     * rechord_main now calls Main2, which is the actual fix.) */
     .global firmware_entry
     .thumb_func
 firmware_entry:
-    push {r4, lr}
-    mov  r4, r0
-    bl   rechord_firmware_entry  /* stock init; returns 0x18f/0x191 in r0 */
-    pop  {r4, lr}
-    b.w  ROM_HW_INIT2            /* tail-call; returns to the ROM */
+    bl   rechord_hw_init         /* ROM HW init (boot_param_layout + rom_alloc
+                                    + rom_hw_init* + rom_early_init); r0 = params */
+    b    rechord_main            /* -> Main2() service loop (never returns) */
 
     /* --- ROM/loader dispatch trampolines (bx lr = return) ---
      * NOTE: stub_03000162 stays a 2-byte `bx lr`: the bytes at 0x03000164+
