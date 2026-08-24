@@ -41,27 +41,31 @@
 
     .equ ROM_HW_INIT2, 0x02feee7c    /* rom_hw_init2 (tail-call target) */
 
-    /* firmware_entry @ 0x03000010 — bootloader jumps here, r0 = boot params
+    /* firmware_entry @ 0x03000010 — core1 (BB) reset vector, r0 = boot params.
      *
-     * Option B boot path (V0.20):
-     *   1. rechord_hw_init(r0) — runs the stock ROM init sequence
-     *      (boot_param_layout + rom_alloc + rom_hw_init + rom_early_init)
-     *      so PLLs, clocks, and the LCD controller are properly configured.
-     *   2. rechord_main() — our from-source app: ScatterLoader2, BSP_Init2,
-     *      mailbox handshake (SYSTEM_START_OK), then our own UI loop with
-     *      the ReChord menu drawn into the LCD framebuffer.
+     * Option A (stock-mirror) boot path: firmware_entry is an HW-init
+     * CALLBACK that RETURNS to the ROM. Verified against the stock binary
+     * (Ghidra, section_3 @ 0x03000010):
+     *     push {r4,lr}; mov r4,r0; bl boot_param_layout;
+     *     bl rom_alloc(0x1dc); [rom_hw_init(0x1dc/0x16f/0x16f)
+     *     rom_hw_init2(0x171) rom_hw_init(0x170)]; bl rom_early_init();
+     *     ldrh r0,[r4]; cmp r0,#0xb;
+     *     pop.w {r4,lr}; movw r0,#0x18f|0x191; b.w rom_hw_init2
+     * rechord_firmware_entry() is the C body of that exact sequence; it
+     * returns 0x18f (early) or 0x191 (app) in r0. We tail-call rom_hw_init2
+     * with that code so control returns to the ROM, exactly like stock.
      *
-     * This replaces V0.17's `b Main2` (which skipped rom_hw_init, leaving
-     * the VOP/display uninitialized — heartbeat VOP writes went nowhere).
-     * The ROM HW init must run first so the LCD DMA scans from our
-     * framebuffer at 0x03024868. */
+     * (V0.20 had replaced this with Option B: `bl rechord_hw_init;
+     * b rechord_main` — a standalone main that never returned to the ROM.
+     * That is what caused the menu-hang resets on hardware.) */
     .global firmware_entry
     .thumb_func
 firmware_entry:
-    push {r4}
+    push {r4, lr}
     mov  r4, r0
-    bl   rechord_hw_init         /* ROM HW init (PLLs, clocks, LCD) — r0 = boot params */
-    b    rechord_main            /* from-source main: mailbox + UI (never returns) */
+    bl   rechord_firmware_entry  /* stock init; returns 0x18f/0x191 in r0 */
+    pop  {r4, lr}
+    b.w  ROM_HW_INIT2            /* tail-call; returns to the ROM */
 
     /* --- ROM/loader dispatch trampolines (bx lr = return) ---
      * NOTE: stub_03000162 stays a 2-byte `bx lr`: the bytes at 0x03000164+
