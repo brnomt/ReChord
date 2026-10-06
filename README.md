@@ -42,6 +42,8 @@ hardware mailbox (`MailBox A2B/B2A`):
 
 ## Status (Aug 2026)
 
+ReChord is currently under active development and should be considered experimental compared to established alternatives
+
 | Layer | Status |
 |-------|--------|
 | **Rockchip SDK (BB: kernel + audio + codecs)** | ✅ compiles (53 `.c`) |
@@ -117,3 +119,7 @@ or Rockchip. It uses the publicly-available Rockchip RKnanoD SDK and
 independent reverse-engineering notes. Firmware images are not distributed;
 obtain official firmware from FiiO. Flashing modified firmware carries risk —
 use at your own risk.
+
+## Alternatives
+https://recho.atzkey.workers.dev/ by atzkey.
+An existing tool serving a similar purpose. ReChord is an independent project developed from scratch with a different architecture and focus
