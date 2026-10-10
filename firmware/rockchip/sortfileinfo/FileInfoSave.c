@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  SearchAndSaveMusicInfo.C
+* File Nameï¿½ï¿½  SearchAndSaveMusicInfo.C
 *
 * Description:
 *
@@ -16,14 +16,14 @@
 
 #include "SysInclude.h"
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 
-#include "FileInfo.h"
+#include "sortfileinfo/FileInfo.h"
 #include "AddrSaveMacro.h"
 
 #include "SysFindFile.h"
 #include "AudioControl.h"
-#include "id3.h"
+#include "ID3.h"
 
 #include "MDBBuildWin.h"
 
@@ -41,7 +41,7 @@
 
 typedef struct _MEDIA_FILE_SAVE_STRUCT
 {
-    UINT16  LongFileName[MEDIA_ID3_SAVE_CHAR_NUM]; //¾ÍÊÇÎÄ¼þÏµÍ³µÄ³¤ÎÄ¼þÃû
+    UINT16  LongFileName[MEDIA_ID3_SAVE_CHAR_NUM]; //ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ÏµÍ³ï¿½Ä³ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½
     UINT16  id3_title[MEDIA_ID3_SAVE_CHAR_NUM];
     UINT16  id3_singer[MEDIA_ID3_SAVE_CHAR_NUM];
     UINT16  id3_album[MEDIA_ID3_SAVE_CHAR_NUM];
@@ -58,11 +58,11 @@ typedef struct _MEDIA_FILE_SAVE_STRUCT
 }MEDIA_FILE_SAVE_STRUCT;
 
 _FILE_INFO_SAVE_BSS_    FIND_DATA FindDataInfo;
-_FILE_INFO_SAVE_BSS_    MEDIA_FILE_SAVE_STRUCT gFileSaveInfo; // ÓÃÓÚ±£´æÎÄ¼þÐÅÏ¢µÄ½á¹¹Ìå±äÁ¿
-_FILE_INFO_SAVE_BSS_    __align(4) UINT8    gFileInfoBasicBuffer[MEDIAINFO_PAGE_SIZE]; // ÓÃÓÚÁÙÊ±¼ÇÂ¼Ò»¸öPageµÄÎÄ¼þÐÅÏ¢
-_FILE_INFO_SAVE_BSS_    __align(4) UINT8    gFileInfoExtendBuffer[MEDIAINFO_PAGE_SIZE]; // ÓÃÓÚÁÙÊ±¼ÇÂ¼Ò»¸öPageµÄÎÄ¼þÐÅÏ¢
-_FILE_INFO_SAVE_BSS_    __align(4) UINT8    gFileTreeBasicBuffer[MEDIAINFO_PAGE_SIZE]; // ÓÃÓÚÁÙÊ±¼ÇÂ¼Ò»¸öPageµÄÎÄ¼þÐÅÏ¢
-_FILE_INFO_SAVE_BSS_    __align(4) UINT32   gFileTreeExtendBuffer[MEDIAINFO_PAGE_SIZE]; // ÓÃÓÚÁÙÊ±¼ÇÂ¼Ò»¸öPageµÄÎÄ¼þÐÅÏ¢
+_FILE_INFO_SAVE_BSS_    MEDIA_FILE_SAVE_STRUCT gFileSaveInfo; // ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½Ä½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½
+_FILE_INFO_SAVE_BSS_    __align(4) UINT8    gFileInfoBasicBuffer[MEDIAINFO_PAGE_SIZE]; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Â¼Ò»ï¿½ï¿½Pageï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢
+_FILE_INFO_SAVE_BSS_    __align(4) UINT8    gFileInfoExtendBuffer[MEDIAINFO_PAGE_SIZE]; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Â¼Ò»ï¿½ï¿½Pageï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢
+_FILE_INFO_SAVE_BSS_    __align(4) UINT8    gFileTreeBasicBuffer[MEDIAINFO_PAGE_SIZE]; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Â¼Ò»ï¿½ï¿½Pageï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢
+_FILE_INFO_SAVE_BSS_    __align(4) UINT32   gFileTreeExtendBuffer[MEDIAINFO_PAGE_SIZE]; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Â¼Ò»ï¿½ï¿½Pageï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢
 
 
 /*
@@ -124,8 +124,8 @@ void PageWriteBufferInit(void)
   Description   : wirte the file information that need to save to cache buffer,the information include
                   long file name,ID3Title,ID3singer,ID3Album,file path,short file name.
 
-  Input         : Buffer£ºBuffer to save file information.
-                  pFileSaveTemp£ºthe information of current file.
+  Input         : Bufferï¿½ï¿½Buffer to save file information.
+                  pFileSaveTempï¿½ï¿½the information of current file.
   Return        : return 1
 
   History:     <author>         <time>         <version>
@@ -140,12 +140,12 @@ UINT8 SaveFileInfo(UINT8 *Buffer, MEDIA_FILE_SAVE_STRUCT  *pFileSaveTemp, UINT8 
     UINT8 *pBuffer,*pPath;
 
     pBuffer = Buffer + FILE_NAME_SAVE_ADDR_OFFSET;
-    for (i=0;i<MEDIA_ID3_SAVE_CHAR_NUM;i++)//±£´æ³¤ÎÄ¼þÃûÐÅÏ¢
+    for (i=0;i<MEDIA_ID3_SAVE_CHAR_NUM;i++)//ï¿½ï¿½ï¿½æ³¤ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
     {
 
-        *pBuffer++ = pFileSaveTemp->LongFileName[i] & 0xff;//µÍ×Ö½Ú
+        *pBuffer++ = pFileSaveTemp->LongFileName[i] & 0xff;//ï¿½ï¿½ï¿½Ö½ï¿½
         //printf("%02x ", *(pBuffer - 1));
-        *pBuffer++ = ((pFileSaveTemp->LongFileName[i])>>8) & 0xff;//¸ß×Ö½Ú
+        *pBuffer++ = ((pFileSaveTemp->LongFileName[i])>>8) & 0xff;//ï¿½ï¿½ï¿½Ö½ï¿½
 
         if (pFileSaveTemp->LongFileName[i] == 0)
         {
@@ -193,9 +193,9 @@ UINT8 SaveFileInfo(UINT8 *Buffer, MEDIA_FILE_SAVE_STRUCT  *pFileSaveTemp, UINT8 
 
     if (bSaveID3)
     {
-        pBuffer = Buffer + ID3_TITLE_SAVE_ADDR_OFFSET;//³¤ÎÄ¼þÃû±£´æÕ¼ÓÃµÄ¿Õ¼äÊÇCHAR_NUM_PER_FILE_NAMEµÄ2±¶
+        pBuffer = Buffer + ID3_TITLE_SAVE_ADDR_OFFSET;//ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½ÃµÄ¿Õ¼ï¿½ï¿½ï¿½CHAR_NUM_PER_FILE_NAMEï¿½ï¿½2ï¿½ï¿½
 
-        for (i = 0; i < MEDIA_ID3_SAVE_CHAR_NUM; i++)//±£´æid3µÄtitleÐÅÏ¢
+        for (i = 0; i < MEDIA_ID3_SAVE_CHAR_NUM; i++)//ï¿½ï¿½ï¿½ï¿½id3ï¿½ï¿½titleï¿½ï¿½Ï¢
         {
 
             *pBuffer++ = (pFileSaveTemp->id3_title[i])&0xff;
@@ -208,7 +208,7 @@ UINT8 SaveFileInfo(UINT8 *Buffer, MEDIA_FILE_SAVE_STRUCT  *pFileSaveTemp, UINT8 
 
         pBuffer = Buffer + ID3_SINGLE_SAVE_ADDR_OFFSET;
 
-        for (i=0;i < MEDIA_ID3_SAVE_CHAR_NUM ; i++)//±£´æid3µÄsingerÐÅÏ¢
+        for (i=0;i < MEDIA_ID3_SAVE_CHAR_NUM ; i++)//ï¿½ï¿½ï¿½ï¿½id3ï¿½ï¿½singerï¿½ï¿½Ï¢
         {
 
             *pBuffer++ = (pFileSaveTemp->id3_singer[i])&0xff;
@@ -220,7 +220,7 @@ UINT8 SaveFileInfo(UINT8 *Buffer, MEDIA_FILE_SAVE_STRUCT  *pFileSaveTemp, UINT8 
         }
 
         pBuffer = Buffer + ID3_ALBUM_SAVE_ADDR_OFFSET;
-        for (i=0;i<MEDIA_ID3_SAVE_CHAR_NUM;i++)//±£´æid3µÄalbumÐÅÏ¢
+        for (i=0;i<MEDIA_ID3_SAVE_CHAR_NUM;i++)//ï¿½ï¿½ï¿½ï¿½id3ï¿½ï¿½albumï¿½ï¿½Ï¢
         {
 
             *pBuffer++ = (pFileSaveTemp->id3_album[i])&0xff;
@@ -232,7 +232,7 @@ UINT8 SaveFileInfo(UINT8 *Buffer, MEDIA_FILE_SAVE_STRUCT  *pFileSaveTemp, UINT8 
         }
 
         pBuffer = Buffer+ID3_GENRE_SAVE_ADDR_OFFSET;
-        for (i=0;i<MEDIA_ID3_SAVE_CHAR_NUM;i++)//±£´æid3µÄalbumÐÅÏ¢
+        for (i=0;i<MEDIA_ID3_SAVE_CHAR_NUM;i++)//ï¿½ï¿½ï¿½ï¿½id3ï¿½ï¿½albumï¿½ï¿½Ï¢
         {
 
             *pBuffer++ = (pFileSaveTemp->Genre[i])&0xff;
@@ -280,10 +280,10 @@ HANDLE FileOpenByFileFDT(FDT FileFDT, uint8 *Type)
 
     OsRt=NOT_OPEN_FILE;
 
-    // ²éÕÒ¿ÕÏÐÎÄ¼þµÇ¼ÇÏî
+    // ï¿½ï¿½ï¿½Ò¿ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½Ç¼ï¿½ï¿½ï¿½
     for (Rt = 0; Rt < MAX_OPEN_FILES; Rt++)
     {
-        if (FileInfo[Rt].Flags == 0)
+        if (OpenFileInfo[Rt].Flags == 0)
         {
             break;
         }
@@ -291,7 +291,7 @@ HANDLE FileOpenByFileFDT(FDT FileFDT, uint8 *Type)
 
     if (Rt < MAX_OPEN_FILES)
     {
-        fp = FileInfo + Rt;
+        fp = OpenFileInfo + Rt;
 
         for (i=0; i<11; i++)
         {
@@ -340,21 +340,21 @@ void SearchAndSaveMusicInfo(void)
 {
     UINT32  i, j, t;
     HANDLE hMusicFile;
-    MEDIA_FILE_SAVE_STRUCT  *pFileSaveTemp = &gFileSaveInfo; // ÓÃÓÚ±£´æÎÄ¼þÐÅÏ¢
+    MEDIA_FILE_SAVE_STRUCT  *pFileSaveTemp = &gFileSaveInfo; // ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢
 
-    UINT16 uiTotalFile = 0;  // ÒôÀÖÎÄ¼þ¸öÊý¼ÆÊý
+    UINT16 uiTotalFile = 0;  // ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     UINT16 uiTotalSubDir = 0;
     UINT16 uiTotalMusic = 0;
 
-    UINT16 uiFindFileResult = 0 ; // ÎÄ¼þ¼ìË÷½á¹û
+    UINT16 uiFindFileResult = 0 ; // ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     UINT16 uiTotalFileInDir = 0;
 
-    UINT16 uiFileInfoBasicIndex = 0;       // Flash Page¿ØÖÆ¼ÆÊý     ¸ÃÖµµÈÓÚ4Ê±£¬ÒÑ¾­½«Ò»¸öpage´óÐ¡µÄbafferÐ´Âú£¬¿ÉÒÔÐ´flashÁË
+    UINT16 uiFileInfoBasicIndex = 0;       // Flash Pageï¿½ï¿½ï¿½Æ¼ï¿½ï¿½ï¿½     ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½4Ê±ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½Ò»ï¿½ï¿½pageï¿½ï¿½Ð¡ï¿½ï¿½bafferÐ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´flashï¿½ï¿½
     UINT16 uiFileInfoExtendIndex = 0;
     UINT16 uiFileTreeBasicIndex = 0;
     UINT16 uiFileTreeExtendIndex = 0;
 
-    UINT32 ulFileInfoBasicSectorAddr = 0; // ±£´æÎÄ¼þÏêÏ¸ÐÅÏ¢µÄÆðÊ¼sectorµØÖ·
+    UINT32 ulFileInfoBasicSectorAddr = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Ê¼sectorï¿½ï¿½Ö·
     UINT32 ulFileInfoExtendSectorAddr = 0;
     UINT32 ulFileTreeBasicSectorAddr = 0;
     UINT32 ulFileTreeExtendSectorAddr = 0;
@@ -377,21 +377,21 @@ void SearchAndSaveMusicInfo(void)
     char MusicFileExtString[] = "MP1MP2MP3REVWAVAPEFLAAACM4AOGGMP43GPDFFDSFCUE";
 #endif
 
-    ModuleOverlay(MODULE_ID_AUDIO_ID3, MODULE_OVERLAY_ALL); //µ÷ÓÃID3 ½âÎö´úÂë
+    ModuleOverlay(MODULE_ID_AUDIO_ID3, MODULE_OVERLAY_ALL); //ï¿½ï¿½ï¿½ï¿½ID3 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //    ModuleOverlay(MODULE_ID_FILE_FIND, MODULE_OVERLAY_ALL);
-    ModuleOverlay(MODULE_ID_FLASH_PROG, MODULE_OVERLAY_ALL); //µ÷ÓÃÐ´flash´úÂë
+    ModuleOverlay(MODULE_ID_FLASH_PROG, MODULE_OVERLAY_ALL); //ï¿½ï¿½ï¿½ï¿½Ð´flashï¿½ï¿½ï¿½ï¿½
 
-    FileSaveStructInit(pFileSaveTemp); // ½«ÓÃÓÚ¼ÇÂ¼ÎÄ¼þ±£´æÐÅÏ¢µÄ½á¹¹ÌåÇå0
+    FileSaveStructInit(pFileSaveTemp); // ï¿½ï¿½ï¿½ï¿½ï¿½Ú¼ï¿½Â¼ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½Ä½á¹¹ï¿½ï¿½ï¿½ï¿½0
     PageWriteBufferInit();
 
-    ulFileInfoBasicSectorAddr = MediaInfoAddr + MUSIC_SAVE_INFO_SECTOR_START; //±£´æÏêÏ¸µÄÎÄ¼þÐÅÏ¢ÆðÊ¼µØÖ·(secÖµ)
+    ulFileInfoBasicSectorAddr = MediaInfoAddr + MUSIC_SAVE_INFO_SECTOR_START; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ê¼ï¿½ï¿½Ö·(secÖµ)
     ulFileInfoExtendSectorAddr = ulFileInfoBasicSectorAddr + MEDIAINFO_BLOCK_SIZE * 16;
 
     ulFileTreeBasicSectorAddr = MediaInfoAddr + MUSIC_TREE_INFO_SECTOR_START;
     ulFileTreeExtendSectorAddr = ulFileTreeBasicSectorAddr + MEDIAINFO_BLOCK_SIZE * 2;
 
     GotoRootDir(MusicFileExtString, FS_FAT_EX_VOICE);
-    FindDataInfo_Local.Clus = CurDirClus; // ¸ùÄ¿Â¼´ØºÅ
+    FindDataInfo_Local.Clus = CurDirClus; // ï¿½ï¿½Ä¿Â¼ï¿½Øºï¿½
     uiFindFileResult = FindFirst(&Fdt, &FindDataInfo_Local, MusicFileExtString, FS_FAT_EX_VOICE);
     uiTotalFileInDir = SubDirInfo[CurDirDeep].TotalFile + SubDirInfo[CurDirDeep].TotalSubDir;
 
@@ -444,18 +444,18 @@ void SearchAndSaveMusicInfo(void)
                 uiFileInfoExtendIndex++;
                 pFileTreeBasic->dwBasicInfoID = uiTotalSubDir - 1 + (MEDIAINFO_BLOCK_SIZE * 16  * SECTOR_BYTE_SIZE)  / BYTE_NUM_SAVE_PER_FILE;
 
-                if (uiFileInfoExtendIndex == FILE_SAVE_NUM_PER_PAGE)//gFileInfoBasicBuffer ÒÑ¾­´æÂúÐÅÏ¢£¬´óÐ¡Îª8k £¬¾Í¿ªÊ¼Ð´flash
+                if (uiFileInfoExtendIndex == FILE_SAVE_NUM_PER_PAGE)//gFileInfoBasicBuffer ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Ð¡Îª8k ï¿½ï¿½ï¿½Í¿ï¿½Ê¼Ð´flash
                 {
 
-                    uiFileInfoExtendIndex = 0;//ÎÄ¼þÐòºÅ»ØÁã
+                    uiFileInfoExtendIndex = 0;//ï¿½Ä¼ï¿½ï¿½ï¿½Å»ï¿½ï¿½ï¿½
 
                     MDWrite(DataDiskID, ulFileInfoExtendSectorAddr, (MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE), gFileInfoExtendBuffer);//gPageTempBuffer);//
 
-                    for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ÇåÁã
+                    for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ï¿½ï¿½ï¿½ï¿½
                     {
                         gFileInfoExtendBuffer[i] = 0;
                     }
-                    ulFileInfoExtendSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ÏòÏÂÒ»¸öpage£¬ÎªÏÂ´ÎÐ´×ö×¼±¸
+                    ulFileInfoExtendSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½pageï¿½ï¿½Îªï¿½Â´ï¿½Ð´ï¿½ï¿½×¼ï¿½ï¿½
                 }
 
                 pFileTreeBasic++;
@@ -466,11 +466,11 @@ void SearchAndSaveMusicInfo(void)
 
                     MDWrite(DataDiskID, ulFileTreeBasicSectorAddr, (MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE), gFileTreeBasicBuffer);
 
-                    for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ÇåÁã
+                    for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ï¿½ï¿½ï¿½ï¿½
                     {
                         gFileTreeBasicBuffer[i] = 0;
                     }
-                    ulFileTreeBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ÏòÏÂÒ»¸öpage£¬ÎªÏÂ´ÎÐ´×ö×¼±¸
+                    ulFileTreeBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½pageï¿½ï¿½Îªï¿½Â´ï¿½Ð´ï¿½ï¿½×¼ï¿½ï¿½
                 }
             }
 #ifdef _RK_CUE_
@@ -479,7 +479,7 @@ void SearchAndSaveMusicInfo(void)
                 memset(&CUEInfo, 0, sizeof(CUE_INFO));
 
                 hMusicFile = FileOpenByFileFDT(Fdt, "R");
-                if (hMusicFile != NOT_OPEN_FILE)    //´ò¿ªÎÄ¼þ²¢½âÎöID3ÐÅÏ¢
+                if (hMusicFile != NOT_OPEN_FILE)    //ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ID3ï¿½ï¿½Ï¢
                 {
                     ParseCueInfo(hMusicFile, &CUEInfo, 0);
                 }
@@ -533,23 +533,23 @@ void SearchAndSaveMusicInfo(void)
                         pFileSaveTemp->StartTime = CUEInfo.m_songs[i].start;
                         pFileSaveTemp->EndTime = CUEInfo.m_songs[i].end;
 
-                        SaveFileInfo(&gFileInfoBasicBuffer[uiFileInfoBasicIndex * BYTE_NUM_SAVE_PER_FILE], pFileSaveTemp, 1); // ±£´æÎÄ¼þÐÅÏ¢¼°ÅÅÐòË÷ÒýÐÅÏ¢ °Ñ»ñÈ¡µÄµ±Ç°ÎÄ¼þµÄÐÅÏ¢´æÓÚÈ«¾Ö±äÁ¿gPageWriteBufferµÄÄ³¸öÎ»ÖÃ
+                        SaveFileInfo(&gFileInfoBasicBuffer[uiFileInfoBasicIndex * BYTE_NUM_SAVE_PER_FILE], pFileSaveTemp, 1); // ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ ï¿½Ñ»ï¿½È¡ï¿½Äµï¿½Ç°ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½È«ï¿½Ö±ï¿½ï¿½ï¿½gPageWriteBufferï¿½ï¿½Ä³ï¿½ï¿½Î»ï¿½ï¿½
 
                         uiTotalMusic++;  // all sort media file
                         uiFileInfoBasicIndex++;
                         pFileTreeBasic->dwBasicInfoID = uiTotalMusic - 1;
 
-                        if (uiFileInfoBasicIndex == FILE_SAVE_NUM_PER_PAGE)//gFileInfoBasicBuffer ÒÑ¾­´æÂúÐÅÏ¢£¬´óÐ¡Îª8k £¬¾Í¿ªÊ¼Ð´flash
+                        if (uiFileInfoBasicIndex == FILE_SAVE_NUM_PER_PAGE)//gFileInfoBasicBuffer ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Ð¡Îª8k ï¿½ï¿½ï¿½Í¿ï¿½Ê¼Ð´flash
                         {
-                            uiFileInfoBasicIndex = 0;//ÎÄ¼þÐòºÅ»ØÁã
+                            uiFileInfoBasicIndex = 0;//ï¿½Ä¼ï¿½ï¿½ï¿½Å»ï¿½ï¿½ï¿½
 
                             MDWrite(DataDiskID, ulFileInfoBasicSectorAddr, (MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE), gFileInfoBasicBuffer);//gPageTempBuffer);//
 
-                            for (t = 0; t < MEDIAINFO_PAGE_SIZE; t++)//gFileInfoBasicBuffer ÇåÁã
+                            for (t = 0; t < MEDIAINFO_PAGE_SIZE; t++)//gFileInfoBasicBuffer ï¿½ï¿½ï¿½ï¿½
                             {
                                 gFileInfoBasicBuffer[t] = 0;
                             }
-                            ulFileInfoBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ÏòÏÂÒ»¸öpage£¬ÎªÏÂ´ÎÐ´×ö×¼±¸
+                            ulFileInfoBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½pageï¿½ï¿½Îªï¿½Â´ï¿½Ð´ï¿½ï¿½×¼ï¿½ï¿½
                         }
 
                         pFileTreeBasic++;
@@ -560,11 +560,11 @@ void SearchAndSaveMusicInfo(void)
 
                             MDWrite(DataDiskID, ulFileTreeBasicSectorAddr, (MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE), gFileTreeBasicBuffer);
 
-                            for (t = 0; t < MEDIAINFO_PAGE_SIZE; t++)//gFileInfoBasicBuffer ÇåÁã
+                            for (t = 0; t < MEDIAINFO_PAGE_SIZE; t++)//gFileInfoBasicBuffer ï¿½ï¿½ï¿½ï¿½
                             {
                                 gFileTreeBasicBuffer[t] = 0;
                             }
-                            ulFileTreeBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ÏòÏÂÒ»¸öpage£¬ÎªÏÂ´ÎÐ´×ö×¼±¸
+                            ulFileTreeBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½pageï¿½ï¿½Îªï¿½Â´ï¿½Ð´ï¿½ï¿½×¼ï¿½ï¿½
                         }
                     }
                 }
@@ -592,27 +592,27 @@ void SearchAndSaveMusicInfo(void)
                 pFileTreeBasic->dwNodeFlag = MEDIA_FILE_TYPE_FILE;
                 pFileTreeBasic->dwExtendTreeID = 0xffffffff;
 
-                hMusicFile = FileOpenByFileFDT(Fdt, "R"); // ¸ÄÐ´µÄFileOpenº¯ÊýËÑË÷ËÙ¶È´óÎªÌá¸ß
+                hMusicFile = FileOpenByFileFDT(Fdt, "R"); // ï¿½ï¿½Ð´ï¿½ï¿½FileOpenï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶È´ï¿½Îªï¿½ï¿½ï¿½
 
-                if (hMusicFile != NOT_OPEN_FILE)//³É¹¦´ò¿ªÎÄ¼þ//´ò¿ªÎÄ¼þ²¢½âÎöID3ÐÅÏ¢
+                if (hMusicFile != NOT_OPEN_FILE)//ï¿½É¹ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½//ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ID3ï¿½ï¿½Ï¢
                 {
                     memset((UINT8*)&ID3Info, 0, sizeof(ID3V2X_INFO));
 
 #ifdef _RK_ID3_
                     GetAudioId3Info(hMusicFile , &ID3Info, &Fdt.Name[8]);
 #endif
-                }//´ò¿ªÎÄ¼þ²¢½âÎöID3ÐÅÏ¢
+                }//ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ID3ï¿½ï¿½Ï¢
 
                 FileClose(hMusicFile);
                 hMusicFile = -1;
-                GetLongFileName(FindDataInfo_Local.Clus, FindDataInfo_Local.Index - 1, FS_FAT_EX_VOICE, pFileSaveTemp->LongFileName); // »ñÈ¡±£´æµÄ³¤ÎÄ¼þÃûÐÅÏ¢
+                GetLongFileName(FindDataInfo_Local.Clus, FindDataInfo_Local.Index - 1, FS_FAT_EX_VOICE, pFileSaveTemp->LongFileName); // ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Ä³ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
 
                 for (i=0; i<MEDIA_ID3_SAVE_CHAR_NUM; i++)
                 {
-                    pFileSaveTemp->id3_title[i] = ID3Info.id3_title[i]; // ±£´æ¸èÊÖÐÅÏ¢
-                    pFileSaveTemp->id3_singer[i] = ID3Info.id3_singer[i]; // ±£´æ¸èÊÖÐÅÏ¢
-                    pFileSaveTemp->id3_album[i] = ID3Info.id3_album[i];  // ±£´æ×¨¼­ÐÅÏ¢
-                    pFileSaveTemp->Genre[i] = ID3Info.id3_genre[i];// ±£´æ×¨¼­ÐÅÏ¢
+                    pFileSaveTemp->id3_title[i] = ID3Info.id3_title[i]; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
+                    pFileSaveTemp->id3_singer[i] = ID3Info.id3_singer[i]; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
+                    pFileSaveTemp->id3_album[i] = ID3Info.id3_album[i];  // ï¿½ï¿½ï¿½ï¿½×¨ï¿½ï¿½ï¿½ï¿½Ï¢
+                    pFileSaveTemp->Genre[i] = ID3Info.id3_genre[i];// ï¿½ï¿½ï¿½ï¿½×¨ï¿½ï¿½ï¿½ï¿½Ï¢
                 }
 
                 for (i = 0; i < 4; i++)
@@ -685,23 +685,23 @@ void SearchAndSaveMusicInfo(void)
                     }
                 }
 
-                SaveFileInfo(&gFileInfoBasicBuffer[uiFileInfoBasicIndex * BYTE_NUM_SAVE_PER_FILE], pFileSaveTemp, 1); // ±£´æÎÄ¼þÐÅÏ¢¼°ÅÅÐòË÷ÒýÐÅÏ¢ °Ñ»ñÈ¡µÄµ±Ç°ÎÄ¼þµÄÐÅÏ¢´æÓÚÈ«¾Ö±äÁ¿gPageWriteBufferµÄÄ³¸öÎ»ÖÃ
+                SaveFileInfo(&gFileInfoBasicBuffer[uiFileInfoBasicIndex * BYTE_NUM_SAVE_PER_FILE], pFileSaveTemp, 1); // ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ ï¿½Ñ»ï¿½È¡ï¿½Äµï¿½Ç°ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½È«ï¿½Ö±ï¿½ï¿½ï¿½gPageWriteBufferï¿½ï¿½Ä³ï¿½ï¿½Î»ï¿½ï¿½
                 uiTotalMusic++;  // all sort media file
                 uiFileInfoBasicIndex++;
                 pFileTreeBasic->dwBasicInfoID = uiTotalMusic - 1;
 
 
-                if (uiFileInfoBasicIndex == FILE_SAVE_NUM_PER_PAGE)//gFileInfoBasicBuffer ÒÑ¾­´æÂúÐÅÏ¢£¬´óÐ¡Îª8k £¬¾Í¿ªÊ¼Ð´flash
+                if (uiFileInfoBasicIndex == FILE_SAVE_NUM_PER_PAGE)//gFileInfoBasicBuffer ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Ð¡Îª8k ï¿½ï¿½ï¿½Í¿ï¿½Ê¼Ð´flash
                 {
-                    uiFileInfoBasicIndex = 0;//ÎÄ¼þÐòºÅ»ØÁã
+                    uiFileInfoBasicIndex = 0;//ï¿½Ä¼ï¿½ï¿½ï¿½Å»ï¿½ï¿½ï¿½
 
                     MDWrite(DataDiskID, ulFileInfoBasicSectorAddr, (MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE), gFileInfoBasicBuffer);//gPageTempBuffer);//
 
-                    for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ÇåÁã
+                    for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ï¿½ï¿½ï¿½ï¿½
                     {
                         gFileInfoBasicBuffer[i] = 0;
                     }
-                    ulFileInfoBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ÏòÏÂÒ»¸öpage£¬ÎªÏÂ´ÎÐ´×ö×¼±¸
+                    ulFileInfoBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½pageï¿½ï¿½Îªï¿½Â´ï¿½Ð´ï¿½ï¿½×¼ï¿½ï¿½
                 }
 
                 pFileTreeBasic++;
@@ -712,17 +712,17 @@ void SearchAndSaveMusicInfo(void)
 
                     MDWrite(DataDiskID, ulFileTreeBasicSectorAddr, (MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE), gFileTreeBasicBuffer);
 
-                    for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ÇåÁã
+                    for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ï¿½ï¿½ï¿½ï¿½
                     {
                         gFileTreeBasicBuffer[i] = 0;
                     }
-                    ulFileTreeBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ÏòÏÂÒ»¸öpage£¬ÎªÏÂ´ÎÐ´×ö×¼±¸
+                    ulFileTreeBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½pageï¿½ï¿½Îªï¿½Â´ï¿½Ð´ï¿½ï¿½×¼ï¿½ï¿½
                 }
             }
 
             uiCountTemp = uiTotalFile;
 
-            if ( uiHundredFlag == (uiCountTemp / 20))  //uiÏÔÊ¾case £¬Ã¿ÕÒµ½20¸öÎÄ¼þË¢Ò»ÕÅÍ¼Æ¬
+            if ( uiHundredFlag == (uiCountTemp / 20))  //uiï¿½ï¿½Ê¾case ï¿½ï¿½Ã¿ï¿½Òµï¿½20ï¿½ï¿½ï¿½Ä¼ï¿½Ë¢Ò»ï¿½ï¿½Í¼Æ¬
             {
                 //MedialibUpdataDisplay(uiTenFlag);
                 ++uiTenFlag;
@@ -746,7 +746,7 @@ void SearchAndSaveMusicInfo(void)
         {
             do
             {
-                GotoNextDir(MusicFileExtString, FS_FAT_EX_VOICE);       //±éÀúÏÂÒ»¸öÄ¿Â¼£¬ÕÒÍê×ÓÄ¿Â¼ÔÙÕÒÍ¬¼¶Ä¿Â¼
+                GotoNextDir(MusicFileExtString, FS_FAT_EX_VOICE);       //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ä¿Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Â¼ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½Ä¿Â¼
 
                 if ((SubDirInfo[CurDirDeep].TotalFile + SubDirInfo[CurDirDeep].TotalSubDir) == 0)
                 {
@@ -767,18 +767,18 @@ void SearchAndSaveMusicInfo(void)
 
             gFileTreeExtendBuffer[SubDirInfo[CurDirDeep - 1].DirNum + SubDirInfo[CurDirDeep - 1].CurDirNum - 1] = uiTotalFile;
 
-            FindDataInfo_Local.Clus = CurDirClus; // µ±Ç°Ä¿Â¼Ê×´ØºÅ
+            FindDataInfo_Local.Clus = CurDirClus; // ï¿½ï¿½Ç°Ä¿Â¼ï¿½×´Øºï¿½
             uiFindFileResult = FindFirst(&Fdt, &FindDataInfo_Local, MusicFileExtString, FS_FAT_EX_VOICE);
             uiTotalFileInDir = SubDirInfo[CurDirDeep].TotalFile + SubDirInfo[CurDirDeep].TotalSubDir;
         }
     }
 
-    if (uiFileInfoBasicIndex) // ±£´æ²»×ã2KµÄÎÄ¼þÐÅÏ¢
+    if (uiFileInfoBasicIndex) // ï¿½ï¿½ï¿½æ²»ï¿½ï¿½2Kï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢
     {
         MDWrite(DataDiskID, ulFileInfoBasicSectorAddr, (MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE), gFileInfoBasicBuffer);//gPageTempBuffer);//
     }
 
-    if (uiFileInfoExtendIndex) // ±£´æ²»×ã2KµÄÎÄ¼þÐÅÏ¢
+    if (uiFileInfoExtendIndex) // ï¿½ï¿½ï¿½æ²»ï¿½ï¿½2Kï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢
     {
         MDWrite(DataDiskID, ulFileInfoExtendSectorAddr, (MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE), gFileInfoExtendBuffer);//gPageTempBuffer);//
     }
@@ -794,7 +794,7 @@ void SearchAndSaveMusicInfo(void)
     }
 
     gSysConfig.MedialibPara.gTotalFileNum = uiTotalFile;
-    gSysConfig.MedialibPara.gMusicFileNum = uiTotalMusic; // µÃµ½ÏµÍ³È«²¿ÎÄ¼þÊýÄ¿£¬×î´óÎªSORT_FILENUM_DEFINE¸ö
+    gSysConfig.MedialibPara.gMusicFileNum = uiTotalMusic; // ï¿½Ãµï¿½ÏµÍ³È«ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ÎªSORT_FILENUM_DEFINEï¿½ï¿½
 
     FlashSec[0] = 0xffffffff;
     FlashSec[1] = 0xffffffff;
@@ -822,20 +822,20 @@ void SearchAndSaveRecordFmInfo(void)
 {
     UINT32  i;
     HANDLE hMusicFile;
-    MEDIA_FILE_SAVE_STRUCT  *pFileSaveTemp = &gFileSaveInfo; // ÓÃÓÚ±£´æÎÄ¼þÐÅÏ¢
+    MEDIA_FILE_SAVE_STRUCT  *pFileSaveTemp = &gFileSaveInfo; // ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢
 
     UINT16 uiTotalSubDir = 0;
     UINT16 uiTotalRecord = 0;
 
-    UINT16 uiFindFileResult = 0 ; // ÎÄ¼þ¼ìË÷½á¹û
+    UINT16 uiFindFileResult = 0 ; // ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     UINT16 uiTotalFileInDir = 0;
 
-    UINT16 uiFileInfoBasicIndex = 0;       // Flash Page¿ØÖÆ¼ÆÊý     ¸ÃÖµµÈÓÚ4Ê±£¬ÒÑ¾­½«Ò»¸öpage´óÐ¡µÄbafferÐ´Âú£¬¿ÉÒÔÐ´flashÁË
+    UINT16 uiFileInfoBasicIndex = 0;       // Flash Pageï¿½ï¿½ï¿½Æ¼ï¿½ï¿½ï¿½     ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½4Ê±ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½Ò»ï¿½ï¿½pageï¿½ï¿½Ð¡ï¿½ï¿½bafferÐ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´flashï¿½ï¿½
     UINT16 uiFileInfoExtendIndex = 0;
     UINT16 uiFileTreeBasicIndex = 0;
     UINT16 uiFileTreeExtendIndex = 0;
 
-    UINT32 ulFileInfoBasicSectorAddr = 0; // ±£´æÎÄ¼þÏêÏ¸ÐÅÏ¢µÄÆðÊ¼sectorµØÖ·
+    UINT32 ulFileInfoBasicSectorAddr = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Ê¼sectorï¿½ï¿½Ö·
     UINT32 ulFileInfoExtendSectorAddr = 0;
     UINT32 ulFileTreeBasicSectorAddr = 0;
     UINT32 ulFileTreeExtendSectorAddr = 0;
@@ -850,13 +850,13 @@ void SearchAndSaveRecordFmInfo(void)
     FIND_DATA	 FindDataInfo_Local;
     FDT Fdt;
 
-    ModuleOverlay(MODULE_ID_AUDIO_ID3, MODULE_OVERLAY_ALL); //µ÷ÓÃID3 ½âÎö´úÂë
-    ModuleOverlay(MODULE_ID_FLASH_PROG, MODULE_OVERLAY_ALL); //µ÷ÓÃÐ´flash´úÂë
+    ModuleOverlay(MODULE_ID_AUDIO_ID3, MODULE_OVERLAY_ALL); //ï¿½ï¿½ï¿½ï¿½ID3 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    ModuleOverlay(MODULE_ID_FLASH_PROG, MODULE_OVERLAY_ALL); //ï¿½ï¿½ï¿½ï¿½Ð´flashï¿½ï¿½ï¿½ï¿½
 
-    FileSaveStructInit(pFileSaveTemp); // ½«ÓÃÓÚ¼ÇÂ¼ÎÄ¼þ±£´æÐÅÏ¢µÄ½á¹¹ÌåÇå0
+    FileSaveStructInit(pFileSaveTemp); // ï¿½ï¿½ï¿½ï¿½ï¿½Ú¼ï¿½Â¼ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½Ä½á¹¹ï¿½ï¿½ï¿½ï¿½0
     PageWriteBufferInit();
 
-    ulFileInfoBasicSectorAddr = MediaInfoAddr + RECORD_SAVE_INFO_SECTOR_START; //±£´æÏêÏ¸µÄÎÄ¼þÐÅÏ¢ÆðÊ¼µØÖ·(secÖµ)
+    ulFileInfoBasicSectorAddr = MediaInfoAddr + RECORD_SAVE_INFO_SECTOR_START; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ê¼ï¿½ï¿½Ö·(secÖµ)
     ulFileInfoExtendSectorAddr = ulFileInfoBasicSectorAddr + MEDIAINFO_BLOCK_SIZE * 16;
 
     ulFileTreeBasicSectorAddr = MediaInfoAddr + RECORD_TREE_INFO_SECTOR_START;
@@ -864,7 +864,7 @@ void SearchAndSaveRecordFmInfo(void)
 
     gwSaveDirClus = GetDirClusIndex("U:\\RECORD     \\FM");
     GotoCurDir(RecordFileExtString, FS_FAT);
-    FindDataInfo_Local.Clus = CurDirClus; // ¸ùÄ¿Â¼´ØºÅ
+    FindDataInfo_Local.Clus = CurDirClus; // ï¿½ï¿½Ä¿Â¼ï¿½Øºï¿½
     uiFindFileResult = FindFirstFile(&Fdt, &FindDataInfo_Local, RecordFileExtString, FS_FAT);
     uiTotalFileInDir = SubDirInfo[CurDirDeep].TotalFile;
     //printf("root:uiTotalFileInDir = %d\n", uiTotalFileInDir);
@@ -908,17 +908,17 @@ void SearchAndSaveRecordFmInfo(void)
             uiFileInfoExtendIndex++;
             pFileTreeBasic->dwBasicInfoID = uiTotalRecord - 1 + (MEDIAINFO_BLOCK_SIZE * 16  * SECTOR_BYTE_SIZE)  / BYTE_NUM_SAVE_PER_FILE;
 
-            if (uiFileInfoExtendIndex == FILE_SAVE_NUM_PER_PAGE)//gFileInfoBasicBuffer ÒÑ¾­´æÂúÐÅÏ¢£¬´óÐ¡Îª8k £¬¾Í¿ªÊ¼Ð´flash
+            if (uiFileInfoExtendIndex == FILE_SAVE_NUM_PER_PAGE)//gFileInfoBasicBuffer ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Ð¡Îª8k ï¿½ï¿½ï¿½Í¿ï¿½Ê¼Ð´flash
             {
-                uiFileInfoExtendIndex = 0;//ÎÄ¼þÐòºÅ»ØÁã
+                uiFileInfoExtendIndex = 0;//ï¿½Ä¼ï¿½ï¿½ï¿½Å»ï¿½ï¿½ï¿½
 
                 MDWrite(DataDiskID, ulFileInfoExtendSectorAddr, (MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE), gFileInfoExtendBuffer);//gPageTempBuffer);//
 
-                for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ÇåÁã
+                for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ï¿½ï¿½ï¿½ï¿½
                 {
                     gFileInfoExtendBuffer[i] = 0;
                 }
-                ulFileInfoExtendSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ÏòÏÂÒ»¸öpage£¬ÎªÏÂ´ÎÐ´×ö×¼±¸
+                ulFileInfoExtendSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½pageï¿½ï¿½Îªï¿½Â´ï¿½Ð´ï¿½ï¿½×¼ï¿½ï¿½
             }
 
 
@@ -930,18 +930,18 @@ void SearchAndSaveRecordFmInfo(void)
 
                 MDWrite(DataDiskID, ulFileTreeBasicSectorAddr, (MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE), gFileTreeBasicBuffer);
 
-                for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ÇåÁã
+                for (i = 0; i < MEDIAINFO_PAGE_SIZE; i++)//gFileInfoBasicBuffer ï¿½ï¿½ï¿½ï¿½
                 {
                     gFileTreeBasicBuffer[i] = 0;
                 }
-                ulFileTreeBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ÏòÏÂÒ»¸öpage£¬ÎªÏÂ´ÎÐ´×ö×¼±¸
+                ulFileTreeBasicSectorAddr  +=  (MEDIAINFO_PAGE_SIZE / SECTOR_BYTE_SIZE);//Ö¸ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½pageï¿½ï¿½Îªï¿½Â´ï¿½Ð´ï¿½ï¿½×¼ï¿½ï¿½
 
             }
 
 
             uiCountTemp = uiTotalRecord;
 
-            if ( uiHundredFlag == (uiCountTemp / 20))  //uiÏÔÊ¾case £¬Ã¿ÕÒµ½20¸öÎÄ¼þË¢Ò»ÕÅÍ¼Æ¬
+            if ( uiHundredFlag == (uiCountTemp / 20))  //uiï¿½ï¿½Ê¾case ï¿½ï¿½Ã¿ï¿½Òµï¿½20ï¿½ï¿½ï¿½Ä¼ï¿½Ë¢Ò»ï¿½ï¿½Í¼Æ¬
             {
                 ++uiTenFlag;
 
@@ -961,12 +961,12 @@ void SearchAndSaveRecordFmInfo(void)
 
     }
 
-    if (uiFileInfoBasicIndex) // ±£´æ²»×ã2KµÄÎÄ¼þÐÅÏ¢
+    if (uiFileInfoBasicIndex) // ï¿½ï¿½ï¿½æ²»ï¿½ï¿½2Kï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢
     {
         MDWrite(DataDiskID, ulFileInfoBasicSectorAddr, (MEDIAINFO_PAGE_SIZE/512), gFileInfoBasicBuffer);//gPageTempBuffer);//
     }
 
-    if (uiFileInfoExtendIndex) // ±£´æ²»×ã2KµÄÎÄ¼þÐÅÏ¢
+    if (uiFileInfoExtendIndex) // ï¿½ï¿½ï¿½æ²»ï¿½ï¿½2Kï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢
     {
         MDWrite(DataDiskID, ulFileInfoExtendSectorAddr, (MEDIAINFO_PAGE_SIZE/512), gFileInfoExtendBuffer);//gPageTempBuffer);//
     }

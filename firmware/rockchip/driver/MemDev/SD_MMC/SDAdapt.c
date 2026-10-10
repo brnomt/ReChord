@@ -14,6 +14,11 @@ $Log: $
 
 /*-------------------------------- Includes ----------------------------------*/
 
+#include "driver/GRF/hw_grf.h"   /* IOMUX_* pinmux macros */
+#include "driver/CRU/Hw_cru.h"  /* HCLK_EMMC_GATE & clock gate IDs */
+#include "driver/GPIO/gpio.h"   /* GPIOPortX_PinY enums */
+#include "driver/DMA/Hw_dma.h" /* pDMA_LLP, B_CTLL_* (before Dma.h) */
+#include "driver/DMA/Dma.h"     /* eDMA_CHN, DMA_CFGX, DMA_CTLL_* (vendor) */
 #include "SDConfig.h"
 
 
@@ -345,7 +350,8 @@ bool SDA_RegISR(SDMMC_PORT_E nSDCPort, pFunc Routine)
         IntRegister(INT_ID_EMMC, (void*)Routine);
     }
     else
-    {
+    {
+
     }
     return TRUE;
 
@@ -373,7 +379,8 @@ void SDA_EnableIRQ(SDMMC_PORT_E nSDCPort)
         IntEnable(INT_ID_EMMC);
     }
     else
-    {
+    {
+
     }
 
 }

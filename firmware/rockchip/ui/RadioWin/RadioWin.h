@@ -33,24 +33,24 @@
 
 //section define
 //FM menu permanent code.
-#define _ATTR_RADIOWIN_CODE_         __attribute__((section("RadioWinCode")))
-#define _ATTR_RADIOWIN_DATA_         __attribute__((section("RadioWinData")))
-#define _ATTR_RADIOWIN_BSS_          __attribute__((section("RadioWinBss"),zero_init))
+#define _ATTR_RADIOWIN_CODE_         
+#define _ATTR_RADIOWIN_DATA_         
+#define _ATTR_RADIOWIN_BSS_          
 
 //radio menu initial code
-#define _ATTR_RADIOWIN_INIT_CODE_    __attribute__((section("RadioWinInitCode")))
-#define _ATTR_RADIOWIN_INIT_DATA_    __attribute__((section("RadioWinInitData")))
-#define _ATTR_RADIOWIN_INIT_BSS_     __attribute__((section("RadioWinInitBss"),zero_init))
+#define _ATTR_RADIOWIN_INIT_CODE_    
+#define _ATTR_RADIOWIN_INIT_DATA_    
+#define _ATTR_RADIOWIN_INIT_BSS_     
 
 //radio menu auti-initial code
-#define _ATTR_RADIOWIN_DEINIT_CODE_  __attribute__((section("RadioWinDeInitCode")))
-#define _ATTR_RADIOWIN_DEINIT_DATA_  __attribute__((section("RadioWinDeInitData")))
-#define _ATTR_RADIOWIN_DEINIT_BSS_   __attribute__((section("RadioWinDeInitBss"),zero_init))
+#define _ATTR_RADIOWIN_DEINIT_CODE_  
+#define _ATTR_RADIOWIN_DEINIT_DATA_  
+#define _ATTR_RADIOWIN_DEINIT_BSS_   
 
 //radio menu dispatch code
-#define _ATTR_RADIOWIN_SERVICE_CODE_ __attribute__((section("RadioWinServiceCode")))
-#define _ATTR_RADIOWIN_SERVICE_DATA_ __attribute__((section("RadioWinServiceData")))
-#define _ATTR_RADIOWIN_SERVICE_BSS_  __attribute__((section("RadioWinServiceBss"),zero_init))
+#define _ATTR_RADIOWIN_SERVICE_CODE_ 
+#define _ATTR_RADIOWIN_SERVICE_DATA_ 
+#define _ATTR_RADIOWIN_SERVICE_BSS_  
 
 
 

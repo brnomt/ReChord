@@ -40,6 +40,8 @@
 *********************************************************************************************************
 */
 #include "SysInclude.h"
+#include "driver/BB/BBSystem.h"
+#include "driver/DAC/codec.h"   /* FS_44100Hz & sample-rate enum */   /* MSGBOX_CMD_* enum (vendor owner) */
 #include "stdio.h"
 #include "mailbox.h"
 #include "main2_msgbox.h"

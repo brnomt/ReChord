@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  SetBright.c
+* File Nameï¿½ï¿½  SetBright.c
 * 
 * Description:  set menu execution function configuration of brightness
 *
@@ -17,10 +17,10 @@
 #include "SysInclude.h"
 
 #ifdef _SYSSET_
-#include "setcommon.h"
-#include "setbright.h"
-#include "setmenu.h"
-#include "setmenuinterface.h"
+#include "SetCommon.h"
+#include "SetBright.h"
+#include "SetMenu.h"
+#include "SetMenuInterface.h"
 #include "Hold.h"
 
 /*

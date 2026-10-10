@@ -1,8 +1,8 @@
 /* ****************************************************************************/
-/* * Í¯ÀŞÌ§²Ù‚Ì²İ¸Ù°Ä?/
+/* * Í¯ï¿½ï¿½Ì§ï¿½Ù‚Ì²İ¸Ù°ï¿½?/
 /* ****************************************************************************/
-#include "..\ImageInclude\image_main.h"
-#include "..\ImageInclude\image_globals.h"
+#include "../ImageInclude/image_main.h"
+#include "../ImageInclude/image_globals.h"
 
 #include "SysInclude.h"
 
@@ -11,55 +11,55 @@
 
 #pragma arm section code = "ImageContrlCode", rodata = "ImageContrlCode", rwdata = "ImageContrlData", zidata = "ImageContrlBss"
 
-#include  "FsInclude.h"
+#include  "fsinclude.h"
 #include  "File.h"
 #include "thumbnail_read.h"
 
 /* ID3v2 Header */
 typedef struct _id3v2_Header {
-    char            Id[3];                          /* ƒtƒ@ƒCƒ‹¯•ÊqhID3h(54h,41h,47h)  */
-    unsigned char   Ver[2];                         /* ƒ^ƒO‚Ìƒo[ƒWƒ‡ƒ“ */
-    unsigned char   Flg;                            /*  Bit 7:”ñ“¯Šú‰»(’Êí0)
-                                                        Bit 6:Šg’£ƒwƒbƒ_—L
-                                                        Bit 5:ÀŒ±’†(’Êí0)
-                                                        Bit 4:(v2.4‚Ì‚İ)ƒtƒbƒ^—L
+    char            Id[3];                          /* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½Êqï¿½hID3ï¿½h(54h,41h,47h)  */
+    unsigned char   Ver[2];                         /* ï¿½^ï¿½Oï¿½Ìƒoï¿½[ï¿½Wï¿½ï¿½ï¿½ï¿½ */
+    unsigned char   Flg;                            /*  Bit 7:ï¿½ñ“¯Šï¿½ï¿½ï¿½(ï¿½Êï¿½0)
+                                                        Bit 6:ï¿½gï¿½ï¿½ï¿½wï¿½bï¿½_ï¿½L
+                                                        Bit 5:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½Êï¿½0)
+                                                        Bit 4:(v2.4ï¿½Ì‚ï¿½)ï¿½tï¿½bï¿½^ï¿½L
                                                         Bit 3~0:0 */
-    unsigned char   Size[4];                        /*  ID3v2ƒwƒbƒ_ˆÈ~‚ÌƒTƒCƒY
-                                                        “Æ©‚Ì”’l•\Œ»‚ğg—p‚µ‚Ä‚¢‚é‚Ì‚ÅˆÈ‰º‚Ì®‚ğg‚¤
+    unsigned char   Size[4];                        /*  ID3v2ï¿½wï¿½bï¿½_ï¿½È~ï¿½ÌƒTï¿½Cï¿½Y
+                                                        ï¿½Æï¿½ï¿½Ìï¿½ï¿½lï¿½\ï¿½ï¿½ï¿½ï¿½ï¿½gï¿½pï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½Ì‚ÅˆÈ‰ï¿½ï¿½Ìï¿½ï¿½ï¿½ï¿½gï¿½ï¿½
                                                         uint32_t val = (((uint8_t)Size[0])<<21) + (((uint8_t)Size[1])<<14) + (((uint8_t)Size[2])<<7) + (uint8_t)Size[3];*/
 } ID3V2_HEADER;
 
-/* ID3v23   Frame (ID3v2.2‚É‚Í”ñ‘Î‰) */
+/* ID3v23   Frame (ID3v2.2ï¿½É‚Í”ï¿½Î‰ï¿½) */
 typedef struct _id3v2_frame {
     char            Id[4];                          /* Frame Id */
-    char            Size[4];                        /* Frame Header‚ğœ‚¢‚½ƒtƒŒ[ƒ€‚ÌƒTƒCƒY*/
-    char            Flg[2];                         /* Šeíƒtƒ‰ƒO */
+    char            Size[4];                        /* Frame Headerï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ÌƒTï¿½Cï¿½Y*/
+    char            Flg[2];                         /* ï¿½eï¿½ï¿½tï¿½ï¿½ï¿½O */
 } ID3V23_FRAME;
 
-/* ID3v22   Frame (ID3v2.3‚É‚Í”ñ‘Î‰) */
+/* ID3v22   Frame (ID3v2.3ï¿½É‚Í”ï¿½Î‰ï¿½) */
 typedef struct _id3v22_frame {
     char            Id[3];                          /* Frame Id */
-    char            Size[3];                        /* Frame Header‚ğœ‚¢‚½ƒtƒŒ[ƒ€‚ÌƒTƒCƒY*/
+    char            Size[3];                        /* Frame Headerï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ÌƒTï¿½Cï¿½Y*/
 } ID3V22_FRAME;
 
-/* APIC Frame (ID3v2.2‚É‚Í”ñ‘Î‰) */
+/* APIC Frame (ID3v2.2ï¿½É‚Í”ï¿½Î‰ï¿½) */
 typedef struct _apic_frame {
-    ID3V23_FRAME    Fheader;                        /* ƒtƒŒ[ƒ€ƒwƒbƒ_ */
-    char            Txtencode;                      /* ƒeƒLƒXƒgƒGƒ“ƒR[ƒfƒBƒ“ƒO */
-    char            MineType[11];                   /* –„‚İƒ^ƒCƒv "image/jpeg" or "JPG" */
-    unsigned char   PictureType[2];                 /* ‰æ‘œƒ^ƒCƒv —á.3:ƒJƒo[•\ */
-    unsigned char   *Description;                   /* •t‘®ƒf[ƒ^ */
-    unsigned char   *PictureData;                   /* ‰æ‘œƒf[ƒ^ */
+    ID3V23_FRAME    Fheader;                        /* ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½wï¿½bï¿½_ */
+    char            Txtencode;                      /* ï¿½eï¿½Lï¿½Xï¿½gï¿½Gï¿½ï¿½ï¿½Rï¿½[ï¿½fï¿½Bï¿½ï¿½ï¿½O */
+    char            MineType[11];                   /* ï¿½ï¿½ï¿½ï¿½ï¿½İƒ^ï¿½Cï¿½v "image/jpeg" or "JPG" */
+    unsigned char   PictureType[2];                 /* ï¿½æ‘œï¿½^ï¿½Cï¿½v ï¿½ï¿½.3:ï¿½Jï¿½oï¿½[ï¿½\ */
+    unsigned char   *Description;                   /* ï¿½tï¿½ï¿½ï¿½fï¿½[ï¿½^ */
+    unsigned char   *PictureData;                   /* ï¿½æ‘œï¿½fï¿½[ï¿½^ */
 } APIC_FRAME;
 
-/* PIC  Frame (ID3v2.3‚É‚Í”ñ‘Î‰) */
+/* PIC  Frame (ID3v2.3ï¿½É‚Í”ï¿½Î‰ï¿½) */
 typedef struct _pic_frame {
-    ID3V22_FRAME    Fheader;                        /* ƒtƒŒ[ƒ€ƒwƒbƒ_ */
-    char            Txtencode;                      /* ƒeƒLƒXƒgƒGƒ“ƒR[ƒfƒBƒ“ƒO */
-    char            MineType[11];                   /* –„‚İƒ^ƒCƒv "image/jpeg" or "JPG" */
-    unsigned char   PictureType[1];                 /* ‰æ‘œƒ^ƒCƒv —á.3:ƒJƒo[•\ */
-    unsigned char   *Description;                   /* •t‘®ƒf[ƒ^ */
-    unsigned char   *PictureData;                   /* ‰æ‘œƒf[ƒ^ */
+    ID3V22_FRAME    Fheader;                        /* ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½wï¿½bï¿½_ */
+    char            Txtencode;                      /* ï¿½eï¿½Lï¿½Xï¿½gï¿½Gï¿½ï¿½ï¿½Rï¿½[ï¿½fï¿½Bï¿½ï¿½ï¿½O */
+    char            MineType[11];                   /* ï¿½ï¿½ï¿½ï¿½ï¿½İƒ^ï¿½Cï¿½v "image/jpeg" or "JPG" */
+    unsigned char   PictureType[1];                 /* ï¿½æ‘œï¿½^ï¿½Cï¿½v ï¿½ï¿½.3:ï¿½Jï¿½oï¿½[ï¿½\ */
+    unsigned char   *Description;                   /* ï¿½tï¿½ï¿½ï¿½fï¿½[ï¿½^ */
+    unsigned char   *PictureData;                   /* ï¿½æ‘œï¿½fï¿½[ï¿½^ */
 } PIC_FRAME;
 
 /* ATOM Header */
@@ -94,48 +94,48 @@ typedef struct {
 /* ASF Header Object */
 typedef struct {
     ASF_HEADER      Header;                         /* ASF Header */
-    int             HeaderNum;                      /* ¬ƒvƒƒWƒFƒNƒg‚Ì” */
-    char            Reserve1;                       /* —\–ñ—Ìˆæ */
-    char            Reserve2;                       /* —\–ñ—Ìˆæ */
+    int             HeaderNum;                      /* ï¿½ï¿½ï¿½vï¿½ï¿½ï¿½Wï¿½Fï¿½Nï¿½gï¿½Ìï¿½ */
+    char            Reserve1;                       /* ï¿½\ï¿½ï¿½Ìˆï¿½ */
+    char            Reserve2;                       /* ï¿½\ï¿½ï¿½Ìˆï¿½ */
 } HEADER_OBJECT;
 
 /* ASF Header Extension Object */
 typedef struct {
     ASF_HEADER      Header;                         /* ASF Header */
-    char            Reserve1[16];                   /* —\–ñ—Ìˆæ */
-    short           Reserve2;                       /* —\–ñ—Ìˆæ */
-    int             ExtSize;                        /* Šg’£ƒwƒbƒ_‚ÌƒoƒCƒg” */
+    char            Reserve1[16];                   /* ï¿½\ï¿½ï¿½Ìˆï¿½ */
+    short           Reserve2;                       /* ï¿½\ï¿½ï¿½Ìˆï¿½ */
+    int             ExtSize;                        /* ï¿½gï¿½ï¿½ï¿½wï¿½bï¿½_ï¿½Ìƒoï¿½Cï¿½gï¿½ï¿½ */
 } EXTENSION_OBJECT;
 
 /* MetaData Library Object Record */
 typedef struct {
-    short           LangIndex;                      /* Œ¾ŒêƒCƒ“ƒfƒbƒNƒX */
-    short           StreamNum;                      /* ƒXƒgƒŠ[ƒ€”Ô† */
-    short           NameLength;                     /* –¼‘O‚ÌƒoƒCƒg” */
-    short           DataType;                       /* ƒf[ƒ^Œ^ */
-    int             DataLength;                     /* ƒf[ƒ^‚ÌƒoƒCƒg” */
-    char            Name[24];                       /* ƒf[ƒ^–¼ */
+    short           LangIndex;                      /* ï¿½ï¿½ï¿½ï¿½Cï¿½ï¿½ï¿½fï¿½bï¿½Nï¿½X */
+    short           StreamNum;                      /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Ôï¿½ */
+    short           NameLength;                     /* ï¿½ï¿½ï¿½Oï¿½Ìƒoï¿½Cï¿½gï¿½ï¿½ */
+    short           DataType;                       /* ï¿½fï¿½[ï¿½^ï¿½^ */
+    int             DataLength;                     /* ï¿½fï¿½[ï¿½^ï¿½Ìƒoï¿½Cï¿½gï¿½ï¿½ */
+    char            Name[24];                       /* ï¿½fï¿½[ï¿½^ï¿½ï¿½ */
 } METALIB_RECORD;
 
 /* MetaData Library Object */
 typedef struct {
     ASF_HEADER      Header;                         /* ASF Header */
-    short           MetaNum;                        /* ƒƒ^ƒf[ƒ^‚Ì‘” */
+    short           MetaNum;                        /* ï¿½ï¿½ï¿½^ï¿½fï¿½[ï¿½^ï¿½Ì‘ï¿½ï¿½ï¿½ */
     METALIB_RECORD  Rec;                            /* Record */
 } METALIB_OBJECT;
 
 /* MetaData Library Object Record */
 typedef struct {
-    short           NameLength;                     /* –¼‘O‚ÌƒoƒCƒg” */
-    char            Name[24];                       /* ƒf[ƒ^–¼ */
-    short           DataType;                       /* ƒf[ƒ^Œ^ */
-    short           DataLength;                     /* ƒf[ƒ^‚ÌƒoƒCƒg” */
+    short           NameLength;                     /* ï¿½ï¿½ï¿½Oï¿½Ìƒoï¿½Cï¿½gï¿½ï¿½ */
+    char            Name[24];                       /* ï¿½fï¿½[ï¿½^ï¿½ï¿½ */
+    short           DataType;                       /* ï¿½fï¿½[ï¿½^ï¿½^ */
+    short           DataLength;                     /* ï¿½fï¿½[ï¿½^ï¿½Ìƒoï¿½Cï¿½gï¿½ï¿½ */
 } EXTDES_RECORD;
 
 /* MetaData Library Object */
 typedef struct {
     ASF_HEADER      Header;                         /* ASF Header */
-    short           MetaNum;                        /* ƒƒ^ƒf[ƒ^‚Ì‘” */
+    short           MetaNum;                        /* ï¿½ï¿½ï¿½^ï¿½fï¿½[ï¿½^ï¿½Ì‘ï¿½ï¿½ï¿½ */
 } EXTDES_OBJECT;
 
 
@@ -158,7 +158,7 @@ static int          Id3v2size;
 
 
 /************************************************************************/
-/* ŠO•” IF—p•Ï” */
+/* ï¿½Oï¿½ï¿½ IFï¿½pï¿½Ïï¿½ */
 static char* Thumb_FileName;
 FILE *Thumb_FilePointer;
 PIC_DATA ThumbData;
@@ -167,67 +167,67 @@ char ThumbType[11];
 
 
 /************************************************************************/
-/* “à•”ŠÖ”  */
-static int thumbfilejdg(char* thumb_filename);                                      /* Šg’£q‰ğÍ –ß‚è’l 0:ˆÙí 1:MP3 2:AAC 3:WMA */
-static int thumbfiletypejdg(FILE *fp);                                              /* Šg’£q‰ğÍ –ß‚è’l 0:ˆÙí 1:MP3 2:AAC 3:WMA */
-static int analyze_id3(FILE *fp);                                                   /* ID3‰ğÍ –ß‚è’l 0:ˆÙí 1:MP3 2:AAC 3:WMA */
-static int getheader(FILE *fp);                                                     /* ID3v2 ƒwƒbƒ_î•ñæ“¾ */
-static void initid3v2header(void);                                                  /* ƒwƒbƒ_‰Šú‰» */
-static void initerrinfo(void);                                                      /* “ÇˆÙí‰Šú‰» */
-static int seektoapicframe(FILE *fp);                                               /* APIC ƒtƒŒ[ƒ€‚Ü‚ÅˆÚ“® */
-static int seektopicframe(FILE *fp);                                                /* PIC ƒtƒŒ[ƒ€‚Ü‚ÅˆÚ“® */
-static int parseapicframe(FILE *fp, int *picsize);                                  /* APIC ƒtƒŒ[ƒ€•ª‰ğ */
-static int parsepicframe(FILE *fp, int *picsize);                                   /* PIC ƒtƒŒ[ƒ€•ª‰ğ */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½Öï¿½  */
+static int thumbfilejdg(char* thumb_filename);                                      /* ï¿½gï¿½ï¿½ï¿½qï¿½ï¿½ï¿½ ï¿½ß‚ï¿½l 0:ï¿½Ùï¿½ 1:MP3 2:AAC 3:WMA */
+static int thumbfiletypejdg(FILE *fp);                                              /* ï¿½gï¿½ï¿½ï¿½qï¿½ï¿½ï¿½ ï¿½ß‚ï¿½l 0:ï¿½Ùï¿½ 1:MP3 2:AAC 3:WMA */
+static int analyze_id3(FILE *fp);                                                   /* ID3ï¿½ï¿½ï¿½ ï¿½ß‚ï¿½l 0:ï¿½Ùï¿½ 1:MP3 2:AAC 3:WMA */
+static int getheader(FILE *fp);                                                     /* ID3v2 ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½æ“¾ */
+static void initid3v2header(void);                                                  /* ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+static void initerrinfo(void);                                                      /* ï¿½Çï¿½ï¿½Ùíï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+static int seektoapicframe(FILE *fp);                                               /* APIC ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Ü‚ÅˆÚ“ï¿½ */
+static int seektopicframe(FILE *fp);                                                /* PIC ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Ü‚ÅˆÚ“ï¿½ */
+static int parseapicframe(FILE *fp, int *picsize);                                  /* APIC ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+static int parsepicframe(FILE *fp, int *picsize);                                   /* PIC ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 static int atomheadersearch(ATOM_FRAME *atomframe, char *atomname, unsigned int atomsize, FILE *fp);                            /* ATOM Header Read */
-static int atomcovrsearch(FILE *fp);                                                /* ATOM covr ŒŸõˆ— */
-static int atomid32search(FILE *fp);                                                /* ATOM ID32 ŒŸõˆ— */
-static int atomsearchpicdata(FILE *fp);                                             /* ATOM ‰æ‘œƒf[ƒ^ŒŸõˆ— */
+static int atomcovrsearch(FILE *fp);                                                /* ATOM covr ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+static int atomid32search(FILE *fp);                                                /* ATOM ID32 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+static int atomsearchpicdata(FILE *fp);                                             /* ATOM ï¿½æ‘œï¿½fï¿½[ï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 static int itunesheadersearch(ATOM_FRAME *atomframe, char *atomname, unsigned int atomsize, FILE *fp);                          /* iTunes Header Read */
-static int parseExtObj(FILE *fp);                                                   /* Header Extension Object •ª‰ğ */
-static int parseExtConDesObj(FILE *fp);                                             /* Extend Content Description Object •ª‰ğ */
-static int analyze_asf(FILE *fp);                                                   /* ASF ƒtƒ@ƒCƒ‹ ‰ğÍ */
-static int seektoExtObj(FILE *fp, int objnum);                                      /* Header Extension Object‚Ü‚ÅˆÚ“® */
-static int seektoExtConDesObj(FILE *fp, int objnum);                                /* Extend Content Description Object‚Ü‚ÅˆÚ“® */
-static int parsewmpic(FILE *fp);                                                    /* WM/Picture •ª‰ğ */
+static int parseExtObj(FILE *fp);                                                   /* Header Extension Object ï¿½ï¿½ï¿½ï¿½ */
+static int parseExtConDesObj(FILE *fp);                                             /* Extend Content Description Object ï¿½ï¿½ï¿½ï¿½ */
+static int analyze_asf(FILE *fp);                                                   /* ASF ï¿½tï¿½@ï¿½Cï¿½ï¿½ ï¿½ï¿½ï¿½ */
+static int seektoExtObj(FILE *fp, int objnum);                                      /* Header Extension Objectï¿½Ü‚ÅˆÚ“ï¿½ */
+static int seektoExtConDesObj(FILE *fp, int objnum);                                /* Extend Content Description Objectï¿½Ü‚ÅˆÚ“ï¿½ */
+static int parsewmpic(FILE *fp);                                                    /* WM/Picture ï¿½ï¿½ï¿½ï¿½ */
 
 
 
 
-static int seekToRelativeOffset(FILE *fp, unsigned int ofs);                        /* ƒtƒ@ƒCƒ‹ƒ|ƒCƒ“ƒ^ˆÚ“® */
-static unsigned short Lit2Big16bit(unsigned short us);                              /* Little ¨ Big Endian 16bit */
-static unsigned int Lit2Big32bit(unsigned int ui);                                  /* Little ¨ Big Endian 32bit */
+static int seekToRelativeOffset(FILE *fp, unsigned int ofs);                        /* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½|ï¿½Cï¿½ï¿½ï¿½^ï¿½Ú“ï¿½ */
+static unsigned short Lit2Big16bit(unsigned short us);                              /* Little ï¿½ï¿½ Big Endian 16bit */
+static unsigned int Lit2Big32bit(unsigned int ui);                                  /* Little ï¿½ï¿½ Big Endian 32bit */
 
 
 
 /*************************************************/
-/*  Thumbnailî•ñ‰ğÍ                            */
+/*  Thumbnailï¿½ï¿½ï¿½ï¿½ï¿½                            */
 /*************************************************/
 void Thumbnail_Read_Task()
 {
-    int     res;                                        /* æ“¾Œ‹‰Ê */
+    int     res;                                        /* ï¿½æ“¾ï¿½ï¿½ï¿½ï¿½ */
     int     pos = 0;
 
     (int)FileSeek(0, SEEK_SET, (HANDLE)Thumb_FilePointer);
 
     initerrinfo();
-    /* Šg’£q”»’èˆ— */
-    res = thumbfiletypejdg(Thumb_FilePointer);          /* Šg’£q”»•Êˆ— */
+    /* ï¿½gï¿½ï¿½ï¿½qï¿½ï¿½ï¿½èˆï¿½ï¿½ */
+    res = thumbfiletypejdg(Thumb_FilePointer);          /* ï¿½gï¿½ï¿½ï¿½qï¿½ï¿½ï¿½Êï¿½ï¿½ï¿½ */
 
-    /* Šg’£q•Ê‰ğÍ */
+    /* ï¿½gï¿½ï¿½ï¿½qï¿½Ê‰ï¿½ï¿½ */
     switch (res)
     {
     case MP3:
-        /* ID3 ‰ğÍ */
+        /* ID3 ï¿½ï¿½ï¿½ */
         res = analyze_id3(Thumb_FilePointer);
         break;
     case AAC:
-        /* ATOM‚©‚çID3‚ğ’Šo */
-            /* ID3‚Ü‚Åƒtƒ@ƒCƒ‹ƒ|ƒCƒ“ƒ^‚ğˆÚ“®‚³‚¹‚é */
+        /* ATOMï¿½ï¿½ï¿½ï¿½ID3ï¿½ğ’Šo */
+            /* ID3ï¿½Ü‚Åƒtï¿½@ï¿½Cï¿½ï¿½ï¿½|ï¿½Cï¿½ï¿½ï¿½^ï¿½ï¿½ï¿½Ú“ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
         res = atomsearchpicdata(Thumb_FilePointer);
-        /* ’ŠoŒ‹‰Ê‚ğ‰ğÍ */
+        /* ï¿½ï¿½ï¿½oï¿½ï¿½ï¿½Ê‚ï¿½ï¿½ï¿½ï¿½ */
         if (res == 2)
         {
-            /* ID3 ƒtƒŒ[ƒ€ ”­Œ© */
+            /* ID3 ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ */
             pos = FileTell((HANDLE)(Thumb_FilePointer) + 14);
             (int) FileSeek(pos, SEEK_SET, (HANDLE) Thumb_FilePointer);
             res = analyze_id3(Thumb_FilePointer);
@@ -240,7 +240,7 @@ void Thumbnail_Read_Task()
         break;
 
     default:
-        /* ”ñ‘Î‰Šg’£q‚Ü‚½‚Í“ÇƒGƒ‰[ */
+        /* ï¿½ï¿½Î‰ï¿½ï¿½gï¿½ï¿½ï¿½qï¿½Ü‚ï¿½ï¿½Í“Çï¿½ï¿½Gï¿½ï¿½ï¿½[ */
 
         break;
     }
@@ -252,7 +252,7 @@ void Thumbnail_Read_Task()
 }
 
 /* **************************************** */
-/* “ÇˆÙí‰Šú‰»ˆ—                       */
+/* ï¿½Çï¿½ï¿½Ùíï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½                       */
 /* **************************************** */
 static void initerrinfo(void)
 {
@@ -263,9 +263,9 @@ static void initerrinfo(void)
 
 
 /*************************************************/
-/*  Thumbnail  Šg’£q”»’è                         */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0:ˆÙí 1 : MP3 2 : AAC */
+/*  Thumbnail  ï¿½gï¿½ï¿½ï¿½qï¿½ï¿½ï¿½ï¿½                         */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0:ï¿½Ùï¿½ 1 : MP3 2 : AAC */
 /*************************************************/
 static int thumbfilejdg(char *thumbfilename)
 {
@@ -277,7 +277,7 @@ static int thumbfilejdg(char *thumbfilename)
     memset(str, 0, 128);
     memcpy(str, thumbfilename, strlen(thumbfilename));
 
-    /* Šg’£q ŒŸõ */
+    /* ï¿½gï¿½ï¿½ï¿½q ï¿½ï¿½ï¿½ï¿½ */
     buf[i] = strtok(str, ".");
     do
     {
@@ -286,13 +286,13 @@ static int thumbfilejdg(char *thumbfilename)
 
     i = 0;
 
-    while (buf[i] != NULL) {                        /* ÅŒã‚Ìƒg[ƒNƒ“‚ªŠg’£q */
+    while (buf[i] != NULL) {                        /* ï¿½ÅŒï¿½Ìƒgï¿½[ï¿½Nï¿½ï¿½ï¿½ï¿½ï¿½gï¿½ï¿½ï¿½q */
         filetype = buf[i];
         i++;
     }
 
-    /* Šg’£q ”»’è */
-    for (i = 0; i < strlen(filetype); i++)          /* ‘å•¶š‚ğ¬•¶š‚É•ÏŠ· */
+    /* ï¿½gï¿½ï¿½ï¿½q ï¿½ï¿½ï¿½ï¿½ */
+    for (i = 0; i < strlen(filetype); i++)          /* ï¿½å•¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É•ÏŠï¿½ */
     {
         if ((filetype[i] >= 'A') && (filetype[i] <= 'Z'))
         {
@@ -315,9 +315,9 @@ static int thumbfilejdg(char *thumbfilename)
 }
 
 /*************************************************/
-/*  Thumbnail  Šg’£q”»’è                         */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0:ˆÙí 1 : MP3 2 : AAC */
+/*  Thumbnail  ï¿½gï¿½ï¿½ï¿½qï¿½ï¿½ï¿½ï¿½                         */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0:ï¿½Ùï¿½ 1 : MP3 2 : AAC */
 /*************************************************/
 static int thumbfiletypejdg(FILE *fp)
 {
@@ -328,7 +328,7 @@ static int thumbfiletypejdg(FILE *fp)
 
     memset(str, 0, 32);
 
-    /* ƒtƒ@ƒCƒ‹æ“ª•”•ª“Ço‚µ */
+    /* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½æ“ªï¿½ï¿½ï¿½ï¿½ï¿½Çoï¿½ï¿½ */
     res = FileRead((uint8*) &str, (16 * sizeof(char)), (HANDLE) fp);
     if (res < sizeof(ID3V23_FRAME)) {
         return -1;
@@ -353,28 +353,28 @@ static int thumbfiletypejdg(FILE *fp)
 }
 
 /*************************************************/
-/*  ID3 ‰ğÍ                                   */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  ID3 ï¿½ï¿½ï¿½                                   */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int analyze_id3(FILE *fp)
 {
     int     res = 0;
     int     picsize;
 
-    res = getheader(fp);                                        /* ƒwƒbƒ_î•ñæ“¾ */
+    res = getheader(fp);                                        /* ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½æ“¾ */
     if (res < 0) {
-        /* “Ç or ¯•ÊqƒGƒ‰[ */
+        /* ï¿½Çï¿½ or ï¿½ï¿½ï¿½Êqï¿½Gï¿½ï¿½ï¿½[ */
         return -1;
     }
 
     if (Id3v2_header.Ver[0] == 0x02) {
         /* ID3v2.2 */
-        res = seektopicframe(fp);                               /* PIC ƒtƒŒ[ƒ€‚Ü‚ÅˆÚ“® */
+        res = seektopicframe(fp);                               /* PIC ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Ü‚ÅˆÚ“ï¿½ */
     }
     else {
         /* ID3v2.3 & ID3v2.4 */
-        res = seektoapicframe(fp);                              /* APIC ƒtƒŒ[ƒ€‚Ü‚ÅˆÚ“® */
+        res = seektoapicframe(fp);                              /* APIC ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Ü‚ÅˆÚ“ï¿½ */
     }
     if (res < 0) {
         /* APIC/PIC Frame not exist or Cant't Read Err */
@@ -383,11 +383,11 @@ static int analyze_id3(FILE *fp)
 
     if (Id3v2_header.Ver[0] == 0x02) {
         /* ID3v2.2 */
-        res = parsepicframe(fp, &picsize);                      /* PIC ƒtƒŒ[ƒ€•ª‰ğ */
+        res = parsepicframe(fp, &picsize);                      /* PIC ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     }
     else {
         /* ID3v2.3 & ID3v2.4 */
-        res = parseapicframe(fp, &picsize);                     /* APIC ƒtƒŒ[ƒ€•ª‰ğ */
+        res = parseapicframe(fp, &picsize);                     /* APIC ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     }
     if (res < 0) {
         /* Cant't Read Err */
@@ -398,10 +398,10 @@ static int analyze_id3(FILE *fp)
 }
 
 /*************************************************/
-/*  APICƒtƒŒ[ƒ€•ª‰ğ                           */
-/*  ˆø”FFILE *fpFƒtƒ@ƒCƒ‹ƒ|ƒCƒ“ƒ^             */
-/*        char *ppicdataF‰æ‘œƒf[ƒ^           */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  APICï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½                           */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½FFILE *fpï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½|ï¿½Cï¿½ï¿½ï¿½^             */
+/*        char *ppicdataï¿½Fï¿½æ‘œï¿½fï¿½[ï¿½^           */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int parseapicframe(FILE *fp, int *picsize)
 {
@@ -416,7 +416,7 @@ static int parseapicframe(FILE *fp, int *picsize)
         return -1;
     }
 
-    /* ƒTƒCƒYŒvZ */
+    /* ï¿½Tï¿½Cï¿½Yï¿½vï¿½Z */
     if (Id3v2_header.Ver[0] == 0x03)
     {
         /* ID3v2.3 */
@@ -429,13 +429,13 @@ static int parseapicframe(FILE *fp, int *picsize)
             + (unsigned char)((apic_frame.Fheader.Size[2]) << 7) + (unsigned char)apic_frame.Fheader.Size[3];
     }
 
-    /* ƒeƒLƒXƒgƒGƒ“ƒR[ƒfƒBƒ“ƒOæ“¾ */
+    /* ï¿½eï¿½Lï¿½Xï¿½gï¿½Gï¿½ï¿½ï¿½Rï¿½[ï¿½fï¿½Bï¿½ï¿½ï¿½Oï¿½æ“¾ */
     if (FileRead((uint8*) &apic_frame.Txtencode, (1 * sizeof(apic_frame.Txtencode)), (HANDLE) fp) < sizeof(apic_frame.Txtencode)) {
         return -1;
     }
     pos = FileTell((HANDLE)(fp));
 
-    /* NULL‚Ü‚Å‚Ì—Ê‚ğŒv‘ª */
+    /* NULLï¿½Ü‚Å‚Ì—Ê‚ï¿½ï¿½vï¿½ï¿½ */
     while (buf[0] != 0) {             /* NULL */
         (int) FileRead((uint8*) &buf[0], 1, (HANDLE) fp);
         if (datasize < 11) {
@@ -448,14 +448,14 @@ static int parseapicframe(FILE *fp, int *picsize)
     if ((int) FileSeek(pos, SEEK_SET, (HANDLE) fp) != 0) {
         return -1;
     }
-    /* –„‚ß‚İƒ^ƒCƒvæ“¾ */
+    /* ï¿½ï¿½ï¿½ßï¿½ï¿½İƒ^ï¿½Cï¿½vï¿½æ“¾ */
     if (FileRead((uint8*) &apic_frame.MineType, (datasize * sizeof(char)), (HANDLE) fp) < (datasize * sizeof(char))) {
         return -1;
     }
 
     memcpy(&ThumbType, &apic_frame.MineType, datasize);
 
-    /* ‰æ‘œƒ^ƒCƒvæ“¾ */
+    /* ï¿½æ‘œï¿½^ï¿½Cï¿½vï¿½æ“¾ */
     if (FileRead((uint8*) &apic_frame.PictureType, (1 * sizeof(apic_frame.PictureType)), (HANDLE) fp) < sizeof(apic_frame.PictureType)) {
         return -1;
     }
@@ -464,14 +464,14 @@ static int parseapicframe(FILE *fp, int *picsize)
     datasize += sizeof(apic_frame.PictureType);
 
 
-    /* NULL‚Ü‚Å“Ç‚İÌ‚Ä‚é */
+    /* NULLï¿½Ü‚Å“Ç‚İÌ‚Ä‚ï¿½ */
     buf[0] = 1;
     while (buf[0] != 0) {             /* NULL */
         (int) FileRead((uint8*) &buf[0], 1, (HANDLE) fp);
         datasize++;
     }
 
-    /* ‰æ‘œƒf[ƒ^‚ÌƒTƒCƒYŒvZ */
+    /* ï¿½æ‘œï¿½fï¿½[ï¿½^ï¿½ÌƒTï¿½Cï¿½Yï¿½vï¿½Z */
     datasize = framesize - datasize;
     ThumbData.PicStart = (long)FileTell((HANDLE)(fp));
     ThumbData.PicSize = (long)datasize;
@@ -480,10 +480,10 @@ static int parseapicframe(FILE *fp, int *picsize)
 }
 
 /*************************************************/
-/*  PICƒtƒŒ[ƒ€•ª‰ğ                                */
-/*  ˆø”FFILE *fpFƒtƒ@ƒCƒ‹ƒ|ƒCƒ“ƒ^             */
-/*        char *ppicdataF‰æ‘œƒf[ƒ^           */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  PICï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½                                */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½FFILE *fpï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½|ï¿½Cï¿½ï¿½ï¿½^             */
+/*        char *ppicdataï¿½Fï¿½æ‘œï¿½fï¿½[ï¿½^           */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int parsepicframe(FILE *fp, int *picsize)
 {
@@ -497,18 +497,18 @@ static int parsepicframe(FILE *fp, int *picsize)
     if (FileRead((uint8*) &pic_frame.Fheader, (1 * sizeof(ID3V22_FRAME)), (HANDLE) fp) < sizeof(ID3V22_FRAME)) {
         return -1;
     }
-    /* ƒTƒCƒYŒvZ */
+    /* ï¿½Tï¿½Cï¿½Yï¿½vï¿½Z */
     framesize = (unsigned char)((pic_frame.Fheader.Size[0]) << 16)
         + ((unsigned char)(pic_frame.Fheader.Size[1]) << 8) + (unsigned char)pic_frame.Fheader.Size[2];
 
-    /* ƒeƒLƒXƒgƒGƒ“ƒR[ƒfƒBƒ“ƒOæ“¾ */
+    /* ï¿½eï¿½Lï¿½Xï¿½gï¿½Gï¿½ï¿½ï¿½Rï¿½[ï¿½fï¿½Bï¿½ï¿½ï¿½Oï¿½æ“¾ */
     if (FileRead((uint8*) &pic_frame.Txtencode, (1 * sizeof(pic_frame.Txtencode)), (HANDLE) fp) < sizeof(pic_frame.Txtencode)) {
         return -1;
     }
 
     pos = FileTell((HANDLE)(fp));
 
-    /* –„‚ß‚İƒ^ƒCƒv NULL‚Ü‚Å‚Ì—Ê‚ğŒv‘ª */
+    /* ï¿½ï¿½ï¿½ßï¿½ï¿½İƒ^ï¿½Cï¿½v NULLï¿½Ü‚Å‚Ì—Ê‚ï¿½ï¿½vï¿½ï¿½ */
     while (buf[0] != 0) {             /* NULL */
         (int) FileRead((uint8*) &buf[0], 1, (HANDLE) fp);
         if (datasize < 11) {
@@ -522,14 +522,14 @@ static int parsepicframe(FILE *fp, int *picsize)
         return -1;
     }
 
-    /* –„‚ß‚İƒ^ƒCƒvæ“¾ */
+    /* ï¿½ï¿½ï¿½ßï¿½ï¿½İƒ^ï¿½Cï¿½vï¿½æ“¾ */
     if (FileRead((uint8*) &pic_frame.MineType, (datasize * sizeof(char)), (HANDLE) fp) < (datasize * sizeof(char))) {
         return -1;
     }
 
     memcpy(&ThumbType, &pic_frame.MineType, datasize);
 
-    /* ‰æ‘œƒ^ƒCƒvæ“¾ */
+    /* ï¿½æ‘œï¿½^ï¿½Cï¿½vï¿½æ“¾ */
     if (FileRead((uint8*) &pic_frame.PictureType, (1 * sizeof(pic_frame.PictureType)), (HANDLE) fp) < sizeof(pic_frame.PictureType)) {
         return -1;
     }
@@ -537,14 +537,14 @@ static int parsepicframe(FILE *fp, int *picsize)
     datasize += sizeof(pic_frame.Txtencode);
     datasize += sizeof(pic_frame.PictureType);
 
-    /* NULL‚Ü‚Å“Ç‚İÌ‚Ä‚é */
+    /* NULLï¿½Ü‚Å“Ç‚İÌ‚Ä‚ï¿½ */
     buf[0] = 1;
     while (buf[0] != 0) {             /* NULL */
         (int) FileRead((uint8*) &buf[0], 1, (HANDLE) fp);
         datasize++;
     }
 
-    /* ‰æ‘œƒf[ƒ^‚ÌƒTƒCƒYŒvZ */
+    /* ï¿½æ‘œï¿½fï¿½[ï¿½^ï¿½ÌƒTï¿½Cï¿½Yï¿½vï¿½Z */
     datasize = framesize - datasize;
     ThumbData.PicStart = (long)FileTell((HANDLE)(fp));
     ThumbData.PicSize = (long)datasize;
@@ -553,9 +553,9 @@ static int parsepicframe(FILE *fp, int *picsize)
 }
 
 /*************************************************/
-/*  ID3 ƒwƒbƒ_î•ñæ“¾                          */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  ID3 ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½æ“¾                          */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int getheader(FILE *fp)
 {
@@ -608,9 +608,9 @@ static int getheader(FILE *fp)
 
 
 /*************************************************/
-/*  APIC Frame ˆÚ“®ˆ—                          */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  APIC Frame ï¿½Ú“ï¿½ï¿½ï¿½ï¿½ï¿½                          */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int seektoapicframe(FILE *fp)
 {
@@ -653,7 +653,7 @@ static int seektoapicframe(FILE *fp)
 
         if (strncmp(fid, "APIC", 4) == 0)
         {
-            /* APIC‚ğŒ©‚Â‚¯‚½‚çƒtƒŒ[ƒ€ƒwƒbƒ_‚Ü‚Åƒ|ƒCƒ“ƒ^‚ğ‚à‚Ç‚· */
+            /* APICï¿½ï¿½ï¿½ï¿½ï¿½Â‚ï¿½ï¿½ï¿½ï¿½ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½wï¿½bï¿½_ï¿½Ü‚Åƒ|ï¿½Cï¿½ï¿½ï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½Ç‚ï¿½ */
             if ((int) FileSeek(pos, SEEK_SET, (HANDLE) fp) != 0) {
                 return -1;
             }
@@ -757,7 +757,7 @@ static int seektoapicframe(FILE *fp)
             return -1;
         }
 #endif
-        if (seekToRelativeOffset(fp, size-1) != 0){         /* ƒTƒCƒY•ªˆÚ“® */
+        if (seekToRelativeOffset(fp, size-1) != 0){         /* ï¿½Tï¿½Cï¿½Yï¿½ï¿½ï¿½Ú“ï¿½ */
             return -1;
         }
         //FileSeek(size, SEEK_CUR, (HANDLE) fp);
@@ -769,9 +769,9 @@ static int seektoapicframe(FILE *fp)
 }
 
 /*************************************************/
-/*  PIC Frame ˆÚ“®ˆ—                           */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  PIC Frame ï¿½Ú“ï¿½ï¿½ï¿½ï¿½ï¿½                           */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int seektopicframe(FILE *fp)
 {
@@ -786,7 +786,7 @@ static int seektopicframe(FILE *fp)
 
     pos = FileTell((HANDLE)(fp));
 
-    while (pos <= Id3v2size)                            /* ID3v2––’[‚Ü‚ÅŒŸõ */
+    while (pos <= Id3v2size)                            /* ID3v2ï¿½ï¿½ï¿½[ï¿½Ü‚ÅŒï¿½ï¿½ï¿½ */
     {
         /* ID3v22 Frame Header Read */
         if (FileRead((uint8*) &id3v22_frame, (1 * sizeof(ID3V22_FRAME)), (HANDLE) fp) < sizeof(ID3V22_FRAME)) {
@@ -805,7 +805,7 @@ static int seektopicframe(FILE *fp)
 
         if (strncmp(fid, "PIC", 3) == 0)
         {
-            /* APIC‚ğŒ©‚Â‚¯‚½‚çƒtƒŒ[ƒ€ƒwƒbƒ_‚Ü‚Åƒ|ƒCƒ“ƒ^‚ğ‚à‚Ç‚· */
+            /* APICï¿½ï¿½ï¿½ï¿½ï¿½Â‚ï¿½ï¿½ï¿½ï¿½ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½wï¿½bï¿½_ï¿½Ü‚Åƒ|ï¿½Cï¿½ï¿½ï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½Ç‚ï¿½ */
             if ((int) FileSeek(pos, SEEK_SET, (HANDLE) fp) != 0) {
                 return -1;
             }
@@ -882,7 +882,7 @@ static int seektopicframe(FILE *fp)
             return -1;
         }
 #endif
-        if (seekToRelativeOffset(fp, size - 1) != 0){           /* ƒTƒCƒY•ªˆÚ“® */
+        if (seekToRelativeOffset(fp, size - 1) != 0){           /* ï¿½Tï¿½Cï¿½Yï¿½ï¿½ï¿½Ú“ï¿½ */
             return -1;
         }
 
@@ -894,9 +894,9 @@ static int seektopicframe(FILE *fp)
 
 
 /*************************************************/
-/*  ATOM ‰ğÍ                                  */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  ATOM ï¿½ï¿½ï¿½                                  */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int atomsearchpicdata(FILE *fp)
 {
@@ -911,7 +911,7 @@ static int atomsearchpicdata(FILE *fp)
     memset(&ftypframe, 0, sizeof(ATOM_FRAME));
     memset(&itunesframe, 0, sizeof(ITUNES_FRAME));
 
-    if (FileRead((uint8*) &ftypframe, (1 * sizeof(ATOM_HEADER)), (HANDLE) fp) < sizeof(ATOM_HEADER)) {          /* ATOM ƒwƒbƒ_ “Ç */
+    if (FileRead((uint8*) &ftypframe, (1 * sizeof(ATOM_HEADER)), (HANDLE) fp) < sizeof(ATOM_HEADER)) {          /* ATOM ï¿½wï¿½bï¿½_ ï¿½Çï¿½ */
         return -1;
     }
 
@@ -968,7 +968,7 @@ static int atomsearchpicdata(FILE *fp)
 }
 
 /* **************************************** */
-/*  î•ñ ‰Šú‰»                          */
+/*  ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½                          */
 /* **************************************** */
 static void initid3v2header(void)
 {
@@ -979,8 +979,8 @@ static void initid3v2header(void)
 }
 
 /* **************************************** */
-/* ATOM ‰ğÍ covr                         */
-/* ˆø”FFILE *fp:ƒtƒ@ƒCƒ‹ƒ|ƒCƒ“ƒ^         */
+/* ATOM ï¿½ï¿½ï¿½ covr                         */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½FFILE *fp:ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½|ï¿½Cï¿½ï¿½ï¿½^         */
 /* **************************************** */
 static int atomcovrsearch(FILE *fp)
 {
@@ -998,7 +998,7 @@ static int atomcovrsearch(FILE *fp)
     memset(&metaframe, 0, sizeof(ATOM_FRAME));
     memset(&ilstframe, 0, sizeof(ATOM_FRAME));
 
-    if (FileRead((uint8*) &moovframe, (1 * sizeof(ATOM_HEADER)), (HANDLE) fp) < sizeof(ATOM_HEADER)) {             /* moov atom “Ç */
+    if (FileRead((uint8*) &moovframe, (1 * sizeof(ATOM_HEADER)), (HANDLE) fp) < sizeof(ATOM_HEADER)) {             /* moov atom ï¿½Çï¿½ */
         return -1;
     }
 
@@ -1039,7 +1039,7 @@ static int atomcovrsearch(FILE *fp)
     }
 #endif
 
-    /* moovATOM“à‚Ìudta‚ğŒŸõ */
+    /* moovATOMï¿½ï¿½ï¿½ï¿½udtaï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     res = atomheadersearch(&atomframe, "udta", moovframe.Header.Length, fp);
     if (res < 0)
     {
@@ -1079,8 +1079,8 @@ static int atomcovrsearch(FILE *fp)
 }
 
 /* **************************************** */
-/* ATOM ‰ğÍ id32                         */
-/* ˆø”FFILE *fp:ƒtƒ@ƒCƒ‹ƒ|ƒCƒ“ƒ^         */
+/* ATOM ï¿½ï¿½ï¿½ id32                         */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½FFILE *fp:ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½|ï¿½Cï¿½ï¿½ï¿½^         */
 /* **************************************** */
 static int atomid32search(FILE *fp)
 {
@@ -1098,7 +1098,7 @@ static int atomid32search(FILE *fp)
     memset(&metaframe, 0, sizeof(ATOM_FRAME));
     memset(&ilstframe, 0, sizeof(ATOM_FRAME));
 
-    if (FileRead((uint8*) &moovframe, (1 * sizeof(ATOM_HEADER)), (HANDLE) fp) < sizeof(ATOM_HEADER)) {             /* moov atom “Ç */
+    if (FileRead((uint8*) &moovframe, (1 * sizeof(ATOM_HEADER)), (HANDLE) fp) < sizeof(ATOM_HEADER)) {             /* moov atom ï¿½Çï¿½ */
         return -1;
     }
 
@@ -1140,7 +1140,7 @@ static int atomid32search(FILE *fp)
     }
 #endif
 
-    /* moovATOM“à‚Ìmeta‚ğŒŸõ */
+    /* moovATOMï¿½ï¿½ï¿½ï¿½metaï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 
     res = atomheadersearch(&metaframe, "meta", moovframe.Header.Length, fp);
     if (res < 0)
@@ -1165,9 +1165,9 @@ static int atomid32search(FILE *fp)
 
 
 /* **************************************** */
-/* ATOM Header “Ç                           */
-/* ˆø”FATOM_FRAME:Ši”[êŠ               */
-/*      layernum:ŠK‘w                         */
+/* ATOM Header ï¿½Çï¿½                           */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½FATOM_FRAME:ï¿½iï¿½[ï¿½êŠ               */
+/*      layernum:ï¿½Kï¿½w                         */
 /* **************************************** */
 static int atomheadersearch(ATOM_FRAME *atomframe, char *atomname, unsigned int atomsize, FILE *fp)
 {
@@ -1181,7 +1181,7 @@ static int atomheadersearch(ATOM_FRAME *atomframe, char *atomname, unsigned int 
 
     while (totalsize < atomsize)
     {
-        if (FileRead((uint8*) &atomframe->Header, (1 * sizeof(ATOM_HEADER)), (HANDLE) fp) < sizeof(ATOM_HEADER)) {             /* ATOM Header æ“¾ */
+        if (FileRead((uint8*) &atomframe->Header, (1 * sizeof(ATOM_HEADER)), (HANDLE) fp) < sizeof(ATOM_HEADER)) {             /* ATOM Header ï¿½æ“¾ */
             return -1;
         }
         if (strncmp(atomframe->Header.Atomtype, atomname, 4) == 0)
@@ -1214,7 +1214,7 @@ static int atomheadersearch(ATOM_FRAME *atomframe, char *atomname, unsigned int 
     size = FileTell((HANDLE)(fp));
     while (size <= (atomlong + FileTell((HANDLE)(fp))))
     {
-        if (FileRead((uint8*) &atomframe->Header, (1 * sizeof(ATOM_HEADER)), (HANDLE) fp) < sizeof(ATOM_HEADER)) {             /* ATOM Header æ“¾ */
+        if (FileRead((uint8*) &atomframe->Header, (1 * sizeof(ATOM_HEADER)), (HANDLE) fp) < sizeof(ATOM_HEADER)) {             /* ATOM Header ï¿½æ“¾ */
             return -1;
         }
         if (strncmp(atomframe->Header.Atomtype, atomname, 4) == 0)
@@ -1231,9 +1231,9 @@ static int atomheadersearch(ATOM_FRAME *atomframe, char *atomname, unsigned int 
 }
 
 /* **************************************** */
-/* ATOM Header “Ç                           */
-/* ˆø”FATOM_FRAME:Ši”[êŠ               */
-/*      layernum:ŠK‘w                         */
+/* ATOM Header ï¿½Çï¿½                           */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½FATOM_FRAME:ï¿½iï¿½[ï¿½êŠ               */
+/*      layernum:ï¿½Kï¿½w                         */
 /* **************************************** */
 static int itunesheadersearch(ATOM_FRAME *atomframe, char *atomname, unsigned int atomsize, FILE *fp)
 {
@@ -1249,7 +1249,7 @@ static int itunesheadersearch(ATOM_FRAME *atomframe, char *atomname, unsigned in
 
     while (totalsize < atomsize)
     {
-        /* iTunes Header æ“¾ */
+        /* iTunes Header ï¿½æ“¾ */
         if (FileRead((uint8*) &itunesframe.Header, (1 * ITH2DOFS), (HANDLE) fp) < ITH2DOFS)
         {
             break;
@@ -1290,7 +1290,7 @@ static int itunesheadersearch(ATOM_FRAME *atomframe, char *atomname, unsigned in
     size = FileTell((HANDLE)(fp));
     while (size <= (atomsize + FileTell((HANDLE)(fp))))
     {
-        if (FileRead((uint8*) &itunesframe.Header, (1 * hofs), (HANDLE) fp) < hofs) {             /* iTunes Header æ“¾ */
+        if (FileRead((uint8*) &itunesframe.Header, (1 * hofs), (HANDLE) fp) < hofs) {             /* iTunes Header ï¿½æ“¾ */
             return -1;
         }
         if (strncmp(itunesframe.Header.Atomtype, atomname, 4) == 0)
@@ -1308,9 +1308,9 @@ static int itunesheadersearch(ATOM_FRAME *atomframe, char *atomname, unsigned in
 }
 
 /*************************************************/
-/*  ASF ‰ğÍ                                   */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  ASF ï¿½ï¿½ï¿½                                   */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int analyze_asf(FILE *fp)
 {
@@ -1326,40 +1326,40 @@ static int analyze_asf(FILE *fp)
 
     pos = FileTell((HANDLE) fp);
 
-    res = seektoExtConDesObj(fp, headerobj.HeaderNum);                      /* Extend Content Description  Object‚Ü‚ÅˆÚ“® */
+    res = seektoExtConDesObj(fp, headerobj.HeaderNum);                      /* Extend Content Description  Objectï¿½Ü‚ÅˆÚ“ï¿½ */
     if (res < 0) {
         /* Extend Content Description Object not exist or Cant't Read Err */
         if ((int) FileSeek(pos, SEEK_SET, (HANDLE) fp) != 0) {
                 return -1;
         }
-        res = seektoExtObj(fp, headerobj.HeaderNum);                            /* Header Extension Object‚Ü‚ÅˆÚ“® */
+        res = seektoExtObj(fp, headerobj.HeaderNum);                            /* Header Extension Objectï¿½Ü‚ÅˆÚ“ï¿½ */
         if (res < 0) {
             /* Header Extension Object not exist or Cant't Read Err */
             DEBUG("=====Header Extension Object not exist or Cant't Read Err=====\n");
             return -1;
         }
 
-        res = parseExtObj(fp);                                                  /* Header Extension Object •ª‰ğ */
+        res = parseExtObj(fp);                                                  /* Header Extension Object ï¿½ï¿½ï¿½ï¿½ */
         if (res < 0) {
             /* Cant't Read Err */
             DEBUG("=====Header Extension Cant't Read Err=====\n");
             return -1;
         }
     } else {
-        res = parseExtConDesObj(fp);                                            /* Extend Content Description Object •ª‰ğ */
+        res = parseExtConDesObj(fp);                                            /* Extend Content Description Object ï¿½ï¿½ï¿½ï¿½ */
         if (res < 0) {
             /* Cant't Read Err */
             if ((int) FileSeek(pos, SEEK_SET, (HANDLE) fp) != 0) {
                     return -1;
             }
-            res = seektoExtObj(fp, headerobj.HeaderNum);                            /* Header Extension Object‚Ü‚ÅˆÚ“® */
+            res = seektoExtObj(fp, headerobj.HeaderNum);                            /* Header Extension Objectï¿½Ü‚ÅˆÚ“ï¿½ */
             if (res < 0) {
                 /* Header Extension Object not exist or Cant't Read Err */
                 DEBUG("=====Header Extension Object not exist or Cant't Read Err=====\n");
                 return -1;
             }
 
-            res = parseExtObj(fp);                                                  /* Header Extension Object •ª‰ğ */
+            res = parseExtObj(fp);                                                  /* Header Extension Object ï¿½ï¿½ï¿½ï¿½ */
             if (res < 0) {
                 /* Cant't Read Err */
                 DEBUG("=====Header Extension Cant't Read Err=====\n");
@@ -1373,9 +1373,9 @@ static int analyze_asf(FILE *fp)
 
 
 /*************************************************/
-/*  ID3 ‰ğÍ                                   */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  ID3 ï¿½ï¿½ï¿½                                   */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int parseExtObj(FILE *fp)
 {
@@ -1401,14 +1401,14 @@ static int parseExtObj(FILE *fp)
         return -1;
     }
 
-    if (FileRead((uint8*) &extobj.ExtSize, (1 * sizeof(extobj.ExtSize)), (HANDLE) fp) < sizeof(extobj.ExtSize)) {             /* Header Extension Object ƒTƒCƒY æ“¾ */
+    if (FileRead((uint8*) &extobj.ExtSize, (1 * sizeof(extobj.ExtSize)), (HANDLE) fp) < sizeof(extobj.ExtSize)) {             /* Header Extension Object ï¿½Tï¿½Cï¿½Y ï¿½æ“¾ */
         return -1;
     }
     startpos = FileTell((HANDLE)(fp));
     size = extobj.ExtSize;
     while (pos <= (size + startpos)) {
         pos = FileTell((HANDLE)(fp));
-        if (FileRead((uint8*) &obj, (1 * sizeof(obj)), (HANDLE) fp) < sizeof(obj)) {             /* ƒIƒuƒWƒFƒNƒg æ“¾ */
+        if (FileRead((uint8*) &obj, (1 * sizeof(obj)), (HANDLE) fp) < sizeof(obj)) {             /* ï¿½Iï¿½uï¿½Wï¿½Fï¿½Nï¿½g ï¿½æ“¾ */
             return -1;
         }
 
@@ -1417,7 +1417,7 @@ static int parseExtObj(FILE *fp)
                 return -1;
             }
             num = sizeof(ASF_HEADER) + sizeof(short);
-            if (FileRead((uint8*) &metalibobj, (1 * num), (HANDLE) fp) < num) {             /* MetaData Library Object æ“¾ */
+            if (FileRead((uint8*) &metalibobj, (1 * num), (HANDLE) fp) < num) {             /* MetaData Library Object ï¿½æ“¾ */
                 return -1;
             }
 
@@ -1427,14 +1427,14 @@ static int parseExtObj(FILE *fp)
 
             for (i = 0; i < metalibobj.MetaNum; i++) {
                 num = (sizeof(short) * 4) + sizeof(int);
-                if (FileRead((uint8*) &metalibobj.Rec, (1 * num), (HANDLE) fp) < num) {             /* Record æ“¾ */
+                if (FileRead((uint8*) &metalibobj.Rec, (1 * num), (HANDLE) fp) < num) {             /* Record ï¿½æ“¾ */
                     return -1;
                 }
-                /* WM/Picture(2byte char + null)‚ÌŒŸõ‚È‚Ì‚Å24•¶šˆÈã‚Ì‚à‚Ì‚ÍSkip */
+                /* WM/Picture(2byte char + null)ï¿½ÌŒï¿½ï¿½ï¿½ï¿½È‚Ì‚ï¿½24ï¿½ï¿½ï¿½ï¿½ï¿½Èï¿½Ì‚ï¿½ï¿½Ì‚ï¿½Skip */
                 if (23 < metalibobj.Rec.NameLength) {
                     (int) FileSeek(metalibobj.Rec.NameLength, SEEK_CUR, (HANDLE) fp);
                 } else {
-                    if (FileRead((uint8*) &metalibobj.Rec.Name, (1 * metalibobj.Rec.NameLength), (HANDLE) fp) < metalibobj.Rec.NameLength) {             /* Name Length æ“¾ */
+                    if (FileRead((uint8*) &metalibobj.Rec.Name, (1 * metalibobj.Rec.NameLength), (HANDLE) fp) < metalibobj.Rec.NameLength) {             /* Name Length ï¿½æ“¾ */
                         return -1;
                     }
                 }
@@ -1488,7 +1488,7 @@ static int parseExtConDesObj(FILE *fp)
     memset(&extdesrec, 0, sizeof(EXTDES_RECORD));
 
 
-    if (FileRead((uint8*) &extdesobj, (1 * (sizeof(EXTDES_OBJECT))), (HANDLE) fp) < sizeof(EXTDES_OBJECT)) {             /* Extend Content Description Object Header æ“¾ */
+    if (FileRead((uint8*) &extdesobj, (1 * (sizeof(EXTDES_OBJECT))), (HANDLE) fp) < sizeof(EXTDES_OBJECT)) {             /* Extend Content Description Object Header ï¿½æ“¾ */
         return -1;
     }
 
@@ -1503,20 +1503,20 @@ static int parseExtConDesObj(FILE *fp)
 
     for (i = 0; i < extdesobj.MetaNum; i++) {
 
-        if (FileRead((uint8*) &extdesrec.NameLength, (1 * sizeof(short)), (HANDLE) fp) < sizeof(short)) {             /* Name Length æ“¾ */
+        if (FileRead((uint8*) &extdesrec.NameLength, (1 * sizeof(short)), (HANDLE) fp) < sizeof(short)) {             /* Name Length ï¿½æ“¾ */
             return -1;
         }
 
-        /* WM/Picture(2byte char + null)‚ÌŒŸõ‚È‚Ì‚Å24•¶šˆÈã‚Ì‚à‚Ì‚ÍSkip */
+        /* WM/Picture(2byte char + null)ï¿½ÌŒï¿½ï¿½ï¿½ï¿½È‚Ì‚ï¿½24ï¿½ï¿½ï¿½ï¿½ï¿½Èï¿½Ì‚ï¿½ï¿½Ì‚ï¿½Skip */
         if (23 < extdesrec.NameLength) {
             (int) FileSeek(extdesrec.NameLength, SEEK_CUR, (HANDLE) fp);
         } else {
-            if (FileRead((uint8*) &extdesrec.Name, (1 * extdesrec.NameLength), (HANDLE) fp) < extdesrec.NameLength) {             /* Name æ“¾ */
+            if (FileRead((uint8*) &extdesrec.Name, (1 * extdesrec.NameLength), (HANDLE) fp) < extdesrec.NameLength) {             /* Name ï¿½æ“¾ */
                 return -1;
             }
         }
 
-        if (FileRead((uint8*) &extdesrec.DataType, (2 * sizeof(short)), (HANDLE) fp) < (2 * sizeof(short))) {               /* DataType & DataLength æ“¾ */
+        if (FileRead((uint8*) &extdesrec.DataType, (2 * sizeof(short)), (HANDLE) fp) < (2 * sizeof(short))) {               /* DataType & DataLength ï¿½æ“¾ */
             return -1;
         }
 
@@ -1540,9 +1540,9 @@ static int parseExtConDesObj(FILE *fp)
 }
 
 /*************************************************/
-/*  ID3 ‰ğÍ                                   */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  ID3 ï¿½ï¿½ï¿½                                   */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int parsewmpic(FILE *fp)
 {
@@ -1551,19 +1551,19 @@ static int parsewmpic(FILE *fp)
     memset(mine, 0, 2);
 
 
-    if (FileRead((uint8*) &pictype, (1 * sizeof(char)), (HANDLE) fp) < sizeof(char)) {             /* Picture Type æ“¾ */
+    if (FileRead((uint8*) &pictype, (1 * sizeof(char)), (HANDLE) fp) < sizeof(char)) {             /* Picture Type ï¿½æ“¾ */
         return -1;
     }
 //  if ((int) FileSeek(1, SEEK_CUR, (HANDLE) fp) != 0) {             /* NULL */
 //      return -1;
 //  }
-    if (FileRead((uint8*) &picsize, (1 * sizeof(int)), (HANDLE) fp) < sizeof(int)) {             /* Picture Size æ“¾ */
+    if (FileRead((uint8*) &picsize, (1 * sizeof(int)), (HANDLE) fp) < sizeof(int)) {             /* Picture Size ï¿½æ“¾ */
         return -1;
     }
 
 
     while (sum != 0) {
-        if (FileRead((uint8*) &mine, (2 * sizeof(char)), (HANDLE) fp) < (2 * sizeof(char))) {             /* Mine Type æ“¾ */
+        if (FileRead((uint8*) &mine, (2 * sizeof(char)), (HANDLE) fp) < (2 * sizeof(char))) {             /* Mine Type ï¿½æ“¾ */
             return -1;
         }
         sum = mine[0] | mine[1];
@@ -1574,7 +1574,7 @@ static int parsewmpic(FILE *fp)
 
     sum = -1;
     while (sum != 0) {
-        if (FileRead((uint8*) &mine, (2 * sizeof(char)), (HANDLE) fp) < (2 * sizeof(char))) {             /* Mine Path æ“¾ */
+        if (FileRead((uint8*) &mine, (2 * sizeof(char)), (HANDLE) fp) < (2 * sizeof(char))) {             /* Mine Path ï¿½æ“¾ */
             return -1;
         }
         sum = mine[0] | mine[1];
@@ -1588,9 +1588,9 @@ static int parsewmpic(FILE *fp)
 }
 
 /*************************************************/
-/*  ID3 ‰ğÍ                                   */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  ID3 ï¿½ï¿½ï¿½                                   */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int seektoExtObj(FILE *fp, int objnum)
 {
@@ -1603,7 +1603,7 @@ static int seektoExtObj(FILE *fp, int objnum)
 
     while (num < objnum) {
         pos = FileTell((HANDLE)(fp));
-        if (FileRead((uint8*) &obj, (1 * sizeof(obj)), (HANDLE) fp) < sizeof(obj)) {             /* Object æ“¾ */
+        if (FileRead((uint8*) &obj, (1 * sizeof(obj)), (HANDLE) fp) < sizeof(obj)) {             /* Object ï¿½æ“¾ */
             return -1;
         }
 
@@ -1623,9 +1623,9 @@ static int seektoExtObj(FILE *fp, int objnum)
 }
 
 /*************************************************/
-/*  ID3 ‰ğÍ                                   */
-/*  ˆø”Fchar *thumbfilenameFƒtƒ@ƒCƒ‹ƒl[ƒ€   */
-/* –ß‚è’l 0<:ˆÙí 0 : ˆÙí‚È‚µ                    */
+/*  ID3 ï¿½ï¿½ï¿½                                   */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½Fchar *thumbfilenameï¿½Fï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½lï¿½[ï¿½ï¿½   */
+/* ï¿½ß‚ï¿½l 0<:ï¿½Ùï¿½ 0 : ï¿½Ùï¿½È‚ï¿½                    */
 /*************************************************/
 static int seektoExtConDesObj(FILE *fp, int objnum)
 {
@@ -1638,7 +1638,7 @@ static int seektoExtConDesObj(FILE *fp, int objnum)
 
     while (num < objnum) {
         pos = FileTell((HANDLE)(fp));
-        if (FileRead((uint8*) &obj, (1 * sizeof(obj)), (HANDLE) fp) < sizeof(obj)) {             /* Object æ“¾ */
+        if (FileRead((uint8*) &obj, (1 * sizeof(obj)), (HANDLE) fp) < sizeof(obj)) {             /* Object ï¿½æ“¾ */
             return -1;
         }
 
@@ -1658,22 +1658,22 @@ static int seektoExtConDesObj(FILE *fp, int objnum)
 }
 
 /* ********************************** */
-/* ƒJ[ƒ\ƒ‹ˆÊ’uˆÚ“®                   */
-/* ˆø”F*fp:ƒtƒ@ƒCƒ‹ƒfƒBƒXƒNƒŠƒvƒ^     */
-/*          ofsFˆÚ“®—Ê               */
+/* ï¿½Jï¿½[ï¿½\ï¿½ï¿½ï¿½Ê’uï¿½Ú“ï¿½                   */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½F*fp:ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½fï¿½Bï¿½Xï¿½Nï¿½ï¿½ï¿½vï¿½^     */
+/*          ofsï¿½Fï¿½Ú“ï¿½ï¿½ï¿½               */
 /* ********************************** */
 static int seekToRelativeOffset(FILE *fp, unsigned int ofs)
 {
     return (int) FileSeek(ofs + 1 , SEEK_CUR, (HANDLE) fp);
 }
 
-static unsigned short Lit2Big16bit(unsigned short us)                               /* Little ¨ Big Endian 16bit */
+static unsigned short Lit2Big16bit(unsigned short us)                               /* Little ï¿½ï¿½ Big Endian 16bit */
 {
     return (us << 8) | ((us >> 8) & 0x00FF);
 }
 
 
-static unsigned int Lit2Big32bit(unsigned int ui)                                   /* Little ¨ Big Endian 32bit */
+static unsigned int Lit2Big32bit(unsigned int ui)                                   /* Little ï¿½ï¿½ Big Endian 32bit */
 {
     return
         ((ui << 24) & 0xFF000000) | ((ui << 8) & 0x00FF0000) |
@@ -1681,7 +1681,7 @@ static unsigned int Lit2Big32bit(unsigned int ui)                               
 }
 
 /* ---------------------------------------------------------------------------------------------- */
-/*  ŠO•”I/FŠÖ”                                                                                  */
+/*  ï¿½Oï¿½ï¿½I/Fï¿½Öï¿½                                                                                  */
 /* ---------------------------------------------------------------------------------------------- */
 void Thumbnail_Task_SetFileName(char *buf[])
 {

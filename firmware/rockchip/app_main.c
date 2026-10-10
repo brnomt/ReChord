@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   main.c
+* File Nameï¿½ï¿½   main.c
 *
 * Description:
 *
@@ -15,14 +15,14 @@
 #define _IN_MAIN_
 
 #include "SysInclude.h"
-#include "FsInclude.h"
-#include "MainMenu.h"
+#include "fsinclude.h"
+#include "mainmenu.h"
 #include "PowerOn_Off.h"
 #include "Hold.h"
 #include "UsbAdapterProbe.h"
 
 #ifdef _RADIO_
-#include "FmControl.h"
+#include "FMControl.h"
 #endif
 
 #ifdef _MEDIA_MODULE_
@@ -83,7 +83,7 @@ void GpioIntForKey(void)
 --------------------------------------------------------------------------------
   Function name : PowerOnCheckKey
   Author        : ZHengYongzhi
-  Description   :  ¼ì²â¿ªÊ¼Ê±ÊÇ·ñÓÐPlay¼ü°´ÏÂ£¬Èç¹ûÃ»ÓÐ£¬¹Ø»ú
+  Description   :  ï¿½ï¿½â¿ªÊ¼Ê±ï¿½Ç·ï¿½ï¿½ï¿½Playï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ð£ï¿½ï¿½Ø»ï¿½
 
   Input         :
   Return        :
@@ -468,7 +468,7 @@ void SysVariableInit(void)
   Function name : Gpio_Init
   Author        : ZHengYongzhi
   Description   : hardware initializtion
-                  GPIO and AD initializtion£¬low power level check.
+                  GPIO and AD initializtionï¿½ï¿½low power level check.
                   LCD and Codec initializtion.
   Input         :
   Return        :
@@ -1047,7 +1047,7 @@ UINT32 Main(void)
     //Flash initial,get system parameter, file system initial
     MediaInit();
 
-    //ÎÄ¼þÏµÍ³³õÊ¼»¯Ö®ºó²ÅÄÜ³õÊ¼»¯µ÷ÊÔÎÄ¼þ
+    //ï¿½Ä¼ï¿½ÏµÍ³ï¿½ï¿½Ê¼ï¿½ï¿½Ö®ï¿½ï¿½ï¿½ï¿½Ü³ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½
 #ifdef _FILE_DEBUG_
     SysDebugHookInit();
 #endif
@@ -1078,7 +1078,7 @@ UINT32 Main(void)
     return (TRUE);
 }
 
-__attribute__((section("link_entry")))
+
 UINT32 Main1(void)
 {
     //Just for link

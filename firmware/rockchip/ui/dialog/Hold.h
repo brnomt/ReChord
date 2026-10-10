@@ -30,9 +30,9 @@
 *  
 *-------------------------------------------------------------------------------
 */
-#define _ATTR_HOLD_CODE_         __attribute__((section("DialogHoldCode")))
-#define _ATTR_HOLD_DATA_         __attribute__((section("DialogHoldData")))
-#define _ATTR_HOLD_BSS_          __attribute__((section("DialogHoldBss"),zero_init))
+#define _ATTR_HOLD_CODE_         
+#define _ATTR_HOLD_DATA_         
+#define _ATTR_HOLD_BSS_          
 
 #define     HOLD_DISPLAY_TIME    3//message box display 5 second
 #define     HOLD_STATE_ON        0

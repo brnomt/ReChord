@@ -15,6 +15,7 @@
 #define _IN_DELAY_  
 
 #include "SysInclude.h"
+#include "driver/CRU/cru.h"   /* chip_freq_t */
 extern chip_freq_t chip_freq2;
 /*
 --------------------------------------------------------------------------------

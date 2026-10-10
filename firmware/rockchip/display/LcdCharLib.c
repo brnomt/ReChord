@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   LcdCharLib.c
+* File Nameï¿½ï¿½   LcdCharLib.c
 * 
 * Description:  
 *
@@ -12,7 +12,7 @@
 *    desc:    ORG.
 ********************************************************************************
 */
-#include "Sysconfig.h"
+#include "SysConfig.h"
 #include "typedef.h"
 #include "macro.h"
 #include "Driverconfig.h"
@@ -370,7 +370,7 @@ UINT16 GetGbkCodeType(UINT8 GbkCode, UINT8 GbkCode1)
 _ATTR_DRIVERLIB_CODE_
 UINT16 Check_Special_TaiWen(UINT16 c)
 {
-    // Èç¹ûÊÇÌ©ÎÄµÄ ÉÏ±ê »òÕß ÏÂ±ê, ¿í¶ÈÎª 0.
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Ì©ï¿½Äµï¿½ ï¿½Ï±ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Â±ï¿½, ï¿½ï¿½ï¿½ï¿½Îª 0.
     if((0x0E34<=c && c<=0x0E3A)||
        (0x0E47<=c && c<=0x0E4E)||
        (c==0x0E08)||
@@ -417,8 +417,8 @@ UINT32 LCD_GetStringNum(UINT16 *s) {
   Author        : yangwenjie
   Description   : exchande the high 8 bits and low 8 bits
                   
-  Input         : pSrc      £ºsource buffer that will be changed.
-                  len       £ºthe length of string pointer by pSrc.
+  Input         : pSrc      ï¿½ï¿½source buffer that will be changed.
+                  len       ï¿½ï¿½the length of string pointer by pSrc.
 
   Return        : null 
 
@@ -443,7 +443,7 @@ void Lcdchang(UINT16*pSrc,UINT16 len)
 _ATTR_DRIVER_CODE_
 UINT16 Check_TaiWen(UINT16 c)
 {
-  // Èç¹ûÊÇÌ©ÎÄµÄ ÉÏ±ê »òÕß ÏÂ±ê, ¿í¶ÈÎª 0.
+  // ï¿½ï¿½ï¿½ï¿½ï¿½Ì©ï¿½Äµï¿½ ï¿½Ï±ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Â±ï¿½, ï¿½ï¿½ï¿½ï¿½Îª 0.
     if((c>=0x0E01&&c<=0x0E3A)||(c>=0x0E3f&&c<=0x0E5B)) {
 	 
        return c;

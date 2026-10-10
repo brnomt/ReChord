@@ -39,7 +39,7 @@ void FileInit(void)
 
     for (i = 0; i < MAX_OPEN_FILES; i++)
     {
-        FileInfo[i].Flags = 0;
+        OpenFileInfo[i].Flags = 0;
     }
 
     FdtData.DirClus = -1;
@@ -52,7 +52,7 @@ void FileInit(void)
 ** Input    :Path, DirFileName:user use filename.
 ** Output       :RETURN_OK：成功
 ** other reference: the return value explaination in file fat.h
-** global   :FileInfo
+** global   :OpenFileInfo
 ** call module  :AddFDT, GetDirClusIndex
 ********************************************************************************************************/
 IRAM_ENCODE
@@ -69,7 +69,7 @@ HANDLE FileCreateSub(uint8 *Path, uint8 *DirFileName, uint8 Attr) // Attr 文件属
     /* 查找空闲文件登记项 */
     for (Rt = 0; Rt < MAX_OPEN_FILES; Rt++)
     {
-        if (FileInfo[Rt].Flags == 0)
+        if (OpenFileInfo[Rt].Flags == 0)
         {
             break;
         }
@@ -77,7 +77,7 @@ HANDLE FileCreateSub(uint8 *Path, uint8 *DirFileName, uint8 Attr) // Attr 文件属
 
     if (Rt < MAX_OPEN_FILES)
     {
-        fp = FileInfo + Rt;     //指向文件句柄
+        fp = OpenFileInfo + Rt;     //指向文件句柄
         for (i = 0; i < 11; i++)
         {
             temp.Name[i] = DirFileName[i];
@@ -465,7 +465,7 @@ ERROR1:
 ** Input    :Path, DirFileName:user use filename.
 ** Output       :RETURN_OK：成功
 ** other reference: the return value explaination in file fat.h
-** global   :FileInfo
+** global   :OpenFileInfo
 ** call module  :FindFDTInfo,FATDelClusChain,DelFDT
 ********************************************************************************************************/
 IRAM_ENCODE
@@ -515,7 +515,7 @@ uint8 FileDelete(uint8 *Path, uint8 *DirFileName)
 ** Input    :Path, DirFileName:user use filename.
 ** Output       :RETURN_OK：成功
 ** other reference: the return value explaination in file fat.h
-** global   :FileInfo
+** global   :OpenFileInfo
 ** call module  :FindFDTInfo,FATDelClusChain,DelFDT
 ********************************************************************************************************/
 IRAM_ENCODE
@@ -572,7 +572,7 @@ uint8 FileDelete1(uint32 DirClus, uint32 Index, FS_TYPE FsType)
 ** Description  :open one file by specified mode
 ** Input    :Path:路径, DirFileName:user use file name, Type:open type.
 ** Output       :Not_Open_FILE is can not open,other is the file handle
-** global: FileInfo
+** global: OpenFileInfo
 ** call module: NULL
 ********************************************************************************************************/
 IRAM_FAT
@@ -608,7 +608,7 @@ HANDLE FileOpen(uint8 * shortname, int32 DirClus, int32 Index, FS_TYPE FsType, u
     /* 查找空闲文件登记项 */
     for (Rt = 0; Rt < MAX_OPEN_FILES; Rt++)
     {
-        if (FileInfo[Rt].Flags == 0)
+        if (OpenFileInfo[Rt].Flags == 0)
         {
             break;
         }
@@ -616,7 +616,7 @@ HANDLE FileOpen(uint8 * shortname, int32 DirClus, int32 Index, FS_TYPE FsType, u
 
     if (Rt < MAX_OPEN_FILES)
     {
-        fp = FileInfo + Rt;
+        fp = OpenFileInfo + Rt;
 
         //fp->DirClus = GetDirClusIndex(Path);
         fp->DirClus = DirClus;
@@ -671,7 +671,7 @@ HANDLE FileOpen(uint8 * shortname, int32 DirClus, int32 Index, FS_TYPE FsType, u
 ** Description  :open one file by specified mode
 ** Input    :Path:路径, DirFileName:user use file name, Type:open type.
 ** Output       :Not_Open_FILE is can not open,other is the file handle
-** global: FileInfo
+** global: OpenFileInfo
 ** call module: NULL
 ********************************************************************************************************/
 IRAM_FAT
@@ -687,7 +687,7 @@ HANDLE FileOpenA(uint8 *Path, uint8 *DirFileName, uint8 *Type)
     /* 查找空闲文件登记项 */
     for (Rt = 0; Rt < MAX_OPEN_FILES; Rt++)
     {
-        if (FileInfo[Rt].Flags == 0)
+        if (OpenFileInfo[Rt].Flags == 0)
         {
             break;
         }
@@ -695,7 +695,7 @@ HANDLE FileOpenA(uint8 *Path, uint8 *DirFileName, uint8 *Type)
 
     if (Rt < MAX_OPEN_FILES)
     {
-        fp = FileInfo + Rt;
+        fp = OpenFileInfo + Rt;
 
         fp->DirClus = GetDirClusIndex(Path);
 
@@ -752,7 +752,7 @@ uint32 StrLenWide(uint16* str)
 ** Description  :open one file by specified mode
 ** Input    :Path:路径, DirFileName:user use file name, Type:open type.
 ** Output       :Not_Open_FILE is can not open,other is the file handle
-** global: FileInfo
+** global: OpenFileInfo
 ** call module: NULL
 ********************************************************************************************************/
 IRAM_FAT
@@ -772,7 +772,7 @@ HANDLE FileOpenW(uint8 * shortname, uint16 *Path, uint16 *DirFileName, uint8 *Ty
     /* 查找空闲文件登记项 */
     for (Rt = 0; Rt < MAX_OPEN_FILES; Rt++)
     {
-        if (FileInfo[Rt].Flags == 0)
+        if (OpenFileInfo[Rt].Flags == 0)
         {
             break;
         }
@@ -780,7 +780,7 @@ HANDLE FileOpenW(uint8 * shortname, uint16 *Path, uint16 *DirFileName, uint8 *Ty
 
     if (Rt < MAX_OPEN_FILES)
     {
-        fp = FileInfo + Rt;
+        fp = OpenFileInfo + Rt;
 
         fp->DirClus = GetDirClusIndexLong(Path, StrLenWide(Path));
 
@@ -849,7 +849,7 @@ HANDLE FileOpenW(uint8 * shortname, uint16 *Path, uint16 *DirFileName, uint8 *Ty
 ** Input        :Path, DirFileName:user use filename.
 ** Output       :RETURN_OK：success
 ** other reference: the return value explaination in file fat.h
-** global   :FileInfo
+** global   :OpenFileInfo
 ** call module  : null
 ********************************************************************************************************/
 IRAM_FAT
@@ -870,7 +870,7 @@ uint8 FileClose(HANDLE Handle)
     if (Handle >= 0 && Handle < MAX_OPEN_FILES)
     {
         Rt = RETURN_OK;
-        fp = FileInfo + Handle;
+        fp = OpenFileInfo + Handle;
 
 #ifdef ENCODE
         if ((fp->Flags & FILE_FLAGS_WRITE) == FILE_FLAGS_WRITE)
@@ -919,7 +919,7 @@ uint8 FileClose(HANDLE Handle)
 **                   Size: would read number of byte.not bigger than 64k
                  Handle specified file handle.
 ** Output       :the real number that had readed.
-** global   :FileInfo,BootSector
+** global   :OpenFileInfo,BootSector
 ** call module: NULL
 ********************************************************************************************************/
 IRAM_FAT
@@ -933,7 +933,7 @@ uint32 FileRead(uint8 *pData, uint32 NumBytes, HANDLE Handle)
 
     cnt = NumBytes;
     remain = 0;
-    fp = FileInfo + Handle; //指向指定文件
+    fp = OpenFileInfo + Handle; //指向指定文件
     pBuf = pData;
     if (Handle >= 0 && Handle < MAX_OPEN_FILES)
     {
@@ -1141,7 +1141,7 @@ uint32 FileRead(uint8 *pData, uint32 NumBytes, HANDLE Handle)
 **                   Size: would read number of byte.not bigger than 64k
                  Handle specified file handle.
 ** Output       :the real number that had readed.
-** global   :FileInfo,BootSector
+** global   :OpenFileInfo,BootSector
 ** call module: NULL
 ********************************************************************************************************/
 IRAM_FAT
@@ -1150,7 +1150,7 @@ uint32 FileGetSize(HANDLE Handle)
     if (Handle >= 0 && Handle < MAX_OPEN_FILES)
     {
         MY_FILE *fp;
-        fp = FileInfo + Handle;     //指向指定文件
+        fp = OpenFileInfo + Handle;     //指向指定文件
         if (fp->Flags == 0)         // 对应的文件没打开
         {
             return 0;
@@ -1167,7 +1167,7 @@ uint32 FileTell(HANDLE Handle)
     if (Handle >= 0 && Handle < MAX_OPEN_FILES)
     {
         MY_FILE *fp;
-        fp = FileInfo + Handle;     //指ˇ指定文件
+        fp = OpenFileInfo + Handle;     //指ˇ指定文件
         if (fp->Flags == 0)         // 对应的文件没打开
         {
             return 0;
@@ -1187,7 +1187,7 @@ uint32 FileTell(HANDLE Handle)
  **         Size:the size of would write
  Handle point to file handle.
  ** Output   :real writed byte number.
- ** global  :FileInfo,BootSector
+ ** global  :OpenFileInfo,BootSector
  ** call module : null
 //功能: 提取某簇链的最后一簇
  ********************************************************************************************************/
@@ -1242,7 +1242,7 @@ uint32 FAT_GetEofClus(uint32 Index)
  **         Size:the size of would write
  Handle point to file handle.
  ** Output   :real writed byte number.
- ** global  :FileInfo,BootSector
+ ** global  :OpenFileInfo,BootSector
  ** call module : null
  ********************************************************************************************************/
 IRAM_ENCODE
@@ -1258,7 +1258,7 @@ uint32 FileWrite(uint8 *Buf, uint32 fileOffset, uint32 Size, HANDLE Handle)
     uint32 lastClus;
     uint8  TempBuf[512];
 
-    fp = FileInfo + Handle;
+    fp = OpenFileInfo + Handle;
     if ((Size == 0) || (fileOffset % 512))
     {
         return (0);
@@ -1499,7 +1499,7 @@ uint32 FileWrite(uint8 *Buf, uint32 fileOffset, uint32 Size, HANDLE Handle)
 ** Description  :check whether it is had read/wrote to the end of file.
 ** Input    : null
 ** Output       :0:no,1:yes
-** global: FileInfo
+** global: OpenFileInfo
 ** call module: NULL
 ********************************************************************************************************/
 IRAM_FAT
@@ -1511,7 +1511,7 @@ bool FileEof(HANDLE Handle)
 
     if (Handle < MAX_OPEN_FILES)
     {
-        if (FileInfo[Handle].Offset < FileInfo[Handle].FileSize)
+        if (OpenFileInfo[Handle].Offset < OpenFileInfo[Handle].FileSize)
         {
             Rt = FALSE;
         }
@@ -1530,7 +1530,7 @@ bool FileEof(HANDLE Handle)
                  SEEK_CUR:
                  SEEK_END:
 ** Output       : null
-** global   :FileInfo
+** global   :OpenFileInfo
 ** call module  : null
 ********************************************************************************************************/
 IRAM_FAT
@@ -1547,7 +1547,7 @@ uint8 FileSeek(int32 offset, uint8 Whence, HANDLE Handle)
 
     if (Handle >= 0 && Handle < MAX_OPEN_FILES)
     {
-        fp = FileInfo + Handle;
+        fp = OpenFileInfo + Handle;
 
         if (fp->Flags  != 0)                                    // 对应的文件是否已打开
         {
@@ -1635,7 +1635,7 @@ uint8 FileSeek(int32 offset, uint8 Whence, HANDLE Handle)
 ** Description  :find the file handle that had been opened by specified file
 ** Input        :FileName:internal file name.
 ** Output       :file handle
-** global       :FileInfo
+** global       :OpenFileInfo
 ** call module  :NULL
 ********************************************************************************************************/
 IRAM_ENCODE
@@ -1645,7 +1645,7 @@ HANDLE FindOpenFile(uint32 DirClus, uint8 *FileName)
     MY_FILE *fp;
     uint8 i;
 
-    fp = FileInfo;
+    fp = OpenFileInfo;
     for (Rt = 0; Rt < MAX_OPEN_FILES; Rt++)
     {
         if (fp->Flags != 0)
@@ -1676,7 +1676,7 @@ HANDLE FindOpenFile(uint32 DirClus, uint8 *FileName)
 ** Description  :find the file handle that had been opened by specified file
 ** Input        :FileName:internal file name.
 ** Output       :file handle
-** global       :FileInfo
+** global       :OpenFileInfo
 ** call module  :NULL
 ********************************************************************************************************/
 IRAM_ENCODE
@@ -1686,7 +1686,7 @@ HANDLE FindOpenFile1(uint32 DirClus, uint32 index)
     MY_FILE *fp;
     uint8 i;
 
-    fp = FileInfo;
+    fp = OpenFileInfo;
     for (Rt = 0; Rt < MAX_OPEN_FILES; Rt++)
     {
         if (fp->Flags != 0)
@@ -1713,7 +1713,7 @@ HANDLE FindOpenFile1(uint32 DirClus, uint32 index)
 ** Description  :find the specified index file that is been in current direction or all direction.
 **               FileNum:,Path:,ExtName:, Attr:
 ** Output       :Rt:the diretion information of found file items.
-** global       :LongFileName,FileInfo
+** global       :LongFileName,OpenFileInfo
 ** call module  :null
 ** explain      :if the extension is "*",it also will find direction.
 ********************************************************************************************************/
@@ -2010,7 +2010,7 @@ uint8 FindFileSub(FDT *Rt, uint16 FileNum, uint32 DirClus, uint8 *ExtName, FIND_
                 FindData:file find structure,Path:ExtName:extension
 **              FileNum:,Path:,ExtName:, Attr:
 ** Output       :Rt:the diretion information of found file items.
-** global       :LongFileName,FileInfo
+** global       :LongFileName,OpenFileInfo
 ** call module  :null
 ** explain      :if the extension is "*",it also will find direction.
 ********************************************************************************************************/
@@ -2027,7 +2027,7 @@ uint8 FindFirst(FDT *Rt, FIND_DATA* FindData, uint8 *ExtName, FS_TYPE FsType)
                 FindData:file find structure,Path:ExtName:extension
 **              FileNum:,Path:,ExtName:, Attr:
 ** Output       :Rt:the diretion information of found file items.
-** global       :LongFileName,FileInfo
+** global       :LongFileName,OpenFileInfo
 ** call module  :null
 ** explain      :if the extension is "*",it also will find direction.
 ********************************************************************************************************/
@@ -2056,7 +2056,7 @@ FileBErr:
                 FindData:file find structure,Path:ExtName:extension
 **              FileNum:,Path:,ExtName:, Attr:
 ** Output       :Rt:the diretion information of found file items.
-** global       :LongFileName,FileInfo
+** global       :LongFileName,OpenFileInfo
 ** call module  :null
 ** explain      :if the extension is "*",it also will find direction.
 ********************************************************************************************************/
@@ -2073,7 +2073,7 @@ uint8 FindFirstDir(FDT *Rt, FIND_DATA* FindData, FS_TYPE FsType)
                 FindData:file find structure,Path:ExtName:extension
 **              FileNum:,Path:,ExtName:, Attr:
 ** Output       :Rt:the diretion information of found file items.
-** global       :LongFileName,FileInfo
+** global       :LongFileName,OpenFileInfo
 ** call module  :null
 ** explain      :if the extension is "*",it also will find direction.
 ********************************************************************************************************/
@@ -2102,7 +2102,7 @@ FileBErr:
                 FindData:file find structure,Path:ExtName:extension
 **              FileNum:,Path:,ExtName:, Attr:
 ** Output       :Rt:the diretion information of found file items.
-** global       :LongFileName,FileInfo
+** global       :LongFileName,OpenFileInfo
 ** call module  :null
 ** explain      :if the extension is "*",it also will find direction.
 ********************************************************************************************************/
@@ -2119,7 +2119,7 @@ uint8 FindFirstFile(FDT *Rt, FIND_DATA* FindData, uint8 *ExtName, FS_TYPE FsType
                 FindData:file find structure,Path:ExtName:extension
 **              FileNum:,Path:,ExtName:, Attr:
 ** Output       :Rt:the diretion information of found file items.
-** global       :LongFileName,FileInfo
+** global       :LongFileName,OpenFileInfo
 ** call module  :null
 ** explain      :if the extension is "*",it also will find direction.
 ********************************************************************************************************/
@@ -2245,7 +2245,7 @@ bool FileExtNameRemove(uint16 *LongFileName, uint8 *Filter)
 ** Description  :get total file number of current direction.
 ** Input        :ExtName:file extension
 ** Output       :file total
-** global       :FileInfo
+** global       :OpenFileInfo
 ** call module  :null
 ********************************************************************************************************/
 #ifdef _RK_CUE_
@@ -2696,14 +2696,14 @@ void CreateFiletoDir()
         DEBUG("---------- hFile = %d",hFile);
     }
 
-    FileSeek(FileInfo[hFile].FileSize, SEEK_SET, hFile);
+    FileSeek(OpenFileInfo[hFile].FileSize, SEEK_SET, hFile);
 
     for(i = 0;i < 512;i++)
     {
         TmpBuf[i] = 0x31;
     }
 
-    ret = FileWrite(TmpBuf, FileInfo[hFile].FileSize, 512, hFile);
+    ret = FileWrite(TmpBuf, OpenFileInfo[hFile].FileSize, 512, hFile);
     DEBUG("------------ ret = %d",ret);
 
     FileClose(hFile);
@@ -2738,14 +2738,14 @@ void CreateFiletoDir()
     }
 
 
-    FileSeek(FileInfo[hFile].FileSize, SEEK_SET, hFile);
+    FileSeek(OpenFileInfo[hFile].FileSize, SEEK_SET, hFile);
 
     for(i = 0;i < 512;i++)
     {
         TmpBuf[i] = 0x31;
     }
 
-    ret = FileWrite(TmpBuf, FileInfo[hFile].FileSize, 512, hFile);
+    ret = FileWrite(TmpBuf, OpenFileInfo[hFile].FileSize, 512, hFile);
     DEBUG("------------ ret = %d",ret);
 
     FileClose(hFile);

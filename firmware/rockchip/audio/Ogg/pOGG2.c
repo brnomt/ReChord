@@ -13,9 +13,9 @@ $Log	:
 */
 /****************************************************************/
 
-#include "../include/audio_main.h"
-#include "../include/audio_globals.h"
-#include "../include/audio_file_access.h"
+#include "audio_main.h"
+#include "audio_globals.h"
+#include "audio_file_access.h"
 
 
 #include "lib/ivorbiscodec.h"
@@ -26,7 +26,7 @@ $Log	:
 #include "audio_file_access.h"
 #include "OsInclude.h"
 //*************************************************************************************************************//
-//the achievement of functions.£º
+//the achievement of functions.ï¿½ï¿½
 //SUBFN_CODEC_GETNAME  :   get decoder name
 //SUBFN_CODEC_GETARTIST:   get artist name.
 //SUBFN_CODEC_GETTITLE :   get song title.
@@ -105,7 +105,7 @@ unsigned long OGGDecFunction2(unsigned long ulIoctl, unsigned long ulParam1,
             {
                 *(unsigned long*)ulParam1 = (unsigned long)(&OggPcmOut[select][SRC_Num_Forehead]);
 
-                *(unsigned long *)ulParam2 = (unsigned long) (OUT_SIZE/4); // char ×ª³Élong
+                *(unsigned long *)ulParam2 = (unsigned long) (OUT_SIZE/4); // char ×ªï¿½ï¿½long
 
                 select^=1;
 
@@ -169,7 +169,7 @@ unsigned long OGGDecFunction2(unsigned long ulIoctl, unsigned long ulParam1,
                 {
                     //ogg_cnt =0;
                     //tick_end= GetSysTick();
-                    //printf("¿ªÊ¼ %d ",tick_end);
+                    //printf("ï¿½ï¿½Ê¼ %d ",tick_end);
                 }
                 return 1;
             }
@@ -220,7 +220,7 @@ unsigned long OGGDecFunction2(unsigned long ulIoctl, unsigned long ulParam1,
             {
                 //ov_clear(&vf);
                 //int tick_start = GetSysTick();
-                //printf("½áÊø %d ",tick_start);
+                //printf("ï¿½ï¿½ï¿½ï¿½ %d ",tick_start);
                 //ogg_cnt = 0;
                 return 1;
             }

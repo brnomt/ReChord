@@ -1,10 +1,10 @@
-#include "..\ImageInclude\image_main.h"
-#include "..\ImageInclude\image_globals.h"
+#include "../ImageInclude/image_main.h"
+#include "../ImageInclude/image_globals.h"
 
 #ifdef JPG_DEC_INCLUDE
 #pragma arm section code = "JpgDecCode", rodata = "JpgDecCode", rwdata = "JpgDecData", zidata = "JpgDecBss"
 
-#include "DriverConfig.h"
+#include "Driverconfig.h"
 #include "pJPG.h"
 
 static int gFirstOffset = 0;

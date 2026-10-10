@@ -17,15 +17,15 @@
 *                                            INCLUDE FILES
 *********************************************************************************************************
 */
-#include "sysinclude.h"
+#include "SysInclude.h"
 #ifdef _USE_SHELL_
 //#include "typedef_rkos.h"
-#include "Device.h"
-#include "audiocontrol.h"
+#include "device.h"
+#include "AudioControl.h"
 #include "audio_main.h"
 #include "mainmenu.h"
-#include "musicwininterface.h"
-#include "mediabrowin.h"
+#include "MusicWinInterface.h"
+#include "MediaBroWin.h"
 
 
 
@@ -383,7 +383,7 @@ rk_err_t ShellCmdRegisterALL(void)
 *********************************************************************************************************
 *                                      voidShellTaskDeInit(void)
 *
-* Description: 根目录元素提取
+* Description: 锟斤拷目录元锟斤拷锟斤拷取
 *
 * Argument(s) : void *p_arg
 *

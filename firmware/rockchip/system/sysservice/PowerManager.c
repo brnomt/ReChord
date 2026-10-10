@@ -3,7 +3,7 @@
 *                   Copyright (c) 2008, Rock-Chips
 *                         All rights reserved.
 *
-* File Name£º   PowerManager.c
+* File Nameï¿½ï¿½   PowerManager.c
 *
 * Description:
 *
@@ -18,7 +18,7 @@
 #include "PowerManager.h"
 #include "DriverInclude.h"
 #include "interrupt.h"
-#include "msg.h"
+#include "Msg.h"
 
 /*
 --------------------------------------------------------------------------------
@@ -80,7 +80,7 @@ FREQ_APP_TABLE g_CruAPPTabel[FREQ_APP_MAX] =
     {FREQ_RECORDADPCM,     0,  20000000,  96000000,  96000000,  75000000, 192000000, 192000000},
     {FREQ_FMAUTOSEARCH,    0,  24000000,  24000000,  24000000,  24000000,         0,         0},
     {FREQ_MEDIAUPDATA,     0, 400000000, 200000000, 200000000,  75000000,         0,         0},
-    {FREQ_USB,             0, 400000000, 200000000, 200000000,  75000000, 400000000, 400000000}, //USB »áËøÆµ
+    {FREQ_USB,             0, 400000000, 200000000, 200000000,  75000000, 400000000, 400000000}, //USB ï¿½ï¿½ï¿½ï¿½Æµ
     {FREQ_BEEP,            0,  24000000,  24000000,  24000000,  24000000,         0,         0},
     {FREQ_MEDIA_INIT,      0, 100000000, 100000000, 100000000,  75000000,         0,         0},
     {FREQ_AVI,             0, 100000000, 100000000, 100000000,  75000000,         0,         0},
@@ -255,7 +255,7 @@ void FREQSetARMFreq(FREQ_APP_TABLE *FreqTab, chip_freq_t *pChipFreq)
                         pllclk = FreqTab->syshclk;
                     }
                     syshclk_div = pllclk / FreqTab->syshclk;
-                    pllclk      = FreqTab->syshclk * syshclk_div;     //PLL ÒÔÏµÍ³ÆµÂÊ¶ÔÆëÉè¶¨
+                    pllclk      = FreqTab->syshclk * syshclk_div;     //PLL ï¿½ï¿½ÏµÍ³Æµï¿½Ê¶ï¿½ï¿½ï¿½ï¿½è¶¨
                     calhclk_div = pllclk / FreqTab->calhclk;
                     if (calhclk_div > 8)
                     {
@@ -279,7 +279,7 @@ void FREQSetARMFreq(FREQ_APP_TABLE *FreqTab, chip_freq_t *pChipFreq)
                     pllclk = FreqTab->syshclk;
                 }
                 syshclk_div = pllclk / FreqTab->syshclk;
-                pllclk      = FreqTab->syshclk * syshclk_div;     //PLL ÒÔÏµÍ³ÆµÂÊ¶ÔÆëÉè¶¨
+                pllclk      = FreqTab->syshclk * syshclk_div;     //PLL ï¿½ï¿½ÏµÍ³Æµï¿½Ê¶ï¿½ï¿½ï¿½ï¿½è¶¨
                 calhclk_div = pllclk / FreqTab->calhclk;
                 if (calhclk_div > 8)
                 {

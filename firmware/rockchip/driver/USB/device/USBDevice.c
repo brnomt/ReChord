@@ -14,6 +14,8 @@ $Log: $
 
 /*-------------------------------- Includes ----------------------------------*/
 #include "SysInclude.h"
+#include "driver/DMA/Hw_dma.h"   /* DMA_CFGX, DMA_CTLL_USB_* */
+#include "driver/DMA/Dma.h"      /* eDMA_CHN, DMA_FALSE, DMA_SUCCESS */
 
 #ifdef _USB_
 

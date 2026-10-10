@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  HoldonPlay.C
+* File Nameï¿½ï¿½  HoldonPlay.C
 *
 * Description:
 *
@@ -16,13 +16,13 @@
 #define _IN_HOLDON_PLAY_
 
 #include "SysInclude.h"
-#include "FsInclude.h"
-#include "Audio_globals.h"
+#include "fsinclude.h"
+#include "audio_globals.h"
 #include "AudioControl.h"
 #include "HoldonPlay.h"
 
 #include "MediaBroWin.h"
-#include "MediaLibWin.h"
+#include "medialibwin.h"
 #include "FileInfo.h"
 #include "AddrSaveMacro.h"
 

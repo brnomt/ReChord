@@ -29,9 +29,9 @@
 /******************************************************************************/
 
 //setting menu permanent code.
-#define _ATTR_SYS_SET_TEXT_CODE_         __attribute__((section("SetMenuServiceCode")))
-#define _ATTR_SYS_SET_TEXT_DATA_         __attribute__((section("SetMenuServiceData")))
-#define _ATTR_SYS_SET_TEXT_BSS_          __attribute__((section("SetMenuServiceBss"),zero_init))
+#define _ATTR_SYS_SET_TEXT_CODE_         
+#define _ATTR_SYS_SET_TEXT_DATA_         
+#define _ATTR_SYS_SET_TEXT_BSS_          
 
 /*
 --------------------------------------------------------------------------------

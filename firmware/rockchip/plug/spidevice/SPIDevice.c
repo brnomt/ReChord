@@ -25,10 +25,10 @@
 *
 *---------------------------------------------------------------------------------------------------------------------
 */
-#include "sysinclude.h"
+#include "SysInclude.h"
 
-#include "Device.h"
-#include "spidevice.h"
+#include "device.h"
+#include "SPIDevice.h"
 #include "DriverInclude.h"
 #include "interrupt.h"
 #include "spi.h"

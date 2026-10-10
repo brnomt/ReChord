@@ -31,9 +31,9 @@
 *-------------------------------------------------------------------------------
 */
 //section define
-#define _ATTR_CHARGE_WIN_CODE_         __attribute__((section("ChargeWinCode")))
-#define _ATTR_CHARGE_WIN_DATA_         __attribute__((section("ChargeWinData")))
-#define _ATTR_CHARGE_WIN_BSS_          __attribute__((section("ChargeWinBss"),zero_init))
+#define _ATTR_CHARGE_WIN_CODE_         
+#define _ATTR_CHARGE_WIN_DATA_         
+#define _ATTR_CHARGE_WIN_BSS_          
 
 /*
 *-------------------------------------------------------------------------------

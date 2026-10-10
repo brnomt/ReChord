@@ -22,19 +22,19 @@
 
 #include "RadioWinInterface.h"  //extern interface used radio module
 #include "RadioWin.h"
-#include "FmControl.h"
+#include "FMControl.h"
 
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "Hold.h"
 
 #ifdef _RECORD_
-#include  "FsInclude.h"
+#include  "fsinclude.h"
 #include  "File.h"
 #include  "FDT.h"
-#include  "PCM.H"
+#include  "pcm.h"
 #include  "pmu.h"
 #include  "audio_main.h"
-#include  "RecordControl.h"
+#include  "recordcontrol.h"
 
 #ifdef _MEDIA_MODULE_
 #include "MediaBroWin.h"
@@ -525,7 +525,7 @@ UINT16 FmSaveAndDel(void)
 }
 
 /**************************************************************************
-* Description:  Display CH¡¢Freq¡¢schedule small triangle
+* Description:  Display CHï¿½ï¿½Freqï¿½ï¿½schedule small triangle
 * Input      :  NULL
 * Output     :  NULL
 * return:
@@ -548,7 +548,7 @@ void PaintCHAndFreq(void)
 
     if (gpRadioplayerRegKey->FmState != FM_State_HandSearch)
     {
-        //ÏÔÊ¾ CH
+        //ï¿½ï¿½Ê¾ CH
         DispPictureWithIDNumAndXYoffset(IMG_ID_FM_CH_BACK , 98, 128);
 
         DisplayBuf[0] = 'C';    //
@@ -841,7 +841,7 @@ void RadioWinPaint(void)
         DisplayBuf[4] = (gbFmFreqIndex + 1) % 10 + '0';
         DisplayBuf[5] = 0;
 
-        if ((gpRadioplayerRegKey->FmState == FM_State_AutoSearch ) || (gpRadioplayerRegKey->FmState == FM_State_StepStation)) //×Ô¶¯»òÕßÔ¤ÖÃ×´Ì¬ÏÂÏÔÊ¾ CH
+        if ((gpRadioplayerRegKey->FmState == FM_State_AutoSearch ) || (gpRadioplayerRegKey->FmState == FM_State_StepStation)) //ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½Ê¾ CH
         {
             LCD_NFDispStringAt(98,128,DisplayBuf);// //CHxx
         }
@@ -855,7 +855,7 @@ void RadioWinPaint(void)
     {
         DispPictureWithIDNumAndXYoffset(IMG_ID_FM_STEREO , 3 , 128);
         if (gpRadioplayerRegKey->FmStereo == RADIO_STEREO_OPEN)
-        {          // "Á¢ÌåÉù"
+        {          // "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
             DisplayBuf[0] = 'S';
             DisplayBuf[1] = 't';
             DisplayBuf[2] = 'e';
@@ -884,7 +884,7 @@ void RadioWinPaint(void)
 
         for (i = 0; i < temp; i++)
         {
-            DispPictureWithIDNumAndXYoffset(IMG_ID_FM_VOLUME_GUAGE, 70+i, 147);          //ÒÆ¶¯½ø¶ÈÐ¡Èý½Ç
+            DispPictureWithIDNumAndXYoffset(IMG_ID_FM_VOLUME_GUAGE, 70+i, 147);          //ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½
         }
 
         for (;i<FM_VOL_GUAGE_CONST;i++)
@@ -1127,11 +1127,11 @@ UINT32 RadioWinKeyProc(void)
                 break;
             }
 
-        case KEY_VAL_FFW_SHORT_UP: //¶Ì°´ FFW £¬µ¥²½¼õÉÙÆµÂÊ
+        case KEY_VAL_FFW_SHORT_UP: //ï¿½Ì°ï¿½ FFW ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½
             {
-                if (FmSeekStopFlag)                //µ±Í£Ö¹ËÑÌ¨Ê±²»ÏìÓ¦RELEASEÏûÏ¢
+                if (FmSeekStopFlag)                //ï¿½ï¿½Í£Ö¹ï¿½ï¿½Ì¨Ê±ï¿½ï¿½ï¿½ï¿½Ó¦RELEASEï¿½ï¿½Ï¢
                 {
-                    FmSeekStopFlag = 0;           //ÕâÑù·ÀÖ¹ÆµµãÔÙ²½½ø
+                    FmSeekStopFlag = 0;           //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹Æµï¿½ï¿½ï¿½Ù²ï¿½ï¿½ï¿½
                 }
                 else
                 {
@@ -1147,7 +1147,7 @@ UINT32 RadioWinKeyProc(void)
                 break;
             }
 
-        case KEY_VAL_FFD_PRESS: //³¤°´ FFD,Á¬ÐøÔö¼ÓÆµÂÊ
+        case KEY_VAL_FFD_PRESS: //ï¿½ï¿½ï¿½ï¿½ FFD,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½
             {
                 if (!FmSeekStopFlag)
                 {
@@ -1156,7 +1156,7 @@ UINT32 RadioWinKeyProc(void)
                 break;
             }
 
-        case KEY_VAL_FFW_PRESS: //³¤°´ FFW,Á¬Ðø¼õÉÙÆµÂÊ
+        case KEY_VAL_FFW_PRESS: //ï¿½ï¿½ï¿½ï¿½ FFW,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½
             {
                 if (!FmSeekStopFlag)
                 {
@@ -1165,7 +1165,7 @@ UINT32 RadioWinKeyProc(void)
                 break;
             }
 
-        case KEY_VAL_FFD_LONG_UP:    // ³¤°´ FFD µ¯Æð£¬Ñ°ÕÒÒ»¸ö¿ÉÓÃµÄÆµÂÊ
+        case KEY_VAL_FFD_LONG_UP:    // ï¿½ï¿½ï¿½ï¿½ FFD ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½Æµï¿½ï¿½
             {
                 if (FmSeekStopFlag)
                 {
@@ -1181,7 +1181,7 @@ UINT32 RadioWinKeyProc(void)
 
             }
 
-        case KEY_VAL_FFW_LONG_UP:    // ³¤°´ FFW µ¯Æð£¬Ñ°ÕÒÒ»¸ö¿ÉÓÃµÄÆµÂÊ
+        case KEY_VAL_FFW_LONG_UP:    // ï¿½ï¿½ï¿½ï¿½ FFW ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½Æµï¿½ï¿½
             {
                 if (FmSeekStopFlag)
                 {
@@ -1196,7 +1196,7 @@ UINT32 RadioWinKeyProc(void)
                 break;
             }
 
-        case KEY_VAL_DOWN_PRESS:    //µ÷Ê±¼ä£¬½µµÍÉùÒô
+        case KEY_VAL_DOWN_PRESS:    //ï¿½ï¿½Ê±ï¿½ä£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         case KEY_VAL_DOWN_DOWN:
             {
                 if ((gpRadioplayerRegKey->FmState == FM_State_HandSearch)||(gpRadioplayerRegKey->FmState == FM_State_AutoSearch))
@@ -1213,7 +1213,7 @@ UINT32 RadioWinKeyProc(void)
                 break;
             }
 
-        case KEY_VAL_UP_PRESS:        //µ÷Ê±¼ä£¬Ôö¼ÓÉùÒô
+        case KEY_VAL_UP_PRESS:        //ï¿½ï¿½Ê±ï¿½ä£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         case KEY_VAL_UP_DOWN:
             {
                 if ((gpRadioplayerRegKey->FmState == FM_State_HandSearch)||(gpRadioplayerRegKey->FmState == FM_State_AutoSearch))

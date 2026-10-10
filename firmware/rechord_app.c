@@ -184,7 +184,7 @@ extern void RegHifiDecodeServer(void);
 extern void RegHifiFileServer(void);
 extern int  MailBoxWriteB2ACmd(uint32_t cmd, uint32_t id, uint32_t channel);
 extern int  MailBoxWriteB2AData(uint32_t data, uint32_t id, uint32_t channel);
-#define MSGBOX_CMD_SYSTEM_START_OK 0x0001u
+#define IPC_CMD_SYSTEM_START_OK 0x0001u
 #define MAILBOX_ID_0    0u
 #define MAILBOX_CHANNEL_0 0u
 

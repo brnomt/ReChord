@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   audio_file_access.c
+* File Nameï¿½ï¿½   audio_file_access.c
 * 
 * Description:  Audio File Operation Interface
 *
@@ -13,11 +13,11 @@
 ********************************************************************************
 */
 
-#include "../AudioConfig.h"
+#include "AudioConfig.h"
 
 //#include <stdio.h>
 //#include <string.h>
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "File.h"
 #pragma arm section code = "ImageContrlCode", rodata = "ImageContrlCode", rwdata = "ImageContrlData", zidata = "ImageContrlBss"
 

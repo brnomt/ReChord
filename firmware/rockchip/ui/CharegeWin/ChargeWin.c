@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  ChargeWin.c
+* File Nameï¿½ï¿½  ChargeWin.c
 *
 * Description:
 *
@@ -16,7 +16,7 @@
 
 #include "SysInclude.h"
 #include "ChargeWin.h"
-#include "Mainmenu.h"
+#include "mainmenu.h"
 
 /*
 --------------------------------------------------------------------------------

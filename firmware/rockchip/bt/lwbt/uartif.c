@@ -49,7 +49,7 @@
 #include "delay.h"
 #include "BlueToothWin.h"
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "SysReservedOperation.h"
 #ifdef _BLUETOOTH_
 _ATTR_LWBT_DATA_ uint8 isOutputComplete = 0;

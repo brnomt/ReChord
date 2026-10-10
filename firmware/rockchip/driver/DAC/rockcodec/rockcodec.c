@@ -3,7 +3,7 @@
 *                   Copyright (c) 2008, Rock-Chips
 *                         All rights reserved.
 *
-* File Name£º   Rockcodec.c
+* File Nameï¿½ï¿½   Rockcodec.c
 *
 * Description:
 *
@@ -24,7 +24,7 @@
 #endif
 
 #ifdef _RADIO_
-#include "FmControl.h"
+#include "FMControl.h"
 #endif
 #define ReadAcodecReg(addr)                     (*(volatile uint32 *)(addr))
 #define WriteAcodecReg(addr, data)              (*(volatile uint32 *)(addr) = data)
@@ -127,7 +127,7 @@ void ACodec_PLL_Set(eF_SOURCE_ID F_SOURCE, eACodecPll_Target_Freq pll_target)
 
     if (pll_old_target == pll_target)
     {
-        return;  //Èç¹ûPLLÒ»Ñù¾Í²»ÐèÒªÖØÐÂÉèÖÃ£¬Ö»ÐèÒªÅäÖÃSCK_DIV¼´¿É
+        return;  //ï¿½ï¿½ï¿½PLLÒ»ï¿½ï¿½ï¿½Í²ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã£ï¿½Ö»ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½SCK_DIVï¿½ï¿½ï¿½ï¿½
     }
 
     pll_old_target = pll_target;
@@ -1380,7 +1380,7 @@ void Codec_Resume(void)
   Author        : yangwenjie
   Description   :
 
-  Input         : Codecmode£º
+  Input         : Codecmodeï¿½ï¿½
 
   Return        : null
 

@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   LcdInclude.h
+* File Nameï¿½ï¿½   LcdInclude.h
 * 
 * Description:  
 *
@@ -27,7 +27,7 @@
 #include "SysConfig.h"
 #include "driverlib_def.h"
 #include "typedef.h"
-#include "Macro.h"
+#include "macro.h"
 #include "global.h"
 #include "debug.h"
 
@@ -35,7 +35,7 @@
 #include "MenuResourceID.h"
 //#include "MenuResourceInfo.h"
 
-#include "DriverConfig.h"
+#include "Driverconfig.h"
 #include "LcdConfig.h"
 #include "LcdInterface.h"
 #include "LcdCharLib.h"

@@ -34,10 +34,10 @@
 typedef void(*ExecFunPtr)(void) __irq;
 
 //section define
-#define _ATTR_VECTTAB_              __attribute__((section("vect")))
-#define _ATTR_INTRRUPT_CODE_        __attribute__((section("SysCode")))
-#define _ATTR_INTRRUPT_DATA_        __attribute__((section("SysData")))
-#define _ATTR_INTRRUPT_BSS_         __attribute__((section("SysBss"),zero_init))
+#define _ATTR_VECTTAB_              
+#define _ATTR_INTRRUPT_CODE_        
+#define _ATTR_INTRRUPT_DATA_        
+#define _ATTR_INTRRUPT_BSS_         
 
 //中断优先级定义
 #define NUM_PRIORITY_BITS           4

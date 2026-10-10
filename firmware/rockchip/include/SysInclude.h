@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   SysInclude.h
+* File Nameï¿½ï¿½   SysInclude.h
 * 
 * Description:  
 *
@@ -26,7 +26,7 @@
 #include <string.h>
 #include "SysConfig.h"
 #include "typedef.h"
-#include "Macro.h"
+#include "macro.h"
 #include "global.h"
 #include "debug.h"
 

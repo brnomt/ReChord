@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  AudioControl.C
+* File Nameï¿½ï¿½  AudioControl.C
 *
 * Description:
 *
@@ -13,29 +13,35 @@
 ********************************************************************************
 *
 * Fiio Echo Mini port note (FiioDcomp):
-*   Source: RKNanoD_MP3 v1.3 ¡ª Common/Codec/Audio/AudioControl/AudioControl.c
+*   Source: RKNanoD_MP3 v1.3 ï¿½ï¿½ Common/Codec/Audio/AudioControl/AudioControl.c
 *   Fiio v3.7.0:
 *     MusicInit          @ 0x0302b9d8
 *     MusicService_Init  @ 0x0302a3e0  (may share body with AudioPlayback_Start)
 *     AudioPlayback_Start @ 0x0302a398
 *   Ghidra decomp reference: firmware/apps/audio/music_init.c, music_service.c
-*   Status: PORTED (reference) ¡ª not build-wired yet
+*   Status: PORTED (reference) ï¿½ï¿½ not build-wired yet
 ********************************************************************************
 */
 #define _IN_AUDIO_CONTROL_
 
 #include "SysInclude.h"
+#include "freq_enums.h"   /* FREQ_AUDIO_INIT & module freq IDs */
+#include "driver/IIS/Hw_i2s.h" /* I2s_Reg macro (I2S1_BASE) */
+#include "driver/IIS/I2s.h" /* I2S_CH/I2S_PORT/I2S_MODE (CODEC_CONFIG) */
+#include "driver/DAC/codec.h" /* FS_8000Hz..FS_192KHz sample-rate enum */
+#include "driver/DAC/rockcodec/rockcodec.h"
+#include "audio/RkEQ/Fade.h"   /* FADE_OUT & fade modes */ /* ACodec_*, Pll_Target_Freq_*, F_SOURCE_* */
 
 #ifdef _MUSIC_
 #include "FileInfo.h"
 #include "audio_globals.h"
 #include "audio_file_access.h"
-#include "Effect.h"
+#include "effect.h"
 #include "HoldonPlay.h"
 #include "pmu.h"
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "AudioControl.h"
-#include "fade.h"
+#include "Fade.h"
 #include "ID3.h"
 #include "Dma.h"
 #include "myRandom.h"
@@ -51,9 +57,9 @@
 #include "SetBluetooth.h"
 #endif
 
-#define _ATTR_AUDIO_SBC_ENCODE_TEXT_     __attribute__((section("SbcEnCodeCode")))
-#define _ATTR_AUDIO_SBC_ENCODE_DATA_     __attribute__((section("SbcEnCodeData")))
-#define _ATTR_AUDIO_SBC_ENCODE_BSS_      __attribute__((section("SbcEnCodeBss"),zero_init))
+#define _ATTR_AUDIO_SBC_ENCODE_TEXT_     
+#define _ATTR_AUDIO_SBC_ENCODE_DATA_     
+#define _ATTR_AUDIO_SBC_ENCODE_BSS_      
 
 
 extern _ATTR_SYS_DATA_ DMA_CFGX AudioControlDmaCfg;
@@ -100,6 +106,8 @@ unsigned char DecBufID = 0;
 int avdtp_send_media(char * buf, int len, int frameCnt, void (*func)(void));
 void AudioSbcEncodeRequest();
 
+/* Unconditional (2026-10-10): these were inside #ifdef _A2DP_SOUCRE_ (an
+ * AP-only feature flag) while later code uses them regardless. */
 extern uint8 btAvrcpVolumeChanged;
 extern uint8 BtWinStatus;
 
@@ -171,7 +179,7 @@ SYSTICK_LIST g_media_timer =
 --------------------------------------------------------------------------------
 */
 _ATTR_AUDIO_TEXT_
-static uint32 resamples(uint32 *in_buff, uint32 in_len, uint32 fs_hz, int bps) // ¶Ô´óÓÚ48KµÄ½øÐÐ¸ôµãÖØ²ÉÑù
+static uint32 resamples(uint32 *in_buff, uint32 in_len, uint32 fs_hz, int bps) // ï¿½Ô´ï¿½ï¿½ï¿½48Kï¿½Ä½ï¿½ï¿½Ð¸ï¿½ï¿½ï¿½ï¿½Ø²ï¿½ï¿½ï¿½
 {
     int i, j;
     uint32 offset = in_len*2, step = 0, bps_byte = 0;
@@ -776,13 +784,13 @@ static void BluetoothReConnectResult(int result)
     {
         DEBUG("###### ReConnect BT Success ######");
         //SendMsg(MSG_BLUETOOTH_CONNECT_SUCCEED);
-        //Á¬½Ó³É¹¦
+        //ï¿½ï¿½ï¿½Ó³É¹ï¿½
     }
     else
     {
         DEBUG("****** ReConnect BT Fail ******");
         //SendMsg(MSG_BLUETOOTH_CONNECT_FAIL);
-        //Á¬½ÓÊ§°Ü
+        //ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½
     }
 }
 
@@ -3962,7 +3970,7 @@ void AudioABStop(void)
   Author        :  zs
   Description   :  audio handle function, remember to set vaule for variable AudioProcId and AudioProcMsg when call
                    this function.
-                   AudioProcId  -- id of msg¡¢AudioProcMsg -- the content of message.
+                   AudioProcId  -- id of msgï¿½ï¿½AudioProcMsg -- the content of message.
   Input         :  null
   Return        :  TRUE/FALSE
   History       :  <author>         <time>         <version>
@@ -4123,7 +4131,7 @@ BOOLEAN AudioDecodeProc(MSG_ID id, void * msg)
   Description   :  if no file in current disk, when enter the audio module in the situation
                    of more than one disk(no media libary),then poll the following disk.
   Input         :  null
-  Return        :  0 -- find file from disk£¬ 1-- no fine in disk
+  Return        :  0 -- find file from diskï¿½ï¿½ 1-- no fine in disk
   History       :  <author>         <time>         <version>
                      zs            2009/02/20         Ver1.0
   desc          :   ORG
@@ -4405,7 +4413,7 @@ void MusicInit(void *pArg)
 
     if ((pAudioRegKey->RepeatMode == AUDIO_FOLDER_ONCE) || (pAudioRegKey->RepeatMode == AUIDO_FOLDER_REPEAT) || (pAudioRegKey->RepeatMode == AUDIO_REPEAT))
     {
-        pAudioRegKey->AudioFileDirOrAll =  FIND_FILE_RANGE_DIR;//pAudioRegKey->RepeatMode;//by zs 06.01 ½â¾öÄ¿Â¼Ò»´ÎµÄÎÊÌâ
+        pAudioRegKey->AudioFileDirOrAll =  FIND_FILE_RANGE_DIR;//pAudioRegKey->RepeatMode;//by zs 06.01 ï¿½ï¿½ï¿½Ä¿Â¼Ò»ï¿½Îµï¿½ï¿½ï¿½ï¿½ï¿½
     }
 
     if ((AudioFileInfo.ucSelPlayType != SORT_TYPE_SEL_BROWSER) && (AudioFileInfo.ucSelPlayType != SORT_TYPE_SEL_FOLDER))//enter audio play module for media libary.

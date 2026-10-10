@@ -41,7 +41,7 @@ uint8 FileSeekRefSet(HANDLE Handle)
 	Rt = PARAMETER_ERR;
 	if (Handle >= 0 && Handle < MAX_OPEN_FILES)
     {
-		fp = FileInfo + Handle;
+		fp = OpenFileInfo + Handle;
         SeekStep = fp->FileSize / FILESEEKNUM;
         
         //save cur file offset info
@@ -90,7 +90,7 @@ uint8 FileSeekFast(HANDLE Handle , uint32 Offset)
     
 	if (Handle >= 0 && Handle < MAX_OPEN_FILES)
     {
-		fp = FileInfo + Handle;
+		fp = OpenFileInfo + Handle;
         
         //Find File Seek Info
         for(i = 1 ; i < FILESEEKNUM; i++)

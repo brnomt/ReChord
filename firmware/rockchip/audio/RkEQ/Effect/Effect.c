@@ -5,7 +5,7 @@
 *  Copyright (C),2007, Fuzhou Rockchip Co.,Ltd.
 *
 *  File name :     effect.c
-*  Description:    ÒôÆµÐ§¹û´¦Àí
+*  Description:    ï¿½ï¿½ÆµÐ§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 *  Remark:
 *
 *  History:
@@ -19,7 +19,7 @@
 #ifdef _RK_EQ_
 
 #include "AudioControl.h"
-#include "Effect.h"
+#include "effect.h"
 
 extern AudioInOut_Type     AudioIOBuf;
 extern int CurrentCodec;
@@ -35,7 +35,7 @@ extern int CurrentCodec;
 ***************************************************************************/
 #define EQADDVOL     6
 
-_ATTR_AUDIO_DATA_ short PresetGain[4][EQ_NUM] =   //ÀíÂÛ12   µÍÒôºÜºÃ   ÐÞ¸ÄÒ»¶Î µÄ0Îª -17db ËùÓÃµÄºÜºÃµÄ²ÎÊý±í
+_ATTR_AUDIO_DATA_ short PresetGain[4][EQ_NUM] =   //ï¿½ï¿½ï¿½ï¿½12   ï¿½ï¿½ï¿½ï¿½ï¿½Üºï¿½   ï¿½Þ¸ï¿½Ò»ï¿½ï¿½ ï¿½ï¿½0Îª -17db ï¿½ï¿½ï¿½ÃµÄºÜºÃµÄ²ï¿½ï¿½ï¿½ï¿½ï¿½
  {
  {12, 12, 12, 12, 12,
  12,  12, 15, 12, 12,   //3//
@@ -67,7 +67,7 @@ _ATTR_AUDIO_DATA_ short PresetGain[4][EQ_NUM] =   //ÀíÂÛ12   µÍÒôºÜºÃ   ÐÞ¸ÄÒ»¶Î
  }
 /*
      {0, 1, 5, 5, 8,
- 11,  14, 15, 14, 13,   //ÖØµÍÒôÐ§¹û×îºÃ£¬µ«ÆµÂÊ²»×ã
+ 11,  14, 15, 14, 13,   //ï¿½Øµï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½Ã£ï¿½ï¿½ï¿½Æµï¿½Ê²ï¿½ï¿½ï¿½
  15,  14, 13, 11, 10,
  11,  11, 12, 12, 13,
  13,  13, 13, 13, 13,

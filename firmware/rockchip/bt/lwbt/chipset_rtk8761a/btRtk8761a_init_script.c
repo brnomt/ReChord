@@ -20,13 +20,13 @@
 #include "SysConfig.h"
 
 
-#define _ATTR_LWBT_INIT_SCRIPT_CODE_         __attribute__((section("LwbtInitScriptCode")))
-#define _ATTR_LWBT_INIT_SCRIPT_DATA_         __attribute__((section("LwbtInitScriptData")))
-#define _ATTR_LWBT_INIT_SCRIPT_BSS_          __attribute__((section("LwbtInitScriptBss"),zero_init))
+#define _ATTR_LWBT_INIT_SCRIPT_CODE_         
+#define _ATTR_LWBT_INIT_SCRIPT_DATA_         
+#define _ATTR_LWBT_INIT_SCRIPT_BSS_          
 
-#define _ATTR_LWBT_CODE_         __attribute__((section("LwbtCode")))
-#define _ATTR_LWBT_DATA_         __attribute__((section("LwbtData")))
-#define _ATTR_LWBT_BSS_          __attribute__((section("LwbtBss"),zero_init))
+#define _ATTR_LWBT_CODE_         
+#define _ATTR_LWBT_DATA_         
+#define _ATTR_LWBT_BSS_          
 #ifndef _JTAG_DEBUG_
 
 #if (BT_CHIP_CONFIG == BT_CHIP_RTL8761)

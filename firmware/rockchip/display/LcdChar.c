@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   LcdChar.c
+* File Nameï¿½ï¿½   LcdChar.c
 *
 * Description:
 *
@@ -14,7 +14,7 @@
 */
 //******************************************************************************
 #define   _IN_LCDCHAR_
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "LcdInclude.h"
 #include "ModuleOverlay.h"
 
@@ -97,10 +97,10 @@ void LCD_NFDispUnicodeChar(UINT16 c)
         {
             xsize = chxsize;
         }
-        else if (0x80 == iType)             // ¿Õ¸ñ
+        else if (0x80 == iType)             // ï¿½Õ¸ï¿½
         {
-            // °ë½Ç¿Õ¸ñ ( < 0x7f)
-            if (c >= 0x7f)                  // È«½Ç¿Õ¸ñ (>= 0x7f)
+            // ï¿½ï¿½Ç¿Õ¸ï¿½ ( < 0x7f)
+            if (c >= 0x7f)                  // È«ï¿½Ç¿Õ¸ï¿½ (>= 0x7f)
             {
                 xsize = chxsize;
             }
@@ -139,7 +139,7 @@ void LCD_NFDispUnicodeChar(UINT16 c)
 
         if (0 != Special_TaiWen_Buf[0])
         {
-            CharInNFAddr = FontLogicAddress + (UINT32)((UINT32)(Special_TaiWen_Buf[0]) * offset);//ÐèÒªÑéÖ¤
+            CharInNFAddr = FontLogicAddress + (UINT32)((UINT32)(Special_TaiWen_Buf[0]) * offset);//ï¿½ï¿½Òªï¿½ï¿½Ö¤
 
             if (LcdContext.TextFort == FONT_12x12)
                 LcdGetFront12Data(CharInNFAddr, (UINT8*)DispCharBuf_01, BufLen);
@@ -148,7 +148,7 @@ void LCD_NFDispUnicodeChar(UINT16 c)
 
             if (0 != Special_TaiWen_Buf[1])
             {
-                CharInNFAddr = FontLogicAddress + (UINT32)((UINT32)(Special_TaiWen_Buf[1]) * offset);//ÐèÒªÑéÖ¤
+                CharInNFAddr = FontLogicAddress + (UINT32)((UINT32)(Special_TaiWen_Buf[1]) * offset);//ï¿½ï¿½Òªï¿½ï¿½Ö¤
 
                 if (LcdContext.TextFort == FONT_12x12)
                     LcdGetFront12Data(CharInNFAddr, (UINT8*)DispCharBuf_02, BufLen);
@@ -259,7 +259,7 @@ UINT16 LCD_GetCharXSize(UINT16 s)
     if (Language == LANGUAGE_THAI)
     {
 
-        // Èç¹ûÊÇÌ©ÎÄµÄ ÉÏ±ê »òÕß   ÏÂ±ê,   ¿í¶ÈÎª 0.
+        // ï¿½ï¿½ï¿½ï¿½ï¿½Ì©ï¿½Äµï¿½ ï¿½Ï±ï¿½ ï¿½ï¿½ï¿½ï¿½   ï¿½Â±ï¿½,   ï¿½ï¿½ï¿½ï¿½Îª 0.
         if (0 != Check_Special_TaiWen(s))
         {
             iWidth = 0;
@@ -312,7 +312,7 @@ UINT16 LCD_GetCharsPerLine(LCD_RECT *r, UINT16 *s)
 --------------------------------------------------------------------------------
   Function name : INT32   LCD_GetLineDistX(UINT32   * s,    INT32 LineNumChar)
   Author        : yangwenjie
-  Description   : get the width of charactors according to number of charactors.¸ü¾Ý×Ö·ûÊý¼ÆËã×Ö·ûµÄ¿í¶È
+  Description   : get the width of charactors according to number of charactors.ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½
 
   Input         :  s                :   string pointer.
                    LineNumChar      :   charactors number
@@ -363,7 +363,7 @@ void LCD_DispLineChar(UINT16 *s, UINT32 LineNumChar)
     {
         for (i = 0; i < LineNumChar; i++)
         {
-            // ²»ÊÇÌ©ÎÄÌØÊâ×Ö·û, ²ÅÏÔÊ¾
+            // ï¿½ï¿½ï¿½ï¿½Ì©ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½, ï¿½ï¿½ï¿½ï¿½Ê¾
             if (Check_Special_TaiWen(*s) == 0)
             {
                 //Special_TaiWen_Buf[0] = 0;
@@ -375,7 +375,7 @@ void LCD_DispLineChar(UINT16 *s, UINT32 LineNumChar)
             }
             else
             {
-                // Ì©ÎÄÌØÊâ×Ö·û, ²»ÏÔÊ¾
+                // Ì©ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½, ï¿½ï¿½ï¿½ï¿½Ê¾
                 s++;
             }
         }
@@ -644,8 +644,8 @@ void LCD_DispStringLine(LCD_RECT *pDr, LCD_RECT   *pSr,   UINT16 *pStr, UINT32 A
 
     old_DispPosX = LcdContext.DispPosX;
 
-    NumChar =   LCD_GetCharsPerLine(pSr, pString);//¸ü¾Ý×Ö·û¿í¶È¼ÆËã³öÔÚ¾ØÐÎÖÐÒ»ÐÐÄÜÏÔÊ¾µÄ×Ö·ûÊý
-    xDist   =   LCD_GetLineDistX(pString, NumChar);//¸ü¾Ý×Ö·ûÊý¼ÆËã×Ö·ûµÄ¿í¶È
+    NumChar =   LCD_GetCharsPerLine(pSr, pString);//ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½Ú¾ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½
+    xDist   =   LCD_GetLineDistX(pString, NumChar);//ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½
 
     switch (AlignMode & LCD_TEXTALIGN_HORIZONTAL)
     {
@@ -748,8 +748,8 @@ void LCD_DispStringInRect(LCD_RECT *pDr, LCD_RECT   *pSr,   UINT16 *pStr, UINT32
 
     while (*pString)
     {
-        NumChar =   LCD_GetCharsPerLine(pSr, pString);//¸ü¾Ý×Ö·û¿í¶È¼ÆËã³öÔÚ¾ØÐÎÖÐÒ»ÐÐÄÜÏÔÊ¾µÄ×Ö·ûÊý
-        xDist   =   LCD_GetLineDistX(pString, NumChar);//¸ü¾Ý×Ö·ûÊý¼ÆËã×Ö·ûµÄ¿í¶È
+        NumChar =   LCD_GetCharsPerLine(pSr, pString);//ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½Ú¾ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½
+        xDist   =   LCD_GetLineDistX(pString, NumChar);//ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½
 
         switch (AlignMode & LCD_TEXTALIGN_HORIZONTAL)
         {
@@ -1099,10 +1099,10 @@ void LCD_SetColor(UINT16 color)
 --------------------------------------------------------------------------------
   Function name : UINT16 LCD_GetColor(void)
   Author        : ZHengYongzhi
-  Description   : »ñÈ¡Ç°¾°É«
+  Description   : ï¿½ï¿½È¡Ç°ï¿½ï¿½É«
 
   Input         :
-  Return        : µ±Ç°Ç°¾°É«
+  Return        : ï¿½ï¿½Ç°Ç°ï¿½ï¿½É«
 
   History:     <author>         <time>         <version>
              yangwenjie     2008/07/21         Ver1.0
@@ -1119,9 +1119,9 @@ UINT16 LCD_GetColor(void)
 --------------------------------------------------------------------------------
   Function name : void LCD_SetBkColor(UINT16 color)
   Author        : ZHengYongzhi
-  Description   : ÉèÖÃ±³¾°É«
+  Description   : ï¿½ï¿½ï¿½Ã±ï¿½ï¿½ï¿½É«
 
-  Input         : color ¡ª¡ª ±³¾°É«
+  Input         : color ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½É«
   Return        :
 
   History:     <author>         <time>         <version>
@@ -1139,10 +1139,10 @@ void LCD_SetBkColor(UINT16 color)
 --------------------------------------------------------------------------------
   Function name : UINT16 LCD_GetBkColor(void)
   Author        : ZHengYongzhi
-  Description   : »ñÈ¡±³¾°É«
+  Description   : ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½É«
 
   Input         :
-  Return        : µ±Ç°±³¾°É«
+  Return        : ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½É«
 
   History:     <author>         <time>         <version>
              yangwenjie     2008/07/21         Ver1.0
@@ -1159,9 +1159,9 @@ UINT16 LCD_GetBkColor(void)
 --------------------------------------------------------------------------------
   Function name : UINT16 LCD_SetDrawMode(UINT16 mode)
   Author        : ZHengYongzhi
-  Description   : ÉèÖÃÏµÍ³»æÍ¼Ä£Ê½
+  Description   : ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½Í¼Ä£Ê½
 
-  Input         : mode ¡ª¡ª ÐÂµÄ»æÍ¼Ä£Ê½
+  Input         : mode ï¿½ï¿½ï¿½ï¿½ ï¿½ÂµÄ»ï¿½Í¼Ä£Ê½
   Return        :
 
   History:     <author>         <time>         <version>
@@ -1179,10 +1179,10 @@ void LCD_SetDrawMode(UINT16 mode)
 --------------------------------------------------------------------------------
   Function name : UINT16 LCD_GetDrawMode(void)
   Author        : ZHengYongzhi
-  Description   : »ñÈ¡»æÍ¼Ä£Ê½
+  Description   : ï¿½ï¿½È¡ï¿½ï¿½Í¼Ä£Ê½
 
   Input         :
-  Return        : µ±Ç°»æÍ¼Ä£Ê½
+  Return        : ï¿½ï¿½Ç°ï¿½ï¿½Í¼Ä£Ê½
 
   History:     <author>         <time>         <version>
              yangwenjie     2008/07/21         Ver1.0
@@ -1201,7 +1201,7 @@ UINT16 LCD_GetDrawMode(void)
   Author        : ZHengYongzhi
   Description   : set text display mode.
 
-  Input         : mode ¡ª¡ª
+  Input         : mode ï¿½ï¿½ï¿½ï¿½
   Return        :
 
   History:     <author>         <time>         <version>
@@ -1240,10 +1240,10 @@ UINT16 LCD_SetTextMode(UINT16 mode)
 --------------------------------------------------------------------------------
   Function name : UINT16 LCD_GetTextMode(void)
   Author        : ZHengYongzhi
-  Description   : »ñÈ¡ÎÄ±¾ÏÔÊ¾Ä£Ê½
+  Description   : ï¿½ï¿½È¡ï¿½Ä±ï¿½ï¿½ï¿½Ê¾Ä£Ê½
 
   Input         :
-  Return        : ÎÄ±¾ÏÔÊ¾Ä£Ê½
+  Return        : ï¿½Ä±ï¿½ï¿½ï¿½Ê¾Ä£Ê½
 
   History:     <author>         <time>         <version>
              yangwenjie     2008/07/21         Ver1.0
@@ -1260,9 +1260,9 @@ UINT16 LCD_GetTextMode(void)
 --------------------------------------------------------------------------------
   Function name : void LCD_SetTextAlign(UINT16 mode)
   Author        : ZHengYongzhi
-  Description   : ÉèÖÃÎÄ±¾¶ÔÆëÄ£Ê½
+  Description   : ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½
 
-  Input         : mode ¡ª¡ª ÎÄ±¾¶ÔÆëÄ£Ê½
+  Input         : mode ï¿½ï¿½ï¿½ï¿½ ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½
   Return        :
 
   History:     <author>         <time>         <version>
@@ -1280,10 +1280,10 @@ void LCD_SetTextAlign(UINT16 mode)
 --------------------------------------------------------------------------------
   Function name : UINT16 LCD_GetTextAlign(void)
   Author        : ZHengYongzhi
-  Description   : »ñÈ¡ÎÄ±¾¶ÔÆëÄ£Ê½
+  Description   : ï¿½ï¿½È¡ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½
 
   Input         :
-  Return        : ÎÄ±¾¶ÔÆëÄ£Ê½
+  Return        : ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½
 
   History:     <author>         <time>         <version>
              yangwenjie     2008/07/21         Ver1.0
@@ -1303,7 +1303,7 @@ UINT16 LCD_GetTextAlign(void)
   Author        : ZHengYongzhi
   Description   : set display mode
 
-  Input         : mode ¡ª¡ª
+  Input         : mode ï¿½ï¿½ï¿½ï¿½
   Return        :
 
   History:     <author>         <time>         <version>
@@ -1384,8 +1384,8 @@ UINT8 LCD_SetLanguage(UINT8 SysLanguage)
   Author        : ZHengYongzhi
   Description   : set display area in lcd.
 
-  Input         : x0,y0 ¡ª¡ª the upper left coordinate.
-                  x1,y1 ¡ª¡ª the lower right coordinate.
+  Input         : x0,y0 ï¿½ï¿½ï¿½ï¿½ the upper left coordinate.
+                  x1,y1 ï¿½ï¿½ï¿½ï¿½ the lower right coordinate.
   Return        :
 
   History:     <author>         <time>         <version>
@@ -1422,8 +1422,8 @@ void LCD_SetDispRect(INT16 x0, INT16 y0, INT16 x1, INT16 y1)
   Author        : ZHengYongzhi
   Description   : set display pixel
 
-  Input         : x0,y0 ¡ª¡ª the upper left coordinate
-                  x1,y1 ¡ª¡ª the lower right coordinate
+  Input         : x0,y0 ï¿½ï¿½ï¿½ï¿½ the upper left coordinate
+                  x1,y1 ï¿½ï¿½ï¿½ï¿½ the lower right coordinate
   Return        :
 
   History:     <author>         <time>         <version>
@@ -1452,9 +1452,9 @@ void LCD_SetPixel(UINT16 x, UINT16 y, UINT16 color)
   Author        : yangwenjie
   Description   : get the resource of string.
 
-  Input         : menuTextID£ºstring ID
-                  pMenuStr  £ºthe unicode code of charactor group.
-                  StrLen    £ºget the length of string.
+  Input         : menuTextIDï¿½ï¿½string ID
+                  pMenuStr  ï¿½ï¿½the unicode code of charactor group.
+                  StrLen    ï¿½ï¿½get the length of string.
   Return        : null
 
   History:     <author>         <time>         <version>
@@ -1485,7 +1485,7 @@ void GetResourceStr(UINT16 menuTextID , UINT16 *pMenuStr , UINT16 StrLen)
 #else
 
     //for SPI Flash Test
-    if ((hMainFile = FileOpenW(NULL, L"\\", L"menu.res", "R")) == -1) //´ò¿ªÎÄ¼þ³É¹¦£¬¼ÓÔØ´ÅÅÌ
+    if ((hMainFile = FileOpenW(NULL, L"\\", L"menu.res", "R")) == -1) //ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø´ï¿½ï¿½ï¿½
     {
         DEBUG("Open File ERROR");
     }
@@ -1502,8 +1502,8 @@ void GetResourceStr(UINT16 menuTextID , UINT16 *pMenuStr , UINT16 StrLen)
   Author        : yangwenjie
   Description   : get menu resource structure information(string id number).it be use for muiti-country.
 
-  Input         : menuTextID    £ºmenu text id.
-                  pMenuTextInfo £ºsave menu resource text structrue information pointer.
+  Input         : menuTextID    ï¿½ï¿½menu text id.
+                  pMenuTextInfo ï¿½ï¿½save menu resource text structrue information pointer.
   Return        : null
 
   History:     <author>         <time>         <version>
@@ -1532,7 +1532,7 @@ void GetMenuTextInfoWithIDNum(UINT32 menuTextID,
 #else
 
     //for SPI Flash Test
-    if ((hMainFile = FileOpenW(NULL, L"\\", L"menu.res", "R")) == -1) //´ò¿ªÎÄ¼þ³É¹¦£¬¼ÓÔØ´ÅÅÌ
+    if ((hMainFile = FileOpenW(NULL, L"\\", L"menu.res", "R")) == -1) //ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø´ï¿½ï¿½ï¿½
     {
         DEBUG("Open File ERROR");
     }
@@ -1556,7 +1556,7 @@ void GetMenuTextInfoWithIDNum(UINT32 menuTextID,
                   xsize      : string length(pixels)
                   ysize      : string height(pixels)
                   alignMode  : align mode
-                  menuTextID £ºmenu text id.
+                  menuTextID ï¿½ï¿½menu text id.
   Return        : null
 
   History:     <author>         <time>         <version>

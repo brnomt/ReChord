@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  MusicWin.c
+* File Nameï¿½ï¿½  MusicWin.c
 *
 * Description:
 *
@@ -19,13 +19,13 @@
 
 #ifdef _VIDEO_
 
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "VideoControl.h"
 #include "BrowserUI.h"
 #include "MessageBox.h"
 #include "SysFindFile.h"
 #include "VideoWin.h"
-#include "hold.h"
+#include "Hold.h"
 #include "AviFile.h"
 
 #include "xvid_dec_main.h"
@@ -314,7 +314,7 @@ UINT32 VideoWinKeyProc(void)
     {
         switch (VideoKeyVal)
         {
-            case KEY_VAL_ESC_PRESS_START:           //long key switch VOL function³¤°´ÇÐ»»VOL¹¦ÄÜ
+            case KEY_VAL_ESC_PRESS_START:           //long key switch VOL functionï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½VOLï¿½ï¿½ï¿½ï¿½
                 if (CheckMsg(MSG_KEY_VOL_STATE))
                 {
                     ClearVolMsg();

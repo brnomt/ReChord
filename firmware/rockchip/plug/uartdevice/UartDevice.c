@@ -26,16 +26,16 @@
 *
 *---------------------------------------------------------------------------------------------------------------------
 */
-#include "sysinclude.h"
+#include "SysInclude.h"
 
 #if 1//def _UART_DEBUG_
-#include "Device.h"
-#include "uartdevice.h"
+#include "device.h"
+#include "UartDevice.h"
 #include "DriverInclude.h"
 #include "interrupt.h"
 
 #ifdef USE_USBSERIAL
-#include "usbserial.h"
+#include "USBSerial.h"
 #endif
 
 
@@ -48,10 +48,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _DRIVER_UART_UARTDEVICE_READ_  __attribute__((section("driver_uart_uartdevie_read")))
-#define _DRIVER_UART_UARTDEVICE_WRITE_ __attribute__((section("driver_uart_uartdevie_write")))
-#define _DRIVER_UART_UARTDEVICE_INIT_  __attribute__((section("driver_uart_uartdevie_init")))
-#define _DRIVER_UART_UARTDEVICE_SHELL_  __attribute__((section("driver_uart_uartdevie_shell")))
+#define _DRIVER_UART_UARTDEVICE_READ_  
+#define _DRIVER_UART_UARTDEVICE_WRITE_ 
+#define _DRIVER_UART_UARTDEVICE_INIT_  
+#define _DRIVER_UART_UARTDEVICE_SHELL_  
 
 
 typedef  struct _TX_ITEM

@@ -3,7 +3,7 @@
 *                   Copyright (c) 2009,chenfen
 *                         All rights reserved.
 *
-* File Name£º   UsbAdapterProbe.c
+* File Nameï¿½ï¿½   UsbAdapterProbe.c
 *
 * Description:
 *
@@ -15,7 +15,12 @@
 #define _IN_USB_ADAPTER
 
 #include "SysInclude.h"
-#include "FsInclude.h"
+
+#include "driver/USB/host/USB_DWCHost.h"  /* HOST_DEV & host stack */
+#include "driver/USB/USBConfig.h"
+#include "freq_enums.h"            /* FREQ_USB */
+#include "driver/CRU/Hw_cru.h"      /* CLK_USBPHY_GATE, USBPHY_SRST... */         /* USB_CLASS_* */
+#include "fsinclude.h"
 
 #ifdef _USB_
 
@@ -28,7 +33,7 @@ int32 USBHostEnumDevice(void)
 {
     int32 ret = 0;
     memset (&pHDev, 0 , sizeof(HOST_DEV));
-    //ÔÚÃ¶¾Ùºó¿ÉÒÔÕý³£ÈÈ²å°Î,¿ªÊ¼Ä¬ÈÏ´Ó0µØÖ·¶ÁÐ´Êý¾Ý
+    //ï¿½ï¿½Ã¶ï¿½Ùºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È²ï¿½ï¿½,ï¿½ï¿½Ê¼Ä¬ï¿½Ï´ï¿½0ï¿½ï¿½Ö·ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½
     pHDev.DevNum = 0;
     pHDev.toggle[0] = 0;
     ret = HostPortInit(&pHDev);
@@ -116,11 +121,11 @@ void usb_in_ep_intr_hook(void)
     ep_intr = (dev_regs->daint & dev_regs->daintmsk) & 0xFFFF;
     if ( ep_intr & 0x01)
     {
-        ep_intr = 0;     //¶Ëµã0
+        ep_intr = 0;     //ï¿½Ëµï¿½0
     }
     else if ( ep_intr & 0x02)
     {
-        ep_intr = 1;       //¶Ëµã1
+        ep_intr = 1;       //ï¿½Ëµï¿½1
     }
     else
     {
@@ -129,7 +134,7 @@ void usb_in_ep_intr_hook(void)
 
     /* Service the Device IN interrupts for each endpoint */
 
-    msk = dev_regs->diepmsk | ((dev_regs->dtknqr4_fifoemptymsk & 0x01)<<7);   //<<7ÊÇÒòÎªmskÊÇ±£Áô?
+    msk = dev_regs->diepmsk | ((dev_regs->dtknqr4_fifoemptymsk & 0x01)<<7);   //<<7ï¿½ï¿½ï¿½ï¿½Îªmskï¿½Ç±ï¿½ï¿½ï¿½?
     diepint = dev_regs->in_ep[ep_intr].diepint & msk;
 
     /* Transfer complete */
@@ -246,7 +251,7 @@ void UsbAdpterProbeISR(void)
         //UDEBUG("enum\n");
     }
 
-    if(intr_status & (1<<30))  //USB VBUSÖÐ¶Ï  this interrupt is asserted when the utmiotg_bvalid signal goes high.
+    if(intr_status & (1<<30))  //USB VBUSï¿½Ð¶ï¿½  this interrupt is asserted when the utmiotg_bvalid signal goes high.
     {
         //UDEBUG("vbus\n");
         otg_core->Core.gintsts = 1<<30;
@@ -259,7 +264,7 @@ void UsbAdpterProbeISR(void)
         otg_core->Core.gintsts = 1ul<<31;
     }
 
-    if(intr_status & (1<<18))       //INÖÐ¶Ï
+    if(intr_status & (1<<18))       //INï¿½Ð¶ï¿½
     {
         usb_in_ep_intr_hook();
     }
@@ -414,7 +419,7 @@ int32 UsbAdpterProbe(void)
         {
             //probe timeout, it means charge
             SystickTmp = GetSysTick();
-            if ((SystickTmp - UsbAdapterProbeSystickCounter) > 300)    //1000msÑÓÊ±
+            if ((SystickTmp - UsbAdapterProbeSystickCounter) > 300)    //1000msï¿½ï¿½Ê±
             {
                 USBDEBUG("Detect TimeOut");
 

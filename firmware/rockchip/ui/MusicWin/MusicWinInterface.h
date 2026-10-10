@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   MusicWinInterface.h
+* File Nameï¿½ï¿½   MusicWinInterface.h
 * 
 * Description:  the interface link external interface with music UI.
 *
@@ -16,9 +16,9 @@
 #define MUSICWIN_INTERFACE_H_
 
 #include "DialogBox.h"
-#include "Audio_globals.h"
+#include "audio_globals.h"
 #include "AudioControl.h"
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "SysFindFile.h"
 #include "Spectrum.h"
 #include "BrowserUI.h"

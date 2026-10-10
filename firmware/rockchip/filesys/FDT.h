@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   FDT.h
+* File Nameï¿½ï¿½   FDT.h
 *
 * Description:
 *
@@ -69,6 +69,8 @@
 --------------------------------------------------------------------------------
 */
 //find structure.
+#ifndef _FIND_DATA_DEFINED
+#define _FIND_DATA_DEFINED
 typedef __packed struct _FIND_DATA
 {
     uint32  Clus;                               //current cluster
@@ -83,6 +85,8 @@ typedef __packed struct _FIND_DATA
 #endif
 
 } FIND_DATA;
+#endif /* _FIND_DATA_DEFINED â€” duplicate SDK tag, see tools/fix_include_case.py notes */
+
 
 //direction item link structure.
 typedef __packed struct _FDT_DATA
@@ -92,6 +96,8 @@ typedef __packed struct _FDT_DATA
     uint16  Cnt;          //cluster chain counter
 } FDT_DATA;
 
+#ifndef _FDT_DEFINED
+#define _FDT_DEFINED
 typedef __packed  struct _FDT
 {
     uint8   Name[11];                           //short file name
@@ -125,6 +131,8 @@ typedef __packed  struct _FDT
 //  uint16  reserve9;                           //reseverd
 
 } FDT;
+#endif /* _FDT_DEFINED */
+
 
 /*
 --------------------------------------------------------------------------------

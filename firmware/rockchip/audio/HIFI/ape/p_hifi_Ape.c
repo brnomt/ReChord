@@ -49,10 +49,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_APE_PAPE_READ_  __attribute__((section("bbsystem_codecs_audio_decode_ape_pape_read")))
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_APE_PAPE_WRITE_ __attribute__((section("bbsystem_codecs_audio_decode_ape_pape_write")))
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_APE_PAPE_INIT_  __attribute__((section("bbsystem_codecs_audio_decode_ape_pape_init")))
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_APE_PAPE_SHELL_  __attribute__((section("bbsystem_codecs_audio_decode_ape_pape_shell")))
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_APE_PAPE_READ_  
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_APE_PAPE_WRITE_ 
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_APE_PAPE_INIT_  
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_APE_PAPE_SHELL_  
 
 
 /*
@@ -81,8 +81,8 @@ extern FILE *pRawFileCache;
 APEContext apeobj;
 
 
-#include "sysinclude.h"
-#include "driverinclude.h"
+#include "SysInclude.h"
+#include "DriverInclude.h"
 #include "audio_file_access.h"
 extern MediaBlock  gpMediaBlock;
 extern unsigned int gDecDone;

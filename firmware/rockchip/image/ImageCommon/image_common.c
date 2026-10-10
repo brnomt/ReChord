@@ -1,7 +1,7 @@
-#include "DriverConfig.h"
-#include "..\ImageInclude\image_main.h"
-#include "..\ImageInclude\image_globals.h"
-#include "imagecontrol.h"
+#include "Driverconfig.h"
+#include "../ImageInclude/image_main.h"
+#include "../ImageInclude/image_globals.h"
+#include "ImageControl.h"
 #ifdef _PICTURE_
 #pragma arm section code = "ImageContrlCode", rodata = "ImageContrlCode", rwdata = "ImageContrlData", zidata = "ImageContrlBss"
 int get_output_wh(int *w,int *h,int image_w,int image_h)

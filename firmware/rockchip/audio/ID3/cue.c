@@ -3,9 +3,9 @@
 *                   Copyright (c) 2013,Tiantian
 *                         All rights reserved.
 *
-* File Name£º   cue.c
+* File Nameï¿½ï¿½   cue.c
 *
-* Description:  CUE ½âÎö
+* Description:  CUE ï¿½ï¿½ï¿½ï¿½
 *
 * History:      <author>          <time>        <version>
 *               Tiantian        2013-9-6
@@ -13,7 +13,7 @@
 ********************************************************************************
 */
 #include "cue.h"
-#include "id3.h"
+#include "ID3.h"
 #include "audio_main.h"
 
 #ifdef _RK_CUE_
@@ -25,9 +25,9 @@ unsigned char CUETempBuff[MAX_ID3_FIND_SIZE];
 /*
 *****************************************************
 * Name:     CUE_GetComInfo
-* Desc:     ¶ÁÈ¡CUEÐÅÏ¢
-* Param:    ×Ö·û»º³å
-* Return:   CUEÀàÐÍ
+* Desc:     ï¿½ï¿½È¡CUEï¿½ï¿½Ï¢
+* Param:    ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½
+* Return:   CUEï¿½ï¿½ï¿½ï¿½
 * Global:
 * Note:
 * History:  <author>          <time>        <version>
@@ -89,8 +89,8 @@ int CUE_GetComInfo(char *tempbuf)
 /*
 *****************************************************
 * Name:     CUE_GetMetaData
-* Desc:     ¶ÁÈ¡CUEÐÅÏ¢
-* Param:    ×Ö·û»º³å£¬Ê£Óà³¤¶È£¬CUEÀàÐÍ£¬Ä¿±ê»º³å
+* Desc:     ï¿½ï¿½È¡CUEï¿½ï¿½Ï¢
+* Param:    ï¿½Ö·ï¿½ï¿½ï¿½ï¿½å£¬Ê£ï¿½à³¤ï¿½È£ï¿½CUEï¿½ï¿½ï¿½Í£ï¿½Ä¿ï¿½ê»ºï¿½ï¿½
 * Return:
 * Global:
 * Note:
@@ -172,7 +172,7 @@ int CUE_GetMetaData(unsigned char *tempbuf, int remainSize, int iCueComInfo, uns
 /*
 *****************************************************
 * Name:     parserCueInfo
-* Desc:     ½âÎöCUEÐÅÏ¢
+* Desc:     ï¿½ï¿½ï¿½ï¿½CUEï¿½ï¿½Ï¢
 * Param:
 * Return:
 * Global:
@@ -246,7 +246,7 @@ int ParseCueInfo(HANDLE fHandle, CUE_INFO * cue_info, uint8 OnlyFile)
             }
         }
 
-        if (iCueComInfo == CUE_TRACK) { //Ò»Ö±ÕÒ²»µ½TRACE±êÇ©£¬´íÎóµÄÎÄ¼þ
+        if (iCueComInfo == CUE_TRACK) { //Ò»Ö±ï¿½Ò²ï¿½ï¿½ï¿½TRACEï¿½ï¿½Ç©ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½
             iMetaCnt = 1;
 TRACK:
             if (j + 15 >= iReadSize) {
@@ -256,7 +256,7 @@ TRACK:
                 iCopySize = CUE_GetMetaData(&CUETempBuff[j + 6], iReadSize - j - 6, iCueComInfo,
                                     (unsigned char *)cue_info->m_songs[cue_info->m_total_Song - 1].trackId, EncodeMode);
                 if (iCopySize != 0) {
-                    j += (6 + iCopySize + 6);    //Ìø¹ýTRACK xx AUDIO
+                    j += (6 + iCopySize + 6);    //ï¿½ï¿½ï¿½ï¿½TRACK xx AUDIO
                     i += (6 + iCopySize + 6);
                 }
             }
@@ -302,7 +302,7 @@ TRACK:
                                 j += 9;
                                 i += 9;
 
-                                min = (timebuf[0] - 48) * 10 + (timebuf[1] - 48);   //48 = 0x30 ¼´'0'
+                                min = (timebuf[0] - 48) * 10 + (timebuf[1] - 48);   //48 = 0x30 ï¿½ï¿½'0'
                                 sec = (timebuf[3] - 48) * 10 + (timebuf[4] - 48);
 
                                 frame = (timebuf[6] - 48) * 10 + (timebuf[7] - 48);

@@ -13,7 +13,7 @@
 */
 //#include "typedef_rkos.h"
 #include <stdarg.h>
-#include "driverinclude.h"
+#include "DriverInclude.h"
 #include "device.h"
 
 
@@ -30,7 +30,7 @@
 *********************************************************************************************************
 */
 
-// 具体设备，需要添加设备的在此添加
+// 锟斤拷锟斤拷锟借备锟斤拷锟斤拷要锟斤拷锟斤拷锟借备锟斤拷锟节达拷锟斤拷锟斤拷
 enum RK_device_list
 {
     UartDevNO = 0,
@@ -38,7 +38,7 @@ enum RK_device_list
     KeyDevNO,
     MAX_DEVICE_NUM,
 };
-//设备名称列表
+//锟借备锟斤拷锟斤拷锟叫憋拷
 char* DeviceName[] =
 {
     "UartDevice",

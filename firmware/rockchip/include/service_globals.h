@@ -29,13 +29,9 @@ extern RADIO_REG_KEY *gpRadioplayerRegKey;
 
 extern uint32 FM_State_StepStation;
 
-typedef struct {
-    uint32 FirstDataSector;
-    uint32 BytesPerSec;
-    uint32 SecPerClus;
-    uint32 FatSectors;
-} BOOT_SECTOR_T;
-extern BOOT_SECTOR_T BootSector;
+/* BOOT_SECTOR_T removed 2026-10-09: the vendor filesys/fat.h owns
+ * `BootSector` (_FAT_BOOTSECTOR, with BPB_RootClus). This synthesized copy
+ * had zero users and collided with it. */
 extern uint32 FileDiskID;
 
 extern UINT16 AudioPlayerState;

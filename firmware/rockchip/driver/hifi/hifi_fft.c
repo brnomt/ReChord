@@ -38,10 +38,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _CPU_NANOD_LIB_HIFI_FFT_READ_  __attribute__((section("cpu_nanod_lib_hifi_fft_read")))
-#define _CPU_NANOD_LIB_HIFI_FFT_WRITE_ __attribute__((section("cpu_nanod_lib_hifi_fft_write")))
-#define _CPU_NANOD_LIB_HIFI_FFT_INIT_  __attribute__((section("cpu_nanod_lib_hifi_fft_init")))
-#define _CPU_NANOD_LIB_HIFI_FFT_SHELL_  __attribute__((section("cpu_nanod_lib_hifi_fft_shell")))
+#define _CPU_NANOD_LIB_HIFI_FFT_READ_  
+#define _CPU_NANOD_LIB_HIFI_FFT_WRITE_ 
+#define _CPU_NANOD_LIB_HIFI_FFT_INIT_  
+#define _CPU_NANOD_LIB_HIFI_FFT_SHELL_  
 
 /*
 *---------------------------------------------------------------------------------------------------------------------

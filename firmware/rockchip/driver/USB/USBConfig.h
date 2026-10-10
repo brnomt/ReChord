@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   FsConfig.h
+* File Nameï¿½ï¿½   FsConfig.h
 *
 * Description:
 *
@@ -36,12 +36,12 @@
 #include <string.h>
 #include "SysConfig.h"
 #include "typedef.h"
-#include "Macro.h"
+#include "macro.h"
 
 #include "hw_nvic.h"
 
 #include "hw_memap.h"
-#include "hook.h"
+#include "Hook.h"
 
 
 //#define     USB_DRM_EN
@@ -50,41 +50,41 @@
 
 //section defines
 //usb ui
-#define     _ATTR_USB_UI_CODE_              __attribute__((section("UsbUICode")))
-#define     _ATTR_USB_UI_DATA_              __attribute__((section("UsbUIData")))
-#define     _ATTR_USB_UI_BSS_               __attribute__((section("UsbUIBss"), zero_init))
+#define     _ATTR_USB_UI_CODE_              
+#define     _ATTR_USB_UI_DATA_              
+#define     _ATTR_USB_UI_BSS_               
 
 //usb audio
-#define     _ATTR_USB_AUDIO_CODE_           __attribute__((section("UsbAudioCode")))
-#define     _ATTR_USB_AUDIO_DATA_           __attribute__((section("UsbAudioData")))
-#define     _ATTR_USB_AUDIO_BSS_            __attribute__((section("UsbAudioBss"), zero_init))
+#define     _ATTR_USB_AUDIO_CODE_           
+#define     _ATTR_USB_AUDIO_DATA_           
+#define     _ATTR_USB_AUDIO_BSS_            
 
 //usb msc
-#define     _ATTR_USB_MSC_CODE_             __attribute__((section("UsbMSCCode")))
-#define     _ATTR_USB_MSC_DATA_             __attribute__((section("UsbMSCData")))
-#define     _ATTR_USB_MSC_BSS_              __attribute__((section("UsbMSCBss"), zero_init))
+#define     _ATTR_USB_MSC_CODE_             
+#define     _ATTR_USB_MSC_DATA_             
+#define     _ATTR_USB_MSC_BSS_              
 
 //usb msc
-#define     _ATTR_USB_SRL_CODE_             __attribute__((section("UsbSerialCode")))
-#define     _ATTR_USB_SRL_DATA_             __attribute__((section("UsbSerialData")))
-#define     _ATTR_USB_SRL_BSS_              __attribute__((section("UsbSerialBss"), zero_init))
+#define     _ATTR_USB_SRL_CODE_             
+#define     _ATTR_USB_SRL_DATA_             
+#define     _ATTR_USB_SRL_BSS_              
 
 //usb control
-#define     _ATTR_USBCONTROL_CODE_          __attribute__((section("UsbControlCode")))
-#define     _ATTR_USBCONTROL_DATA_          __attribute__((section("UsbControlData")))
-#define     _ATTR_USBCONTROL_BSS_           __attribute__((section("UsbControlBss"),zero_init))
+#define     _ATTR_USBCONTROL_CODE_          
+#define     _ATTR_USBCONTROL_DATA_          
+#define     _ATTR_USBCONTROL_BSS_           
 
 //usb driver
-#define     _ATTR_USB_DRIVER_CODE_          __attribute__((section("UsbDriverCode")))
-#define     _ATTR_USB_DRIVER_DATA_          __attribute__((section("UsbDriverData")))
-#define     _ATTR_USB_DRIVER_BSS_           __attribute__((section("UsbDriverBss"),zero_init))
+#define     _ATTR_USB_DRIVER_CODE_          
+#define     _ATTR_USB_DRIVER_DATA_          
+#define     _ATTR_USB_DRIVER_BSS_           
 
 //USB module compile switch.
 #ifdef _USB_
 #define USB_MSC
 
-#define USB_IF_TEST                 //Òª¹ýUSBÂÛÖ¤²âÊÔÐèÒª´ò¿ª´Ë¶¨Òå, ´ò¿ª´Ë¶¨ÒåÖ»ÒªUSBÏßÓÐÁ¬½Ó,¾Í²»ÍË³öUSB
-//#define USB_PHY_TEST                //USB PHY²âÊÔ£¬²âÊÔÑÛÍ¼µÈÐèÇó
+#define USB_IF_TEST                 //Òªï¿½ï¿½USBï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ò¿ª´Ë¶ï¿½ï¿½ï¿½, ï¿½ò¿ª´Ë¶ï¿½ï¿½ï¿½Ö»ÒªUSBï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½Í²ï¿½ï¿½Ë³ï¿½USB
+//#define USB_PHY_TEST                //USB PHYï¿½ï¿½ï¿½Ô£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 #define USB_SUSPEND_EN           1
 #endif
 
@@ -105,10 +105,10 @@
 */
 #include "OsInclude.h"
 
-#include "FSconfig.h"
-#include "FSInclude.h"
+#include "FsConfig.h"
+#include "fsinclude.h"
 
-#include "USBreg.h"
+#include "USBReg.h"
 #include "USBComm.h"
 #include "chap9.h"
 

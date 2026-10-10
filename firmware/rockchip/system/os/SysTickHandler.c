@@ -15,6 +15,7 @@
 #define _IN_SYSTICK_HANDLER_
 
 #include "SysInclude.h"
+#include "driver/NVIC/hw_nvic.h"   /* nvic instance, NVIC_SYSTICKCTRL_* */
 
 UINT32 SystickTimerStopRaw(SYSTICK_LIST *pListHead, SYSTICK_LIST *pSystick);
 

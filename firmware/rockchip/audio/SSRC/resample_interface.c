@@ -6,18 +6,18 @@
 #include "SysInclude.h"
 
 
-#define _ATTR_AUDIO_TEXT_     __attribute__((section("AudioCode")))
-#define _ATTR_AUDIO_DATA_     __attribute__((section("AudioData")))
-#define _ATTR_AUDIO_BSS_      __attribute__((section("AudioBss"),zero_init))
+#define _ATTR_AUDIO_TEXT_     
+#define _ATTR_AUDIO_DATA_     
+#define _ATTR_AUDIO_BSS_      
 
-//#define _ATTR_AUDIO_SBC_ENCODE_TEXT_     __attribute__((section("SbcEnCodeCode")))
-//#define _ATTR_AUDIO_SBC_ENCODE_DATA_     __attribute__((section("SbcEnCodeData")))
-//#define _ATTR_AUDIO_SBC_ENCODE_BSS_      __attribute__((section("SbcEnCodeBss"),zero_init))
+//#define _ATTR_AUDIO_SBC_ENCODE_TEXT_     
+//#define _ATTR_AUDIO_SBC_ENCODE_DATA_     
+//#define _ATTR_AUDIO_SBC_ENCODE_BSS_      
 
 #ifdef SSRC
 
 //#pragma arm section code ="SSRCCode", rodata = "SSRCData", rwdata = "SSRCData", zidata = "SSRCData"
-#include ".\resampler\src.h"
+#include "Src.h"
 
 _ATTR_AUDIO_BSS_ static SRCState pSRC_st;
 _ATTR_AUDIO_BSS_ static SRCState pSRC_st_44100;
@@ -81,7 +81,7 @@ SRCState *resample_init(int nb_channels, int in_rate, int out_rate)
 	return &pSRC_st;
 }
 _ATTR_AUDIO_TEXT_
-int resampler_process(SRCState *st, short *in, int *in_len, short *out, int *out_len)//ÊäÈë¡¢Êä³öµ¥Ë«ÉùµÀshort×Ü³¤¶È
+int resampler_process(SRCState *st, short *in, int *in_len, short *out, int *out_len)//ï¿½ï¿½ï¿½ë¡¢ï¿½ï¿½ï¿½ï¿½ï¿½Ë«ï¿½ï¿½ï¿½ï¿½shortï¿½Ü³ï¿½ï¿½ï¿½
 {
 	int err;
 	int len;

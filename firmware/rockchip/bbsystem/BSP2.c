@@ -13,6 +13,10 @@
 */
 #include "SysInclude.h"
 
+#include "driver/BB/BBSystem.h"   /* MSGBOX_CMD_* enum (vendor owner) */
+#include "driver/CRU/cru.h"       /* chip_freq_t */
+#include "driver/NVIC/hw_nvic.h"  /* NVIC_SYSTICKCTRL_* */
+
 
 /*
 *********************************************************************************************************
@@ -21,10 +25,10 @@
 */
 
 
-#define _BSP_EVK_V20_BSP2_READ_  __attribute__((section("bsp_evk_v20_bsp2_read")))
-#define _BSP_EVK_V20_BSP2_WRITE_ __attribute__((section("bsp_evk_v20_bsp2_write")))
-#define _BSP_EVK_V20_BSP2_INIT_  __attribute__((section("bsp_evk_v20_bsp2_init")))
-#define _BSP_EVK_V20_BSP2_SHELL_  __attribute__((section("bsp_evk_v20_bsp2_shell")))
+#define _BSP_EVK_V20_BSP2_READ_  
+#define _BSP_EVK_V20_BSP2_WRITE_ 
+#define _BSP_EVK_V20_BSP2_INIT_  
+#define _BSP_EVK_V20_BSP2_SHELL_  
 
 
 /*

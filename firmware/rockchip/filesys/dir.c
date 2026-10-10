@@ -15,6 +15,9 @@
 #define  IN_DIR
 
 #include "FsInclude.h"
+#include "driver/MemDev/MemDev.h"        /* DataDiskID, MEDIAINFO_BLOCK_SIZE */
+#include "sortfileinfo/AddrSaveMacro.h" /* MUSIC_TREE_*/RECORD_TREE_* sector starts */
+#include "sortfileinfo/SortInfoGetMacro.h"
 
 
 #ifdef FIND_FILE

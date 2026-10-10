@@ -3,7 +3,7 @@
 *                   Copyright (c) 2009,WangBo
 *                         All rights reserved.
 *
-* File Name£º   RecordWinInterface.h
+* File Nameï¿½ï¿½   RecordWinInterface.h
 *
 * Description:  the interface that record provide for extenal part
 *
@@ -25,15 +25,15 @@
 
 //------------------------------------------------------------------------------
 
-#include  "FsInclude.h"
+#include  "fsinclude.h"
 #include  "File.h"
 #include  "FDT.h"
 
-#include  "PCM.H"
+#include  "pcm.h"
 
 #include "RecordWin.h"
 
-#include "RecordControl.h"    //recording backgroud service
+#include "recordcontrol.h"    //recording backgroud service
 
 #include "MessageBox.h" //to popup dialog when disk full or OVERLAYOVERLAY create file fail,exit recording.  
    

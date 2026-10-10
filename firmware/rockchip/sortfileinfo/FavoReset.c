@@ -17,7 +17,7 @@
 
 #ifdef _MEDIA_MODULE_
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "AddrSaveMacro.h"
 
 #include "MediaBroWin.h"
@@ -40,7 +40,7 @@ UINT16 FavoReset(void)
     UINT8 *pPathBuffer;
 
     ModuleOverlay(MODULE_ID_FLASH_PROG, MODULE_OVERLAY_ALL);
-    if(gSysConfig.MedialibPara.gMyFavoriteFileNum == 0)//Ã»ÓÐÎÄ¼þ
+    if(gSysConfig.MedialibPara.gMyFavoriteFileNum == 0)//Ã»ï¿½ï¿½ï¿½Ä¼ï¿½
     {
         return;
     }
@@ -54,7 +54,7 @@ UINT16 FavoReset(void)
     else
        gFavoBlockSectorAddr = MediaInfoAddr+ FAVORITE_BLOCK_SECTOR_START2;
     }
-    gFavoResetBuffer[0] = 0xFA; // FAVORITE¿éµÄ±êÖ¾Î»
+    gFavoResetBuffer[0] = 0xFA; // FAVORITEï¿½ï¿½Ä±ï¿½Ö¾Î»
     gFavoResetBuffer[1] = 0x00; //
     gFavoResetBuffer[2] = (gSysConfig.MedialibPara.gMyFavoriteFileNum)&0xff;
     gFavoResetBuffer[3] = ((gSysConfig.MedialibPara.gMyFavoriteFileNum)>>8)&0xff;
@@ -70,7 +70,7 @@ UINT16 FavoReset(void)
         MedialibUpdateDisplayHook();//PAGE
 #endif
         pPathBuffer = &gFavoResetBuffer[uiSaveIndex*FAVORITE_MUSIC_SAVE_SIZE];
-        //ÊÕ²Ø¼ÐÂ·¾¶ÐÅÏ¢´æ·ÅµØÖ·ÎªÊÕ²Ø¼ÐÆðÊ¼µØÖ·¼ÓÒ»¸öMEDIAINFO_PAGE_SIZE´óÐ¡
+        //ï¿½Õ²Ø¼ï¿½Â·ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Åµï¿½Ö·Îªï¿½Õ²Ø¼ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Ö·ï¿½ï¿½Ò»ï¿½ï¿½MEDIAINFO_PAGE_SIZEï¿½ï¿½Ð¡
         MDReadData(DataDiskID, (((UINT32)ulPreBlockSectorAddr+FAVO_PATH_SECTOR_OFFSET)<<9)+(UINT32)(i)*FAVORITE_MUSIC_SAVE_SIZE, (PATH_SIZE+SHORT_NAME_SIZE), pPathBuffer);
 
         //if(RETURN_OK == FindFileByShortPath(&Rt, &pPathBuffer[0], &pPathBuffer[PATH_SIZE]))
@@ -81,11 +81,11 @@ UINT16 FavoReset(void)
         {
            // uiFavoDelCount++;
         }
-        if(uiSaveIndex==FAVORITE_NUM_PER_PAGE)//Ð´ÂúÒ»¸öbuf
+        if(uiSaveIndex==FAVORITE_NUM_PER_PAGE)//Ð´ï¿½ï¿½Ò»ï¿½ï¿½buf
         {
             uiSaveIndex = 0;
             ModuleOverlay(MODULE_ID_FLASH_PROG, MODULE_OVERLAY_ALL);
-            //uiPageCount¼ÓÒ»ÊÇÒòÎªÇ°ÃæÓÐÒ»¸öMEDIAINFO_PAGE_SIZE´óÐ¡µÄ¿Õ¼äÖ»´æ·ÅÁËÒ»¸öÊÕ²Ø¼ÐµÄÎÄ¼þÊýºÍ±ê¼Ç
+            //uiPageCountï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ÎªÇ°ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½MEDIAINFO_PAGE_SIZEï¿½ï¿½Ð¡ï¿½Ä¿Õ¼ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Õ²Ø¼Ðµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Í±ï¿½ï¿½
             MDWrite(DataDiskID, (gFavoBlockSectorAddr+FAVO_PATH_SECTOR_OFFSET +(uiPageCount*MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE)), MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE, gFavoResetBuffer);
 
             uiPageCount++;
@@ -105,7 +105,7 @@ UINT16 FavoReset(void)
     MDWrite(DataDiskID, ulPreBlockSectorAddr, MEDIAINFO_PAGE_SIZE/SECTOR_BYTE_SIZE, gFavoResetBuffer);
 
 
-    if(uiFavoDelCount)//ÓÐÉ¾³ýµÄÎÄ¼þÐòºÅÖØÐÂÔÚÐ´Ò»´Î
+    if(uiFavoDelCount)//ï¿½ï¿½É¾ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´Ò»ï¿½ï¿½
     {
         gSysConfig.MedialibPara.gMyFavoriteFileNum -= uiFavoDelCount;
 

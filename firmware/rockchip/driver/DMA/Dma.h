@@ -16,6 +16,7 @@
 
 #ifndef _DMA_H_
 #define _DMA_H_
+#include "Hw_dma.h"   /* pDMA_LLP, B_CTLL_* (same dir) */
 
 #undef  EXT
 #ifdef _IN_DMA_

@@ -46,9 +46,9 @@
 */
 //section define
 //³£×¤´úÂë
-#define _ATTR_MDBBUILDWIN_CODE_         __attribute__((section("MdbBuildWinCode")))
-#define _ATTR_MDBBUILDWIN_DATA_         __attribute__((section("MdbBuildWinData")))
-#define _ATTR_MDBBUILDWIN_BSS_          __attribute__((section("MdbBuildWinBss"),zero_init))
+#define _ATTR_MDBBUILDWIN_CODE_         
+#define _ATTR_MDBBUILDWIN_DATA_         
+#define _ATTR_MDBBUILDWIN_BSS_          
 
 #define     MEDIA_UPDATA_TXT_X             0    // the start point of x direction.
 #define     MEDIA_UPDATA_TXT_Y             80    //the start point of y direction.

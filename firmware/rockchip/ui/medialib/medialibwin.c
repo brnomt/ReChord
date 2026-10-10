@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  medialibWin.c
+* File Nameï¿½ï¿½  medialibWin.c
 *
 * Description:
 *
@@ -18,7 +18,7 @@
 
 #ifdef _MEDIA_MODULE_
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "medialibwin.h"
 #include "mainmenu.h"
 #include "SysFindFile.h"
@@ -184,10 +184,10 @@ _ATTR_MEDIALIBWIN_CODE_
 void MedialibWinInit(void *pArg)
 {
     /*
-    if (gSysConfig.MedialibPara.MediaUpdataFlag)//ÓÐÃ½Ìå¿â¸üÐÂ±ê¼ÇÊ±£¬½øÈëÃ½Ìå¿âÊ±¸üÐÂÃ½Ìå¿â
+    if (gSysConfig.MedialibPara.MediaUpdataFlag)//ï¿½ï¿½Ã½ï¿½ï¿½ï¿½ï¿½ï¿½Â±ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½
     {
         gSysConfig.MedialibPara.MediaUpdataFlag = 0;
-        if (TRUE == ThreadCheck(pMainThread, &MusicThread))        //Ã½Ìå¿â¸üÐÂÊ±¹Ø±ÈºóÌ¨ÒôÀÖ
+        if (TRUE == ThreadCheck(pMainThread, &MusicThread))        //Ã½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ø±Èºï¿½Ì¨ï¿½ï¿½ï¿½ï¿½
         {
             ThreadDeleteAll(&pMainThread);
         }
@@ -690,7 +690,7 @@ UINT32 MedialibWinKey(void)
 #ifdef _TEST_NOWPLAYING_
             if (0)
 #else
-            if (FALSE == ThreadCheck(pMainThread, &MusicThread))//&&(gSysConfig.MusicConfig.HoldOnPlaySaveFlag==0)&&(HoldOnPlayInfo.HoldMusicGetSign==0))//ÎÞºóÌ¨ÒôÀÖ´æÔÚ
+            if (FALSE == ThreadCheck(pMainThread, &MusicThread))//&&(gSysConfig.MusicConfig.HoldOnPlaySaveFlag==0)&&(HoldOnPlayInfo.HoldMusicGetSign==0))//ï¿½Þºï¿½Ì¨ï¿½ï¿½ï¿½Ö´ï¿½ï¿½ï¿½
 #endif
             {
                 if (MedialibWinItemData.CurNum == 1) //cursor in the frist item
@@ -808,7 +808,7 @@ UINT32 MedialibWinKey(void)
 
                 if (0)
 #else
-                if (FALSE == ThreadCheck(pMainThread, &MusicThread))//&&(gSysConfig.MusicConfig.HoldOnPlaySaveFlag==0)&&(HoldOnPlayInfo.HoldMusicGetSign==0))//ÎÞºóÌ¨ÒôÀÖ´æÔÚ
+                if (FALSE == ThreadCheck(pMainThread, &MusicThread))//&&(gSysConfig.MusicConfig.HoldOnPlaySaveFlag==0)&&(HoldOnPlayInfo.HoldMusicGetSign==0))//ï¿½Þºï¿½Ì¨ï¿½ï¿½ï¿½Ö´ï¿½ï¿½ï¿½
 #endif
                 {
                     MedialibWinItemData.CurNum = 1;
@@ -958,7 +958,7 @@ void MedialibWinDisplay(void)
     if (GetMsg(MSG_MEDIAWIN_FRESH_ITEM))
     {
         GetPictureInfoWithIDNum(IMG_ID_SEL_ICON, &PicInfo);
-        GetPictureInfoWithIDNum(IMG_ID_NOWPLAY, &PicInfo1);//Ã¿ÐÐµÄÍ¼±ê
+        GetPictureInfoWithIDNum(IMG_ID_NOWPLAY, &PicInfo1);//Ã¿ï¿½Ðµï¿½Í¼ï¿½ï¿½
 
         for (i = 0; i < MAX_ITEM_NUM_MEDIA_DISP; i++)
         {

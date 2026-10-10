@@ -1,4 +1,4 @@
-#include "sysinclude.h"
+#include "SysInclude.h"
 #include "audio_main.h"
 
 #ifdef MP3_DEC_INCLUDE

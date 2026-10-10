@@ -160,6 +160,30 @@ bass boost, add delay taps for reverb) and rebuild.
    the FiiO-specific windows/menus on top of the SDK.
 4. **Flash** — pack_img.py + the safe flashing method (stock backup always).
 
+## SDK compile pipeline hardening (Oct 2026)
+
+The SDK symbol-extraction pipeline (`tools/compile_check.py`) went from
+**5/220 to 73/220** `.c` files compiling (544 functions extracted) via:
+
+1. `tools/fix_include_case.py` (new) — rewrites `#include` directives to match
+   on-disk header names: the vendor tree is Windows-authored, so Linux broke on
+   case mismatches (`Macro.h` vs `macro.h`), backslash paths
+   (`..\ImageInclude\...`) and ambiguous basenames (resolves to the nearest
+   candidate). ~300 include lines fixed across ~180 files. Re-runnable.
+2. `compile_check.py` now force-includes `armcc_compat.h` (the Keil keyword
+   shim already existed but was never injected) and compiles with `-std=gnu89`
+   + implicit-declaration leniency — the SDK is armcc-era C90 and we only need
+   objects for symbol extraction.
+3. Structural fix: `struct _FIND_DATA` is defined twice with different layouts
+   (`filesys/FDT.h` = search cursor, `include/fsinclude.h` = file handle);
+   both are now wrapped in a shared `_FIND_DATA_DEFINED` guard (first-wins).
+   **TODO(unify):** give them distinct tags.
+
+Remaining compile failures (~147) are mapped by cause: missing cross-subsystem
+type/enum includes (CodecMode_en_t, CLK_SYS_CORE_GATE, MENU ids), the
+duplicate `driverlib_def.h` (ours in `include/` vs vendor in `driver/` — same
+name, different content), and a handful of section-attribute conflicts.
+
 ## Related docs
 
 - `docs/dispatch-map.md` — **M0: mapa de despacho del ROM** (entry points fijos + ROM API)
@@ -167,3 +191,49 @@ bass boost, add delay taps for reverb) and rebuild.
 - `docs/HARDWARE.md` — SoC addresses, segment table, ROM API, fuentes
 - `docs/FLASHING.md` — safe flashing + recovery
 - `docs/c-cleanup-status.md` — decompiled .c tree cleanup (327/394 compile)
+
+
+## BB milestone 2: the full SDK builds from source (2026-10-10)
+
+`make release` is GREEN end to end: every SDK subsystem the BB needs compiles
+from `.c` and links into `build/ReChord_BB.IMG` (33,554,436 B, custom trailer
+recomputed; section_3 = 193,224 B). This is the freeze-fix milestone: the BB
+now runs the REAL filesys (FAT/exFAT/nFAT), MemDev (eMMC), mailbox, systick,
+power, display, USB device and recorder services instead of weak stubs.
+
+**What it took (integration taxonomy, all documented inline):**
+
+- Config is king: dozens of feature gates (`_USB_`, `_SBC_ENCODE_`, `_RK_ID3_`,
+  `ENCODE`, `CODEC_CONFIG=CODEC_ROCKC`, BT UART wiring) live in
+  `include/SysConfig.h`. Values copied from the stock SDK config where the
+  board matters (BT UART = `UART_CH1_PA`/`INT_ID_UART1`/`INT_ID_UART5`).
+- Include order is load-bearing: `include/` was shadowing 52 vendor headers
+  (Fat.h/Fdt.h/FileInfo/AddrSaveMacro/driverlib_def...). Vendor dirs now win;
+  our `include/` sits before `community/sdks` so OUR `SysConfig.h` beats the
+  leaked SDK's sample config (that one silently won for a while).
+- Our synthesized headers became wrappers or lost their duplicates
+  (`driverlib_def.h`, `File.h`, `mainmenu.h`, `FunUSBInterface.h`); enum
+  members beat same-named `#define`s (FS_TYPE, MEDIA_FILE_TYPE_*, I2S_*,
+  CHARGE_CURRENT_*, FS_* sample rates).
+- Keil-isms neutralized in `armcc_compat.h`: ~600 `_ATTR_*`/section placements
+  map to empty (GCC section-type conflicts), `typedef.h` is force-included,
+  `-fcommon` restores legacy tentative definitions, and the linker takes
+  `--allow-multiple-definition` because the prebuilt .lib archives carry their
+  own copies of SDK functions (first = our source wins).
+- `firmware/libc` grew the missing C surface: `__aeabi_mem*` family (required
+  by the codec libs), `strncasecmp`/`strcasecmp`, wide-string and UTF-16
+  helpers.
+- A `PMU.C` (uppercase!) compiled as C++ and mangled `PmuPdLogicPowerDown`;
+  renamed to `PMU.c`.
+
+**Memory map change (TODO to revert):** FW_RAM was extended into
+`0x03060000..0x030E0000` (HARDWARE.md's "Codec implementations" overlay area)
+to fit the statically linked services. Bring-up codec set is MP3 + WAV +
+HIFI-FLAC + SBC/SSRC/EQ/FADE; APE, ALAC, DSF, DSDIFF, Ogg, AAC and the image
+decoders return later as overlay modules (their resident .bss alone is
+hundreds of KB). TODO(overlay): move codec modules to the overlay area and
+shrink FW_RAM back to `0x5A504`.
+
+**Next:** flash `build/ReChord_BB.IMG` and verify the menu-freeze is gone
+(the AP's file calls now reach a real BB filesys), then wire the clean-room UI
+and the module system.

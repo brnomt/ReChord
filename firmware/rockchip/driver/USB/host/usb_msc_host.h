@@ -2,7 +2,7 @@
 #define _USB_MSC_HOST_H_
 
 #ifdef _USB_HOST_
-#include "MDconfig.h"
+#include "MDConfig.h"
 
 #define    MAX_LUN_NUM             3
 
@@ -100,7 +100,7 @@ typedef    struct tagMSC_HOST
     uint32      RecvBulkPipe;
 
     uint8       LunMap[MAX_LUN_NUM];
-    uint32      capacity[MAX_LUN_NUM];   //ÈÝÁ¿
+    uint32      capacity[MAX_LUN_NUM];   //ï¿½ï¿½ï¿½ï¿½
 
     HOST_DEV    *pDev;
 }MSC_HOST, *pMSC_HOST;

@@ -38,9 +38,9 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _COMMON_DRIVER_BB_BBSYSTEM_COMMON_  __attribute__((section("common_driver_bb_bbsystem_common")))
-#define _COMMON_DRIVER_BB_BBSYSTEM_INIT_  __attribute__((section("common_driver_bb_bbsystem_init")))
-#define _COMMON_DRIVER_BB_BBSYSTEM_SHELL_  __attribute__((section("common_driver_bb_bbsystem_shell")))
+#define _COMMON_DRIVER_BB_BBSYSTEM_COMMON_  
+#define _COMMON_DRIVER_BB_BBSYSTEM_INIT_  
+#define _COMMON_DRIVER_BB_BBSYSTEM_SHELL_  
 /*
 *---------------------------------------------------------------------------------------------------------------------
 *

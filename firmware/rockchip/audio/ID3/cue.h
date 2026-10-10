@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "FsInclude.h"
+#include "fsinclude.h"
 
 #define MAX_CUE_FIELD MEDIA_ID3_SAVE_CHAR_NUM
 #define MAX_SONGS_NUM 128
@@ -32,7 +32,7 @@ typedef __packed struct _SONG_T
 typedef __packed struct _CUE_INFO
 {
     long m_total_Song;
-    uint16 file[MAX_CUE_FIELD];  //Ó³ÉäÎÄ¼þ
+    uint16 file[MAX_CUE_FIELD];  //Ó³ï¿½ï¿½ï¿½Ä¼ï¿½
     song_t m_songs[MAX_SONGS_NUM];
 } CUE_INFO;
 

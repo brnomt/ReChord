@@ -121,5 +121,5 @@ obtain official firmware from FiiO. Flashing modified firmware carries risk —
 use at your own risk.
 
 ## Alternatives
-https://recho.atzkey.workers.dev/ by atzkey.
+https://refcfw.atzkey.workers.dev/ by atzkey.
 An existing tool serving a similar purpose. ReChord is an independent project developed from scratch with a different architecture and focus

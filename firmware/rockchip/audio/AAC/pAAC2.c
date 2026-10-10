@@ -15,7 +15,7 @@ $Log    :
 *
 */
 /****************************************************************/
-#include "sysinclude.h"
+#include "SysInclude.h"
 #include "audio_main.h"
 #include "pAAC.h"
 
@@ -209,11 +209,11 @@ AACDecFunction2(unsigned long ulSubFn, unsigned long ulParam1,
                             p = rdBuf + left;
                         }
 
-                        dec_err_count++;    //´íÎóÖ¡Á¬Ðø´íÎó
+                        dec_err_count++;    //ï¿½ï¿½ï¿½ï¿½Ö¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-                        if (dec_err_count > 200)    //µ±´íÎóÖ¡Êý´ïµ½200Ö¡Ê±£¬ÅÐ´íÍË³ö
+                        if (dec_err_count > 200)    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¡ï¿½ï¿½ï¿½ïµ½200Ö¡Ê±ï¿½ï¿½ï¿½Ð´ï¿½ï¿½Ë³ï¿½
                         {
-                            aac_printf("´íÎóÖ¡Êý³¬200\n");
+                            aac_printf("ï¿½ï¿½ï¿½ï¿½Ö¡ï¿½ï¿½ï¿½ï¿½200\n");
                             aac_printf("~~~~~err = %d dec_err_count=%d\n",err,dec_err_count);
                             return 0;
                         }
@@ -260,7 +260,7 @@ AACDecFunction2(unsigned long ulSubFn, unsigned long ulParam1,
 
                 if (m4a==0)
                 {
-                    if (InitTimeForADTS( rawfile, RKFIO_FLength(pRawFileCache)- fl,fl) == -3)//ÎªÊ²Ã´ÊÇ-3?ÎÞ´Ë·µ»ØÖµ
+                    if (InitTimeForADTS( rawfile, RKFIO_FLength(pRawFileCache)- fl,fl) == -3)//ÎªÊ²Ã´ï¿½ï¿½-3?ï¿½Þ´Ë·ï¿½ï¿½ï¿½Öµ
                     {
                         return ERROR;
                     }

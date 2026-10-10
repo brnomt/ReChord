@@ -20,7 +20,7 @@
 *    WJR     2014.12.23     19:31:51   1.0
 ********************************************************************************************
 */
-#include "../include/audio_globals.h"
+#include "audio_globals.h"
 #include "SysInclude.h"
 #include "audio_main.h"
 
@@ -46,10 +46,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-//#define _BBSYSTEM_CODECS_AUDIO_DECODE_Dff_PFLAC_READ_  __attribute__((section("bbsystem_codecs_audio_decode_dff_pflac_read")))
-//#define _BBSYSTEM_CODECS_AUDIO_DECODE_Dff_PFLAC_WRITE_ __attribute__((section("bbsystem_codecs_audio_decode_dff_pflac_write")))
-//#define _BBSYSTEM_CODECS_AUDIO_DECODE_Dff_PFLAC_INIT_  __attribute__((section("bbsystem_codecs_audio_decode_dff_pflac_init")))
-//#define _BBSYSTEM_CODECS_AUDIO_DECODE_Dff_PFLAC_SHELL_  __attribute__((section("bbsystem_codecs_audio_decode_dff_pflac_shell")))
+//#define _BBSYSTEM_CODECS_AUDIO_DECODE_Dff_PFLAC_READ_  
+//#define _BBSYSTEM_CODECS_AUDIO_DECODE_Dff_PFLAC_WRITE_ 
+//#define _BBSYSTEM_CODECS_AUDIO_DECODE_Dff_PFLAC_INIT_  
+//#define _BBSYSTEM_CODECS_AUDIO_DECODE_Dff_PFLAC_SHELL_  
 
 
 /*
@@ -59,8 +59,8 @@
 *
 *---------------------------------------------------------------------------------------------------------------------
 */
-#include "sysinclude.h"
-#include "driverinclude.h"
+#include "SysInclude.h"
+#include "DriverInclude.h"
 extern MediaBlock  gpMediaBlock;
 extern unsigned int gDecDone;
 extern unsigned int gSeekDone;

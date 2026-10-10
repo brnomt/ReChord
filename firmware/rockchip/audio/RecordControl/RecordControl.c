@@ -3,7 +3,7 @@
 *                   Copyright (c) 2009,WangBo
 *                         All rights reserved.
 *
-* File Name£º   RecordControl.c
+* File Nameï¿½ï¿½   RecordControl.c
 *
 * Description:  system record layer,the module of back server.
 *
@@ -23,17 +23,17 @@
 
 #ifdef _RECORD_
 
-#include  "FsInclude.h"
+#include  "fsinclude.h"
 #include  "File.h"
 #include  "FDT.h"
 
-#include  "PCM.H"
+#include  "pcm.h"
 #include  "pmu.h"
 
 #include  "audio_main.h"
-#include  "audiocontrol.h"
+#include  "AudioControl.h"
 #include  "RecordControl.h"
-#include  "FmControl.h"
+#include  "FMControl.h"
 
 extern tPCM_enc   PCM_s;
 extern  uint32      UserIsrDisableFlag;
@@ -562,18 +562,18 @@ BOOL RecordServiceGetTotalTime (void)
 
     //printf("RecordFreeMemory=%d RecordBitrate=%d\n", RecordFreeMemory, RecordBitrate);
     RecordCurrTime  = 0xffffffff;
-    //RecordTotalTime = ((RecordFreeMemory - (MIN_RECORD_RESERVE_MEMORY / 1024)) * 8) / ((UINT32) RecordBitrate);  //RecordFreeMemory µÄµ¥Î»Byte, RecordBitrate µÄµ¥Î»ÊÇ kbps
+    //RecordTotalTime = ((RecordFreeMemory - (MIN_RECORD_RESERVE_MEMORY / 1024)) * 8) / ((UINT32) RecordBitrate);  //RecordFreeMemory ï¿½Äµï¿½Î»Byte, RecordBitrate ï¿½Äµï¿½Î»ï¿½ï¿½ kbps
 
     if ( RecordEncodeType == RECORD_ENCODE_TYPE_PCM)
     {
         if ((RECORD_QUALITY_HIGH == gbRecordQuality) && (RECORD_DATAWIDTH_24BIT == RecordDataWidth))
         {
-            RecordTotalTime = ((RecordFreeMemory - (MIN_RECORD_RESERVE_MEMORY /1024)) ) / ((UINT32) RecordBitrate);   //RecordFreeMemory µÄµ¥Î»Byte, RecordBitrate µÄµ¥Î»ÊÇ kbps
+            RecordTotalTime = ((RecordFreeMemory - (MIN_RECORD_RESERVE_MEMORY /1024)) ) / ((UINT32) RecordBitrate);   //RecordFreeMemory ï¿½Äµï¿½Î»Byte, RecordBitrate ï¿½Äµï¿½Î»ï¿½ï¿½ kbps
         }
     }
     else
     {
-        RecordTotalTime = ((RecordFreeMemory - (MIN_RECORD_RESERVE_MEMORY /1024)) * 8) / ((UINT32) RecordBitrate);   //RecordFreeMemory µÄµ¥Î»Byte, RecordBitrate µÄµ¥Î»ÊÇ kbps
+        RecordTotalTime = ((RecordFreeMemory - (MIN_RECORD_RESERVE_MEMORY /1024)) * 8) / ((UINT32) RecordBitrate);   //RecordFreeMemory ï¿½Äµï¿½Î»Byte, RecordBitrate ï¿½Äµï¿½Î»ï¿½ï¿½ kbps
     }
 
     DEBUG(" ### TOTAL TIME = %d ### ", RecordTotalTime);
@@ -723,9 +723,9 @@ void GetEncodeType(void)
   Function name : void WavEncodeIsr()
   Author        : WangBo
   Description   : interrupt callback to record.
-                  ÐÂÐÞ¸ÄµÄ±àÂëÖÐ¶Ïº¯ÊýÖ»½«±àÂëµÄÊý¾ÝÐ´ÈëÐ´»º³åBuffer,
-                  Ð´ÎÄ¼þ·ÅÔÚ WinService ÖÐ´¦Àí¡£
-                  ¿ÉÒÔ½â¾ö flash Ð´ÈëËÙ¶ÈÂýµÄÎÊÌâ£¬¿ÉÄÜ²»»á³öÏÖ¶ÏÒôµÄÎÊÌâ
+                  ï¿½ï¿½ï¿½Þ¸ÄµÄ±ï¿½ï¿½ï¿½ï¿½Ð¶Ïºï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Buffer,
+                  Ð´ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ WinService ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½
+                  ï¿½ï¿½ï¿½Ô½ï¿½ï¿½ flash Ð´ï¿½ï¿½ï¿½Ù¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£¬ï¿½ï¿½ï¿½Ü²ï¿½ï¿½ï¿½ï¿½ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                   the interrupt function that is be changed newly just only write the data to cache buffer.
                   write to file service be put in WinService.
                   it can solve the slowly write problem,may don't happen the phenomenon of staccato .
@@ -1309,11 +1309,11 @@ BOOLEAN RecordDBAddFile (uint32 Clus, uint32 Index)
     GetLongFileName(Clus, Index, FS_FAT, longStr1);
     pBuffer = RecordNameFlag + FILE_NAME_SAVE_ADDR_OFFSET;
 
-    for (i = 0; i < MEDIA_ID3_SAVE_CHAR_NUM; i++) //±£´æ³¤ÎÄ¼þÃûÐÅÏ¢
+    for (i = 0; i < MEDIA_ID3_SAVE_CHAR_NUM; i++) //ï¿½ï¿½ï¿½æ³¤ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
     {
-        *pBuffer++ = longStr1[i] & 0xff;//µÍ×Ö½Ú
+        *pBuffer++ = longStr1[i] & 0xff;//ï¿½ï¿½ï¿½Ö½ï¿½
         //printf("%02x ", *(pBuffer - 1));
-        *pBuffer++ = ((longStr1[i]) >> 8) & 0xff; //¸ß×Ö½Ú
+        *pBuffer++ = ((longStr1[i]) >> 8) & 0xff; //ï¿½ï¿½ï¿½Ö½ï¿½
 
         if (longStr1[i] == 0)
         {

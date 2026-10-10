@@ -16,6 +16,7 @@ $Log: $
 #define _MEMDEV_H
 
 /*-------------------------------- Includes ----------------------------------*/
+#include "typedef.h"   /* uint8/uint16/BOOL used by MD_* macros */
 #include    <stdio.h>
 #include    <string.h>
 #include    "SysConfig.h"
@@ -149,13 +150,13 @@ typedef     unsigned long                   MEMDEV_ID;
 #define     SYS_PROTECT
 #define     FLASH_PROT_MAGIC        0x444e414e  //NAND
 
-#define     _ATTR_FTL_INIT_CODE_      __attribute__((section("FlashInitCode")))//__attribute__((section("FlashInitCode")))
-#define     _ATTR_FTL_INIT_DATA_      __attribute__((section("FlashData")))//__attribute__((section("FlashInitData")))
-#define     _ATTR_FTL_INIT_BSS_       __attribute__((section("FlashBss"),zero_init))//__attribute__((section("FlashInitBss"),zero_init))
+#define     _ATTR_FTL_INIT_CODE_      //
+#define     _ATTR_FTL_INIT_DATA_      //
+#define     _ATTR_FTL_INIT_BSS_       //
 
-#define     _ATTR_FTL_CODE_           __attribute__((section("FlashCode")))
-#define     _ATTR_FTL_DATA_           __attribute__((section("FlashData")))
-#define     _ATTR_FTL_BSS_            __attribute__((section("FlashBss"), zero_init))
+#define     _ATTR_FTL_CODE_           
+#define     _ATTR_FTL_DATA_           
+#define     _ATTR_FTL_BSS_            
 
 #define     CHIP_SIGN           0x4F4E414E                  //NANO
 #define     FLASH_MAGIC         0x4E414E44

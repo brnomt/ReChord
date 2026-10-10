@@ -33,24 +33,24 @@
 
 //section define
 //Record menu permanent code.
-#define _ATTR_RECORDWIN_CODE_         __attribute__((section("RecordWinCode")))
-#define _ATTR_RECORDWIN_DATA_         __attribute__((section("RecordWinData")))
-#define _ATTR_RECORDWIN_BSS_          __attribute__((section("RecordWinBss"),zero_init))
+#define _ATTR_RECORDWIN_CODE_         
+#define _ATTR_RECORDWIN_DATA_         
+#define _ATTR_RECORDWIN_BSS_          
 
 //record menu initial code
-#define _ATTR_RECORDWIN_INIT_CODE_    __attribute__((section("RecordWinInitCode")))
-#define _ATTR_RECORDWIN_INIT_DATA_    __attribute__((section("RecordWinInitData")))
-#define _ATTR_RECORDWIN_INIT_BSS_     __attribute__((section("RecordWinInitBss"),zero_init))
+#define _ATTR_RECORDWIN_INIT_CODE_    
+#define _ATTR_RECORDWIN_INIT_DATA_    
+#define _ATTR_RECORDWIN_INIT_BSS_     
 
 //record menu auti-initial code
-#define _ATTR_RECORDWIN_DEINIT_CODE_  __attribute__((section("RecordWinDeInitCode")))
-#define _ATTR_RECORDWIN_DEINIT_DATA_  __attribute__((section("RecordWinDeInitData")))
-#define _ATTR_RECORDWIN_DEINIT_BSS_   __attribute__((section("RecordWinDeInitBss"),zero_init))
+#define _ATTR_RECORDWIN_DEINIT_CODE_  
+#define _ATTR_RECORDWIN_DEINIT_DATA_  
+#define _ATTR_RECORDWIN_DEINIT_BSS_   
 
 //record menu dispatch code
-#define _ATTR_RECORDWIN_SERVICE_CODE_ __attribute__((section("RecordWinServiceCode")))
-#define _ATTR_RECORDWIN_SERVICE_DATA_ __attribute__((section("RecordWinServiceData")))
-#define _ATTR_RECORDWIN_SERVICE_BSS_  __attribute__((section("RecordWinServiceBss"),zero_init))
+#define _ATTR_RECORDWIN_SERVICE_CODE_ 
+#define _ATTR_RECORDWIN_SERVICE_DATA_ 
+#define _ATTR_RECORDWIN_SERVICE_BSS_  
 
 #define  _RECODE_IMAGE_DIAPLAY_
 #define  _RECODE_CHAR_DIAPLAY_

@@ -40,10 +40,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _CPU_NANOD_LIB_HIFI_APE_READ_  __attribute__((section("cpu_nanod_lib_hifi_ape_read")))
-#define _CPU_NANOD_LIB_HIFI_APE_WRITE_ __attribute__((section("cpu_nanod_lib_hifi_ape_write")))
-#define _CPU_NANOD_LIB_HIFI_APE_INIT_  __attribute__((section("cpu_nanod_lib_hifi_ape_init")))
-#define _CPU_NANOD_LIB_HIFI_APE_SHELL_  __attribute__((section("cpu_nanod_lib_hifi_ape_shell")))
+#define _CPU_NANOD_LIB_HIFI_APE_READ_  
+#define _CPU_NANOD_LIB_HIFI_APE_WRITE_ 
+#define _CPU_NANOD_LIB_HIFI_APE_INIT_  
+#define _CPU_NANOD_LIB_HIFI_APE_SHELL_  
 
 
 /*

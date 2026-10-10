@@ -10,12 +10,12 @@ Revision  1.2 2007/01/09 evan wu
 ******************************************************/
 
 //*********************includes*****************************************************
-#include "..\ImageInclude\image_main.h"
-#include "..\ImageInclude\image_globals.h"
+#include "../ImageInclude/image_main.h"
+#include "../ImageInclude/image_globals.h"
 #ifdef BMP_DEC_INCLUDE
 #pragma arm section code = "BmpDecCode", rodata = "BmpDecCode", rwdata = "BmpDecData", zidata = "BmpDecBss"
-#include "DriverConfig.h"
-#include "..\ImageInclude\image_file_access.h"
+#include "Driverconfig.h"
+#include "../ImageInclude/image_file_access.h"
 #include "pBMPDEC.h"
 
 
@@ -123,7 +123,7 @@ unsigned long BMPFunction(unsigned long ulSubFn, unsigned long ulParam1,
                 if (!BMP_InitHead(BMP_callbacks_decode,&bmp,&BmpOutFactor,ScreenWidth, ScreenHigh))
                     return FALSE;
 
-                if(bmp.bmih.biWidth > 8000 || abs(bmp.bmih.biHeight) > 8000){   //ÏÞÖÆÍ¼Æ¬´óÐ¡
+                if(bmp.bmih.biWidth > 8000 || abs(bmp.bmih.biHeight) > 8000){   //ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½Ð¡
     			    return FALSE;
     			}
 				

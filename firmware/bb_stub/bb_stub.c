@@ -6,7 +6,7 @@
  *   1. runs the stock ROM HW-init sequence (Option B boot, V0.20 path),
  *   2. builds a full Cortex-M3 vector table in SRAM and points VTOR at it,
  *   3. enables the mailbox (clock gate + A2B interrupts 0..3 + NVIC IRQ 9..12),
- *   4. sends MSGBOX_CMD_SYSTEM_START_OK on B2A channel 0 (boot handshake),
+ *   4. sends IPC_CMD_SYSTEM_START_OK on B2A channel 0 (boot handshake),
  *   5. answers every AP->BB mailbox command with a canned reply so the
  *      stock AP never blocks in a `while (!flag)` wait:
  *        ch0 system : BB_HOLD -> BB_HOLD_ACK, waits for BB_HOLD_EXIT
@@ -34,6 +34,8 @@
  *   [0]='BOTS' reached rechord_main   [1]=mailbox enabled
  *   [2]=START_OK sent                 [3..6]=per-channel reply counters
  *   [7]=last A2B command seen         [8]=last A2B channel
+ * Console logging: every A2B command is echoed on the AP's UART as
+ *   "[B] RC CMD=0x…" (stock Debug2.c PRINT_LOG path — see dbg_puts).
  */
 #include <stdint.h>
 
@@ -107,43 +109,44 @@ static void rechord_write_version_string(void)
 /* Mailbox command IDs — REAL SDK enum values                          */
 /* ------------------------------------------------------------------ */
 /* driver/BB/BBSystem.h  MSGBOX_SYSTEM_CMD */
-#define MSGBOX_CMD_SYSTEM_START_OK      1u
-#define MSGBOX_CMD_BB_HOLD              2u
-#define MSGBOX_CMD_BB_HOLD_ACK          3u
-#define MSGBOX_CMD_BB_HOLD_EXIT         4u
-#define MSGBOX_CMD_SYSTEM_PRINT_LOG_OK  6u
+#define IPC_CMD_SYSTEM_START_OK      1u
+#define IPC_CMD_BB_HOLD              2u
+#define IPC_CMD_BB_HOLD_ACK          3u
+#define IPC_CMD_BB_HOLD_EXIT         4u
+#define IPC_CMD_SYSTEM_PRINT_LOG     5u
+#define IPC_CMD_SYSTEM_PRINT_LOG_OK  6u
 
 /* audio/Include/audio_main.h  MEDIA_MSGBOX_DECODE_CMD */
-#define MEDIA_MSGBOX_CMD_DEC_OPEN               1u
-#define MEDIA_MSGBOX_CMD_DEC_OPEN_ERR           2u
-#define MEDIA_MSGBOX_CMD_DECODE                 4u
-#define MEDIA_MSGBOX_CMD_DECODE_ERR             6u
-#define MEDIA_MSGBOX_CMD_DECODE_GETBUFFER       7u
-#define MEDIA_MSGBOX_CMD_DECODE_GETBUFFER_CMPL  8u
-#define MEDIA_MSGBOX_CMD_DECODE_GETTIME         9u
-#define MEDIA_MSGBOX_CMD_DECODE_GETTIME_CMPL    10u
-#define MEDIA_MSGBOX_CMD_DECODE_SEEK            11u
-#define MEDIA_MSGBOX_CMD_DECODE_SEEK_CMPL       12u
-#define MEDIA_MSGBOX_CMD_DECODE_CLOSE           13u
-#define MEDIA_MSGBOX_CMD_DECODE_CLOSE_CMPL      14u
-#define MEDIA_MSGBOX_CMD_ENCODE_INIT            205u
-#define MEDIA_MSGBOX_CMD_ENCODE_INIT_CMPL       206u
-#define MEDIA_MSGBOX_CMD_ENCODE                 203u
-#define MEDIA_MSGBOX_CMD_ENCODE_ERR             208u
+#define MEDIA_IPC_CMD_DEC_OPEN               1u
+#define MEDIA_IPC_CMD_DEC_OPEN_ERR           2u
+#define MEDIA_IPC_CMD_DECODE                 4u
+#define MEDIA_IPC_CMD_DECODE_ERR             6u
+#define MEDIA_IPC_CMD_DECODE_GETBUFFER       7u
+#define MEDIA_IPC_CMD_DECODE_GETBUFFER_CMPL  8u
+#define MEDIA_IPC_CMD_DECODE_GETTIME         9u
+#define MEDIA_IPC_CMD_DECODE_GETTIME_CMPL    10u
+#define MEDIA_IPC_CMD_DECODE_SEEK            11u
+#define MEDIA_IPC_CMD_DECODE_SEEK_CMPL       12u
+#define MEDIA_IPC_CMD_DECODE_CLOSE           13u
+#define MEDIA_IPC_CMD_DECODE_CLOSE_CMPL      14u
+#define MEDIA_IPC_CMD_ENCODE_INIT            205u
+#define MEDIA_IPC_CMD_ENCODE_INIT_CMPL       206u
+#define MEDIA_IPC_CMD_ENCODE                 203u
+#define MEDIA_IPC_CMD_ENCODE_ERR             208u
 
 /* filesys/file.h  MEDIA_MSGBOX_FILE_CMD (FILE_NULL = 100) */
-#define MEDIA_MSGBOX_CMD_FILE_SEEK              105u
-#define MEDIA_MSGBOX_CMD_FILE_SEEK_CMPL         106u
-#define MEDIA_MSGBOX_CMD_FILE_READ              107u
-#define MEDIA_MSGBOX_CMD_FILE_READ_CMPL         108u
-#define MEDIA_MSGBOX_CMD_FILE_WRITE             109u
-#define MEDIA_MSGBOX_CMD_FILE_WRITE_CMPL        110u
-#define MEDIA_MSGBOX_CMD_FILE_TELL              111u
-#define MEDIA_MSGBOX_CMD_FILE_TELL_CMPL         112u
-#define MEDIA_MSGBOX_CMD_FILE_GET_LENGTH        113u
-#define MEDIA_MSGBOX_CMD_FILE_GET_LENGTH_CMPL   114u
-#define MEDIA_MSGBOX_CMD_FILE_CLOSE             115u
-#define MEDIA_MSGBOX_CMD_FILE_CLOSE_CMPL        116u
+#define MEDIA_IPC_CMD_FILE_SEEK              105u
+#define MEDIA_IPC_CMD_FILE_SEEK_CMPL         106u
+#define MEDIA_IPC_CMD_FILE_READ              107u
+#define MEDIA_IPC_CMD_FILE_READ_CMPL         108u
+#define MEDIA_IPC_CMD_FILE_WRITE             109u
+#define MEDIA_IPC_CMD_FILE_WRITE_CMPL        110u
+#define MEDIA_IPC_CMD_FILE_TELL              111u
+#define MEDIA_IPC_CMD_FILE_TELL_CMPL         112u
+#define MEDIA_IPC_CMD_FILE_GET_LENGTH        113u
+#define MEDIA_IPC_CMD_FILE_GET_LENGTH_CMPL   114u
+#define MEDIA_IPC_CMD_FILE_CLOSE             115u
+#define MEDIA_IPC_CMD_FILE_CLOSE_CMPL        116u
 
 /* ------------------------------------------------------------------ */
 /* Vector table (NUM_INTERRUPTS = 16 core + 41 RKNano IRQs = 57)       */
@@ -167,6 +170,62 @@ static void reply(uint32_t ch, uint32_t cmd, uint32_t data)
     boot_log[3 + ch] = reply_count[ch];
 }
 
+/* ------------------------------------------------------------------ */
+/* AP-console logging (mailbox ch3 — the stock Debug2.c path)           */
+/* ------------------------------------------------------------------ */
+/* The stock BB never touches UART: Debug2.c posts
+ * IPC_CMD_SYSTEM_PRINT_LOG with a string pointer on B2A channel 3 and
+ * the AP prints it on its already-running console UART. Reusing that path
+ * means zero UART/IOMUX/baud setup on the BB side: a 3.3 V USB-UART
+ * dongle on PB5/PB6 (HARDWARE.md) shows [B] lines from the stub at the
+ * AP's baud rate, whatever that is. */
+static volatile uint8_t dbg_buf[96];
+
+static void dbg_puts(const char *s)
+{
+    uint32_t n, t;
+    uint8_t *p;
+
+    p = (uint8_t *)dbg_buf;
+    *p++ = '\r'; *p++ = '\n'; *p++ = '['; *p++ = 'B'; *p++ = ']'; *p++ = ' ';
+    for (n = 0; (n < (sizeof(dbg_buf) - 8u)) && (s[n] != '\0'); n++)
+        p[n] = (uint8_t)s[n];
+    p[n] = '\0';
+
+    MB_B2A_CMD(MB_CH_DEBUG)  = IPC_CMD_SYSTEM_PRINT_LOG;
+    MB_B2A_DATA(MB_CH_DEBUG) = (uint32_t)dbg_buf;
+
+    /* Serialize exactly like stock BBDebugReq (wait for the AP's
+     * PRINT_LOG_OK before reusing the buffer) — but bounded, so a
+     * not-yet-servicing AP can never hang the stub. */
+    t = 200000;
+    while (t--) {
+        if ((MB_A2B_STATUS & MB_INT(MB_CH_DEBUG)) &&
+            (MB_A2B_CMD(MB_CH_DEBUG) == IPC_CMD_SYSTEM_PRINT_LOG_OK)) {
+            MB_A2B_STATUS = MB_INT(MB_CH_DEBUG);        /* W1C */
+            break;
+        }
+    }
+}
+
+/* "RC <tag>=0xXXXXXXXX" without any libc formatting. */
+static void dbg_hex(const char *tag, uint32_t v)
+{
+    char line[32];
+    uint32_t i, n = 0;
+    static const char HEX[] = "0123456789ABCDEF";
+
+    for (i = 0; (tag[i] != '\0') && (n < 12u); i++)
+        line[n++] = tag[i];
+    line[n++] = '=';
+    line[n++] = '0';
+    line[n++] = 'x';
+    for (i = 0; i < 8u; i++)
+        line[n++] = HEX[(v >> (28u - 4u * i)) & 0xFu];
+    line[n] = '\0';
+    dbg_puts(line);
+}
+
 /* Default handler: park forever (a blank screen is better than a jump
  * into garbage — WFI also keeps power draw down if IRQs get disabled). */
 static void bb_default_handler(void)
@@ -186,12 +245,12 @@ static void bb_mb0_isr(void)
     boot_log[8] = MB_CH_SYSTEM;
 
     switch (cmd) {
-    case MSGBOX_CMD_BB_HOLD:
+    case IPC_CMD_BB_HOLD:
         /* Stock BBSystemBIsr: ACK, then poll for HOLD_EXIT (~5 ms). */
-        reply(MB_CH_SYSTEM, MSGBOX_CMD_BB_HOLD_ACK, 0);
+        reply(MB_CH_SYSTEM, IPC_CMD_BB_HOLD_ACK, 0);
         n = 300000;                                  /* ~5 ms busy-wait */
         while (n--) {
-            if (MB_A2B_CMD(MB_CH_SYSTEM) == MSGBOX_CMD_BB_HOLD_EXIT) {
+            if (MB_A2B_CMD(MB_CH_SYSTEM) == IPC_CMD_BB_HOLD_EXIT) {
                 MB_A2B_STATUS = MB_INT(MB_CH_SYSTEM);
                 break;
             }
@@ -213,27 +272,27 @@ static void bb_mb1_isr(void)
     boot_log[8] = MB_CH_DECODE;
 
     switch (cmd) {
-    case MEDIA_MSGBOX_CMD_DEC_OPEN:
+    case MEDIA_IPC_CMD_DEC_OPEN:
         /* ERR + 0 is a valid answer: the AP's decode ISR sets gOpenDone
          * on BOTH DEC_OPEN_ERR and DEC_OPEN_CMPL — the point is to reply. */
-        reply(MB_CH_DECODE, MEDIA_MSGBOX_CMD_DEC_OPEN_ERR, 0);
+        reply(MB_CH_DECODE, MEDIA_IPC_CMD_DEC_OPEN_ERR, 0);
         break;
-    case MEDIA_MSGBOX_CMD_DECODE:
-    case MEDIA_MSGBOX_CMD_ENCODE:
-    case MEDIA_MSGBOX_CMD_ENCODE_INIT:
-        reply(MB_CH_DECODE, MEDIA_MSGBOX_CMD_DECODE_ERR, 0);
+    case MEDIA_IPC_CMD_DECODE:
+    case MEDIA_IPC_CMD_ENCODE:
+    case MEDIA_IPC_CMD_ENCODE_INIT:
+        reply(MB_CH_DECODE, MEDIA_IPC_CMD_DECODE_ERR, 0);
         break;
-    case MEDIA_MSGBOX_CMD_DECODE_GETBUFFER:
-        reply(MB_CH_DECODE, MEDIA_MSGBOX_CMD_DECODE_GETBUFFER_CMPL, 0);
+    case MEDIA_IPC_CMD_DECODE_GETBUFFER:
+        reply(MB_CH_DECODE, MEDIA_IPC_CMD_DECODE_GETBUFFER_CMPL, 0);
         break;
-    case MEDIA_MSGBOX_CMD_DECODE_GETTIME:
-        reply(MB_CH_DECODE, MEDIA_MSGBOX_CMD_DECODE_GETTIME_CMPL, 0);
+    case MEDIA_IPC_CMD_DECODE_GETTIME:
+        reply(MB_CH_DECODE, MEDIA_IPC_CMD_DECODE_GETTIME_CMPL, 0);
         break;
-    case MEDIA_MSGBOX_CMD_DECODE_SEEK:
-        reply(MB_CH_DECODE, MEDIA_MSGBOX_CMD_DECODE_SEEK_CMPL, 0);
+    case MEDIA_IPC_CMD_DECODE_SEEK:
+        reply(MB_CH_DECODE, MEDIA_IPC_CMD_DECODE_SEEK_CMPL, 0);
         break;
-    case MEDIA_MSGBOX_CMD_DECODE_CLOSE:
-        reply(MB_CH_DECODE, MEDIA_MSGBOX_CMD_DECODE_CLOSE_CMPL, 0);
+    case MEDIA_IPC_CMD_DECODE_CLOSE:
+        reply(MB_CH_DECODE, MEDIA_IPC_CMD_DECODE_CLOSE_CMPL, 0);
         break;
     default:
         break;
@@ -251,24 +310,24 @@ static void bb_mb2_isr(void)
     boot_log[8] = MB_CH_FILE;
 
     switch (cmd) {
-    case MEDIA_MSGBOX_CMD_FILE_SEEK:
-        reply(MB_CH_FILE, MEDIA_MSGBOX_CMD_FILE_SEEK_CMPL, 0);
+    case MEDIA_IPC_CMD_FILE_SEEK:
+        reply(MB_CH_FILE, MEDIA_IPC_CMD_FILE_SEEK_CMPL, 0);
         break;
-    case MEDIA_MSGBOX_CMD_FILE_READ:
+    case MEDIA_IPC_CMD_FILE_READ:
         /* 0 bytes read = EOF: the AP stops feeding the decoder, no hang. */
-        reply(MB_CH_FILE, MEDIA_MSGBOX_CMD_FILE_READ_CMPL, 0);
+        reply(MB_CH_FILE, MEDIA_IPC_CMD_FILE_READ_CMPL, 0);
         break;
-    case MEDIA_MSGBOX_CMD_FILE_WRITE:
-        reply(MB_CH_FILE, MEDIA_MSGBOX_CMD_FILE_WRITE_CMPL, 0);
+    case MEDIA_IPC_CMD_FILE_WRITE:
+        reply(MB_CH_FILE, MEDIA_IPC_CMD_FILE_WRITE_CMPL, 0);
         break;
-    case MEDIA_MSGBOX_CMD_FILE_TELL:
-        reply(MB_CH_FILE, MEDIA_MSGBOX_CMD_FILE_TELL_CMPL, 0);
+    case MEDIA_IPC_CMD_FILE_TELL:
+        reply(MB_CH_FILE, MEDIA_IPC_CMD_FILE_TELL_CMPL, 0);
         break;
-    case MEDIA_MSGBOX_CMD_FILE_GET_LENGTH:
-        reply(MB_CH_FILE, MEDIA_MSGBOX_CMD_FILE_GET_LENGTH_CMPL, 0);
+    case MEDIA_IPC_CMD_FILE_GET_LENGTH:
+        reply(MB_CH_FILE, MEDIA_IPC_CMD_FILE_GET_LENGTH_CMPL, 0);
         break;
-    case MEDIA_MSGBOX_CMD_FILE_CLOSE:
-        reply(MB_CH_FILE, MEDIA_MSGBOX_CMD_FILE_CLOSE_CMPL, 1);
+    case MEDIA_IPC_CMD_FILE_CLOSE:
+        reply(MB_CH_FILE, MEDIA_IPC_CMD_FILE_CLOSE_CMPL, 1);
         break;
     default:
         break;      /* *_CMPL / *_HANDSHK arriving from the AP: ignore */
@@ -279,7 +338,7 @@ static void bb_mb2_isr(void)
 static void bb_mb3_isr(void)
 {
     MB_A2B_STATUS = MB_INT(MB_CH_DEBUG);
-    /* MSGBOX_CMD_SYSTEM_PRINT_LOG_OK arrives here; nothing to do. */
+    /* IPC_CMD_SYSTEM_PRINT_LOG_OK arrives here; nothing to do. */
 }
 
 /* ------------------------------------------------------------------ */
@@ -365,6 +424,8 @@ void rechord_main(void)
     boot_log[1] = boot_log[2] = 0;
     boot_log[3] = boot_log[4] = boot_log[5] = boot_log[6] = 0;
     boot_log[7] = boot_log[8] = 0;
+    for (i = 0; i < sizeof(dbg_buf); i++)               /* dbg_buf is .bss  */
+        ((volatile uint8_t *)dbg_buf)[i] = 0;
 
     /* 1. Build the RAM vector table (bb_vect is beyond the loaded image). */
     for (i = 0; i < NUM_VECTORS; i++)
@@ -395,13 +456,27 @@ void rechord_main(void)
 
     __asm volatile ("cpsie i");
     boot_log[1] = 0xfeed0001u;                      /* mailbox enabled */
+    dbg_puts("RC STUB: mailbox up");
 
     /* 5. Boot handshake: SYSTEM_START_OK on B2A channel 0. The stock AP
      *    (StartBBSystem) waits ~200 ms for exactly this reply. */
-    reply(MB_CH_SYSTEM, MSGBOX_CMD_SYSTEM_START_OK, 0);
+    reply(MB_CH_SYSTEM, IPC_CMD_SYSTEM_START_OK, 0);
     boot_log[2] = 0xfeed0002u;                      /* START_OK sent */
+    dbg_puts("RC STUB: START-OK sent");
 
-    /* 6. Done. Everything else is interrupt-driven. */
-    for (;;)
-        __asm volatile ("wfi");
+    /* 6. Command echo loop. ISRs only bump boot_log[7]/[8]; the main loop
+     *    ships each new AP command to the AP console over ch3 — outside
+     *    interrupt context, so logging never delays a mailbox reply.
+     *    WFI keeps the core asleep between events. */
+    {
+        uint32_t last_cmd = 0xFFFFFFFFu;
+
+        for (;;) {
+            if (boot_log[7] != last_cmd) {
+                last_cmd = boot_log[7];
+                dbg_hex("RC CMD", last_cmd);
+            }
+            __asm volatile ("wfi");
+        }
+    }
 }

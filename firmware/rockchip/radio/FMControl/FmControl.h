@@ -11,9 +11,9 @@
 
 
 //section define
-#define _ATTR_FMCONTROL_TEXT_     __attribute__((section("FmControlCode")))
-#define _ATTR_FMCONTROL_DATA_     __attribute__((section("FmControlData")))
-#define _ATTR_FMCONTROL_BSS_      __attribute__((section("FmControlBss"),zero_init))
+#define _ATTR_FMCONTROL_TEXT_     
+#define _ATTR_FMCONTROL_DATA_     
+#define _ATTR_FMCONTROL_BSS_      
 
 #define    TUNERFREQINDEX           20
 #define    TUNERFREQSTEP            10              /* UP/DOWN TUNER frequency STEP    unit 100K        */

@@ -3,7 +3,7 @@
 *                   Copyright (c) 2008, Rock-Chips
 *                         All rights reserved.
 *
-* File Name£º   PowerOn_Off.c
+* File Nameï¿½ï¿½   PowerOn_Off.c
 *
 * Description:   C program template
 *
@@ -16,7 +16,7 @@
 #define _IN_POWER_ON_OFF
 
 #include "SysInclude.h"
-#include "FsInclude.h"
+#include "fsinclude.h"
 
 
 /*

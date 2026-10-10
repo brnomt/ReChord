@@ -1,7 +1,7 @@
 /* Copyright (C) 2007 - 2020  ROCK-CHIPS FUZHOU . All Rights Reserved. */
 /*
 File : \Audio\ADPCM
-Desc : WAV decoding¡£including PCM WAV , IMA-ADPCM WAV , MS-ADPCM WAV ¡£
+Desc : WAV decodingï¿½ï¿½including PCM WAV , IMA-ADPCM WAV , MS-ADPCM WAV ï¿½ï¿½
 
 Author : FSH , Vincent Hisung
 Date : 2007-08-xx
@@ -13,12 +13,12 @@ $Log :
 */
 /****************************************************************/
 
-#include "../include/audio_main.h"
+#include "audio_main.h"
 
 #ifdef WAV_DEC_INCLUDE
 
-#include "../include/audio_globals.h"
-#include "../include/audio_file_access.h"
+#include "audio_globals.h"
+#include "audio_file_access.h"
 #include "PCM.H"
 
 #include <stdio.h>
@@ -26,8 +26,8 @@ $Log :
 #include "typedef.h"
 #include "mailbox.h"
 
-#include "sysinclude.h"
-#include "driverinclude.h"
+#include "SysInclude.h"
+#include "DriverInclude.h"
 extern MediaBlock  gpMediaBlock;
 extern unsigned int gDecDone;
 extern unsigned int gSeekDone;
@@ -45,7 +45,7 @@ static void DMATranferCallBack(void)
 }
 
 //*************************************************************************************************************//
-//the achievement of functions.£º
+//the achievement of functions.ï¿½ï¿½
 //SUBFN_CODEC_GETNAME  :   get decoder name
 //SUBFN_CODEC_GETARTIST:   get artist name.
 //SUBFN_CODEC_GETTITLE :   get song title.

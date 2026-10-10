@@ -25,11 +25,11 @@
 *
 *---------------------------------------------------------------------------------------------------------------------
 */
-#include "Device.h"
+#include "device.h"
 #include "hifi.h"
 //#include "hifi_ape.h"
 #include "Hw_hifi.h"
-#include "dma.h"
+#include "Dma.h"
 
 
 /*
@@ -40,10 +40,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _CPU_NANOD_LIB_HIFI_READ_  __attribute__((section("cpu_nanod_lib_hifi_read")))
-#define _CPU_NANOD_LIB_HIFI_WRITE_ __attribute__((section("cpu_nanod_lib_hifi_write")))
-#define _CPU_NANOD_LIB_HIFI_INIT_  __attribute__((section("cpu_nanod_lib_hifi_init")))
-#define _CPU_NANOD_LIB_HIFI_SHELL_  __attribute__((section("cpu_nanod_lib_hifi_shell")))
+#define _CPU_NANOD_LIB_HIFI_READ_  
+#define _CPU_NANOD_LIB_HIFI_WRITE_ 
+#define _CPU_NANOD_LIB_HIFI_INIT_  
+#define _CPU_NANOD_LIB_HIFI_SHELL_  
 
 
 /*
@@ -249,7 +249,8 @@ void HIFI_DmaIsr()
     }
     while ((uint32)(DmaReg->StatusTfr) & 0x07);
 
-}
+}
+
 
 
 READ API rk_err_t HIFI_DMA_M2M_register()
@@ -379,8 +380,8 @@ READ API rk_err_t HIFI_DMA_TO_ACC(int *pSrc_t, int *pDst_t, int count, int *pSrc
 /*******************************************************************************
 ** Name: Hifi_Set_ACC_XFER_Start
 ** FUN_CFG;   //Transfer Start/Function Register
-** 此时RX_Transfer_Start标志可以让内部加速器开始工作
-** 此时TX_Transfer_Start标志可以让配置开始工作
+** 锟斤拷时RX_Transfer_Start锟斤拷志锟斤拷锟斤拷锟斤拷锟节诧拷锟斤拷锟斤拷锟斤拷锟斤拷始锟斤拷锟斤拷
+** 锟斤拷时TX_Transfer_Start锟斤拷志锟斤拷锟斤拷锟斤拷锟斤拷锟矫匡拷始锟斤拷锟斤拷
 ** Input:UINT32 HidiId,int count,int fun_type
 ** Return: rk_err_t
 ** Owner:WJR
@@ -397,7 +398,7 @@ READ API rk_err_t Hifi_Set_ACC_XFER_Start(UINT32 HidiId, int count, int fun_type
 /*******************************************************************************
 ** Name: Hifi_Set_ACC_XFER_Disable
 ** FUN_CFG;   //Transfer Start/Function Register
-** 让总线访问RAM，此时可以向RAM 传数据。配置数据和 fft及MAC数据都是直接向ram传数据
+** 锟斤拷锟斤拷锟竭凤拷锟斤拷RAM锟斤拷锟斤拷时锟斤拷锟斤拷锟斤拷RAM 锟斤拷锟斤拷锟捷★拷锟斤拷锟斤拷锟斤拷锟捷猴拷 fft锟斤拷MAC锟斤拷锟捷讹拷锟斤拷直锟斤拷锟斤拷ram锟斤拷锟斤拷锟斤拷
 ** Input:UINT32 HidiId,int count,int fun_type
 ** Return: rk_err_t
 ** Owner:WJR

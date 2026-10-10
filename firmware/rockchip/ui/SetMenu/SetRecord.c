@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  SetRecord.c
+* File Nameï¿½ï¿½  SetRecord.c
 * 
 * Description:  set menu execution function configuration of recording
 *
@@ -20,15 +20,15 @@
 
 #ifdef _SYSSET_
 #ifdef _RECORD_
-#include "setcommon.h"
-#include "setrecord.h"
+#include "SetCommon.h"
+#include "SetRecord.h"
 #include "SetMenuInterface.h"
 
 /*
 --------------------------------------------------------------------------------
   Function name : UINT16 RecordSetMenuQuality (UINT16 iSelectedItem) 
   Author        : anzhiguo
-  Description   :  Â¼ÒôÖÊÁ¿ÉèÖÃ.
+  Description   :  Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.
                   
   Input         : 
   Return        : 

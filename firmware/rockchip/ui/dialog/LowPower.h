@@ -30,9 +30,9 @@
 *  
 *-------------------------------------------------------------------------------
 */
-#define _ATTR_LOWERPOWER_CODE_         __attribute__((section("LowPowerBoxCode")))
-#define _ATTR_LOWERPOWER_DATA_         __attribute__((section("LowPowerBoxData")))
-#define _ATTR_LOWERPOWER_BSS_          __attribute__((section("LowPowerBoxBss"),zero_init))
+#define _ATTR_LOWERPOWER_CODE_         
+#define _ATTR_LOWERPOWER_DATA_         
+#define _ATTR_LOWERPOWER_BSS_          
 
 #define LOWERPOWER_DISPLAY_TIME        3
 /*

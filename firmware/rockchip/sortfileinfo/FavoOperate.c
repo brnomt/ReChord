@@ -19,7 +19,7 @@
 //#ifdef FAVOSUB
 
 #ifdef _MEDIA_MODULE_
-#include "FsInclude.h"
+#include "fsinclude.h"
 
 #include "medialibwin.h"
 #include "MediaBroWin.h"

@@ -16,6 +16,7 @@
 #define _IN_BACKLIGHT_
 
 #include "SysInclude.h"
+#include "freq_enums.h"   /* FREQ_BLON & freq module IDs */
 
 _ATTR_SYS_DATA_
 uint8 BL_Table[BL_LEVEL_MAX + 1] = {85,80,70,60,10,95};

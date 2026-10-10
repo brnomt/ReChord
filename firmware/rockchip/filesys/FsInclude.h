@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   Config.h
+* File Nameï¿½ï¿½   Config.h
 * 
 * Description:  
 *
@@ -22,33 +22,38 @@
 *  
 *-------------------------------------------------------------------------------
 */
+#include "typedef.h"     /* base integer types first */
+#include "SysConfig.h"   /* FW_IN_DEV/_EMMC_: device config macros */
+#include "MemDev.h"        /* DataDiskID/UserDisk0ID: device selection */
+#include "AddrSaveMacro.h" /* MUSIC_TREE_ and RECORD_TREE_ sector starts */
+#include "sortfileinfo/SortInfoGetMacro.h"
 #include <stdio.h>
 #include <string.h>
 #include "SysConfig.h"
 #include "typedef.h"
-#include "Macro.h"
+#include "macro.h"
 
 #include "hw_memap.h"
-#include "hook.h"
+#include "Hook.h"
 
 #include "FsConfig.h"
-#include "decode.h"
+#include "Decode.h"
 
 #include "USBConfig.h"
 #include "MDConfig.h"
 
 
-#include "FDT.h"
-#include "nFAT.h"
-#include "FileSeek.h"
-#include "fat.h"
-#include "dir.h"
-#include "file.h"
+#include "filesys/FDT.h"
+#include "filesys/nFAT.h"
+#include "filesys/FileSeek.h"
+#include "filesys/fat.h"
+#include "filesys/dir.h"
+#include "filesys/file.h"
 #include "LongFileName.h"
 
 #include "driverlib_def.h"
 #include "delay.h"
-#include "AddrSaveMacro.h"
+#include "sortfileinfo/AddrSaveMacro.h"
 
 /*
 ********************************************************************************
@@ -59,3 +64,11 @@
 */
 #endif
 
+/* Integration fix (2026-10-09): RecordControl.h needs FS/OS types
+ * (FDT, FIND_DATA, MAX_*, MSG_ID, THREAD), so it belongs AFTER the vendor
+ * headers above. It supplies BYTE_NUM_SAVE_PER_FILE and the RECORD_SAVE_*
+ * sector constants used by filesys/file.c. */
+#include "Msg.h"
+#include "Thread.h"
+#include "audio/RecordControl/RecordControl.h"
+#include "bb_compat.h"

@@ -20,7 +20,7 @@ $Log: $
 #include "ModuleInfoTab.h"
 #include "ModuleOverlay.h"
 #include "driverlib_def.h"
-#include "UsbControl.h"
+#include "USBControl.h"
 #include "delay.h"
 #include <stdio.h>
 #include <string.h>
@@ -68,7 +68,7 @@ $Log: $
 #define         USB_BULK_IN                             1
 #define         USB_BULK_OUT                            0
 
-#define     MAX_LUN     (FLASH_DISK0+FLASH_DISK1+SD_CARD_EN)  /*×î´óÖ§³ÖµÄÂß¼­Éè±¸Êý*/
+#define     MAX_LUN     (FLASH_DISK0+FLASH_DISK1+SD_CARD_EN)  /*ï¿½ï¿½ï¿½Ö§ï¿½Öµï¿½ï¿½ß¼ï¿½ï¿½è±¸ï¿½ï¿½*/
 
 #ifndef _NANDFLASH_
 #define     USB_BUF_SIZE       1024*64                //USB BULKONLY BUFFER SIZE
@@ -76,16 +76,16 @@ $Log: $
 #define     USB_BUF_SIZE       1024*16                //USB BULKONLY BUFFER SIZE
 #endif
 
-#define     MAX_CDBLEN                                  0x10        //×î³¤µÄCBW³¤¶È
+#define     MAX_CDBLEN                                  0x10        //ï¿½î³¤ï¿½ï¿½CBWï¿½ï¿½ï¿½ï¿½
 
 /*******************************************************************
-CSW·µ»Ø×´Ì¬Öµ
+CSWï¿½ï¿½ï¿½ï¿½×´Ì¬Öµ
 *******************************************************************/
-#define     CSW_GOOD                                    0x00        //ÃüÁîÍ¨¹ý
-#define     CSW_FAIL                                    0x01        //ÃüÁîÊ§°Ü
-#define     CSW_PHASE_ERROR                             0x02        //ÃüÁîÓÐÎó
+#define     CSW_GOOD                                    0x00        //ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½
+#define     CSW_FAIL                                    0x01        //ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½
+#define     CSW_PHASE_ERROR                             0x02        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 /*******************************************************************
-Bulk Only´«Êä½×¶Î
+Bulk Onlyï¿½ï¿½ï¿½ï¿½×¶ï¿½
 *******************************************************************/
 #define     K_CommandPhase                              0x00
 #define     K_OutDataPhase                              0x01
@@ -100,7 +100,7 @@ Bulk Only´«Êä½×¶Î
 
 
 /*******************************************************************
-Bulk OnlyÃüÁî¼¯
+Bulk Onlyï¿½ï¿½ï¿½î¼¯
 *******************************************************************/
 #define     K_SCSICMD_TEST_UNIT_READY                   0x00
 #define     K_SCSICMD_REZERO_UNIT                       0x01
@@ -132,7 +132,7 @@ Bulk OnlyÃüÁî¼¯
 #define     K_RKCMD_FIRMWAVE_UPGRADE                    0xff
 
 /*******************************************************************
-MMC-2ÃüÁî¼¯
+MMC-2ï¿½ï¿½ï¿½î¼¯
 *******************************************************************/
 #define     K_SCSICMD_READ_SUB_CHANNEL                  0x42
 #define     K_SCSICMD_READ_TOC                          0x43
@@ -304,31 +304,31 @@ extern void FUSBGetVetsion(PRKNANO_VERSION pVersion);
 /*-------------------------------- Local Statics: ----------------------------*/
 
 
-//ÅäÖÃÃèÊö·û¼¯ºÏ
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 _ATTR_USB_MSC_DATA_
 USB_FSG_CONFIGS_DESCRIPTOR HSFsgConfigs =
 {
-    sizeof(USB_CONFIGURATION_DESCRIPTOR),       //ÃèÊö·ûµÄ´óÐ¡9(1B)
-    USB_DT_CONFIG,                              //ÃèÊö·ûµÄÀàÐÍ02(1B)
+    sizeof(USB_CONFIGURATION_DESCRIPTOR),       //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½Ð¡9(1B)
+    USB_DT_CONFIG,                              //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½02(1B)
     FSG_CONFIG_DT_LENGTH,
-    1,                                          //ÅäÖÃËùÖ§³ÖµÄ½Ó¿ÚÊý(1B)
-    1,                                          //×÷ÎªSet configurationµÄÒ»¸ö²ÎÊýÑ¡ÔñÅäÖÃÖµ(1B)
-    FSG_STRING_CONFIG,                              //ÓÃÓÚÃèÊöÅäÖÃ×Ö·û´®µÄË÷Òý(1B)
-    0x80,                                       //Î»Í¼,×ÜÏß¹©µç&Ô¶³Ì»½ÐÑ(1B)
-    200,                                            //×î´óÏûºÄµçÁ÷*2mA(1B)
+    1,                                          //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ÖµÄ½Ó¿ï¿½ï¿½ï¿½(1B)
+    1,                                          //ï¿½ï¿½ÎªSet configurationï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ(1B)
+    FSG_STRING_CONFIG,                              //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(1B)
+    0x80,                                       //Î»Í¼,ï¿½ï¿½ï¿½ß¹ï¿½ï¿½ï¿½&Ô¶ï¿½Ì»ï¿½ï¿½ï¿½(1B)
+    200,                                            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äµï¿½ï¿½ï¿½*2mA(1B)
 
-//½Ó¿ÚÃèÊö·û
-    sizeof(USB_INTERFACE_DESCRIPTOR),           //ÃèÊö·ûµÄ´óÐ¡9(1B)
-    USB_DT_INTERFACE,                           //ÃèÊö·ûµÄÀàÐÍ04(1B)
-    0,                                          //½Ó¿ÚµÄ±àºÅ(1B)
-    0,                                          //ÓÃÓÚÎªÉÏÒ»¸ö×Ö¶Î¿É¹©Ìæ»»µÄÉèÖÃ(1B)
-    FSG_NUM_ENDPOINTS,                          //Ê¹ÓÃµÄ¶ËµãÊý(¶Ëµã0³ýÍâ)(1B)
-    USB_DEVICE_CLASS_STORAGE,                   //1ÀàÐÍ´úÂë(ÓÉUSB·ÖÅä)(1B),USB_DEVICE_CLASS_STORAGE=Mass Storage
-    USB_SUBCLASS_CODE_SCSI,                 //1×ÓÀàÐÍ´úÂë(ÓÉUSB·ÖÅä)(1B),"0x06=Reduced Block Commands(RBC)"
-    USB_PROTOCOL_CODE_BULK,                 //1Ð­Òé´úÂë(ÓÉUSB·ÖÅä)(1B),"0X50=Mass Storage Class Bulk-Only Transport"
-    FSG_STRING_INTERFACE,                       //×Ö·û´®ÃèÊöµÄË÷Òý(1B)
+//ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    sizeof(USB_INTERFACE_DESCRIPTOR),           //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½Ð¡9(1B)
+    USB_DT_INTERFACE,                           //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½04(1B)
+    0,                                          //ï¿½Ó¿ÚµÄ±ï¿½ï¿½(1B)
+    0,                                          //ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ö¶Î¿É¹ï¿½ï¿½æ»»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(1B)
+    FSG_NUM_ENDPOINTS,                          //Ê¹ï¿½ÃµÄ¶Ëµï¿½ï¿½ï¿½(ï¿½Ëµï¿½0ï¿½ï¿½ï¿½ï¿½)(1B)
+    USB_DEVICE_CLASS_STORAGE,                   //1ï¿½ï¿½ï¿½Í´ï¿½ï¿½ï¿½(ï¿½ï¿½USBï¿½ï¿½ï¿½ï¿½)(1B),USB_DEVICE_CLASS_STORAGE=Mass Storage
+    USB_SUBCLASS_CODE_SCSI,                 //1ï¿½ï¿½ï¿½ï¿½ï¿½Í´ï¿½ï¿½ï¿½(ï¿½ï¿½USBï¿½ï¿½ï¿½ï¿½)(1B),"0x06=Reduced Block Commands(RBC)"
+    USB_PROTOCOL_CODE_BULK,                 //1Ð­ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½USBï¿½ï¿½ï¿½ï¿½)(1B),"0X50=Mass Storage Class Bulk-Only Transport"
+    FSG_STRING_INTERFACE,                       //ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(1B)
 
-//¶ËµãÃèÊö·û
+//ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     sizeof(USB_ENDPOINT_DESCRIPTOR),
     USB_DT_ENDPOINT,
     BULK_IN_EP|0x80,
@@ -336,7 +336,7 @@ USB_FSG_CONFIGS_DESCRIPTOR HSFsgConfigs =
     HS_BULK_TX_SIZE,//HS_BULK_RX_SIZE,
     0,      //bulk trans invailed
 
-//¶ËµãÃèÊö·û
+//ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     sizeof(USB_ENDPOINT_DESCRIPTOR),
     USB_DT_ENDPOINT,
     BULK_OUT_EP,
@@ -348,27 +348,27 @@ USB_FSG_CONFIGS_DESCRIPTOR HSFsgConfigs =
 
 USB_FSG_CONFIGS_DESCRIPTOR  FSFsgConfigs =
 {
-    sizeof(USB_CONFIGURATION_DESCRIPTOR),       //ÃèÊö·ûµÄ´óÐ¡9(1B)
-    USB_DT_CONFIG,      //ÃèÊö·ûµÄÀàÐÍ02(1B)
+    sizeof(USB_CONFIGURATION_DESCRIPTOR),       //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½Ð¡9(1B)
+    USB_DT_CONFIG,      //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½02(1B)
     FSG_CONFIG_DT_LENGTH,
-    1,                                          //ÅäÖÃËùÖ§³ÖµÄ½Ó¿ÚÊý(1B)
-    1,                                          //×÷ÎªSet configurationµÄÒ»¸ö²ÎÊýÑ¡ÔñÅäÖÃÖµ(1B)
-    FSG_STRING_CONFIG,                          //ÓÃÓÚÃèÊöÅäÖÃ×Ö·û´®µÄË÷Òý(1B)
-    0x80,                                       //Î»Í¼,×ÜÏß¹©µç&Ô¶³Ì»½ÐÑ(1B)
-    200,                                        //×î´óÏûºÄµçÁ÷*2mA(1B)
+    1,                                          //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ÖµÄ½Ó¿ï¿½ï¿½ï¿½(1B)
+    1,                                          //ï¿½ï¿½ÎªSet configurationï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ(1B)
+    FSG_STRING_CONFIG,                          //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(1B)
+    0x80,                                       //Î»Í¼,ï¿½ï¿½ï¿½ß¹ï¿½ï¿½ï¿½&Ô¶ï¿½Ì»ï¿½ï¿½ï¿½(1B)
+    200,                                        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äµï¿½ï¿½ï¿½*2mA(1B)
 
-//½Ó¿ÚÃèÊö·û
-    sizeof(USB_INTERFACE_DESCRIPTOR),           //ÃèÊö·ûµÄ´óÐ¡9(1B)
-    USB_DT_INTERFACE,                           //ÃèÊö·ûµÄÀàÐÍ04(1B)
-    0,                                          //½Ó¿ÚµÄ±àºÅ(1B)
-    0,                                          //ÓÃÓÚÎªÉÏÒ»¸ö×Ö¶Î¿É¹©Ìæ»»µÄÉèÖÃ(1B)
-    FSG_NUM_ENDPOINTS,                         //Ê¹ÓÃµÄ¶ËµãÊý(¶Ëµã0³ýÍâ)(1B)
-    USB_DEVICE_CLASS_STORAGE,                   //1ÀàÐÍ´úÂë(ÓÉUSB·ÖÅä)(1B),USB_DEVICE_CLASS_STORAGE=Mass Storage
-    USB_SUBCLASS_CODE_SCSI,                 //1×ÓÀàÐÍ´úÂë(ÓÉUSB·ÖÅä)(1B),"0x06=Reduced Block Commands(RBC)"
-    USB_PROTOCOL_CODE_BULK,                 //1Ð­Òé´úÂë(ÓÉUSB·ÖÅä)(1B),"0X50=Mass Storage Class Bulk-Only Transport"
-    FSG_STRING_INTERFACE,                       //×Ö·û´®ÃèÊöµÄË÷Òý(1B)
+//ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    sizeof(USB_INTERFACE_DESCRIPTOR),           //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½Ð¡9(1B)
+    USB_DT_INTERFACE,                           //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½04(1B)
+    0,                                          //ï¿½Ó¿ÚµÄ±ï¿½ï¿½(1B)
+    0,                                          //ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ö¶Î¿É¹ï¿½ï¿½æ»»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(1B)
+    FSG_NUM_ENDPOINTS,                         //Ê¹ï¿½ÃµÄ¶Ëµï¿½ï¿½ï¿½(ï¿½Ëµï¿½0ï¿½ï¿½ï¿½ï¿½)(1B)
+    USB_DEVICE_CLASS_STORAGE,                   //1ï¿½ï¿½ï¿½Í´ï¿½ï¿½ï¿½(ï¿½ï¿½USBï¿½ï¿½ï¿½ï¿½)(1B),USB_DEVICE_CLASS_STORAGE=Mass Storage
+    USB_SUBCLASS_CODE_SCSI,                 //1ï¿½ï¿½ï¿½ï¿½ï¿½Í´ï¿½ï¿½ï¿½(ï¿½ï¿½USBï¿½ï¿½ï¿½ï¿½)(1B),"0x06=Reduced Block Commands(RBC)"
+    USB_PROTOCOL_CODE_BULK,                 //1Ð­ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½USBï¿½ï¿½ï¿½ï¿½)(1B),"0X50=Mass Storage Class Bulk-Only Transport"
+    FSG_STRING_INTERFACE,                       //ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(1B)
 
-//¶ËµãÃèÊö·û
+//ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     sizeof(USB_ENDPOINT_DESCRIPTOR),
     USB_DT_ENDPOINT,
     BULK_IN_EP|0x80,
@@ -376,7 +376,7 @@ USB_FSG_CONFIGS_DESCRIPTOR  FSFsgConfigs =
     FS_BULK_RX_SIZE,
     0,      //bulk trans invailed
 
-//¶ËµãÃèÊö·û
+//ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     sizeof(USB_ENDPOINT_DESCRIPTOR),
     USB_DT_ENDPOINT,
     BULK_OUT_EP,
@@ -387,21 +387,21 @@ USB_FSG_CONFIGS_DESCRIPTOR  FSFsgConfigs =
 
 #if 0
 
-//ÆäËüËÙ¶ÈÅäÖÃÃèÊö·û
+//ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 _ATTR_USB_MSC_DATA_
 OTHER_SPEED_CONFIG_DESCRIPTOR Other_Speed_Config_Descriptor=
 {
     sizeof(OTHER_SPEED_CONFIG_DESCRIPTOR),  //length of other speed configuration descriptor
     0x07,                                   //Other speed configuration Type
-    FSG_CONFIG_DT_LENGTH,               //·µ»ØÕû¸öÊý¾ÝµÄ³¤¶È(ÅäÖÃ,½Ó¿Ú,¶ËµãºÍÀàÐÍ»ò¹©Ó¦ÉÌ)(2B)
-    1,                                      //ÅäÖÃËùÖ§³ÖµÄ½Ó¿ÚÊý(1B)
-    1,                                      //×÷ÎªSet configurationµÄÒ»¸ö²ÎÊýÑ¡ÔñÅäÖÃÖµ(1B)
-    FSG_STRING_CONFIG,                      //ÓÃÓÚÃèÊöÅäÖÃ×Ö·û´®µÄË÷Òý(1B)
-    0x80,                                   //Î»Í¼,×ÜÏß¹©µç&Ô¶³Ì»½ÐÑ(1B)
-    200                                     //×î´óÏûºÄµçÁ÷*2mA(1B)
+    FSG_CONFIG_DT_LENGTH,               //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÝµÄ³ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½,ï¿½Ó¿ï¿½,ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½Í»ï¿½Ó¦ï¿½ï¿½)(2B)
+    1,                                      //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ÖµÄ½Ó¿ï¿½ï¿½ï¿½(1B)
+    1,                                      //ï¿½ï¿½ÎªSet configurationï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ(1B)
+    FSG_STRING_CONFIG,                      //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(1B)
+    0x80,                                   //Î»Í¼,ï¿½ï¿½ï¿½ß¹ï¿½ï¿½ï¿½&Ô¶ï¿½Ì»ï¿½ï¿½ï¿½(1B)
+    200                                     //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äµï¿½ï¿½ï¿½*2mA(1B)
 };
 
-//¸ßËÙÉè±¸ÏÞÖÆÃèÊö·û
+//ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 _ATTR_USB_MSC_DATA_
 HS_DEVICE_QUALIFIER HS_Device_Qualifier=
 {
@@ -515,7 +515,7 @@ uint8 InquiryDeviceData[] =
 _ATTR_USB_MSC_DATA_
 uint8  SCSIDATA_Sense_SD[] =
 {
-    0x03,0x00,0x00,0x00,    //µÚ3×Ö½ÚÎª0x80±íÊ¾Ð´±£»¤
+    0x03,0x00,0x00,0x00,    //ï¿½ï¿½3ï¿½Ö½ï¿½Îª0x80ï¿½ï¿½Ê¾Ð´ï¿½ï¿½ï¿½ï¿½
     0x01,0x0a,0x00,0x10,
     0x00,0x00,0x00,0x00
 };
@@ -523,7 +523,7 @@ uint8  SCSIDATA_Sense_SD[] =
 _ATTR_USB_MSC_DATA_
 uint8  SCSIDATA_Sense_FLASH[] =
 {
-    0x03,0x00,0x00,0x00,    //µÚ3×Ö½ÚÎª0x80±íÊ¾Ð´±£»¤
+    0x03,0x00,0x00,0x00,    //ï¿½ï¿½3ï¿½Ö½ï¿½Îª0x80ï¿½ï¿½Ê¾Ð´ï¿½ï¿½ï¿½ï¿½
     0x01,0x0a,0x00,0x10,
     0x00,0x00,0x00,0x00
 };
@@ -674,7 +674,7 @@ void MscChkWrite(MEMDEV_ID DevID, uint32 SecAdrr, uint32 nSec, void* pBuf)
 extern  UINT8   g_pmid[16];
 /*
 Name:       FsgModifyDRM9ID
-Desc:       ÐÞ¸ÄDRM9 IDÖµ
+Desc:       ï¿½Þ¸ï¿½DRM9 IDÖµ
 Param:
 Return:
 Global:
@@ -698,8 +698,8 @@ static void FsgModifyDRM9ID(void)
 
 /*
 Name:       FsgCSWHandler
-Desc:       CSW´¦Àí
-Param:      HostDevCase=×´Ì¬,DeviceTrDataLen=Éè±¸Òª·¢ËÍµÄÊý¾Ý³¤¶È
+Desc:       CSWï¿½ï¿½ï¿½ï¿½
+Param:      HostDevCase=×´Ì¬,DeviceTrDataLen=ï¿½è±¸Òªï¿½ï¿½ï¿½Íµï¿½ï¿½ï¿½ï¿½Ý³ï¿½ï¿½ï¿½
 Return:
 Global:
 Note:
@@ -837,7 +837,7 @@ static int32 FsgChkCmd(FSG_DEVICE *pFsg, uint8 DataDir, uint32 DataLen)
 
 /*
 Name:       FsgSenseData
-Desc:       ½¨Á¢ sense
+Desc:       ï¿½ï¿½ï¿½ï¿½ sense
 Param:
 Return:
 Global:
@@ -875,7 +875,7 @@ static void FsgSenseData(uint8 SenseKey, uint8 ASC, uint8 ASCQ)
 
 /*
 Name:       FsgSendCSW
-Desc:       »ØËÍCSW
+Desc:       ï¿½ï¿½ï¿½ï¿½CSW
 Param:
 Return:
 Global:
@@ -1000,7 +1000,7 @@ static void FsgForceDisconnect(FSG_DEVICE *pFsg)
     USBDelayMS(100);
     USBDisconnect();
 
-    pFsg->connected = 0;               //¶Ï¿ªÁ¬½Ó?
+    pFsg->connected = 0;               //ï¿½Ï¿ï¿½ï¿½ï¿½ï¿½ï¿½?
 }
 
 /*
@@ -1030,7 +1030,7 @@ static void FsgFirmwareUpgrade(FSG_DEVICE *pFsg)
     {
         if (Read12LBA == 0xFFFFFFFF)    //GET VERSION.
         {
-            if (cbLen == 12)            //°æ±¾³¤¶È
+            if (cbLen == 12)            //ï¿½æ±¾ï¿½ï¿½ï¿½ï¿½
             {
                 RKNANO_VERSION version;
 
@@ -1052,7 +1052,7 @@ static void FsgFirmwareUpgrade(FSG_DEVICE *pFsg)
         }
 
 #if 0//def USB_PERMIT
-        else if (Read12LBA == 0xFFFFFFFB)  //Ö»¹ÒÔØÓÃ»§ÅÌ
+        else if (Read12LBA == 0xFFFFFFFB)  //Ö»ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½
         {
             DEVICE_REG *dev_regs = (DEVICE_REG *)USB_DEV_BASE;
             FsgCSWHandler(pFsg, CASEOK, 12);
@@ -1061,7 +1061,7 @@ static void FsgFirmwareUpgrade(FSG_DEVICE *pFsg)
             dev_regs->dctl |= 0x02;       //soft disconnect
             //UsbConnected = 0;
         }
-        else if (Read12LBA == 0xFFFFFFF8) //½âËøÓÃ»§ÅÌ
+        else if (Read12LBA == 0xFFFFFFF8) //ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½
         {
             if (cbLen == 16)
             {
@@ -1073,7 +1073,7 @@ static void FsgFirmwareUpgrade(FSG_DEVICE *pFsg)
             }
 
         }
-        else if (Read12LBA == 0xFFFFFFF9)  //Ëø¶¨ÓÃ»§ÅÌ
+        else if (Read12LBA == 0xFFFFFFF9)  //ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½
         {
             if (cbLen == 16)
             {
@@ -1114,7 +1114,7 @@ static void FsgFirmwareUpgrade(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgInquiry
-Desc:       ÃüÁî:²éÑ¯0x12
+Desc:       ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½Ñ¯0x12
 Param:
 Return:
 Global:
@@ -1193,7 +1193,7 @@ static void FsgInquiry(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgReadFormatCapacities
-Desc:       ÃüÁî:¶Á¿É¸ñÊ½»¯ÈÝÁ¿0x23
+Desc:       ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½ï¿½É¸ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0x23
 Param:
 Return:
 Global:
@@ -1242,7 +1242,7 @@ static void FsgReadFormatCapacities(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgReadCapacity
-Desc:       ÃüÁî:¶ÁÈÝÁ¿0x25
+Desc:       ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0x25
 Param:
 Return:
 Global:
@@ -1288,7 +1288,7 @@ static void FsgReadCapacity(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgRead10
-Desc:       ÃüÁî:¶Á»º³å0x28
+Desc:       ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0x28
 Param:
 Return:
 Global:
@@ -1338,7 +1338,7 @@ static void FsgRead10(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgWrite10
-Desc:       ÃüÁî:Ð´»º³å0x2a
+Desc:       ï¿½ï¿½ï¿½ï¿½:Ð´ï¿½ï¿½ï¿½ï¿½0x2a
 Param:
 Return:
 Global:
@@ -1390,7 +1390,7 @@ static void FsgWrite10(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgModeSense06
-Desc:       ÃüÁî:¶ÁÄ£Ê½0x1a
+Desc:       ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½Ä£Ê½0x1a
 Param:
 Return:
 Global:
@@ -1419,7 +1419,7 @@ static void FsgModeSense06(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgTestUnitReady
-Desc:       ÃüÁî:²âÊÔ×¼±¸0x00
+Desc:       ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½×¼ï¿½ï¿½0x00
 Param:
 Return:
 Global:
@@ -1469,7 +1469,7 @@ static void FsgTestUnitReady(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgRequestSense
-Desc:       ÃüÁî:ÇëÇó0x03
+Desc:       ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½0x03
 Param:
 Return:
 Global:
@@ -1497,7 +1497,7 @@ static void FsgRequestSense(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgPreventAllowMediumRemoval
-Desc:       ÃüÁî:×èÖ¹Æ÷¼þÒÆ³ý0x1e
+Desc:       ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½Æ³ï¿½0x1e
 Param:
 Return:
 Global:
@@ -1511,16 +1511,16 @@ static void FsgPreventAllowMediumRemoval(FSG_DEVICE *pFsg)
     uint8 *cmnd = &pFsg->cbw->CBWCDB[0];
 #if 1
     if ((cmnd[4] & 0x01) == 0x01)
-    {//½â¾övista ºÍ mac»úÆ÷UÅÌÍË²»³öÀ´µÄÎÊÌâ£¬µ«ÊÇ»úÆ÷ÍË³öUÅÌºóÊÇÃ»·¨½ø³äµç×´Ì¬µÄ¡£
+    {//ï¿½ï¿½ï¿½vista ï¿½ï¿½ macï¿½ï¿½ï¿½ï¿½Uï¿½ï¿½ï¿½Ë²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£¬ï¿½ï¿½ï¿½Ç»ï¿½ï¿½ï¿½ï¿½Ë³ï¿½Uï¿½Ìºï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½Ä¡ï¿½
         //BuildSenseData(SCSI_SENSE_ILLEGAL_REQUEST, SCSI_ADSENSE_INVALID_PARAMETER, SCSI_SENSEQ_INIT_COMMAND_REQUIRED);
         FsgSenseData(SCSI_SENSE_ILLEGAL_REQUEST, SCSI_ADSENSE_INVALID_CDB, 0);
-        FsgCSWHandler(pFsg, CASECMDFAIL, pFsg->cbw->dCBWDataTransLen);         //ÔÊÐíÒÆ³ýÉè±¸
+        FsgCSWHandler(pFsg, CASECMDFAIL, pFsg->cbw->dCBWDataTransLen);         //ï¿½ï¿½ï¿½ï¿½ï¿½Æ³ï¿½ï¿½è±¸
         pFsg->csw.bCSWStatus = CSW_FAIL; // comment by hwg, 07-06-30
     }
     else
     {
         FsgSenseData(SCSI_SENSE_NO_SENSE,0,0);
-        FsgCSWHandler(pFsg, CASE1, pFsg->cbw->dCBWDataTransLen);          //ÔÊÐíÒÆ³ýÉè±¸
+        FsgCSWHandler(pFsg, CASE1, pFsg->cbw->dCBWDataTransLen);          //ï¿½ï¿½ï¿½ï¿½ï¿½Æ³ï¿½ï¿½è±¸
         //MscReQAdd(K_SCSICMD_PREVENT_ALLOW_MEDIUM_REMOVAL, USBDiskID, 0, 0, NULL);
     }
 #endif
@@ -1531,7 +1531,7 @@ static void FsgPreventAllowMediumRemoval(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgStartStopUnit
-Desc:       ÃüÁî:ÆôÍ£ÃüÁî0x1b
+Desc:       ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½0x1b
 Param:
 Return:
 Global:
@@ -1545,28 +1545,28 @@ static void FsgStartStopUnit(FSG_DEVICE *pFsg)
     uint8 *cmnd = &pFsg->cbw->CBWCDB[0];
 
     FsgSenseData(SCSI_SENSE_NO_SENSE,0,0);
-    FsgCSWHandler(pFsg, CASE1, pFsg->cbw->dCBWDataTransLen);          //ÔÊÐíÒÆ³ýÉè±¸
+    FsgCSWHandler(pFsg, CASE1, pFsg->cbw->dCBWDataTransLen);          //ï¿½ï¿½ï¿½ï¿½ï¿½Æ³ï¿½ï¿½è±¸
 
     FsgSendCSW(pFsg);
 
     if (cmnd[4] & 0x02)
     {
         //////////////////////////
-        //PC¶Ëµ¯³öUSBÊ±
+        //PCï¿½Ëµï¿½ï¿½ï¿½USBÊ±
         DelayUs(300);
         USBDisconnect();
         //////////////////////////
 
-        pFsg->connected = 0;                           //Éè±¸ÒÆ³ý£¬¶Ï¿ªÁ¬½Ó
-        //µçÄÔÓÒ¼ü"µ¯³ö"ÃüÁî£¬¶Ï¿ªUSBÁ¬½Ó£¬ÇÐÈëÆäËûÈÎÎñ£¬µÚÈý·½Èí¼þÒÆ³ýUSBÊ±£¬Ä¿Ç°²»ÄÜ¶Ï¿ªUSB
-        //Ô­ÒòÊÇ:½ÓÊÕ²»µ½ÏµÍ³·¢³öµÄµ¯³öÃüÁî¡£
+        pFsg->connected = 0;                           //ï¿½è±¸ï¿½Æ³ï¿½ï¿½ï¿½ï¿½Ï¿ï¿½ï¿½ï¿½ï¿½ï¿½
+        //ï¿½ï¿½ï¿½ï¿½ï¿½Ò¼ï¿½"ï¿½ï¿½ï¿½ï¿½"ï¿½ï¿½ï¿½î£¬ï¿½Ï¿ï¿½USBï¿½ï¿½ï¿½Ó£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ñ£¬µï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ³ï¿½USBÊ±ï¿½ï¿½Ä¿Ç°ï¿½ï¿½ï¿½Ü¶Ï¿ï¿½USB
+        //Ô­ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½ï¿½Õ²ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½Äµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½î¡£
         SendMsg(MSG_PC_DISCONNECT_USB);
     }
 }
 
 /*
 Name:       FsgVerify10
-Desc:       ÃüÁî:Ð£¶Ô0x2f
+Desc:       ï¿½ï¿½ï¿½ï¿½:Ð£ï¿½ï¿½0x2f
 Param:
 Return:
 Global:
@@ -1593,7 +1593,7 @@ static void FsgVerify10(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgModeSense10
-Desc:       ÃüÁî:0x5a
+Desc:       ï¿½ï¿½ï¿½ï¿½:0x5a
 Param:
 Return:
 Global:
@@ -1619,7 +1619,7 @@ static void FsgModeSense10(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgCBWValidVerify
-Desc:       ÃüÁî¿éÓÐÐ§Ð£Ñé
+Desc:       ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§Ð£ï¿½ï¿½
 Param:
 Return:
 Global:
@@ -1689,7 +1689,7 @@ static void FsgFwCmdHandle(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgScsiCmdHandle
-Desc:       ÅúÁ¿Êý¾Ý´«ÊäSCSIÃüÁî½âÊÍ
+Desc:       ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½SCSIï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 Param:
 Return:
 Global:
@@ -1847,7 +1847,7 @@ static void FsgUpdateXfer(FSG_DEVICE *pFsg, uint32 byte)
         if (Xfer->XferCmd == USB_BULK_OUT)
         {
             FsgReqAdd(K_SCSICMD_WRITE_10, pFsg->CurDisk,  Xfer->LBA, len, Xfer->buf);
-            //DISABLE_USB_INT;                        //¹ØÖÐ¶Ï, Ð´ÍêÔÚ¿ªÖÐ¶Ï, ±£Ö¤bufÄÚÈÝÕýÈ·ÐÔ
+            //DISABLE_USB_INT;                        //ï¿½ï¿½ï¿½Ð¶ï¿½, Ð´ï¿½ï¿½ï¿½Ú¿ï¿½ï¿½Ð¶ï¿½, ï¿½ï¿½Ö¤bufï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½
             //USBSetNak(pFsg->BulkOut);
             UsbIntDisalbe();
 
@@ -1882,7 +1882,7 @@ static void FsgUpdateXfer(FSG_DEVICE *pFsg, uint32 byte)
 
 /*
 Name:       FsgBulkInPkt
-Desc:       ÅúÁ¿Êý¾Ý´«ÊäIN°ü´¦Àí
+Desc:       ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½INï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 Param:
 Return:
 Global:
@@ -1922,7 +1922,7 @@ static void FsgBulkInPkt(FSG_DEVICE *pFsg)
 
 /*
 Name:       FsgBulkOutPkt
-Desc:       ÅúÁ¿Êý¾Ý´«ÊäOUT°ü´¦Àí
+Desc:       ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½OUTï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 Param:
 Return:
 Global:
@@ -1933,7 +1933,7 @@ Log:
 _ATTR_USB_MSC_CODE_
 static void FsgBulkOutPkt(FSG_DEVICE *pFsg, uint16 len)
 {
-    if (pFsg->BulkPhase == K_CommandPhase)        //½ÓÊÕÃüÁî
+    if (pFsg->BulkPhase == K_CommandPhase)        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     {
         pFsg->ActualCBWLen = len;
         if (len != USB_BULK_CB_WRAP_LEN)
@@ -1946,7 +1946,7 @@ static void FsgBulkOutPkt(FSG_DEVICE *pFsg, uint16 len)
         }
         USBReadEp(pFsg->BulkOut, len, pFsg->cbw);
     }
-    else if (pFsg->BulkPhase == K_OutDataPhase)//½ÓÊÕÊý¾Ý
+    else if (pFsg->BulkPhase == K_OutDataPhase)//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     {
         pUSB_BULK_XFER Xfer = &pFsg->BulkXfer;
 
@@ -1960,7 +1960,7 @@ static void FsgBulkOutPkt(FSG_DEVICE *pFsg, uint16 len)
 
 /*
 Name:       FsgBulkOutHandle
-Desc:       ÅúÁ¿Êý¾Ý´«ÊäBulkOnlyÃüÁî½âÊÍ
+Desc:       ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½BulkOnlyï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 Param:
 Return:
 Global:
@@ -2525,7 +2525,7 @@ int32 FsgThread(void)
             SendMsg(MSG_USB_RESUMED);
         }
 
-        req = FsgReqNext(pFsg);             //»ñÈ¡ÏÂÒ»¸öÇëÇó
+        req = FsgReqNext(pFsg);             //ï¿½ï¿½È¡ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         if (req)
         {
             pUSB_BULK_XFER Xfer = &pFsg->BulkXfer;

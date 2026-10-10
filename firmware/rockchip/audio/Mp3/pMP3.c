@@ -13,9 +13,9 @@ $Log    :
 */
 /****************************************************************/
 
-#include "../include/audio_main.h"
-#include "../include/audio_globals.h"
-#include "../include/audio_file_access.h"
+#include "audio_main.h"
+#include "audio_globals.h"
+#include "audio_file_access.h"
 
 #ifdef MP3_DEC_INCLUDE
 
@@ -23,8 +23,8 @@ $Log    :
 #include <string.h> //for memcpy(),memmove()
 #include "typedef.h"
 #include "mailbox.h"
-#include "sysinclude.h"
-#include "driverinclude.h"
+#include "SysInclude.h"
+#include "DriverInclude.h"
 extern MediaBlock  gpMediaBlock;
 extern unsigned int gDecDone;
 extern unsigned int gSeekDone;

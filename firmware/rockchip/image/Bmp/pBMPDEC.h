@@ -12,7 +12,7 @@ Revision  1.2 2007/01/09 evan wu
 #ifndef BMP_DEC_H
 #define BMP_DEC_H
 
-#include "..\ImageInclude\image_file_access.h"
+#include "../ImageInclude/image_file_access.h"
 
 //#include "stdio.h"
 //#include "malloc.h"
@@ -64,18 +64,18 @@ typedef struct
     int y;
     int Src_Fmt;
 }IM_PIX_INFO;  
-typedef struct TPicRegion //Ò»¿éÑÕÉ«Êý¾ÝÇøµÄÃèÊö,±ãÓÚ²ÎÊý´«µÝ
+typedef struct TPicRegion //Ò»ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 {
-    targbmodel* pdata;     //ÑÕÉ«Êý¾ÝÊ×µØÖ·
-    long     byte_width;//Ò»ÐÐÊý¾ÝµÄÎïÀí¿í¶È(×Ö½Ú¿í¶È)
-    long     width;//ÏñËØ¿í¶È
-    long     height;//ÏñËØ¸ß¶È
+    targbmodel* pdata;     //ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½ï¿½×µï¿½Ö·
+    long     byte_width;//Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Ýµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½Ö½Ú¿ï¿½ï¿½ï¿½)
+    long     width;//ï¿½ï¿½ï¿½Ø¿ï¿½ï¿½ï¿½
+    long     height;//ï¿½ï¿½ï¿½Ø¸ß¶ï¿½
 }tpicregion;  
 /*********************************************************************
 DEFINE
 ************************************************************************/
 
-#define BMP_TYPE            0x4d42 // ÊäÈëÎÄ¼þ¸ñÊ½
+#define BMP_TYPE            0x4d42 // ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ê½
 #define BI_RGB            0     // No compression
 #define BI_RLE8           1     // RLE8 compression (256 colors)
 #define BI_RLE4           2     // RLE4 compression (16 colors)
@@ -208,8 +208,8 @@ typedef struct
 typedef struct TagBmpOutFactor
 {
     FILE* BmpFile;
-    unsigned long ImageWInBuf;//ÓÐÐ§Êä³ö¿í
-    unsigned long ImageHInBuf;//ÓÐÐ§Êä³ö¸ß
+    unsigned long ImageWInBuf;//ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½ï¿½
+    unsigned long ImageHInBuf;//ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½ï¿½
     unsigned char *ImageBufAddr;
     unsigned long dsty;
 }BMPOUTFACTOR;

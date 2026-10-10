@@ -16,10 +16,12 @@
 #define _IN_USB_CONTROL_
 
 #include "SysInclude.h"
+#include "freq_enums.h"           /* FREQ_BLON */
+#include "driver/CRU/Hw_cru.h"     /* USBPHY_SRST, CLK_USBPHY_GATE */
 
 #ifdef _USB_
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "USBConfig.h"
 #include "USBControl.h"
 
@@ -137,8 +139,8 @@ void FUSBConnectHook(void)
     if(GetMsg(MSG_USB_CONNECT_FAIL))
     {
         BatteryChargeInit();
-        SendMsg(MSG_CHARGE_START);      //Ê¹ÄÜ³äµç
-        FREQ_EnterModule(FREQ_BLON);    //ÊÇ·ñ»áÓ°Ïìµ½USB
+        SendMsg(MSG_CHARGE_START);      //Ê¹ï¿½Ü³ï¿½ï¿½
+        FREQ_EnterModule(FREQ_BLON);    //ï¿½Ç·ï¿½ï¿½Ó°ï¿½ìµ½USB
         SendMsg(MSG_SYS_RESUME);
     }
 }
@@ -262,7 +264,7 @@ BOOL FUSBShowCdrom(void)
 --------------------------------------------------------------------------------
 */
 _ATTR_USB_MSC_CODE_
-static int32 FUSBFsgInit(void)
+int32 FUSBFsgInit(void)
 {
     return FsgInit((void*)0);
 }
@@ -281,7 +283,7 @@ static int32 FUSBFsgInit(void)
 --------------------------------------------------------------------------------
 */
 _ATTR_USB_MSC_CODE_
-static void FUSBFsgDeInit(void)
+void FUSBFsgDeInit(void)
 {
     FsgDeInit();
     //-----------------------------------------------------------------
@@ -525,18 +527,18 @@ void USBControlInit(void *pArg)
     ret = USBWaitConnect(10000); //wait 2s
     if (ret == 0)
     {
-        //..Á¬½ÓÊ§°Ü
+        //..ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½
         USBDEBUG("USB connect error!");
         SendMsg(MSG_USB_CONNECT_FAIL);
     }
     else
     {
-        //..Á¬½Ó³É¹¦£¬Í¨ÖªÏÔÊ¾
+        //..ï¿½ï¿½ï¿½Ó³É¹ï¿½ï¿½ï¿½Í¨Öªï¿½ï¿½Ê¾
         USBDEBUG("Reconnect OK!");
         BatteryChargeInit();
-        SendMsg(MSG_CHARGE_START);      //Ê¹ÄÜ³äµç
+        SendMsg(MSG_CHARGE_START);      //Ê¹ï¿½Ü³ï¿½ï¿½
 
-        FREQ_EnterModule(FREQ_BLON); //ÊÇ·ñ»áÓ°Ïìµ½USB
+        FREQ_EnterModule(FREQ_BLON); //ï¿½Ç·ï¿½ï¿½Ó°ï¿½ìµ½USB
         SendMsg(MSG_SYS_RESUME);
     }
     #endif
@@ -558,7 +560,7 @@ void USBControlInit(void *pArg)
 
         while(1)
         {
-            if (Get_PlayKey_State())        //°´Play¼üÍË³ö
+            if (Get_PlayKey_State())        //ï¿½ï¿½Playï¿½ï¿½ï¿½Ë³ï¿½
             {
                 break;
             }
@@ -620,7 +622,7 @@ UINT32 USBControlService(void)
 
             if (CheckMsg(MSG_POWER_DOWN))
             {
-                SendMsg(MSG_USB_EXIT_FUSB); //µÍµçÑ¹»½ÐÑ£¬ÍË³ö USB
+                SendMsg(MSG_USB_EXIT_FUSB); //ï¿½Íµï¿½Ñ¹ï¿½ï¿½ï¿½Ñ£ï¿½ï¿½Ë³ï¿½ USB
             }
             return 0;
         }

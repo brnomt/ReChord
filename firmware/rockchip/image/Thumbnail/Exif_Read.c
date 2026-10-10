@@ -1,5 +1,5 @@
-#include "..\ImageInclude\image_main.h"
-#include "..\ImageInclude\image_globals.h"
+#include "../ImageInclude/image_main.h"
+#include "../ImageInclude/image_globals.h"
 
 #include "SysInclude.h"
 
@@ -7,45 +7,45 @@
 
 #pragma arm section code = "ImageContrlCode", rodata = "ImageContrlCode", rwdata = "ImageContrlData", zidata = "ImageContrlBss"
 
-#include  "FsInclude.h"
+#include  "fsinclude.h"
 #include  "File.h"
-#include "exif_read.h"
+#include "Exif_Read.h"
 
 
 
 /*  TIFF Header */
 typedef struct _tiff_Header {
-    unsigned short byteOrder;                       /* ƒGƒ“ƒfƒBƒAƒ“        */
-    unsigned short reserved;                        /* —\–ñÏ‚İ 0x002A     */
-    unsigned int Ifd0thOffset;                      /* 0TH IFD‚ÌƒIƒtƒZƒbƒg */
+    unsigned short byteOrder;                       /* ï¿½Gï¿½ï¿½ï¿½fï¿½Bï¿½Aï¿½ï¿½        */
+    unsigned short reserved;                        /* ï¿½\ï¿½ï¿½Ï‚ï¿½ 0x002A     */
+    unsigned int Ifd0thOffset;                      /* 0TH IFDï¿½ÌƒIï¿½tï¿½Zï¿½bï¿½g */
 } TIFF_HEADER;
 
 /*  APP1 Exif Segment Header */
 typedef struct _App1_Header {
-    unsigned short marker;                          /* ƒ}[ƒJ[¯•Ê */
-    unsigned short length;                          /* ƒ}[ƒJ[—Ìˆæ’· */
-    char id[6]; /* "Exif\0\0" */                    /* Exif¯•Ê */
+    unsigned short marker;                          /* ï¿½}ï¿½[ï¿½Jï¿½[ï¿½ï¿½ï¿½ï¿½ */
+    unsigned short length;                          /* ï¿½}ï¿½[ï¿½Jï¿½[ï¿½Ìˆæ’· */
+    char id[6]; /* "Exif\0\0" */                    /* Exifï¿½ï¿½ï¿½ï¿½ */
     TIFF_HEADER tiff;                               /* Tiff Header */
 } APP1_HEADER;
 
 typedef struct _tagNode TagNode;
-struct _tagNode {                                   /* ƒ^ƒOî•ñ */
-    unsigned short tagId;                           /* ƒ^ƒOID */
-    unsigned short type;                            /* ƒ^ƒO‚ÌŒ^ */
-    unsigned int count;                             /* ƒ^ƒO‚Ì’·‚³ */
-    unsigned int numData[64];                       /* Œ^‚ª”š‚Ìê‡g—p */
-    unsigned char byteData[32];                     /* Œ^‚ª•¶š—ñ‚Ìê‡g—p */
-    unsigned short error;                           /* “ÇƒGƒ‰[î•ñ   0:³í 0ˆÈŠOFˆÙí */
-    TagNode *prev;                                  /* ‘O‚Ìƒ^ƒO‚Ìƒ|ƒCƒ“ƒ^ */
-    TagNode *next;                                  /* Ÿ‚Ìƒ^ƒO‚Ìƒ|ƒCƒ“ƒ^ */
+struct _tagNode {                                   /* ï¿½^ï¿½Oï¿½ï¿½ï¿½ */
+    unsigned short tagId;                           /* ï¿½^ï¿½OID */
+    unsigned short type;                            /* ï¿½^ï¿½Oï¿½ÌŒ^ */
+    unsigned int count;                             /* ï¿½^ï¿½Oï¿½Ì’ï¿½ï¿½ï¿½ */
+    unsigned int numData[64];                       /* ï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìê‡ï¿½gï¿½p */
+    unsigned char byteData[32];                     /* ï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìê‡ï¿½gï¿½p */
+    unsigned short error;                           /* ï¿½Çï¿½ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½   0:ï¿½ï¿½ï¿½ï¿½ 0ï¿½ÈŠOï¿½Fï¿½Ùï¿½ */
+    TagNode *prev;                                  /* ï¿½Oï¿½Ìƒ^ï¿½Oï¿½Ìƒ|ï¿½Cï¿½ï¿½ï¿½^ */
+    TagNode *next;                                  /* ï¿½ï¿½ï¿½Ìƒ^ï¿½Oï¿½Ìƒ|ï¿½Cï¿½ï¿½ï¿½^ */
 };
 
 typedef struct _ifdTable IfdTable;
-struct _ifdTable {                                  /*  IFDî•ñ*/
-    IFD_TYPE ifdType;                               /* IFD‚Ìí—Ş */
-    unsigned short tagCount;                        /* IFD“à‚Ìƒ^ƒO” */
-    TagNode  tags;                                  /* IFD“à‚Ìƒ^ƒO‚Ìæ“ªƒAƒhƒŒƒX */
-    unsigned int nextIfdOffset;                     /* Ÿ‚ÌIFD‚Ü‚Å‚ÌƒIƒtƒZƒbƒg */
+struct _ifdTable {                                  /*  IFDï¿½ï¿½ï¿½*/
+    IFD_TYPE ifdType;                               /* IFDï¿½Ìï¿½ï¿½ */
+    unsigned short tagCount;                        /* IFDï¿½ï¿½ï¿½Ìƒ^ï¿½Oï¿½ï¿½ */
+    TagNode  tags;                                  /* IFDï¿½ï¿½ï¿½Ìƒ^ï¿½Oï¿½Ìæ“ªï¿½Aï¿½hï¿½ï¿½ï¿½X */
+    unsigned int nextIfdOffset;                     /* ï¿½ï¿½ï¿½ï¿½IFDï¿½Ü‚Å‚ÌƒIï¿½tï¿½Zï¿½bï¿½g */
     unsigned short offset;
     unsigned short length;
     unsigned char *p;
@@ -60,11 +60,11 @@ static int App1StartOffset = -1;
 static int JpegDQTOffset = -1;
 static APP1_HEADER App1Header;
 
-static unsigned char    Info_Endian_Exif;           /* ƒGƒ“ƒfƒBƒAƒ“ Big:0   Little:1 */
-static unsigned char    Info_Endian_Sys;            /* ƒGƒ“ƒfƒBƒAƒ“ Big:0   Little:1 */
+static unsigned char    Info_Endian_Exif;           /* ï¿½Gï¿½ï¿½ï¿½fï¿½Bï¿½Aï¿½ï¿½ Big:0   Little:1 */
+static unsigned char    Info_Endian_Sys;            /* ï¿½Gï¿½ï¿½ï¿½fï¿½Bï¿½Aï¿½ï¿½ Big:0   Little:1 */
 
 /************************************************************************/
-/* ŠO•” IF—p•Ï” */
+/* ï¿½Oï¿½ï¿½ IFï¿½pï¿½Ïï¿½ */
 static long Exif_ImgWidth;
 static long Exif_ImgLength;
 static long Exif_Orientation;
@@ -80,21 +80,21 @@ static  FILE *ExifFP;
 
 
 /************************************************************************/
-/* “à•”ŠÖ”  */
-static void GetEndian(void);                                                                        /* ƒGƒ“ƒfƒBƒAƒ“æ“¾ */
-static int GetExifInfo(const char *FileName, int *result);                                          /* Exifî•ñæ“¾ */
-static int  GetHeader(FILE *fp);                                                                    /* ƒwƒbƒ_î•ñæ“¾ */
-void InitErrInfo(void);                                                                             /* “ÇˆÙí‰Šú‰» */
-static void InitApp1Header(void);                                                                   /* APP1î•ñ‰Šú‰» */
-static int  GetApp1Marker(FILE *fp, const char *exif, unsigned char exif_len, int *dqtoffset);      /* APP1 Offsetæ“¾ */
-static int  GetApp1Header(FILE *fp);                                                                /* APP1 ƒwƒbƒ_î•ñæ“¾ */
-static void *Analyze_Ifd(FILE *fp, unsigned int offset, IFD_TYPE Ifd_type, TagNode *Exiftag);       /* IFD ‰ğÍ */
-static int seekToRelativeOffset(FILE *fp, unsigned int ofs);                                        /* ƒJ[ƒ\ƒ‹ˆÊ’uˆÚ“® */
-static void *createIfdTable(IFD_TYPE IfdType, unsigned short tagCount, unsigned int nextOfs);       /* IFD ƒe[ƒuƒ‹ì¬ */
-static void freeTagNode(void *pTag);                                                                /* ƒƒ‚ƒŠ‰ğ•ú Tag */
-static void freeIfdTable(void *pIfd);                                                               /* ƒƒ‚ƒŠ‰ğ•ú IFD Table */
-static TagNode *getTagNodePtrFromIfd(IfdTable *ifd, unsigned short tagId);                          /* ƒIƒtƒZƒbƒg‰ğÍ */
-static char *getTagName(int ifdType, unsigned short tagId);                                         /* ƒ^ƒO‰ğÍ */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½Öï¿½  */
+static void GetEndian(void);                                                                        /* ï¿½Gï¿½ï¿½ï¿½fï¿½Bï¿½Aï¿½ï¿½ï¿½æ“¾ */
+static int GetExifInfo(const char *FileName, int *result);                                          /* Exifï¿½ï¿½ï¿½æ“¾ */
+static int  GetHeader(FILE *fp);                                                                    /* ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½æ“¾ */
+void InitErrInfo(void);                                                                             /* ï¿½Çï¿½ï¿½Ùíï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+static void InitApp1Header(void);                                                                   /* APP1ï¿½ï¿½ñ‰Šï¿½ï¿½ï¿½ */
+static int  GetApp1Marker(FILE *fp, const char *exif, unsigned char exif_len, int *dqtoffset);      /* APP1 Offsetï¿½æ“¾ */
+static int  GetApp1Header(FILE *fp);                                                                /* APP1 ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½æ“¾ */
+static void *Analyze_Ifd(FILE *fp, unsigned int offset, IFD_TYPE Ifd_type, TagNode *Exiftag);       /* IFD ï¿½ï¿½ï¿½ */
+static int seekToRelativeOffset(FILE *fp, unsigned int ofs);                                        /* ï¿½Jï¿½[ï¿½\ï¿½ï¿½ï¿½Ê’uï¿½Ú“ï¿½ */
+static void *createIfdTable(IFD_TYPE IfdType, unsigned short tagCount, unsigned int nextOfs);       /* IFD ï¿½eï¿½[ï¿½uï¿½ï¿½ï¿½ì¬ */
+static void freeTagNode(void *pTag);                                                                /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Tag */
+static void freeIfdTable(void *pIfd);                                                               /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ IFD Table */
+static TagNode *getTagNodePtrFromIfd(IfdTable *ifd, unsigned short tagId);                          /* ï¿½Iï¿½tï¿½Zï¿½bï¿½gï¿½ï¿½ï¿½ */
+static char *getTagName(int ifdType, unsigned short tagId);                                         /* ï¿½^ï¿½Oï¿½ï¿½ï¿½ */
 
 static void *addTagNodeToIfd(void *pIfd,
     unsigned short tagId,
@@ -102,23 +102,23 @@ static void *addTagNodeToIfd(void *pIfd,
     unsigned int count,
     unsigned int *numData,
     unsigned char *byteData,
-    TagNode *Exiftag);                                                         /* ƒ^ƒOî•ñ’Ç‰Á */
+    TagNode *Exiftag);                                                         /* ï¿½^ï¿½Oï¿½ï¿½ï¿½Ç‰ï¿½ */
 
 
-static void Analyze_TagInfo(TagNode *tag, TagNode *Exiftag);                   /* ƒ^ƒOî•ñŠi”[ */
+static void Analyze_TagInfo(TagNode *tag, TagNode *Exiftag);                   /* ï¿½^ï¿½Oï¿½ï¿½ï¿½iï¿½[ */
 
-static int systemIsLittleEndian(void);                                         /* ƒVƒXƒeƒ€ƒGƒ“ƒfƒBƒAƒ“”»’è */
-static unsigned short Lit2Big16bit(unsigned short us);                         /* Little ¨ Big Endian 16bit */
-static unsigned int Lit2Big32bit(unsigned int ui);                             /* Little ¨ Big Endian 32bit */
+static int systemIsLittleEndian(void);                                         /* ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½Gï¿½ï¿½ï¿½fï¿½Bï¿½Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+static unsigned short Lit2Big16bit(unsigned short us);                         /* Little ï¿½ï¿½ Big Endian 16bit */
+static unsigned int Lit2Big32bit(unsigned int ui);                             /* Little ï¿½ï¿½ Big Endian 32bit */
 
 
 
 /*************************************************/
-/*  Exifî•ñ‰ğÍ                                 */
+/*  Exifï¿½ï¿½ï¿½ï¿½ï¿½                                 */
 /*************************************************/
 int Exif_Read_Proc()
 {
-    int     res;                                                             /* æ“¾Œ‹‰Ê */
+    int     res;                                                             /* ï¿½æ“¾ï¿½ï¿½ï¿½ï¿½ */
 
     App1StartOffset = -1;
     JpegDQTOffset = -1;
@@ -126,10 +126,10 @@ int Exif_Read_Proc()
     Info_Endian_Sys = 0;
     InitApp1Header();
     if ((int) FileSeek(0, SEEK_SET, (HANDLE) ExifFP) != 0)
-    {                 /* æ“ª‚Ü‚Å–ß‚· */
+    {                 /* ï¿½æ“ªï¿½Ü‚Å–ß‚ï¿½ */
         return 0;
     }
-    res = GetExifInfo(Exif_FileName, &res);                                  /* Exifî•ñæ“¾ */
+    res = GetExifInfo(Exif_FileName, &res);                                  /* Exifï¿½ï¿½ï¿½æ“¾ */
 
     if (res < 0)
     {
@@ -137,9 +137,9 @@ int Exif_Read_Proc()
         return 0;
     }
 
-    /* o—Í */
+    /* ï¿½oï¿½ï¿½ */
     if ((int) FileSeek(0, SEEK_SET, (HANDLE) ExifFP) != 0)
-    {                 /* æ“ª‚Ü‚Å–ß‚· */
+    {                 /* ï¿½æ“ªï¿½Ü‚Å–ß‚ï¿½ */
         return 0;
     }
 
@@ -147,7 +147,7 @@ int Exif_Read_Proc()
 }
 
 /* **************************************** */
-/* Exif“Çˆ—ˆÙí‰Šú‰»                 */
+/* Exifï¿½Çï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ùíï¿½ï¿½ï¿½ï¿½ï¿½ï¿½                 */
 /* **************************************** */
 void InitErrInfo(void)
 {
@@ -162,18 +162,18 @@ void InitErrInfo(void)
 }
 
 /******************************************************/
-/*  Exifî•ñæ“¾                                      */
-/*  ˆø”FFileName:Exifƒtƒ@ƒCƒ‹–¼                     */
-/*          resultF‰ğÍŒ‹‰Ê   ‚OF³í ‚OˆÈŠOFˆÙí  */
+/*  Exifï¿½ï¿½ï¿½æ“¾                                      */
+/*  ï¿½ï¿½ï¿½ï¿½ï¿½FFileName:Exifï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½                     */
+/*          resultï¿½Fï¿½ï¿½ÍŒï¿½ï¿½ï¿½   ï¿½Oï¿½Fï¿½ï¿½ï¿½ï¿½ ï¿½Oï¿½ÈŠOï¿½Fï¿½Ùï¿½  */
 /******************************************************/
 static int GetExifInfo(const char *FileName, int *result)
 {
-    int sts = 0, ifdcnt = 0;                            /* ˆÙíî•ñA IFD” */
-    unsigned int ifdOffset, nextoffset = 0;             /* IFDŠÔƒIƒtƒZƒbƒg */
-    FILE *fp = NULL;                                    /* Exifƒtƒ@ƒCƒ‹ ƒtƒ@ƒCƒ‹ƒfƒBƒXƒNƒŠƒvƒ^ */
+    int sts = 0, ifdcnt = 0;                            /* ï¿½Ùï¿½ï¿½ï¿½A IFDï¿½ï¿½ */
+    unsigned int ifdOffset, nextoffset = 0;             /* IFDï¿½ÔƒIï¿½tï¿½Zï¿½bï¿½g */
+    FILE *fp = NULL;                                    /* Exifï¿½tï¿½@ï¿½Cï¿½ï¿½ ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½fï¿½Bï¿½Xï¿½Nï¿½ï¿½ï¿½vï¿½^ */
     void **ppIfdArray = NULL;
-    void *ifdArray[32];                                 /* IFD  ƒe[ƒuƒ‹ */
-    IfdTable *ifd_0th, *ifd_exif, *ifd_gps, *ifd_io, *ifd_1st;      /* IFD î•ñ */
+    void *ifdArray[32];                                 /* IFD  ï¿½eï¿½[ï¿½uï¿½ï¿½ */
+    IfdTable *ifd_0th, *ifd_exif, *ifd_gps, *ifd_io, *ifd_1st;      /* IFD ï¿½ï¿½ï¿½ */
     TagNode Exiftag;
     InitErrInfo();
 
@@ -183,17 +183,17 @@ static int GetExifInfo(const char *FileName, int *result)
 
     /* Get File Size */
     Exif_FileSize = (long)(FileGetSize((HANDLE) (ExifFP)));
-    /* ƒVƒXƒeƒ€ƒGƒ“ƒfƒBƒAƒ“æ“¾ */
+    /* ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½Gï¿½ï¿½ï¿½fï¿½Bï¿½Aï¿½ï¿½ï¿½æ“¾ */
     Info_Endian_Sys = systemIsLittleEndian();
 
-    /* Å‰‚Ìƒwƒbƒ_•”•ª“Ç‚İ‚Ş */
+    /* ï¿½Åï¿½ï¿½Ìƒwï¿½bï¿½_ï¿½ï¿½ï¿½ï¿½ï¿½Ç‚İï¿½ï¿½ï¿½ */
     sts = GetHeader(ExifFP);
     if (sts < 0)
     {
         return sts;
     }
 
-    /* 0th IFD“Ç */
+    /* 0th IFDï¿½Çï¿½ */
     ifd_0th = (IfdTable *)Analyze_Ifd(ExifFP, App1Header.tiff.Ifd0thOffset, IFD_0TH, &Exiftag);
     if (ifd_0th == NULL) {
         sts = -1;
@@ -203,28 +203,28 @@ static int GetExifInfo(const char *FileName, int *result)
     ifdArray[ifdcnt++] = ifd_0th;
 
     if (&Exiftag && &Exiftag.error) {
-        ifdOffset = Exiftag.numData[0];                                 /* ƒIƒtƒZƒbƒg‚ğæ“¾ */
+        ifdOffset = Exiftag.numData[0];                                 /* ï¿½Iï¿½tï¿½Zï¿½bï¿½gï¿½ï¿½ï¿½æ“¾ */
         if (ifdOffset != 0) {
             ifd_exif = (IfdTable *)Analyze_Ifd(ExifFP, ifdOffset, IFD_EXIF, &Exiftag);
             if (ifd_exif) {
                 ifdArray[ifdcnt++] = ifd_exif;
             }
             else {
-                /* EXIF_IFDæ“¾¸”s */
+                /* EXIF_IFDï¿½æ“¾ï¿½ï¿½ï¿½s */
                 sts = -1;
             }
         }
     }
 
     /* 1st IFD */
-    ifdOffset = nextoffset;                 /* ƒIƒtƒZƒbƒg‚ğæ“¾ */
+    ifdOffset = nextoffset;                 /* ï¿½Iï¿½tï¿½Zï¿½bï¿½gï¿½ï¿½ï¿½æ“¾ */
     if (ifdOffset != 0) {
         ifd_1st = (IfdTable *)Analyze_Ifd(ExifFP, ifdOffset, IFD_1ST, &Exiftag);
         if (ifd_1st) {
             ifdArray[ifdcnt++] = ifd_1st;
         }
         else {
-            /* 1st_IFDæ“¾¸”s */
+            /* 1st_IFDï¿½æ“¾ï¿½ï¿½ï¿½s */
             sts = -1;
         }
     }
@@ -233,7 +233,7 @@ static int GetExifInfo(const char *FileName, int *result)
 }
 
 /* **************************************** */
-/* APP1ƒwƒbƒ_î•ñ ‰Šú‰»                    */
+/* APP1ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½                    */
 /* **************************************** */
 void InitApp1Header(void)
 {
@@ -248,28 +248,28 @@ void InitApp1Header(void)
 }
 
 /* ***************************************** */
-/* ƒwƒbƒ_î•ñæ“¾                            */
-/* ˆø”FExifƒtƒ@ƒCƒ‹ ƒfƒBƒXƒNƒŠƒvƒ^         */
+/* ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½æ“¾                            */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½FExifï¿½tï¿½@ï¿½Cï¿½ï¿½ ï¿½fï¿½Bï¿½Xï¿½Nï¿½ï¿½ï¿½vï¿½^         */
 /* ***************************************** */
 static int GetHeader(FILE *fp)
 {
     int sts = 0, dqtOffset = 0;
-    InitApp1Header();                                                       /* ƒwƒbƒ_‰Šú‰» */
+    InitApp1Header();                                                       /* ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 
-    sts = GetApp1Marker(fp, EXIF_ID_STR, EXIF_ID_STR_LEN, &dqtOffset);      /* APPƒwƒbƒ_î•ñæ“¾ */
+    sts = GetApp1Marker(fp, EXIF_ID_STR, EXIF_ID_STR_LEN, &dqtOffset);      /* APPï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½æ“¾ */
     if (sts < 0) {
-    /* ˆÙíŒŸ’m */
+    /* ï¿½ÙíŒŸï¿½m */
         return sts;
     }
-    JpegDQTOffset = dqtOffset;                                              /* DQT ƒIƒtƒZƒbƒg•Û‘¶ */
-    App1StartOffset = sts;                                                  /* App1 ƒIƒtƒZƒbƒg•Û‘¶ */
+    JpegDQTOffset = dqtOffset;                                              /* DQT ï¿½Iï¿½tï¿½Zï¿½bï¿½gï¿½Û‘ï¿½ */
+    App1StartOffset = sts;                                                  /* App1 ï¿½Iï¿½tï¿½Zï¿½bï¿½gï¿½Û‘ï¿½ */
     if (sts < 0) {
-    /* ˆÙíŒŸ’m */
+    /* ï¿½ÙíŒŸï¿½m */
         return sts;
     }
     /* Load the segment header */
-    if (!GetApp1Header(fp)) {                                               /* APP‚P î•ñæ“¾ */
-    /* ˆÙíŒŸ’m */
+    if (!GetApp1Header(fp)) {                                               /* APPï¿½P ï¿½ï¿½ï¿½æ“¾ */
+    /* ï¿½ÙíŒŸï¿½m */
         return 3;
     }
 
@@ -284,36 +284,36 @@ static int systemIsLittleEndian(void)
 }
 
 /* *************************************** */
-/* APP1 ƒIƒtƒZƒbƒgî•ñæ“¾                 */
-/* ˆø”F*fp:Exifƒtƒ@ƒCƒ‹ƒfƒBƒXƒNƒŠƒvƒ^    */
-/*          *exif:¯•ÊƒR[ƒh•¶š—ñ         */
-/*           exif_len:•¶š—ñ‚Ì’·‚³         */
-/*           *pdqtoffset:DQTƒIƒtƒZƒbƒg     */
+/* APP1 ï¿½Iï¿½tï¿½Zï¿½bï¿½gï¿½ï¿½ï¿½æ“¾                 */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½F*fp:Exifï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½fï¿½Bï¿½Xï¿½Nï¿½ï¿½ï¿½vï¿½^    */
+/*          *exif:ï¿½ï¿½ï¿½ÊƒRï¿½[ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½ï¿½         */
+/*           exif_len:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì’ï¿½ï¿½ï¿½         */
+/*           *pdqtoffset:DQTï¿½Iï¿½tï¿½Zï¿½bï¿½g     */
 /* *************************************** */
 static int GetApp1Marker(FILE *fp, const char *exif, unsigned char exif_len, int *pdqtoffset)
 {
-    int pos;                                                                /* ƒJ[ƒ\ƒ‹ˆÊ’u */
+    int pos;                                                                /* ï¿½Jï¿½[ï¿½\ï¿½ï¿½ï¿½Ê’u */
     unsigned char buf[64];                                                  /*  */
     unsigned short len, marker;                                             /*  */
 
-    if (FileRead((uint8*) &marker, (1 * sizeof(short)), (HANDLE) fp) < sizeof(short)) {             /* SOI ŠJnƒoƒCƒg æ“¾ */
+    if (FileRead((uint8*) &marker, (1 * sizeof(short)), (HANDLE) fp) < sizeof(short)) {             /* SOI ï¿½Jï¿½nï¿½oï¿½Cï¿½g ï¿½æ“¾ */
         return -1;
     }
 
     if (Info_Endian_Sys) {
-        marker = Lit2Big16bit(marker);                                      /* ƒGƒ“ƒfƒBƒAƒ“C³  */
+        marker = Lit2Big16bit(marker);                                      /* ï¿½Gï¿½ï¿½ï¿½fï¿½Bï¿½Aï¿½ï¿½ï¿½Cï¿½ï¿½  */
     }
 
     if (marker != 0xFFD8) {                                                 /* SOI Crashed */
         return -1;
     }
 
-    if (FileRead((uint8*) &marker, (1 * sizeof(short)), (HANDLE) fp) < sizeof(short)) {             /* APP Marker æ“¾ */
+    if (FileRead((uint8*) &marker, (1 * sizeof(short)), (HANDLE) fp) < sizeof(short)) {             /* APP Marker ï¿½æ“¾ */
         return -1;
     }
 
     if (Info_Endian_Sys) {
-        marker = Lit2Big16bit(marker);                                      /* ƒGƒ“ƒfƒBƒAƒ“C³  */
+        marker = Lit2Big16bit(marker);                                      /* ï¿½Gï¿½ï¿½ï¿½fï¿½Bï¿½Aï¿½ï¿½ï¿½Cï¿½ï¿½  */
     }
 
     if (marker == 0xFFDB) {                                                 /* not exist Exif */
@@ -332,12 +332,12 @@ static int GetApp1Marker(FILE *fp, const char *exif, unsigned char exif_len, int
         }
 
 
-        if (FileRead((uint8*) &len, (1 * sizeof(short)), (HANDLE) fp) < sizeof(short)) {            /* APP length æ“¾ */
+        if (FileRead((uint8*) &len, (1 * sizeof(short)), (HANDLE) fp) < sizeof(short)) {            /* APP length ï¿½æ“¾ */
             return -1;
         }
 
         if (Info_Endian_Sys) {
-            len = Lit2Big16bit(len);                                        /* ƒGƒ“ƒfƒBƒAƒ“C³  */
+            len = Lit2Big16bit(len);                                        /* ï¿½Gï¿½ï¿½ï¿½fï¿½Bï¿½Aï¿½ï¿½ï¿½Cï¿½ï¿½  */
         }
 
         /* if is not a APP1 segment, move to next segment */
@@ -348,16 +348,16 @@ static int GetApp1Marker(FILE *fp, const char *exif, unsigned char exif_len, int
         }
         else {
             /* check if it is the Exif segment */
-            if (FileRead((uint8*) &buf, exif_len, (HANDLE) fp) < exif_len) {                  /* Exif ¯•ÊƒR[ƒhæ“¾ */
+            if (FileRead((uint8*) &buf, exif_len, (HANDLE) fp) < exif_len) {                  /* Exif ï¿½ï¿½ï¿½ÊƒRï¿½[ï¿½hï¿½æ“¾ */
                 return -1;
             }
-            if (memcmp(buf, exif, exif_len) == 0) {                         /* ¯•ÊƒR[ƒh”FØ */
+            if (memcmp(buf, exif, exif_len) == 0) {                         /* ï¿½ï¿½ï¿½ÊƒRï¿½[ï¿½hï¿½Fï¿½ï¿½ */
                 /* return the start offset of the Exif segment */
                 return pos - sizeof(short);
             }
             /* if is not a Exif segment, move to next segment */
-            if (((int) FileSeek(pos, SEEK_SET, (HANDLE) fp) != 0) ||                            /* length‚Ü‚Å–ß‚· */
-                    ((int) FileSeek(len, SEEK_CUR, (HANDLE) fp) != 0)) {                            /* “Ç‚İ‚ñ‚¾length•ª“®‚©‚µŸ‚ÌMarkerˆÊ’u‚É‚·‚é */
+            if (((int) FileSeek(pos, SEEK_SET, (HANDLE) fp) != 0) ||                            /* lengthï¿½Ü‚Å–ß‚ï¿½ */
+                    ((int) FileSeek(len, SEEK_CUR, (HANDLE) fp) != 0)) {                            /* ï¿½Ç‚İï¿½ï¿½ï¿½lengthï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Markerï¿½Ê’uï¿½É‚ï¿½ï¿½ï¿½ */
                 return -2;
             }
         }
@@ -368,7 +368,7 @@ static int GetApp1Marker(FILE *fp, const char *exif, unsigned char exif_len, int
         }
 
         if (Info_Endian_Sys) {
-            marker = Lit2Big16bit(marker);                                          /* ƒGƒ“ƒfƒBƒAƒ“C³  */
+            marker = Lit2Big16bit(marker);                                          /* ï¿½Gï¿½ï¿½ï¿½fï¿½Bï¿½Aï¿½ï¿½ï¿½Cï¿½ï¿½  */
         }
         pos = FileTell((HANDLE)(fp));
     }
@@ -377,8 +377,8 @@ static int GetApp1Marker(FILE *fp, const char *exif, unsigned char exif_len, int
 }
 
 /* ******************************** */
-/* APP1 ƒwƒbƒ_î•ñæ“¾                 */
-/* ˆø”FExifƒtƒ@ƒCƒ‹ƒfƒBƒXƒNƒŠƒvƒ^ */
+/* APP1 ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½æ“¾                 */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½FExifï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½fï¿½Bï¿½Xï¿½Nï¿½ï¿½ï¿½vï¿½^ */
 /* ******************************** */
 static int GetApp1Header(FILE *fp)
 {
@@ -389,7 +389,7 @@ static int GetApp1Header(FILE *fp)
         return 0;
     }
 
-    if (((int) FileSeek(App1StartOffset + APP1_TIFF_OFFSET, SEEK_SET, (HANDLE) fp) != 0) ||         /* TIFF Header “Ç */
+    if (((int) FileSeek(App1StartOffset + APP1_TIFF_OFFSET, SEEK_SET, (HANDLE) fp) != 0) ||         /* TIFF Header ï¿½Çï¿½ */
         ( FileRead((uint8*) &App1Header.tiff, (1 * sizeof(TIFF_HEADER)), (HANDLE) fp) < sizeof(TIFF_HEADER))) {
         return 0;
     }
@@ -427,10 +427,10 @@ static int GetApp1Header(FILE *fp)
 }
 
 /* ******************************************* */
-/* IFD ‰ğÍ                                    */
-/* ˆø”F–‚†‚FExifƒtƒ@ƒCƒ‹ƒfƒBƒXƒNƒŠƒvƒ^    */
-/*          offset:tƒ^ƒOî•ñ‚Ü‚Å‚ÌƒIƒtƒZƒbƒg   */
-/*          Ifd_typeFIFD‚Ìí—Ş                */
+/* IFD ï¿½ï¿½ï¿½                                    */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½Fï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½FExifï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½fï¿½Bï¿½Xï¿½Nï¿½ï¿½ï¿½vï¿½^    */
+/*          offset:tï¿½^ï¿½Oï¿½ï¿½ï¿½Ü‚Å‚ÌƒIï¿½tï¿½Zï¿½bï¿½g   */
+/*          Ifd_typeï¿½FIFDï¿½Ìï¿½ï¿½                */
 /* ******************************************* */
 static void *Analyze_Ifd(FILE *fp, unsigned int offset, IFD_TYPE Ifd_type, TagNode *Exiftag)
 {
@@ -451,8 +451,8 @@ static void *Analyze_Ifd(FILE *fp, unsigned int offset, IFD_TYPE Ifd_type, TagNo
         goto ERR;
     }
 
-    if ((seekToRelativeOffset(fp, offset) != 0) ||                        /* Offset•ªˆÚ“® */
-        (FileRead((uint8*) &tagCount, (1 * sizeof(short)), (HANDLE) fp) < sizeof(short))) {       /* ƒ^ƒO”“Ç */
+    if ((seekToRelativeOffset(fp, offset) != 0) ||                        /* Offsetï¿½ï¿½ï¿½Ú“ï¿½ */
+        (FileRead((uint8*) &tagCount, (1 * sizeof(short)), (HANDLE) fp) < sizeof(short))) {       /* ï¿½^ï¿½Oï¿½ï¿½ï¿½Çï¿½ */
         return NULL;
     }
 
@@ -466,7 +466,7 @@ static void *Analyze_Ifd(FILE *fp, unsigned int offset, IFD_TYPE Ifd_type, TagNo
     if (Ifd_type == IFD_0TH) {
         /*  next IFD's offset is at the tail of the segment */
         if ((seekToRelativeOffset(fp,
-            sizeof(TIFF_HEADER) + sizeof(short) + sizeof(TAG_FIELD) * tagCount) != 0) || /* Ÿ‚ÌIFD‚Ü‚Å‚ÌOffset‚ğ“Ç‚İ‚Ş‚½‚ßÅŒã‚Ìƒ^ƒO‚Ü‚ÅˆÚ“® */
+            sizeof(TIFF_HEADER) + sizeof(short) + sizeof(TAG_FIELD) * tagCount) != 0) || /* ï¿½ï¿½ï¿½ï¿½IFDï¿½Ü‚Å‚ï¿½Offsetï¿½ï¿½Ç‚İï¿½ï¿½Ş‚ï¿½ï¿½ßÅŒï¿½Ìƒ^ï¿½Oï¿½Ü‚ÅˆÚ“ï¿½ */
             (FileRead((uint8*) &nextOffset, (1 * sizeof(int)), (HANDLE) fp) < sizeof(int))) {
             return NULL;
         }
@@ -474,7 +474,7 @@ static void *Analyze_Ifd(FILE *fp, unsigned int offset, IFD_TYPE Ifd_type, TagNo
         {
             nextOffset = Lit2Big32bit(nextOffset);
         }
-        FileSeek(pos, SEEK_SET, (HANDLE) fp);                                       /* ˆÚ“®‚µ‚½•ªŒ³‚É–ß‚· */
+        FileSeek(pos, SEEK_SET, (HANDLE) fp);                                       /* ï¿½Ú“ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É–ß‚ï¿½ */
     }
 
     memset(&ifd, 0, sizeof(IfdTable));
@@ -672,9 +672,9 @@ ERR:
 }
 
 /* ************************************* */
-/* ƒJ[ƒ\ƒ‹ˆÊ’uˆÚ“®                      */
-/* ˆø”F*fp:Exifƒtƒ@ƒCƒ‹ƒfƒBƒXƒNƒŠƒvƒ^  */
-/*          ofsFˆÚ“®—Ê                  */
+/* ï¿½Jï¿½[ï¿½\ï¿½ï¿½ï¿½Ê’uï¿½Ú“ï¿½                      */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½F*fp:Exifï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½fï¿½Bï¿½Xï¿½Nï¿½ï¿½ï¿½vï¿½^  */
+/*          ofsï¿½Fï¿½Ú“ï¿½ï¿½ï¿½                  */
 /* ************************************* */
 static int seekToRelativeOffset(FILE *fp, unsigned int ofs)
 {
@@ -683,10 +683,10 @@ static int seekToRelativeOffset(FILE *fp, unsigned int ofs)
 }
 
 /* *************************************** */
-/* IFD ƒe[ƒuƒ‹ì¬                        */
-/* ˆø”FIfdTypeFIFD‚Ìí—Ş                */
-/*          tagCountFƒ^ƒO”               */
-/*          nextOfs:ŸIFD‚Ü‚Å‚ÌƒIƒtƒZƒbƒg  */
+/* IFD ï¿½eï¿½[ï¿½uï¿½ï¿½ï¿½ì¬                        */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½FIfdTypeï¿½FIFDï¿½Ìï¿½ï¿½                */
+/*          tagCountï¿½Fï¿½^ï¿½Oï¿½ï¿½               */
+/*          nextOfs:ï¿½ï¿½IFDï¿½Ü‚Å‚ÌƒIï¿½tï¿½Zï¿½bï¿½g  */
 /* *************************************** */
 static void *createIfdTable(IFD_TYPE IfdType, unsigned short tagCount, unsigned int nextOfs)
 {
@@ -700,8 +700,8 @@ static void *createIfdTable(IFD_TYPE IfdType, unsigned short tagCount, unsigned 
 }
 
 /* ******************************** */
-/* ƒƒ‚ƒŠ‰ğ•ú IFD Table             */
-/* ˆø”F–‚IfdFIFDî•ñ           */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ IFD Table             */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½Fï¿½ï¿½ï¿½ï¿½Ifdï¿½FIFDï¿½ï¿½ï¿½           */
 /* ******************************** */
 static void freeIfdTable(void *pIfd)
 {
@@ -728,8 +728,8 @@ static void freeIfdTable(void *pIfd)
 }
 
 /* ******************************** */
-/* ƒƒ‚ƒŠ‰ğ•ú Tagî•ñ               */
-/* ˆø”F*pTagFƒ^ƒOî•ñ            */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Tagï¿½ï¿½ï¿½               */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½F*pTagï¿½Fï¿½^ï¿½Oï¿½ï¿½ï¿½            */
 /* ******************************** */
 static void freeTagNode(void *pTag)
 {
@@ -745,9 +745,9 @@ static void freeTagNode(void *pTag)
 
 /*  search the specified tag's node from the IFD table */
 /* ************************************************** */
-/* ƒ^ƒOî•ñæ“¾                                       */
-/* ˆø”F*ifd:w’è‚µ‚½IFDî•ñ                         */
-/*      tagId:æ“¾‚µ‚½ƒ^ƒOID                          */
+/* ï¿½^ï¿½Oï¿½ï¿½ï¿½æ“¾                                       */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½F*ifd:ï¿½wï¿½è‚µï¿½ï¿½IFDï¿½ï¿½ï¿½                         */
+/*      tagId:ï¿½æ“¾ï¿½ï¿½ï¿½ï¿½ï¿½^ï¿½OID                          */
 /* ************************************************** */
 static TagNode *getTagNodePtrFromIfd(IfdTable *ifd, unsigned short tagId)
 {
@@ -763,9 +763,9 @@ static TagNode *getTagNodePtrFromIfd(IfdTable *ifd, unsigned short tagId)
 }
 
 /* ***************************************************** */
-/* ƒ^ƒOƒl[ƒ€æ“¾ˆ—                                    */
-/* ˆø”FifdTypeFIFD‚Ìí—Ş                              */
-/*          tagIdFƒ^ƒOIDƒiƒ“ƒo[                        */
+/* ï¿½^ï¿½Oï¿½lï¿½[ï¿½ï¿½ï¿½æ“¾ï¿½ï¿½ï¿½ï¿½                                    */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½FifdTypeï¿½FIFDï¿½Ìï¿½ï¿½                              */
+/*          tagIdï¿½Fï¿½^ï¿½OIDï¿½iï¿½ï¿½ï¿½oï¿½[                        */
 /* ***************************************************** */
 static char *getTagName(int ifdType, unsigned short tagId)
 {
@@ -774,13 +774,13 @@ static char *getTagName(int ifdType, unsigned short tagId)
 
 /*  add the TagNode enrtry to the IFD table */
 /* ************************************************ */
-/* ƒ^ƒOî•ñæ“¾                                     */
-/* ˆø”F–‚IfdFŠi”[IFD‚Ìƒ|ƒCƒ“ƒ^                 */
-/*          tagIdFƒ^ƒOID                           */
-/*          typeFƒ^ƒO‚ÌŒ^                          */
-/*          countFƒ^ƒO‚Ì—Ê                         */
-/*          numdataF”š                           */
-/*          bytedataF•¶š—ñ                        */
+/* ï¿½^ï¿½Oï¿½ï¿½ï¿½æ“¾                                     */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½Fï¿½ï¿½ï¿½ï¿½Ifdï¿½Fï¿½iï¿½[IFDï¿½Ìƒ|ï¿½Cï¿½ï¿½ï¿½^                 */
+/*          tagIdï¿½Fï¿½^ï¿½OID                           */
+/*          typeï¿½Fï¿½^ï¿½Oï¿½ÌŒ^                          */
+/*          countï¿½Fï¿½^ï¿½Oï¿½Ì—ï¿½                         */
+/*          numdataï¿½Fï¿½ï¿½ï¿½ï¿½                           */
+/*          bytedataï¿½Fï¿½ï¿½ï¿½ï¿½ï¿½ï¿½                        */
 /* ************************************************ */
 static void *addTagNodeToIfd(void *pIfd,
     unsigned short tagId,
@@ -805,7 +805,7 @@ static void *addTagNodeToIfd(void *pIfd,
     if (count > 0) {
         if (numData != NULL) {
             int num = count;
-            if ((type == TYPE_RATIONAL) ||                            /* LONG2‚Â‚Ô‚ñ‚È‚Ì‚Å */
+            if ((type == TYPE_RATIONAL) ||                            /* LONG2ï¿½Â‚Ô‚ï¿½È‚Ì‚ï¿½ */
                 (type == TYPE_SRATIONAL)) {
                 num *= 2;
                 if (num >= 32) {
@@ -832,8 +832,8 @@ static void *addTagNodeToIfd(void *pIfd,
 }
 
 /* ************************************************ */
-/* ƒ^ƒOî•ñŠi”[                                     */
-/* ˆø”F–tagFtagî•ñ‚Ìƒ|ƒCƒ“ƒ^                   */
+/* ï¿½^ï¿½Oï¿½ï¿½ï¿½iï¿½[                                     */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½Fï¿½ï¿½tagï¿½Ftagï¿½ï¿½ï¿½Ìƒ|ï¿½Cï¿½ï¿½ï¿½^                   */
 /* ************************************************ */
 static void Analyze_TagInfo(TagNode *tag, TagNode *Exiftag)
 {
@@ -872,13 +872,13 @@ static void Analyze_TagInfo(TagNode *tag, TagNode *Exiftag)
     }
 }
 
-static unsigned short Lit2Big16bit(unsigned short us)              /* Little ¨ Big Endian 16bit */
+static unsigned short Lit2Big16bit(unsigned short us)              /* Little ï¿½ï¿½ Big Endian 16bit */
 {
     return (us << 8) | ((us >> 8) & 0x00FF);
 }
 
 
-static unsigned int Lit2Big32bit(unsigned int ui)                  /* Little ¨ Big Endian 32bit */
+static unsigned int Lit2Big32bit(unsigned int ui)                  /* Little ï¿½ï¿½ Big Endian 32bit */
 {
     return
         ((ui << 24) & 0xFF000000) | ((ui << 8) & 0x00FF0000) |
@@ -887,7 +887,7 @@ static unsigned int Lit2Big32bit(unsigned int ui)                  /* Little ¨ 
 
 
 /* ---------------------------------------------------------------------------------------------- */
-/*  ŠO•”I/FŠÖ”                                                                                   */
+/*  ï¿½Oï¿½ï¿½I/Fï¿½Öï¿½                                                                                   */
 /* ---------------------------------------------------------------------------------------------- */
 void Exif_Proc_SetFileName(char *buf[])
 {

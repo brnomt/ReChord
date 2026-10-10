@@ -24,10 +24,10 @@
 #include "BluetoothScanWin.h"
 #include "BlueToothControl.h"
 
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "Hold.h"
 
-#include "setcommon.h"
+#include "SetCommon.h"
 #include "SystemSet.h"
 
 #include "MessageBox.h"
@@ -122,7 +122,8 @@ UINT32 BTPinCodeWinService()
 {
     return(RETURN_OK);
 }
-
+
+
 /*
 --------------------------------------------------------------------------------
   Function name : void BTPinCodeWinService(void)
@@ -182,7 +183,8 @@ UINT32 BTPinCodeWinKeyProc()
                     }
                 }
                 else if(curPincodeXcorVal == BT_PIN_CODE_NUM_MAX - 1)
-                {
+                {
+
                     gPinCode[preXcor] = BTPinCodes[preXcor].pin_val + '0';
                     SendMsg(MSG_BT_DISPLAY_PINCODE_UPDATE);
                     curPincodeXcorVal++;
@@ -681,8 +683,8 @@ void BTPinKeyCfmWinPaint()
             DispPictureWithIDNumAndXYoffset(IMG_ID_SEL01_ICON ,68,108);
             DispPictureWithIDNumAndXYoffset(IMG_ID_NOSEL00_ICON ,24,108);
         }
-        DisplayMenuStrWithIDNum(24, 108, 30, 12, LCD_TEXTALIGN_CENTER, SID_YES);//È·ÈÏ×Ö·û
-        DisplayMenuStrWithIDNum(68, 108, 30, 12, LCD_TEXTALIGN_CENTER, SID_NO);//È¡Ïû×Ö·û
+        DisplayMenuStrWithIDNum(24, 108, 30, 12, LCD_TEXTALIGN_CENTER, SID_YES);//È·ï¿½ï¿½ï¿½Ö·ï¿½
+        DisplayMenuStrWithIDNum(68, 108, 30, 12, LCD_TEXTALIGN_CENTER, SID_NO);//È¡ï¿½ï¿½ï¿½Ö·ï¿½
     }
 
     LCD_SetTextMode(TempTxtMode);

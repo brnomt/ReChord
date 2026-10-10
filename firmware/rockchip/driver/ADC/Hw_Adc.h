@@ -15,6 +15,7 @@
 
 #ifndef _HW_ADC_H_
 #define _HW_ADC_H_
+#include "driver/hw_memap.h"   /* SARADC_BASE */
 
 
 /*

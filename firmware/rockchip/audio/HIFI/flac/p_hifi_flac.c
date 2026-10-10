@@ -46,10 +46,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_FlAC_PFLAC_READ_  __attribute__((section("bbsystem_codecs_audio_decode_flac_pflac_read")))
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_FlAC_PFLAC_WRITE_ __attribute__((section("bbsystem_codecs_audio_decode_flac_pflac_write")))
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_FlAC_PFLAC_INIT_  __attribute__((section("bbsystem_codecs_audio_decode_flac_pflac_init")))
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_FlAC_PFLAC_SHELL_  __attribute__((section("bbsystem_codecs_audio_decode_flac_pflac_shell")))
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_FlAC_PFLAC_READ_  
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_FlAC_PFLAC_WRITE_ 
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_FlAC_PFLAC_INIT_  
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_FlAC_PFLAC_SHELL_  
 
 
 /*
@@ -59,8 +59,8 @@
 *
 *---------------------------------------------------------------------------------------------------------------------
 */
-#include "sysinclude.h"
-#include "driverinclude.h"
+#include "SysInclude.h"
+#include "DriverInclude.h"
 extern MediaBlock  gpMediaBlock;
 extern unsigned int gDecDone;
 extern unsigned int gSeekDone;

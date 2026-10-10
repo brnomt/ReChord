@@ -13,9 +13,9 @@ $Log    :
 */
 /****************************************************************/
 
-#include "../include/audio_main.h"
-#include "../include/audio_globals.h"
-#include "../include/audio_file_access.h"
+#include "audio_main.h"
+#include "audio_globals.h"
+#include "audio_file_access.h"
 
 #ifdef MP3_DEC_INCLUDE
 
@@ -24,7 +24,7 @@ $Log    :
 
 _ATTR_MP3DEC_BSS_ short *outbuf[2];
 _ATTR_MP3DEC_BSS_
-unsigned int MP3_FORMAT_FLAG ; //ºó8Î»->Ç°4Î»´æ´¢MPEG ÀàÐÍ£¬ºóËÄÎ»´æ´¢layerÀàÐÍ
+unsigned int MP3_FORMAT_FLAG ; //ï¿½ï¿½8Î»->Ç°4Î»ï¿½æ´¢MPEG ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½æ´¢layerï¿½ï¿½ï¿½ï¿½
 //mpeg 1  = 1   mpeg2 = 2   mpeg 2.5 = 3;
 //layer1  = 1   layer2 =2   layer3 = 3;
 extern MediaBlock * gmediaBlock;
@@ -60,7 +60,7 @@ void SWITCH_ARM_NOR(void)
 }
 
 //*************************************************************************************************************//
-//the achievement of functions.£º
+//the achievement of functions.ï¿½ï¿½
 //SUBFN_CODEC_GETNAME  :   get decoder name
 //SUBFN_CODEC_GETARTIST:   get artist name.
 //SUBFN_CODEC_GETTITLE :   get song title.

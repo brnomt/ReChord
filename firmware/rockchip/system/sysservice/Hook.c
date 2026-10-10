@@ -15,6 +15,8 @@
 #define _IN_HOOK_
 
 #include "SysInclude.h"
+#include "driver/GRF/hw_grf.h"   /* Grf macro (GRF_BASE) */
+#include "driver/GRF/grf.h"   /* Grf register-block instance */
 
 /*
 --------------------------------------------------------------------------------

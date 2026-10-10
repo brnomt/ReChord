@@ -31,9 +31,9 @@
 /******************************************************************************/
 
 //setting  menu permanent code.
-#define _ATTR_SYS_SET_MUSIC_CODE_         __attribute__((section("SetMenuServiceCode")))
-#define _ATTR_SYS_SET_MUSIC_DATA_         __attribute__((section("SetMenuServiceData")))
-#define _ATTR_SYS_SET_MUSIC_BSS_          __attribute__((section("SetMenuServiceBss"),zero_init))
+#define _ATTR_SYS_SET_MUSIC_CODE_         
+#define _ATTR_SYS_SET_MUSIC_DATA_         
+#define _ATTR_SYS_SET_MUSIC_BSS_          
 
 _ATTR_SYS_SET_MUSIC_BSS_ EXT UINT16 curEqXcorVal;
 

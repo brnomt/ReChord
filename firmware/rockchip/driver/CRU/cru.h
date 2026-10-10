@@ -15,6 +15,7 @@
 
 #ifndef _CRU_H
 #define _CRU_H
+#include "Hw_cru.h"   /* eCLOCK_GATE, eSOFT_RST, Clock_Source_Sel (defined here) */
 
 #undef EXT
 #ifdef _CRU_IN_

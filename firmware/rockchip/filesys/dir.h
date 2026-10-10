@@ -14,6 +14,7 @@
 */
 #ifndef _DIR_H
 #define _DIR_H
+#include "filesys/FDT.h"   /* FIND_DATA (search cursor) - explicit path: include/ has a shadow FDT.h */
 
 #undef  EXT
 #ifdef  IN_DIR
@@ -84,6 +85,8 @@ typedef enum
 MEDIA_FILE_TYPE;
 
 
+#ifndef _FS_TYPE_DEFINED
+#define _FS_TYPE_DEFINED
 typedef enum
 {
    MUSIC_DB = 1,
@@ -96,6 +99,8 @@ typedef enum
    FS_NTFS_EX_VOICE
    
 }FS_TYPE;
+#endif /* _FS_TYPE_DEFINED */
+
 
 
 

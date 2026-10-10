@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name¡êo  FunUSB.c
+* File Nameï¿½ï¿½o  FunUSB.c
 *
 * Description:
 *
@@ -15,7 +15,8 @@
 #define _IN_FUNUSB_
 
 #include "SysInclude.h"
-#include "FsInclude.h"
+#include "driver/AD_KEY/AD_Key.h"   /* KEY_VAL_* event codes */
+#include "fsinclude.h"
 #include "ImageResourceID.h"
 
 #ifdef _USB_
@@ -23,7 +24,7 @@
 #include "FunUSB.h"
 #include "USBControl.h"
 #include "USBConfig.h"
-#include "MainMenu.h"
+#include "mainmenu.h"
 
 
 _ATTR_USB_UI_DATA_ UINT16 UsbDataAccessImageID = 0;
@@ -88,14 +89,14 @@ int USBDebugHookDeInit(void)
 
     if (UsbDgbBufCnt < USB_IDBG_BUFSIZE)
     {
-        i_cnt = ((UsbDgbBufCnt+1023)/1024)*1024;        //×îºóÐ´Èë°´ÕÕ1024¶ÔÆë
+        i_cnt = ((UsbDgbBufCnt+1023)/1024)*1024;        //ï¿½ï¿½ï¿½Ð´ï¿½ë°´ï¿½ï¿½1024ï¿½ï¿½ï¿½ï¿½
         d_cnt = 0;
     }
     else if (UsbDgbBufCnt < (USB_IDBG_BUFSIZE + USB_DDBG_BUFSIZE))
     {
         i_cnt = USB_IDBG_BUFSIZE;
         d_cnt = (UsbDgbBufCnt - USB_IDBG_BUFSIZE);
-        d_cnt = ((d_cnt+1023)/1024)*1024;               //×îºóÐ´Èë°´ÕÕ1024¶ÔÆë
+        d_cnt = ((d_cnt+1023)/1024)*1024;               //ï¿½ï¿½ï¿½Ð´ï¿½ë°´ï¿½ï¿½1024ï¿½ï¿½ï¿½ï¿½
     }
     else
     {
@@ -197,8 +198,8 @@ void FunUSBDeInit(void)
     SysDebugHookInit();
     #endif
 
-    //°Î³ýUSB£¬´Ë´¦·¢±¾µØ¹Ì¼þÉý¼¶ÏûÏ¢¡£Ä¿Ç°demoÊÇ·ÅÔÚ¸üÐÂÃ½Ìå¿âÊ±¼ì²â¹Ì¼þÎÄ¼þ£¬ÔÙÉý¼¶¡£
-    //ÓÃ»§¿É¸ù¾ÝÊµ¼ÊÐèÒª×Ô¼º¾ö¶¨ÈçºÎÊµÏÖ±¾µØ¹Ì¼þÉý¼¶¡£
+    //ï¿½Î³ï¿½USBï¿½ï¿½ï¿½Ë´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¹Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ä¿Ç°demoï¿½Ç·ï¿½ï¿½Ú¸ï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    //ï¿½Ã»ï¿½ï¿½É¸ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½Òªï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½Ö±ï¿½ï¿½Ø¹Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     SendMsg(MSG_SYS_FW_UPGRADE);
 }
 
@@ -252,7 +253,7 @@ UINT32 FunUSBService(void)
 
     if(GetMsg(MSG_USB_EXIT_FUSB))
     {
-        ThreadDeleteAll(&pMainThread);  //?¨²?D??¨¨??????¡ã?¨¨¡Á?USBcontrol¡¤¡ä3?¨º??¡¥¡ê??a????¨¬??a?¨¹D??¨º¨¬a
+        ThreadDeleteAll(&pMainThread);  //?ï¿½ï¿½?D??ï¿½ï¿½??????ï¿½ï¿½?ï¿½ï¿½ï¿½ï¿½?USBcontrolï¿½ï¿½ï¿½ï¿½3?ï¿½ï¿½??ï¿½ï¿½ï¿½ï¿½??a????ï¿½ï¿½??a?ï¿½ï¿½D??ï¿½ï¿½ï¿½ï¿½a
 
         TaskArg.Mdb.TaskID = TASK_ID_MAINMENU;
         SendMsg(MSG_FLASH_MEM0_UPDATE);

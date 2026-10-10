@@ -39,10 +39,10 @@
 
 #define RK_SUCCESS           RETURN_OK
 
-#define _CPU_NANOC_LIB_MAILBOX_READ_  __attribute__((section("cpu_nanoc_lib_mailbox_read")))
-#define _CPU_NANOC_LIB_MAILBOX_WRITE_ __attribute__((section("cpu_nanoc_lib_mailbox_write")))
-#define _CPU_NANOC_LIB_MAILBOX_INIT_  __attribute__((section("cpu_nanoc_lib_mailbox_init")))
-#define _CPU_NANOC_LIB_MAILBOX_SHELL_  __attribute__((section("cpu_nanoc_lib_mailbox_shell")))
+#define _CPU_NANOC_LIB_MAILBOX_READ_  
+#define _CPU_NANOC_LIB_MAILBOX_WRITE_ 
+#define _CPU_NANOC_LIB_MAILBOX_INIT_  
+#define _CPU_NANOC_LIB_MAILBOX_SHELL_  
 
 
 /*

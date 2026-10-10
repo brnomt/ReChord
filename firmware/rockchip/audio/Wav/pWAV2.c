@@ -1,28 +1,28 @@
 /* Copyright (C) 2007 ROCK-CHIPS FUZHOU . All Rights Reserved. */
 /*
 File : \Audio\ADPCM
-Desc : WAV½âÂë¡£°üÀ¨PCM WAV , IMA-ADPCM WAV , MS-ADPCM WAV ¡£
+Desc : WAVï¿½ï¿½ï¿½ë¡£ï¿½ï¿½ï¿½ï¿½PCM WAV , IMA-ADPCM WAV , MS-ADPCM WAV ï¿½ï¿½
 
 Author : FSH , Vincent Hisung
 Date : 2007-08-xx
 Notes :
 
 $Log :
-* vincent     2007/08/xx ½¨Á¢´ËÎÄ¼þ
+* vincent     2007/08/xx ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½
 *
 */
 /****************************************************************/
 
-#include "../include/audio_main.h"
+#include "audio_main.h"
 
 #ifdef WAV_DEC_INCLUDE
 
-#include "../include/audio_globals.h"
+#include "audio_globals.h"
 #include "WAV_LIB/sf_wav.h"
 
 
 
-#include "../include/audio_file_access.h"
+#include "audio_file_access.h"
 #include "PCM.H"
 
 #include <stdio.h>
@@ -40,9 +40,9 @@ typedef struct
 
 _ATTR_WAVDEC_DATA_ int total_samples;
 
-#define _ATTR_BB_SYS_CODE_          __attribute__((section("BBSysCode")))
-#define _ATTR_BB_SYS_DATA_          __attribute__((section("BBSysData")))
-#define _ATTR_BB_SYS_BSS_           __attribute__((section("BBSysBss"), zero_init))
+#define _ATTR_BB_SYS_CODE_          
+#define _ATTR_BB_SYS_DATA_          
+#define _ATTR_BB_SYS_BSS_           
 
 __align(4)
 _ATTR_BB_SYS_BSS_  char PcmOutputBuff[WAV_IMAMAX_PCM_LENGTH*8];
@@ -53,7 +53,7 @@ extern  unsigned long SRC_Num_Forehead; //for src
 extern  int CodecBufSize2;
 
 //*************************************************************************************************************//
-//the achievement of functions.£º
+//the achievement of functions.ï¿½ï¿½
 //SUBFN_CODEC_GETNAME  :   get decoder name
 //SUBFN_CODEC_GETARTIST:   get artist name.
 //SUBFN_CODEC_GETTITLE :   get song title.

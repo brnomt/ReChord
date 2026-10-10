@@ -32,15 +32,15 @@
 *-------------------------------------------------------------------------------
 */
 
-#define   _FILE_INFO_SAVE_CODE_    __attribute__((section("FileInfoSaveCode")))
+#define   _FILE_INFO_SAVE_CODE_    
 
-#define   _FILE_INFO_SAVE_DATA_    __attribute__((section("FileInfoSaveData")))
-#define   _FILE_INFO_SAVE_BSS_     __attribute__((section("FileInfoSaveBss"),zero_init))
+#define   _FILE_INFO_SAVE_DATA_    
+#define   _FILE_INFO_SAVE_BSS_     
 
 
-#define   _FILE_INFO_SORT_CODE_      __attribute__((section("FileInfoSortCode")))
-#define   _FILE_INFO_SORT_DATA_      __attribute__((section("FileInfoSortData")))
-#define   _FILE_INFO_SORT_BSS_       __attribute__((section("FileInfoSortBss"),zero_init))
+#define   _FILE_INFO_SORT_CODE_      
+#define   _FILE_INFO_SORT_DATA_      
+#define   _FILE_INFO_SORT_BSS_       
 
 
 extern void SearchAndSaveMusicInfo(void);

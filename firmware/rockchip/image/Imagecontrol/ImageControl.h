@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Nameё╨   ImageControl.h
+* File NameО©╫О©╫   ImageControl.h
 *
 * Description:
 *
@@ -16,8 +16,8 @@
 #ifndef _IMAGE_CONTROL_H_
 #define _IMAGE_CONTROL_H_
 
-#include "FsInclude.h"
-#include "..\ImageInclude\image_globals.h"
+#include "fsinclude.h"
+#include "../ImageInclude/image_globals.h"
 #undef  EXT
 #ifdef _IN_IMAGE_CONTROL_
 #define EXT
@@ -25,9 +25,9 @@
 #define EXT extern
 #endif
 //section define
-#define _ATTR_IMAGE_TEXT_     __attribute__((section("ImageCode")))
-#define _ATTR_IMAGE_DATA_     __attribute__((section("ImageData")))
-#define _ATTR_IMAGE_BSS_      __attribute__((section("ImageBss"),zero_init))
+#define _ATTR_IMAGE_TEXT_     
+#define _ATTR_IMAGE_DATA_     
+#define _ATTR_IMAGE_BSS_      
 
 typedef enum
 {
@@ -51,7 +51,7 @@ typedef struct IMAGE_OUTPUT_INFO
 /*
 *-------------------------------------------------------------------------------
 *
-*                       т╓╫БбКиообуем╪ф╛, add by ctf
+*                       т╓О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫м╪ф╛, add by ctf
 *
 *-------------------------------------------------------------------------------
 */
@@ -63,10 +63,10 @@ typedef struct IMAGE_OUTPUT_INFO
 #ifdef IMAGE_DEC_ADVANCE
 typedef enum
 {
-    IMAGE_DEC_DECODING,     //уЩтз╫БбК
-    IMAGE_DEC_STOP,         //╫БбКмЙЁи
-    IMAGE_DEC_UNSUPPORTED,    //╦Яй╫╡╩ж╖Ёж
-    IMAGE_DEC_WAITING       //╣х╢Щ╫БбК
+    IMAGE_DEC_DECODING,     //О©╫О©╫О©╫з╫О©╫О©╫О©╫
+    IMAGE_DEC_STOP,         //О©╫О©╫О©╫О©╫О©╫О©╫О©╫
+    IMAGE_DEC_UNSUPPORTED,    //О©╫О©╫й╫О©╫О©╫ж╖О©╫О©╫
+    IMAGE_DEC_WAITING       //О©╫х╢О©╫О©╫О©╫О©╫О©╫
 }IMAGE_DEC_ADVANCE_STATE;
 
 typedef enum
@@ -82,19 +82,19 @@ EXT IMAGE_DEC_ADVANCE_STATE NextImageDecState;
 EXT IMAGE_DEC_ADVANCE_STATE PreImageDecState;
 
 EXT KEY_INFO gCurKeyInfo;
-EXT UINT16 gCurDisFrameIndex;       //╣╠г╟фад╩отй╬╣дframebuffer
+EXT UINT16 gCurDisFrameIndex;       //О©╫О©╫г╟О©╫О©╫д╩О©╫О©╫й╬О©╫О©╫framebuffer
 EXT UINT16 gUnsupportFrameIndex;
-EXT UINT16 gIsContinueDecode;       //йг╥Я╪лпЬ╫БбКиор╩уе╩Робр╩уем╪ф╛
+EXT UINT16 gIsContinueDecode;       //О©╫г╥О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫р╩О©╫е╩О©╫О©╫О©╫р╩О©╫О©╫м╪ф╛
 
-EXT uint32 gMarkSysTickCounter;     //╟╢обplay╪Эё╛╣зр╩╢нвт╤╞╡╔╥еобр╩уем╪ф╛╣дй╠╪Д╪Д╦Т
-EXT uint32 gCurImageSlideShowTick;  //╡╔╥еа╫уем╪ф╛ж╝╪Д╣дй╠╪Д╪Д╦Т
+EXT uint32 gMarkSysTickCounter;     //О©╫О©╫О©╫О©╫playО©╫О©╫О©╫О©╫О©╫О©╫р╩О©╫О©╫О©╫т╤О©╫О©╫О©╫О©╫О©╫О©╫О©╫р╩О©╫О©╫м╪ф╛О©╫О©╫й╠О©╫О©╫О©╫О©╫
+EXT uint32 gCurImageSlideShowTick;  //О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫м╪ф╛ж╝О©╫О©╫О©╫й╠О©╫О©╫О©╫О©╫
 
-EXT UINT16 gIsDisNextImage;         //к╒пбобр╩уем╪ф╛╠Йж╬
-EXT UINT16 gIsDisPreImage;          //к╒пбиор╩уем╪ф╛╠Йж╬
+EXT UINT16 gIsDisNextImage;         //к╒О©╫О©╫О©╫О©╫р╩О©╫О©╫м╪ф╛О©╫О©╫ж╬
+EXT UINT16 gIsDisPreImage;          //к╒О©╫О©╫О©╫О©╫р╩О©╫О©╫м╪ф╛О©╫О©╫ж╬
 EXT UINT16 gClearLCD;
 
-EXT TASK_ARG NextImageTaskArg;      //╪гб╪обр╩уем╪ф╛нд╪Ч╦Яй╫╡╩ж╖Ёж╣дпео╒
-EXT TASK_ARG PreImageTaskArg;       //╪гб╪иор╩уем╪ф╛нд╪Ч╦Яй╫╡╩ж╖Ёж╣дпео╒
+EXT TASK_ARG NextImageTaskArg;      //О©╫О©╫б╪О©╫О©╫р╩О©╫О©╫м╪ф╛О©╫д╪О©╫О©╫О©╫й╫О©╫О©╫ж╖О©╫ж╣О©╫О©╫О©╫о╒
+EXT TASK_ARG PreImageTaskArg;       //О©╫О©╫б╪О©╫О©╫р╩О©╫О©╫м╪ф╛О©╫д╪О©╫О©╫О©╫й╫О©╫О©╫ж╖О©╫ж╣О©╫О©╫О©╫о╒
 #endif
 /*
 *-------------------------------------------------------------------------------

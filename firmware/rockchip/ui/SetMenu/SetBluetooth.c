@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2016, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  SetBluetooth.c
+* File Nameï¿½ï¿½  SetBluetooth.c
 *
 * Description:  set menu execution function configuration of recording
 *
@@ -20,7 +20,7 @@
 
 #ifdef _SYSSET_
 #ifdef _BLUETOOTH_
-#include "setcommon.h"
+#include "SetCommon.h"
 #include "SetBluetooth.h"
 #include "SetMenuInterface.h"
 
@@ -29,9 +29,9 @@
 //#include "BlueToothA2doSourceWin.h"
 #include "BlueToothControl.h"
 
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "Hold.h"
-#include "BlueToothScanWin.h"
+#include "BluetoothScanWin.h"
 #include "BluetoothDevInfoWin.h"
 
 #include "RadioWinInterface.h"
@@ -204,12 +204,12 @@ void BluetoothConnectResult(int result)
             memcpy(gSysConfig.BtConfig.LastConnectMac,BtWinBtScanConnctMac,6);
         }
         SendMsg(MSG_BLUETOOTH_CONNECT_SUCCEED);
-        //Á¬½Ó³É¹¦
+        //ï¿½ï¿½ï¿½Ó³É¹ï¿½
     }
     else
     {
         SendMsg(MSG_BLUETOOTH_CONNECT_FAIL);
-        //Á¬½ÓÊ§°Ü
+        //ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½
     }
 
     //DEBUG("Leaving BluetoothConnectResult\n");
@@ -464,7 +464,7 @@ void BluetoothMsgInit(void)
     ClearMsg(MSG_DIALOG_KEY_OK);
     ClearMsg(MSG_DIALOG_KEY_CANCEL);
     ClearMsg(BROWSER_DISPFLAG_SCROLL_FILENAME);
-    ClearMsg(MSG_BLUETOOTH_WIN_DISCONNECTED); //ÔÚ´°¿ÚÍâµÄ¶ÏÏßÐÅÏ¢²»Í¨Öª
+    ClearMsg(MSG_BLUETOOTH_WIN_DISCONNECTED); //ï¿½Ú´ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Í¨Öª
 }
 
 /*
@@ -706,7 +706,7 @@ UINT32 BTControlSubWinService(void)
              SendMsg(MSG_BLUETOOTH_DISPLAY_ALL);
         }
 
-//      if(GetMsg(MSG_BLUETOOTH_LINK_KEY_NOTIFY))   //×Ó´°ÔËÐÐÊ±»áÍ¬Ê±ÔËÐÐ¸¸´°¿ÚµÄservice º¯Êý ,Ó°Ïì×Ó´°¿ÚË¢ÐÂÊý¾Ý £¬·Åµ½ keyÖÐÈ¥
+//      if(GetMsg(MSG_BLUETOOTH_LINK_KEY_NOTIFY))   //ï¿½Ó´ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Í¬Ê±ï¿½ï¿½ï¿½Ð¸ï¿½ï¿½ï¿½ï¿½Úµï¿½service ï¿½ï¿½ï¿½ï¿½ ,Ó°ï¿½ï¿½ï¿½Ó´ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Åµï¿½ keyï¿½ï¿½È¥
 //      {
 //          StationUpProc();
 //          SendMsg(MSG_BLUETOOTH_DISPLAY_ALL);
@@ -724,7 +724,7 @@ UINT32 BTControlSubWinService(void)
         SendMsg(MSG_BLUETOOTH_DISPLAY_ALL);
     }
 
-    if (TRUE == GetMsg(MSG_BLUETOOTH_CONNECTING)) // ¿ª»ú×Ô¶¯Á¬½Ó×îºóÒ»¸öÉè±¸
+    if (TRUE == GetMsg(MSG_BLUETOOTH_CONNECTING)) // ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½è±¸
     {
         if (!gbBTConnected && gSysConfig.BtConfig.PairedDevCnt && BtWinStatus == BT_WIN_STATUS_IDLE )
         {
@@ -766,7 +766,7 @@ UINT32 BTControlSubWinService(void)
         if (systick > BtWinBtConncetTick + BT_CONNECT_TIME_OUT)
         {
             BtWinStatus = BT_WIN_STATUS_IDLE;
-            //SendMsg(MSG_BLUETOOTH_ACL_DISCONNECTED);//Ç¿ÖÆ¶Ï¿ªÁ¬½Ó
+            //SendMsg(MSG_BLUETOOTH_ACL_DISCONNECTED);//Ç¿ï¿½Æ¶Ï¿ï¿½ï¿½ï¿½ï¿½ï¿½
             printf("BT_CONNECT_TIME_OUT,bt_disconnect\n");
             bt_disconnect((struct bd_addr *)gSysConfig.BtConfig.LastConnectMac);
             SendMsg(MSG_BLUETOOTH_CONNECT_FAIL);
@@ -802,7 +802,7 @@ UINT32 BTControlSubWinService(void)
             if (BtWinBtA2dpDisconnectRetry == 0)
             {
                 BtWinBtA2dpDisconnectTickEnable = 0;
-                SendMsg(MSG_BLUETOOTH_ACL_DISCONNECTED);//Ç¿ÖÆ¶Ï¿ªÁ¬½Ó
+                SendMsg(MSG_BLUETOOTH_ACL_DISCONNECTED);//Ç¿ï¿½Æ¶Ï¿ï¿½ï¿½ï¿½ï¿½ï¿½
             }
         }
     }
@@ -832,7 +832,7 @@ UINT32 BTControlSubWinKeyProc(void)
     TASK_ARG TaskArg;
     TempKeyVal =  GetKeyVal();
 
-    if (GetMsg(MSG_BLUETOOTH_LINK_KEY_NOTIFY))  //×Ó´°ÔËÐÐÊ±»áÍ¬Ê±ÔËÐÐ¸¸´°¿ÚµÄservice º¯Êý ,Ó°Ïì×Ó´°¿ÚË¢ÐÂÊý¾Ý £¬·Åµ½ keyÖÐÈ¥
+    if (GetMsg(MSG_BLUETOOTH_LINK_KEY_NOTIFY))  //ï¿½Ó´ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Í¬Ê±ï¿½ï¿½ï¿½Ð¸ï¿½ï¿½ï¿½ï¿½Úµï¿½service ï¿½ï¿½ï¿½ï¿½ ,Ó°ï¿½ï¿½ï¿½Ó´ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Åµï¿½ keyï¿½ï¿½È¥
     {
         StationUpProc();
         SendMsg(MSG_BLUETOOTH_DISPLAY_ALL);

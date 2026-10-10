@@ -30,24 +30,24 @@
 */
 //section define
 //music menu permanent code.
-#define _ATTR_MUSIC_CODE_         __attribute__((section("MusicCode")))
-#define _ATTR_MUSIC_DATA_         __attribute__((section("MusicData")))
-#define _ATTR_MUSIC_BSS_          __attribute__((section("MusicBss"),zero_init))
+#define _ATTR_MUSIC_CODE_         
+#define _ATTR_MUSIC_DATA_         
+#define _ATTR_MUSIC_BSS_          
 
 //music menu initial code
-#define _ATTR_MUSIC_INIT_CODE_    __attribute__((section("MusicInitCode")))
-#define _ATTR_MUSIC_INIT_DATA_    __attribute__((section("MusicInitData")))
-#define _ATTR_MUSIC_INIT_BSS_     __attribute__((section("MusicInitBss"),zero_init))
+#define _ATTR_MUSIC_INIT_CODE_    
+#define _ATTR_MUSIC_INIT_DATA_    
+#define _ATTR_MUSIC_INIT_BSS_     
 
 //music  menu auti-initial code
-#define _ATTR_MUSIC_DEINIT_CODE_  __attribute__((section("MusicDeInitCode")))
-#define _ATTR_MUSIC_DEINIT_DATA_  __attribute__((section("MusicDeInitData")))
-#define _ATTR_MUSIC_DEINIT_BSS_   __attribute__((section("MusicDeInitBss"),zero_init))
+#define _ATTR_MUSIC_DEINIT_CODE_  
+#define _ATTR_MUSIC_DEINIT_DATA_  
+#define _ATTR_MUSIC_DEINIT_BSS_   
 
 //music menu dispatch code
-#define _ATTR_MUSIC_SERVICE_CODE_ __attribute__((section("MusicServiceCode")))
-#define _ATTR_MUSIC_SERVICE_DATA_ __attribute__((section("MusicServiceData")))
-#define _ATTR_MUSIC_SERVICE_BSS_  __attribute__((section("MusicServiceBss"),zero_init))
+#define _ATTR_MUSIC_SERVICE_CODE_ 
+#define _ATTR_MUSIC_SERVICE_DATA_ 
+#define _ATTR_MUSIC_SERVICE_BSS_  
 
 /*----------------------------------------------------------------------------------------*/
 //music playing interface display type.

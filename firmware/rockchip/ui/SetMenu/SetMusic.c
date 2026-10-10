@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  SetMusic.c
+* File Nameï¿½ï¿½  SetMusic.c
 *
 * Description:  set menu execution function configuration of music
 *
@@ -20,10 +20,10 @@
 
 #ifdef _SYSSET_
 #ifdef _MUSIC_
-#include "setcommon.h"
-#include "setmusic.h"
-#include "setmenu.h"
-#include "setmenuinterface.h"
+#include "SetCommon.h"
+#include "SetMusic.h"
+#include "SetMenu.h"
+#include "SetMenuInterface.h"
 #include "Hold.h"
 
 /*

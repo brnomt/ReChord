@@ -22,9 +22,9 @@ $Revision: 1.3 $
 #endif
 
 
-#define _ATTR_BOOKMASK_CODE_                    __attribute__((section("BookMaskWinCode")))
-#define _ATTR_BOOKMASK_DATA_                    __attribute__((section("BookMaskWinData")))
-#define _ATTR_BOOKMASK_BSS_                     __attribute__((section("BookMaskWinBss"),zero_init))
+#define _ATTR_BOOKMASK_CODE_                    
+#define _ATTR_BOOKMASK_DATA_                    
+#define _ATTR_BOOKMASK_BSS_                     
 
 /*
 *-------------------------------------------------------------------------------

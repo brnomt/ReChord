@@ -30,9 +30,9 @@
 *
 *-------------------------------------------------------------------------------
 */
-#define _ATTR_RADIOSUBFREQWIN_CODE_         __attribute__((section("RadioSubWinCode")))
-#define _ATTR_RADIOSUBFREQWIN_DATA_         __attribute__((section("RadioSubWinData")))
-#define _ATTR_RADIOSUBFREQWIN_BSS_          __attribute__((section("RadioSubWinBss"),zero_init))
+#define _ATTR_RADIOSUBFREQWIN_CODE_         
+#define _ATTR_RADIOSUBFREQWIN_DATA_         
+#define _ATTR_RADIOSUBFREQWIN_BSS_          
 
 
 

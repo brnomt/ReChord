@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name¡¦   FileInfoSort.C
+* File Nameï¿½ï¿½   FileInfoSort.C
 *
 * Description:
 *
@@ -14,7 +14,7 @@
 */
 #define  _IN_FILEINFOSORT_
 #include "SysInclude.h"
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "FileInfo.h"
 
 #include "AddrSaveMacro.h"
@@ -23,13 +23,13 @@
 
 #ifdef MEDIA_UPDATE
 
-#define   SORT_TYPE_ITEM_NUM  4   /* ¶¨ÒåÅÅÐòÀàÐÍ¸öÊý */
+#define   SORT_TYPE_ITEM_NUM  4   /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ï¿½ï¿½ */
 
-#define     SORT_FILENAME_LEN               (4)  /* ´ÓÎÄ¼þÃûÖÐ½ØÈ¡µÄ²ÎÓëÅÅÐò×Ö·ûµÄ¸öÊý£¬Ä¿Ç°µÄ16kµÄÅÅÐò¿Õ¼ä×î´ó¿ÉÒÔ±£´æ8*1024¸öÎÄ¼þµÄÅÅÐòÐÅÏ¢*/
+#define     SORT_FILENAME_LEN               (4)  /* ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Ð½ï¿½È¡ï¿½Ä²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Ç°ï¿½ï¿½16kï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½8*1024ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢*/
 
-#define     CHILD_CHAIN_NUM             72 /* È·¶¨ÅÅÐò×ÓÁ´±íµÄ¸öÊý */
+#define     CHILD_CHAIN_NUM             72 /* È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ */
 
-//#define   FILE_NAME_TYPE    0       //Õâ¸öË³Ðò±ØÐëºÍAddrSaveMacro.hÖÐ¶¨ÒåµÄ´æ´¢Ë³ÐòÒ»ÖÂ
+//#define   FILE_NAME_TYPE    0       //ï¿½ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½AddrSaveMacro.hï¿½Ð¶ï¿½ï¿½ï¿½Ä´æ´¢Ë³ï¿½ï¿½Ò»ï¿½ï¿½
 #define   ID3_TITLE_TYPE    0
 #define   ID3_ALBUM_TYPE    1
 #define   ID3_ARTIST_TYPE   2
@@ -39,12 +39,12 @@
 typedef struct _FILE_INFO_ADD_STRUCT
 {
 
-    UINT32  add1;//µÚÒ»²ãÅÅÐòÐÅÏ¢Ð´FlashµØÖ·
-    UINT32  add2;//µÚ¶þ²ãÅÅÐòÐÅÏ¢Ð´FlashµØÖ·
-    UINT32  add3;//µÚÈý²ãÅÅÐòÐÅÏ¢Ð´FlashµØÖ·
-    UINT32  add4;//µÚËÄ²ãÅÅÐòÐÅÏ¢Ð´FlashµØÖ·
+    UINT32  add1;//ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢Ð´Flashï¿½ï¿½Ö·
+    UINT32  add2;//ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢Ð´Flashï¿½ï¿½Ö·
+    UINT32  add3;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢Ð´Flashï¿½ï¿½Ö·
+    UINT32  add4;//ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢Ð´Flashï¿½ï¿½Ö·
 
-}FILE_INFO_ADD_STRUCT; /* ÎÄ¼þ´ýÅÅÐòÐÅÏ¢,define by phc*/
+}FILE_INFO_ADD_STRUCT; /* ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢,define by phc*/
 
 typedef __packed struct _FILE_INFO_INDEX_STRUCT
 {
@@ -52,19 +52,19 @@ typedef __packed struct _FILE_INFO_INDEX_STRUCT
     struct  _FILE_INFO_INDEX_STRUCT   *pNext;
     UINT16  SortFileName[SORT_FILENAME_LEN + 1];
 
-}FILE_INFO_INDEX_STRUCT; /* ÎÄ¼þ´ýÅÅÐòÐÅÏ¢,define by phc*/
+}FILE_INFO_INDEX_STRUCT; /* ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢,define by phc*/
 
 
-_FILE_INFO_SORT_CODE_   UINT16 gChildChainDivValue[CHILD_CHAIN_NUM];//72*2×Ö½Ú  ´æ·Å¸÷¸ö×ÓÁ´±íµÄÊ×¸öÔªÊôµÄµÚÒ»¸ö×ÖÄ¸¡¦Òª±È½ÏµÄunicode Í¨¹ýÓë¸ÃÊý×éÔªÊô¶Ô±ÈÕÒ¸ö¶ÔÓ¦µÄ×ÓÁ´±í
-_FILE_INFO_SORT_BSS_    FILE_INFO_INDEX_STRUCT  *pChildChainHead[CHILD_CHAIN_NUM]; //72*4×Ö½Ú ¸÷ÅÅÐò¸ö×ÓÁ´±íµÄÍ·½ÚµãµÄÖ¸Õë
-_FILE_INFO_SORT_BSS_    FILE_INFO_INDEX_STRUCT  gChildChainHead[CHILD_CHAIN_NUM];  //72*8×Ö½Ú ¸÷ÅÅÐò¸ö×ÓÁ´±íµÄÍ·½áµã
+_FILE_INFO_SORT_CODE_   UINT16 gChildChainDivValue[CHILD_CHAIN_NUM];//72*2ï¿½Ö½ï¿½  ï¿½ï¿½Å¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¸ï¿½Ôªï¿½ï¿½ï¿½Äµï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½Òªï¿½È½Ïµï¿½unicode Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½ï¿½Ô±ï¿½ï¿½Ò¸ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+_FILE_INFO_SORT_BSS_    FILE_INFO_INDEX_STRUCT  *pChildChainHead[CHILD_CHAIN_NUM]; //72*4ï¿½Ö½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·ï¿½Úµï¿½ï¿½Ö¸ï¿½ï¿½
+_FILE_INFO_SORT_BSS_    FILE_INFO_INDEX_STRUCT  gChildChainHead[CHILD_CHAIN_NUM];  //72*8ï¿½Ö½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½
 
-_FILE_INFO_SORT_CODE_   FILE_INFO_INDEX_STRUCT  *pChildChainLast;  //72*8×Ö½Ú ¸÷ÅÅÐò¸ö×ÓÁ´±íµÄÍ·½áµã
-_FILE_INFO_SORT_CODE_   FILE_INFO_INDEX_STRUCT  *pChildChainLast2;  //72*8×Ö½Ú ¸÷ÅÅÐò¸ö×ÓÁ´±íµÄÍ·½áµã
+_FILE_INFO_SORT_CODE_   FILE_INFO_INDEX_STRUCT  *pChildChainLast;  //72*8ï¿½Ö½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½
+_FILE_INFO_SORT_CODE_   FILE_INFO_INDEX_STRUCT  *pChildChainLast2;  //72*8ï¿½Ö½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½
 
 
-/* ×¢Òâ¡¦ÒÔÏÂÁ½¸öÊý×éÎïÀíµØÖ·±ØÐë¡¦Á¬¡¦¾ßÌåÊµ¡¦¿É½«Æä½ô°¤ÔÚÒ»Æð¶¨Òå */
-_FILE_INFO_SORT_BSS_    FILE_INFO_INDEX_STRUCT  gSortNameBuffer0[SORT_FILENUM_DEFINE];//1536*8×Ö½Ú ±£´æ½ØÈ¡µÄÎÄ¼þÃûÐÅÏ¢¡¦³£×¤ÓÚÄÚ´æ¡¦ÅÅÐòÊ±µ÷ÓÃ, Buffer0
+/* ×¢ï¿½â¡¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ë¡¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½É½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ */
+_FILE_INFO_SORT_BSS_    FILE_INFO_INDEX_STRUCT  gSortNameBuffer0[SORT_FILENUM_DEFINE];//1536*8ï¿½Ö½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½×¤ï¿½ï¿½ï¿½Ú´æ¡¦ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½, Buffer0
 _FILE_INFO_SORT_BSS_   UINT32 gFileSortBufferIndex;
 _FILE_INFO_SORT_CODE_  __align(4) UINT8 gFileSortBuffer[MEDIAINFO_PAGE_SIZE];
 
@@ -75,10 +75,10 @@ _FILE_INFO_SORT_CODE_  UINT32 gBkMDReadAdrs2;
 _FILE_INFO_SORT_DATA_   UINT32 gwSectorOffset;
 _FILE_INFO_SORT_DATA_   UINT32 gwDataBaseAddr;
 
-_FILE_INFO_SORT_CODE_ __align(4) UINT8 SingerBuffer[SORT_FILENUM_DEFINE * sizeof(SORTINFO_STRUCT)]; //16k ×Ö½Ú ¸èÊÖ·ÖÀàÐÅÏ¢buf ÒòÎª¸èÊÖÊý¡¦ÖÆÎª2048ËùÒÔÕâ¸öbuf¿ª16k
-_FILE_INFO_SORT_CODE_ __align(4) UINT8  GerneAblumBuffer[SORT_FILENUM_DEFINE * sizeof(SORTINFO_STRUCT)]; //8k  Á÷ÅÉ×¨¼­¹²ÓÃbuf ¼ÇÂ¼·ÖÀàÐÅÏ¢¡¦ÒòÎª×¨¼­Êý¡¦ÖÆÎª1024ËùÒÔÕâ¸öbuf¿ª8k
-_FILE_INFO_SORT_BSS_ __align(4) UINT8   FileIDBuffer[2 * SORT_FILENUM_DEFINE]; //¼ÇÂ¼ÅÅÐòÎÄ¼þºÅ 2010.05.17 ÓÉÓÚ28Ê±·¢¡¦Ã½Ìå¿âÅÅÐòbuff¿Õ¼ä±»Ð´flash³åµô¡¦ÐÞ¸Ä½Å±¾ºóÒýÆð¿Õ¼ä²»×ã¶øÐÞ¸Ä
-_FILE_INFO_SORT_BSS_ __align(4) UINT8   FileIDBuffer1[2 * SORT_FILENUM_DEFINE]; //¼ÇÂ¼ÅÅÐòÎÄ¼þºÅ
+_FILE_INFO_SORT_CODE_ __align(4) UINT8 SingerBuffer[SORT_FILENUM_DEFINE * sizeof(SORTINFO_STRUCT)]; //16k ï¿½Ö½ï¿½ ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢buf ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª2048ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½bufï¿½ï¿½16k
+_FILE_INFO_SORT_CODE_ __align(4) UINT8  GerneAblumBuffer[SORT_FILENUM_DEFINE * sizeof(SORTINFO_STRUCT)]; //8k  ï¿½ï¿½ï¿½ï¿½×¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½buf ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Îª×¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª1024ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½bufï¿½ï¿½8k
+_FILE_INFO_SORT_BSS_ __align(4) UINT8   FileIDBuffer[2 * SORT_FILENUM_DEFINE]; //ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ 2010.05.17 ï¿½ï¿½ï¿½ï¿½28Ê±ï¿½ï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½buffï¿½Õ¼ä±»Ð´flashï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¸Ä½Å±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ä²»ï¿½ï¿½ï¿½ï¿½Þ¸ï¿½
+_FILE_INFO_SORT_BSS_ __align(4) UINT8   FileIDBuffer1[2 * SORT_FILENUM_DEFINE]; //ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½
 
 _FILE_INFO_SORT_CODE_   UINT32  MediaInfoSaveAdd[4];
 _FILE_INFO_SORT_CODE_   UINT32  MediaInfoReadAdd[4];
@@ -90,10 +90,10 @@ extern UINT32 SaveSortInfo(UINT16 Deep, UINT8* SubInfoBuffer,UINT16 StartID,UINT
 --------------------------------------------------------------------------------
   Function name : UINT32 GetPYCode(UINT32 wch)
   Author        : anzhiguo
-  Description   : »ñÈ¡ºº×Ö×Ö·ûµÄÅÅÐòºÅ
+  Description   : ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-  Input         : wch¡¦ºº×Ö×Ö·ûµÄunicodeÖµ
-  Return        : pinCode:×Ö·ûÆ´ÒôÅÅÐòºÅ
+  Input         : wchï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½unicodeÖµ
+  Return        : pinCode:ï¿½Ö·ï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
   History:     <author>         <time>         <version>
                 anzhiguo     2009/06/02         Ver1.0
@@ -108,7 +108,7 @@ UINT32 GetPYCode(UINT16 wch)
 
     extern UINT32 ReadDataFromIRAM(UINT32 addr);
 
-    pinCode = ReadDataFromIRAM(wch- UNICODE_BEGIN+BASE_PYTABLE_ADDR_IN_IRM); // ´Óµ÷ÈëIRAMµÄÆ´ÒôÅÅÐò±íµÃµ½ºº×ÖµÄÆ´ÒôÅÅÐòÖµ
+    pinCode = ReadDataFromIRAM(wch- UNICODE_BEGIN+BASE_PYTABLE_ADDR_IN_IRM); // ï¿½Óµï¿½ï¿½ï¿½IRAMï¿½ï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½ï¿½Öµï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
     pinCode += UNICODE_BEGIN;
 
     return (pinCode);
@@ -119,10 +119,10 @@ UINT32 GetPYCode(UINT16 wch)
 --------------------------------------------------------------------------------
   Function name : UINT32 GetCmpResult(UINT32 wch)
   Author        : anzhiguo
-  Description   : »ñÈ¡ºº×Ö×Ö·ûµÄÅÅÐòºÅ
+  Description   : ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-  Input         : wch¡¦ºº×Ö×Ö·ûµÄunicodeÖµ
-  Return        : pinCode:×Ö·ûÆ´ÒôÅÅÐòºÅ
+  Input         : wchï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½unicodeÖµ
+  Return        : pinCode:ï¿½Ö·ï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
   History:     <author>         <time>         <version>
                 anzhiguo     2009/06/02         Ver1.0
@@ -143,7 +143,7 @@ UINT32 GetCmpResult(UINT16 wch)
     else
 #endif
 
-        if (wch>=97&&wch<=122) // 97 = 'a', 122 = 'z'  Ð¡Ð´×ÖÄ¸È«²¿×ª»»³É´óÐ´×ÖÄ¸
+        if (wch>=97&&wch<=122) // 97 = 'a', 122 = 'z'  Ð¡Ð´ï¿½ï¿½Ä¸È«ï¿½ï¿½×ªï¿½ï¿½ï¿½É´ï¿½Ð´ï¿½ï¿½Ä¸
         {
             cmpCode = wch-32;
         }
@@ -158,9 +158,9 @@ UINT32 GetCmpResult(UINT16 wch)
 --------------------------------------------------------------------------------
   Function name : int PinyinCharCmp(UINT32 wch1, UINT32 wch2)
   Author        : anzhiguo
-  Description   : °´Æ´ÒôÅÅÐò¡¦±È½ÏÁ½¸ö×Ö·ûµÄÂë´óÐ¡
+  Description   : ï¿½ï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ò¡¦±È½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡
 
-  Input         : wch1¡¦×Ö·û1µÄunicodeÖµ   wch2¡¦×Ö·û2µÄunicodeÖµ
+  Input         : wch1ï¿½ï¿½ï¿½Ö·ï¿½1ï¿½ï¿½unicodeÖµ   wch2ï¿½ï¿½ï¿½Ö·ï¿½2ï¿½ï¿½unicodeÖµ
   Return        :
 
   History:     <author>         <time>         <version>
@@ -179,9 +179,9 @@ int PinyinCharCmp(UINT16 wch1, UINT16 wch2)
 --------------------------------------------------------------------------------
   Function name : UINT32 PinyinStrnCmp(UINT16 *str1, UINT16 *str2, UINT32 length)
   Author        : anzhiguo
-  Description   : °´Æ´ÒôÅÅÐò¡¦±È½ÏÁ½¸ö×Ö·û´®´óÐ¡
+  Description   : ï¿½ï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ò¡¦±È½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡
 
-  Input         : str1¡¦×Ö·û´®1   str2¡¦×Ö·û´®2
+  Input         : str1ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½1   str2ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½2
   Return        : 0 str1 < str2
                   1 str1 = str2
                   2 str1 > str2
@@ -224,7 +224,7 @@ UINT32 PinyinStrnCmp(UINT16 *str1, UINT16 *str2/*, UINT32 length*/)
 //      if((str1[i]) > (str2[i]))
 //         return 2;
 //      else if((str1[i]) == (str2[i]))
-//         return 1;  //¡¦µÈ
+//         return 1;  //ï¿½ï¿½ï¿½ï¿½
 //      else
 //         return 0;
 
@@ -333,10 +333,10 @@ UINT32 PinyinStrnCmp(UINT16 *str1, UINT16 *str2/*, UINT32 length*/)
 --------------------------------------------------------------------------------
   Function name : UINT8 BrowserListInsertBySort(FILE_INFO_INDEX_STRUCT *head, FILE_INFO_INDEX_STRUCT *pNode)
   Author        : anzhiguo
-  Description   : ³õÊ¼»¯Ë«¡¦Á´±í
+  Description   : ï¿½ï¿½Ê¼ï¿½ï¿½Ë«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-  Input         : *head   ²åÈëÁ´±íÍ·Ö¸Õë
-                  *pFileSaveTemp   ´ý²åÈë½áµã½á¹¹
+  Input         : *head   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·Ö¸ï¿½ï¿½
+                  *pFileSaveTemp   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á¹¹
   Return        :
 
   History:     <author>         <time>         <version>
@@ -353,7 +353,7 @@ UINT8 BrowserListInsertBySort(FILE_INFO_INDEX_STRUCT *head, FILE_INFO_INDEX_STRU
 
     p = head;
 
-    //Ë³ÐòÉ¨ÃèÁ´±í,½«ÐÂ½áµã²åÈëµ½±ÈËü´óµÄ½áµãÇ°
+    //Ë³ï¿½ï¿½É¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½Â½ï¿½ï¿½ï¿½ï¿½ëµ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä½ï¿½ï¿½Ç°
     if ((pChildChainLast->pNext!=NULL) || (PinyinStrnCmp((uint16*)(pChildChainLast->SortFileName), (uint16*)(pNode->SortFileName)/*, SORT_FILENAME_LEN*/)==2))
     {
         if ((pChildChainLast2->pNext!=NULL) && (PinyinStrnCmp((uint16*)(pChildChainLast2->SortFileName), (uint16*)(pNode->SortFileName)/*, SORT_FILENAME_LEN*/)==2))
@@ -369,8 +369,8 @@ UINT8 BrowserListInsertBySort(FILE_INFO_INDEX_STRUCT *head, FILE_INFO_INDEX_STRU
         while (p->pNext!=NULL)
         {
             q = p->pNext;
-            // 2 ±íÊ¾ q->SortFileName > pNode->SortFileName
-            if (PinyinStrnCmp((uint16*)(q->SortFileName), (uint16*)(pNode->SortFileName)/*, SORT_FILENAME_LEN*/)==2) //Ë³ÐòÉ¨ÃèÁ´±í,½«ÐÂ½áµã²åÈëµ½±ÈËü´óµÄ½áµãÇ°
+            // 2 ï¿½ï¿½Ê¾ q->SortFileName > pNode->SortFileName
+            if (PinyinStrnCmp((uint16*)(q->SortFileName), (uint16*)(pNode->SortFileName)/*, SORT_FILENAME_LEN*/)==2) //Ë³ï¿½ï¿½É¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½Â½ï¿½ï¿½ï¿½ï¿½ëµ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä½ï¿½ï¿½Ç°
             {
                 pNode->pNext = q;
                 p->pNext = pNode;
@@ -385,7 +385,7 @@ UINT8 BrowserListInsertBySort(FILE_INFO_INDEX_STRUCT *head, FILE_INFO_INDEX_STRU
         p = pChildChainLast;
     }
 
-    if (p->pNext==NULL) // Èôµ½ÁËÁ´Î²,ËµÃ÷²åÈëµÄ½áµãÎªµ±Ç°Á´±í×î´óÖµ,½«Æä²åÈëµ½Á´Î²
+    if (p->pNext==NULL) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î²,Ëµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä½ï¿½ï¿½Îªï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ëµ½ï¿½ï¿½Î²
     {
         pNode->pNext = NULL;
         p->pNext = pNode;
@@ -401,7 +401,7 @@ UINT8 BrowserListInsertBySort(FILE_INFO_INDEX_STRUCT *head, FILE_INFO_INDEX_STRU
   Author        : anzhiguo
   Description   :
 
-  Input         : *pBuffer   Òª³õÊ¼»¯µÄbufÖ¸Õë
+  Input         : *pBuffer   Òªï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½bufÖ¸ï¿½ï¿½
 
   Return        :
 
@@ -433,7 +433,7 @@ void SortPageBufferInit(UINT8 *pBuffer)
 --------------------------------------------------------------------------------
   Function name : void ChildChainInit(void)
   Author        : anzhiguo
-  Description   : ³õÊ¼»¯Ë«¡¦Á´±í
+  Description   : ï¿½ï¿½Ê¼ï¿½ï¿½Ë«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
   Input         :
 
@@ -441,73 +441,73 @@ void SortPageBufferInit(UINT8 *pBuffer)
 
   History:     <author>         <time>         <version>
                 anzhiguo     2009/06/02         Ver1.0
-  desc:         gChildChainDivValue[i] Óë pChildChainHead[i] Ò»Ò»¶ÔÓ¦
+  desc:         gChildChainDivValue[i] ï¿½ï¿½ pChildChainHead[i] Ò»Ò»ï¿½ï¿½Ó¦
 --------------------------------------------------------------------------------
 */
 _FILE_INFO_SORT_CODE_
 void ChildChainInit(UINT16 Flag)
 {
     UINT32 i,j;
-    for (i=0;i<CHILD_CHAIN_NUM;i++) // ³õÊ¼»¯¸÷Á´±íÍ·½Úµã
+    for (i=0;i<CHILD_CHAIN_NUM;i++) // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·ï¿½Úµï¿½
     {
 
-        //pChildChainHead ÊÇÒ»¸öÖ¸ÕëÊý×é¡¦ËüµÄÃ¿¸öÔªËØ¾ùÎªÒ»¸öFILE_INFO_INDEX_STRUCTÀàÐÍµÄÖ¸Õë¡¦
-        //gChildChainHead ÊÇÒ»¸ö½á¹¹ÌåÊý×é¡¦ËüµÄÃ¿¸öÔªËØ¾ùÎªÒ»¸öFILE_INFO_INDEX_STRUCTÀàÐÍµÄ½á¹¹Ìå±äÁ¿¡¦
+        //pChildChainHead ï¿½ï¿½Ò»ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½é¡¦ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½Ôªï¿½Ø¾ï¿½ÎªÒ»ï¿½ï¿½FILE_INFO_INDEX_STRUCTï¿½ï¿½ï¿½Íµï¿½Ö¸ï¿½ë¡¦
+        //gChildChainHead ï¿½ï¿½Ò»ï¿½ï¿½ï¿½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½é¡¦ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½Ôªï¿½Ø¾ï¿½ÎªÒ»ï¿½ï¿½FILE_INFO_INDEX_STRUCTï¿½ï¿½ï¿½ÍµÄ½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         pChildChainHead[i] = &gChildChainHead[i];
         pChildChainHead[i]->pNext = NULL;
     }
 
-    //¶à´Îµ÷¶ÈÊ±¡¦´Ë´¦ÏÂÃæµÄ´úÂëÖ»ÐèÔÚ½øÈëÅÅÐòÄ£¿éÊ±Ö´ÐÐÒ»´Î¾Í¿ÉÒÔ¡¦Òò´Ë¿ÉÒÔ¿¼ÂÇ´«Ò»¸ö²ÎÊýÓÃÓÚÅÐ¶ÏÊÇ²»ÊÇµÚÒ»´Î½øÈë
+    //ï¿½ï¿½Îµï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ë´ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½Ê±Ö´ï¿½ï¿½Ò»ï¿½Î¾Í¿ï¿½ï¿½Ô¡ï¿½ï¿½ï¿½Ë¿ï¿½ï¿½Ô¿ï¿½ï¿½Ç´ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½Ç²ï¿½ï¿½Çµï¿½Ò»ï¿½Î½ï¿½ï¿½ï¿½
     if (Flag)
     {
-        gChildChainDivValue[0]=  0x0000; // ÅÅÐò×Ö·ûÎª¿ÕµÄ·ÅÖÃÓÚ´Ë
-        gChildChainDivValue[1]=   0x41; // Ð¡ÓÚÓ¢ÎÄ×ÖÄ¸µÄ×Ö·û¡¦°üÀ¨Êý×Ö¼°ÆäËü·ûºÅ  0x41 A×ÖÄ¸µÄascall Âë
+        gChildChainDivValue[0]=  0x0000; // ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½Îªï¿½ÕµÄ·ï¿½ï¿½ï¿½ï¿½Ú´ï¿½
+        gChildChainDivValue[1]=   0x41; // Ð¡ï¿½ï¿½Ó¢ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  0x41 Aï¿½ï¿½Ä¸ï¿½ï¿½ascall ï¿½ï¿½
 
         j = 2;
         for (i='A';i<'Z'+1;i++)
         {
-            gChildChainDivValue[j] = i+1; // Ó¢ÎÄ×Ö·û,A~Z
+            gChildChainDivValue[j] = i+1; // Ó¢ï¿½ï¿½ï¿½Ö·ï¿½,A~Z
             j++;
         }
 
-        gChildChainDivValue[j++] = 0x4DFF; // Ó¢ÎÄ×Ö·ûµ½ºº×ÖÖ®¼äµÄunicode×Ö·û
+        gChildChainDivValue[j++] = 0x4DFF; // Ó¢ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö®ï¿½ï¿½ï¿½unicodeï¿½Ö·ï¿½
 
         j = 29;
         for (i=j;i<CHILD_CHAIN_NUM-1;i++)
         {
-            gChildChainDivValue[i] = gChildChainDivValue[i-1]+(0x51a5)/(CHILD_CHAIN_NUM-30); // ¶Ôºº×Ö²¿·Ö×Ö·û½øÐÐ42µÈ·Ö
+            gChildChainDivValue[i] = gChildChainDivValue[i-1]+(0x51a5)/(CHILD_CHAIN_NUM-30); // ï¿½Ôºï¿½ï¿½Ö²ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½42ï¿½È·ï¿½
         }
 
-        gChildChainDivValue[CHILD_CHAIN_NUM-1] = 0xffff; // ´óÓÚºº×ÖµÄÆäËü×Ö·ûÈ«²¿·ÅÖÁ´ËÁ´±í
+        gChildChainDivValue[CHILD_CHAIN_NUM-1] = 0xffff; // ï¿½ï¿½ï¿½Úºï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     }
     /*for(i=0;i<CHILD_CHAIN_NUM;i++)
     {
        DisplayTestDecNum((i%6)*50,(i/6)*15,gChildChainDivValue[i]);
     }
     while(1);*/
-    /* ÒÔÏÂÉèÖÃÊÇÎªÁËÔÚÆ´ÒôÅÅÐòÊ±¡¦°´Æ´Òô×ÖÄ¸·Ö¸ôÅÅÐòÁ´±í */
+    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Æ´ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     /*gChildChainDivValue[0]=   0x0000;
-    gChildChainDivValue[1]=   0x4DFF; //0x0000~0x4DFF; //  0~9,×ÖÄ¸,ÆäËü·ûºÅ
+    gChildChainDivValue[1]=   0x4DFF; //0x0000~0x4DFF; //  0~9,ï¿½ï¿½Ä¸,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     gChildChainDivValue[2] =  0x4EC3; //0x4E00~0x4EC3; //  A, ß¹
-    gChildChainDivValue[3] =  0x5235; //0x4EC4~0x5235; //  B¡¦°Ë
-    gChildChainDivValue[4] =  0x576a; //0x5236~0x576a; //  C, àê
-    gChildChainDivValue[5] =  0x5b40; //0x576b~0x5b40; //  D, ¡¦
-    gChildChainDivValue[6] =  0x5bf0; //0x5b41~0x5bf0; //  E¡¦³ê
-    gChildChainDivValue[7] =  0x5e55; //0x5bf1~0x5e55; //  F, ·¢
-    gChildChainDivValue[8] =  0x6198; //0x5e56~0x6198; //  G, ê¸
-    gChildChainDivValue[9] =  0x65b3; //0x6199~0x65b3; //  H, ³Ð,ha
+    gChildChainDivValue[3] =  0x5235; //0x4EC4~0x5235; //  Bï¿½ï¿½ï¿½ï¿½
+    gChildChainDivValue[4] =  0x576a; //0x5236~0x576a; //  C, ï¿½ï¿½
+    gChildChainDivValue[5] =  0x5b40; //0x576b~0x5b40; //  D, ï¿½ï¿½
+    gChildChainDivValue[6] =  0x5bf0; //0x5b41~0x5bf0; //  Eï¿½ï¿½ï¿½ï¿½
+    gChildChainDivValue[7] =  0x5e55; //0x5bf1~0x5e55; //  F, ï¿½ï¿½
+    gChildChainDivValue[8] =  0x6198; //0x5e56~0x6198; //  G, ï¿½
+    gChildChainDivValue[9] =  0x65b3; //0x6199~0x65b3; //  H, ï¿½ï¿½,ha
     gChildChainDivValue[10] = 0x6c00; //0x65b4~0x6c00; //  J, Ø¢
-    gChildChainDivValue[11] = 0x6e30; //0x6c01~0x6e30; //  K, ßÇ
-    gChildChainDivValue[12] = 0x7448; //0x6e31~0x7448; //  L, À¬
-    gChildChainDivValue[13] = 0x7810; //0x7449~0x7810; //  M, ­Á
-    gChildChainDivValue[14] = 0x7953; //0x7811~0x7953; //  N, ¡¦
-    gChildChainDivValue[15] = 0x7978; //0x7954~0x7978; //  O, àÞ
-    gChildChainDivValue[16] = 0x7be2; //0x7979~0x7be2; //  P, ³Ó
-    gChildChainDivValue[17] = 0x7fe9; //0x7be3~0x7fe9; //  q, Æß,qi
-    gChildChainDivValue[18] = 0x8131; //0x7fea~0x8131; //  r, ¡ò,ra
-    gChildChainDivValue[19] = 0x8650; //0x8132~0x8650; //  s, Øí,sa
-    gChildChainDivValue[20] = 0x89d0; //0x8651~0x89d0; //  t, Ëû
-    gChildChainDivValue[21] = 0x8c43; //0x89d1~0x8c43; //  w, ·þ
+    gChildChainDivValue[11] = 0x6e30; //0x6c01~0x6e30; //  K, ï¿½ï¿½
+    gChildChainDivValue[12] = 0x7448; //0x6e31~0x7448; //  L, ï¿½ï¿½
+    gChildChainDivValue[13] = 0x7810; //0x7449~0x7810; //  M, ï¿½ï¿½
+    gChildChainDivValue[14] = 0x7953; //0x7811~0x7953; //  N, ï¿½ï¿½
+    gChildChainDivValue[15] = 0x7978; //0x7954~0x7978; //  O, ï¿½ï¿½
+    gChildChainDivValue[16] = 0x7be2; //0x7979~0x7be2; //  P, ï¿½ï¿½
+    gChildChainDivValue[17] = 0x7fe9; //0x7be3~0x7fe9; //  q, ï¿½ï¿½,qi
+    gChildChainDivValue[18] = 0x8131; //0x7fea~0x8131; //  r, ï¿½ï¿½,ra
+    gChildChainDivValue[19] = 0x8650; //0x8132~0x8650; //  s, ï¿½ï¿½,sa
+    gChildChainDivValue[20] = 0x89d0; //0x8651~0x89d0; //  t, ï¿½ï¿½
+    gChildChainDivValue[21] = 0x8c43; //0x89d1~0x8c43; //  w, ï¿½ï¿½
     gChildChainDivValue[22] = 0x9169; //0x8c44~0x9169; //  x, Ï¦
     gChildChainDivValue[23] = 0x9904; //0x916a~0x9904; //  y, Ñ¾
     gChildChainDivValue[24] = 0x9fa4; //0x9905~0x9fa4; //  z, */
@@ -517,17 +517,17 @@ void ChildChainInit(UINT16 Flag)
 --------------------------------------------------------------------------------
   Function name : void GetSortName(UINT32 SectorOffset)
   Author        : anzhiguo
-  Description   : ´ÓflashÖÐ¶ÁÈ¡ËùÓÐÎÄ¼þµÄ³¤ÎÄ¼þÃû¡¦²¢´æ·Åµ½ gSortNameBuffer0ºÍ gSortNameBuffer1 ÖÐ
-                  ÕâÁ½¿é¿Õ¼äÊÇÁ¬ÐøµÄ¡¦Ã¿¸ö¿ÉÒÔ´æ·ÅµÄÎÄ¼þÊýÊÇÏµÍ³ÔÊÐíµÄ×ö´óÎÄ¼þÊýµÄÒ»°ë
+  Description   : ï¿½ï¿½flashï¿½Ð¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½Ä³ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åµï¿½ gSortNameBuffer0ï¿½ï¿½ gSortNameBuffer1 ï¿½ï¿½
+                  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¡ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½Åµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
 
-  Input         : SectorOffset¡¦´ýÅÅÐò×Ö·ûÔÚÎÄ¼þÐÅÏ¢ÖÐµÄÆ«ÒÆµØÖ·
+  Input         : SectorOffsetï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½Ðµï¿½Æ«ï¿½Æµï¿½Ö·
 
-  Return        : Flag ÅÐ¶Ï¶ÁÈ¡ÎÄ¼þµÄË³Ðò,Flag =0¡¦°´FileIDBufferÖÐµÄË³Ðò¶ÁÈ¡ÎÄ¼þ
+  Return        : Flag ï¿½Ð¶Ï¶ï¿½È¡ï¿½Ä¼ï¿½ï¿½ï¿½Ë³ï¿½ï¿½,Flag =0ï¿½ï¿½ï¿½ï¿½FileIDBufferï¿½Ðµï¿½Ë³ï¿½ï¿½ï¿½È¡ï¿½Ä¼ï¿½
 
   History:     <author>         <time>         <version>
                 anzhiguo     2009/06/02         Ver1.0
-  desc:         ´Ó±£´æÔÚFlashÖÐµÄÎÄ¼þÐÅÏ¢¶ÁÈ¡ÐèÒªÅÅÐòµÄ×Ö·û(ÎÄ¼þÃû¡¢ID3ÐÅÏ¢)¡¦²¢ÇÒ´æÓëgSortNameBuffer0[].SortFileNameÖÐ
-                ½«ËùÓÐÎÄ¼þµÄÐÅÏ¢(ÐèÒªÅÅÐòµÄ×Ö·ûÐÅÏ¢)¶ÁÈ¡
+  desc:         ï¿½Ó±ï¿½ï¿½ï¿½ï¿½ï¿½Flashï¿½Ðµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½È¡ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½(ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ID3ï¿½ï¿½Ï¢)ï¿½ï¿½ï¿½ï¿½ï¿½Ò´ï¿½ï¿½ï¿½gSortNameBuffer0[].SortFileNameï¿½ï¿½
+                ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢(ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Ï¢)ï¿½ï¿½È¡
 --------------------------------------------------------------------------------
 */
 _FILE_INFO_SORT_CODE_
@@ -552,7 +552,7 @@ void GetSortName(UINT32 SectorOffset,UINT16 FileNum,UINT16 Flag)
 
     for (i=0;i<FileCount;i++)
     {
-        //´ÓflashÖÐ¶ÁÈ¡½ØÈ¡µÄ³¤ÎÄ¼þÃûÐÅÏ¢  //ÕâÀïµØÖ·µÄ¼ÆËãÔÚ4k pageµÄflashÖÐ»á³öÎÊÌâ
+        //ï¿½ï¿½flashï¿½Ð¶ï¿½È¡ï¿½ï¿½È¡ï¿½Ä³ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢  //ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½4k pageï¿½ï¿½flashï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         if (Flag)
         {
             MDReadData(DataDiskID,((UINT32)(MediaInfoAddr+MUSIC_SAVE_INFO_SECTOR_START)<<9)+BYTE_NUM_SAVE_PER_FILE*(UINT32)(i)+SectorOffset, SORT_FILENAME_LEN*2, TempBuffer);
@@ -691,10 +691,10 @@ void GetDirSortName(UINT32 SectorOffset,UINT32 StartID, UINT16 * FileNum, UINT16
 --------------------------------------------------------------------------------
   Function name : UINT32 SaveSortInfo(UINT32 uiSaveType, UINT32 ulSortSectorAddr)
   Author        : anzhiguo
-  Description   : ±£´æ·ÖÀàÐÅÏ¢
+  Description   : ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
 
-  Input         : uiSaveType ±£´æÐÅÏ¢µÄÀàÐÍ : ID3_TITLE_TYPE :FILE_NAME_TYPE:ID3_ARTIST_TYPE:ID3_ALBUM_TYPE ËÄÖÖÀàÐÍ
-                  ulSortSectorAddr ÐÅÏ¢±£´æµÄµØÖ·¡¦ÎïÀíµØÖ·»¹ÊÇsecµØÖ· ?
+  Input         : uiSaveType ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ : ID3_TITLE_TYPE :FILE_NAME_TYPE:ID3_ARTIST_TYPE:ID3_ALBUM_TYPE ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+                  ulSortSectorAddr ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Äµï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½secï¿½ï¿½Ö· ?
   Return        :
 
   History:     <author>         <time>         <version>
@@ -708,26 +708,26 @@ UINT32 SaveSortInfo(UINT16 Deep, UINT8* SubInfoBuffer,UINT16 StartID,UINT8* File
     UINT32  i,j;
 
     UINT32 uiFileCount = 0;
-    UINT32 uiFileSubCount = 0;  // ÎÄ¼þ¸öÊý¼ÆÊý
-    UINT32 uiSameCount = 0;     // ID3ÐÅÏ¢¹éÀàÊ±¡¦¡¦Í¬ÀàÐÍ¼ÆÊý
-    UINT32 uiFileIndex = 0;     // Flash Page¿ØÖÆ¼ÆÊý
-    UINT16 uiFileSortTemp = 0;  // ÎÄ¼þÅÅÐòºÅÁÙÊ±±äÁ¿
+    UINT32 uiFileSubCount = 0;  // ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    UINT32 uiSameCount = 0;     // ID3ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½
+    UINT32 uiFileIndex = 0;     // Flash Pageï¿½ï¿½ï¿½Æ¼ï¿½ï¿½ï¿½
+    UINT16 uiFileSortTemp = 0;  // ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
 
-    UINT32 uiSubCount = 0;      // ÓÃÓÚÃ¿Ìõ×ÓÁ´µÄÎÄ¼þID3ÐÅÏ¢·ÖÀà¼ÆÊý
-    UINT32 uiSubCountTotal = 0; // ÓÃÓÚID3ÐÅÏ¢·ÖÀàµÄËùÓÐÎÄ¼þ¼ÆÊý
+    UINT32 uiSubCount = 0;      // ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ID3ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    UINT32 uiSubCountTotal = 0; // ï¿½ï¿½ï¿½ï¿½ID3ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
 
-    UINT32 ulID3SubSectorAddr = 0; // ID3ÐÅÏ¢¹éÀàÐÅÏ¢±£´æµØÖ·
+    UINT32 ulID3SubSectorAddr = 0; // ID3ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½Ö·
 
-    UINT16 StartfileID = StartID; // ·ÖÀàÐÅÏ¢ÆðÊ¼ÎÄ¼þºÅ
+    UINT16 StartfileID = StartID; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ê¼ï¿½Ä¼ï¿½ï¿½ï¿½
     UINT16 PreSortFileName[SORT_FILENAME_LEN + 2];
 
-    FILE_INFO_INDEX_STRUCT  *pTemp = NULL; // ÅÅÐòÁ´±íÍ·Ö¸Õë
+    FILE_INFO_INDEX_STRUCT  *pTemp = NULL; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·Ö¸ï¿½ï¿½
     if (!Flag)
     {
         //memcpy(FileIDBuf,FileIDBuffer,4096);
         memcpy(FileIDBuf, FileIDBuffer, 2 * SORT_FILENUM_DEFINE);
     }
-    ModuleOverlay(MODULE_ID_FLASH_PROG, MODULE_OVERLAY_ALL);//µ÷ÓÃÐ´flash´úÂë
+    ModuleOverlay(MODULE_ID_FLASH_PROG, MODULE_OVERLAY_ALL);//ï¿½ï¿½ï¿½ï¿½Ð´flashï¿½ï¿½ï¿½ï¿½
 
     switch (Deep)
     {
@@ -763,21 +763,21 @@ UINT32 SaveSortInfo(UINT16 Deep, UINT8* SubInfoBuffer,UINT16 StartID,UINT8* File
         while (pTemp->pNext!=NULL)
         {
             pTemp = pTemp->pNext;
-            uiFileSortTemp = (UINT16)(pTemp - &gSortNameBuffer0[0]); //¼ÆËãµ±Ç°µÄÎÄ¼þÔÚËùÓÐÎÄ¼þÖÐµÄÅÅÐòºÅ
+            uiFileSortTemp = (UINT16)(pTemp - &gSortNameBuffer0[0]); //ï¿½ï¿½ï¿½ãµ±Ç°ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-            //¼ÆËãµ±Ç°Òª±£´æµÄÐÅÏ¢ÓëgSortNameBuffer0[0]µÄÆ«ÒÆµØÖ·¡¦ÒòÎªpChildChainHeadÁ´±íµÄÐÅÏ¢À´Ô´ÓÚgSortNameBuffer0
+            //ï¿½ï¿½ï¿½ãµ±Ç°Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½gSortNameBuffer0[0]ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·ï¿½ï¿½ï¿½ï¿½ÎªpChildChainHeadï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ô´ï¿½ï¿½gSortNameBuffer0
             if (Flag)
             {
-                FileIDBuffer[StartID*2 +uiFileIndex++] =  uiFileSortTemp & 0xFF;     //±£´æÎÄ¼þÅÅÐòºóµÄÐòºÅ
-                FileIDBuffer[StartID*2 +uiFileIndex++] = (uiFileSortTemp>>8) & 0xFF;//±£´æÎÄ¼þÅÅÐòºóµÄÐòºÅ
+                FileIDBuffer[StartID*2 +uiFileIndex++] =  uiFileSortTemp & 0xFF;     //ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+                FileIDBuffer[StartID*2 +uiFileIndex++] = (uiFileSortTemp>>8) & 0xFF;//ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
                 //printf("uiFileSortTemp = %d = %d\n", uiFileSortTemp, StartID);
             }
             else
             {
 
-                FileIDBuffer[StartID*2 +uiFileIndex++] =  FileIDBuf[uiFileSortTemp*2] & 0xFF;     //±£´æÎÄ¼þÅÅÐòºóµÄÐòºÅ
-                FileIDBuffer[StartID*2 +uiFileIndex++] =  FileIDBuf[uiFileSortTemp*2+1] & 0xFF;//±£´æÎÄ¼þÅÅÐòºóµÄÐòºÅ
+                FileIDBuffer[StartID*2 +uiFileIndex++] =  FileIDBuf[uiFileSortTemp*2] & 0xFF;     //ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+                FileIDBuffer[StartID*2 +uiFileIndex++] =  FileIDBuf[uiFileSortTemp*2+1] & 0xFF;//ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
                 //printf("Start = %d\n", StartID);
             }
@@ -789,12 +789,12 @@ UINT32 SaveSortInfo(UINT16 Deep, UINT8* SubInfoBuffer,UINT16 StartID,UINT8* File
 
             switch (Deep)
             {
-                case 1://Ò»²ãÉî¶ÈÊ±¡¦Ö»Òª×îÖÕµÄÎÄ¼þºÅË³ÐòÁ´±í¡¦²»ÐèÒªsub×Ó¡¦µÄÐÅÏ¢
+                case 1://Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ö»Òªï¿½ï¿½ï¿½Õµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªsubï¿½Ó¡ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
                     // case FILE_NAME_TYPE:
                     // case ID3_TITLE_TYPE:
                     uiFileSubCount++;
                     break;
-                    // case ID3_ARTIST_TYPE://Í¬Ò»¸öÒÕÊõ¼Ò »ò×¨¼­ÓÐ¼¸¸öÎÄ¼þ¡¦±£´æÆäµÚÒ»¸öÎÄ¼þµÄÆ«ÒÆµØÖ·¡¦²¢±£´æ¸Ã×¨¼­ÏÂµÄÎÄ¼þ¸öÊý
+                    // case ID3_ARTIST_TYPE://Í¬Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½×¨ï¿½ï¿½ï¿½Ð¼ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¨ï¿½ï¿½ï¿½Âµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
                     //  case ID3_ALBUM_TYPE :
                     // case ID3_GENRE_TYPE   :
                 case 2:
@@ -803,37 +803,37 @@ UINT32 SaveSortInfo(UINT16 Deep, UINT8* SubInfoBuffer,UINT16 StartID,UINT8* File
                     {
                         if (0 == uiFileSubCount)
                         {
-                            SubInfoBuffer[uiSubCount++] = StartfileID&0xFF; // ÆðÊ¼ÎÄ¼þºÅ
-                            SubInfoBuffer[uiSubCount++] = (StartfileID>>8)&0xFF;// ÆðÊ¼ÎÄ¼þºÅ
+                            SubInfoBuffer[uiSubCount++] = StartfileID&0xFF; // ï¿½ï¿½Ê¼ï¿½Ä¼ï¿½ï¿½ï¿½
+                            SubInfoBuffer[uiSubCount++] = (StartfileID>>8)&0xFF;// ï¿½ï¿½Ê¼ï¿½Ä¼ï¿½ï¿½ï¿½
 
-                            SubInfoBuffer[uiSubCount++] = 0;//×Ó¡¦µÄÆðÊ¼Î»ÖÃ¡¦¸üÐÂÍêÏÂÒ»¼¶Ê±²ÅÐ´ÈëÊý¾Ý
+                            SubInfoBuffer[uiSubCount++] = 0;//ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼Î»ï¿½Ã¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ê±ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                             SubInfoBuffer[uiSubCount++] = 0;
                             // printf("uiFileSubCount = %d\n", uiFileSubCount);
                             uiFileSubCount++;
                         }
-                        //PinyinStrnCmp ·µ»Ø 1 ±íÊ¾ Á½¸ö×Ö·û´Ü¡¦µÈ¡¦Í¬Ò»¸öÒÕÊõ¼Ò»òÍ¬Ò»¸ö×¨¼­
-                        else if (1==PinyinStrnCmp((uint16*)(pTemp->SortFileName), PreSortFileName/*, SORT_FILENAME_LEN*/)) //(pTemp->SortFileName)µÈÓÚ(pNodePrev->SortFileName)
+                        //PinyinStrnCmp ï¿½ï¿½ï¿½ï¿½ 1 ï¿½ï¿½Ê¾ ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½Ü¡ï¿½ï¿½È¡ï¿½Í¬Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Í¬Ò»ï¿½ï¿½×¨ï¿½ï¿½
+                        else if (1==PinyinStrnCmp((uint16*)(pTemp->SortFileName), PreSortFileName/*, SORT_FILENAME_LEN*/)) //(pTemp->SortFileName)ï¿½ï¿½ï¿½ï¿½(pNodePrev->SortFileName)
                         {
                             //printf("same name\n");
                             uiSameCount++;
                         }
-                        else // (pTemp->SortFileName)´óÓÚ(pNodePrev->SortFileName),²»»áÓÐÐ¡ÓÚµÄÇé¿ö¡¦ÒòÎªÒÑ¾­ÅÅ¹ýÐòµÄÁË
+                        else // (pTemp->SortFileName)ï¿½ï¿½ï¿½ï¿½(pNodePrev->SortFileName),ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½Úµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½Ñ¾ï¿½ï¿½Å¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                         {
                             StartfileID += (uiSameCount+1);
-                            SubInfoBuffer[uiSubCount++] = 0; // ±£Áô¿Õ¼ä, Ê¹Ã¿´Î±£´æ´óÐ¡Îª2Ö¸Êý±¶
-                            SubInfoBuffer[uiSubCount++] = 0; // ±£Áô¿Õ¼ä, Ê¹Ã¿´Î±£´æ´óÐ¡Îª2Ö¸Êý±¶
+                            SubInfoBuffer[uiSubCount++] = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½, Ê¹Ã¿ï¿½Î±ï¿½ï¿½ï¿½ï¿½Ð¡Îª2Ö¸ï¿½ï¿½ï¿½ï¿½
+                            SubInfoBuffer[uiSubCount++] = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½, Ê¹Ã¿ï¿½Î±ï¿½ï¿½ï¿½ï¿½Ð¡Îª2Ö¸ï¿½ï¿½ï¿½ï¿½
 
-                            //µ±Ç°Õâ¸öÁ÷ÅÉ ¡¦×¨¼­¡¦¸èÊÖÏÂÓÐ¶àÉÙ¸öÎÄ¼þ
-                            SubInfoBuffer[uiSubCount++] = (uiSameCount+1)&0xFF; // ¼ÇÂ¼ÉÏÒ»¸öItem°üº¬µÄÔªËØ¸öÊý
+                            //ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½×¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½Ù¸ï¿½ï¿½Ä¼ï¿½
+                            SubInfoBuffer[uiSubCount++] = (uiSameCount+1)&0xFF; // ï¿½ï¿½Â¼ï¿½ï¿½Ò»ï¿½ï¿½Itemï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ôªï¿½Ø¸ï¿½ï¿½ï¿½
                             SubInfoBuffer[uiSubCount++] = ((uiSameCount+1)>>8)& 0xFF;
 
 
-                            //¼ÇÂ¼ÏÂÒ»¸ö·ÖÀà¡¦µÄÆðÊ¼ÎÄ¼þÎ»ÖÃ
+                            //ï¿½ï¿½Â¼ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½à¡¦ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½Ä¼ï¿½Î»ï¿½ï¿½
                             SubInfoBuffer[uiSubCount++] = StartfileID&0xFF;
                             SubInfoBuffer[uiSubCount++] = (StartfileID>>8)&0xFF;
 
-                            SubInfoBuffer[uiSubCount++] = 0; // //×Ó¡¦µÄÆðÊ¼Î»ÖÃ¡¦¸üÐÂÍêÏÂÒ»¼¶Ê±²ÅÐ´ÈëÊý¾Ý
-                            SubInfoBuffer[uiSubCount++] = 0; // //×Ó¡¦µÄÆðÊ¼Î»ÖÃ¡¦¸üÐÂÍêÏÂÒ»¼¶Ê±²ÅÐ´ÈëÊý¾Ý
+                            SubInfoBuffer[uiSubCount++] = 0; // //ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼Î»ï¿½Ã¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ê±ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+                            SubInfoBuffer[uiSubCount++] = 0; // //ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼Î»ï¿½Ã¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ê±ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
                             uiFileSubCount++;
@@ -857,13 +857,13 @@ UINT32 SaveSortInfo(UINT16 Deep, UINT8* SubInfoBuffer,UINT16 StartID,UINT8* File
 
     }
 #if 1
-    //  if (uiSubCount)//// ±£´æÅÅÐòÐÅÏ¢²»×ã2KµÄ²¿·Ö
+    //  if (uiSubCount)//// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½2Kï¿½Ä²ï¿½ï¿½ï¿½
     //  {
 
-    SubInfoBuffer[uiSubCount++] = 0; // ±£Áô¿Õ¼ä, Ê¹Ã¿´Î±£´æ´óÐ¡Îª2Ö¸Êý±¶
-    SubInfoBuffer[uiSubCount++] = 0; // ±£Áô¿Õ¼ä, Ê¹Ã¿´Î±£´æ´óÐ¡Îª2Ö¸Êý±¶
+    SubInfoBuffer[uiSubCount++] = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½, Ê¹Ã¿ï¿½Î±ï¿½ï¿½ï¿½ï¿½Ð¡Îª2Ö¸ï¿½ï¿½ï¿½ï¿½
+    SubInfoBuffer[uiSubCount++] = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½, Ê¹Ã¿ï¿½Î±ï¿½ï¿½ï¿½ï¿½Ð¡Îª2Ö¸ï¿½ï¿½ï¿½ï¿½
 
-    SubInfoBuffer[uiSubCount++] = (uiSameCount+1)&0xFF; // Í³¼Æ×îºóÒ»¸öItemµÄ¸öÊý
+    SubInfoBuffer[uiSubCount++] = (uiSameCount+1)&0xFF; // Í³ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Itemï¿½Ä¸ï¿½ï¿½ï¿½
     SubInfoBuffer[uiSubCount++] = ((uiSameCount+1)>>8)&0xFF;
 
     // }
@@ -879,14 +879,14 @@ UINT32 SaveSortInfo(UINT16 Deep, UINT8* SubInfoBuffer,UINT16 StartID,UINT8* File
 --------------------------------------------------------------------------------
   Function name : void SortUpdateFun(void)
   Author        : anzhiguo
-  Description   : ¶ÔÖ¸¶¨·¶Î§ÄÚµÄÎÄ¼þ½øÐÐÅÅÐò
+  Description   : ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½Î§ï¿½Úµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-  Input         : StartNum--ÅÅÐòÎÄ¼þµÄÆðÊ¼ÎÄ¼þºÅ
-                  FileNum --ÅÅÐòµÄÎÄ¼þ¸öÊý
-                  SubInfoBuffer  --´æ·Å±¾´ÎÅÅÐòºóµÄsubÐÅÏ¢
-                  PreSubInfoBuffer -- ´æ·ÅÉÏÒ»¼¶ÅÅÐòµÄsbuÐÅÏ¢¡¦Îª±¾¼¶ÅÅÐòÌá¹©Ò»Ð©±ØÒªµÄ²ÎÊý
-                  Deep    -- ÅÐ¶Ïµ±Ç°ÅÅÐòµÄÄÚÈÝ
-  Return        : ·µ»Øµ±Ç°·¶Î§ÄÚÅÅÐòºó·Ö¡¦¸öÊý
+  Input         : StartNum--ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½Ä¼ï¿½ï¿½ï¿½
+                  FileNum --ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
+                  SubInfoBuffer  --ï¿½ï¿½Å±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½subï¿½ï¿½Ï¢
+                  PreSubInfoBuffer -- ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½sbuï¿½ï¿½Ï¢ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á¹©Ò»Ð©ï¿½ï¿½Òªï¿½Ä²ï¿½ï¿½ï¿½
+                  Deep    -- ï¿½Ð¶Ïµï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+  Return        : ï¿½ï¿½ï¿½Øµï¿½Ç°ï¿½ï¿½Î§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¡ï¿½ï¿½ï¿½ï¿½ï¿½
 
   History:     <author>         <time>         <version>
                 anzhiguo     2009/06/02         Ver1.0
@@ -898,7 +898,7 @@ UINT32 SingleTypeSortFunction(UINT16 StartNum,UINT16 FileNum,UINT16 *SubInfoBuff
 {
     UINT32  i,j,SortSubNum;
     UINT16  filenum;
-    UINT32 uiFirsCharSortVal=0; // µ±Ç°²åÈë½áµãÅÅÐòÃû×ÖµÄÊ××Ö·ûµÄÆ´ÒôÅÅÐòÖµ
+    UINT32 uiFirsCharSortVal=0; // ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
 
     FILE_INFO_INDEX_STRUCT *pHeadBk = NULL;
     FILE_INFO_INDEX_STRUCT *pTemp;
@@ -917,7 +917,7 @@ UINT32 SingleTypeSortFunction(UINT16 StartNum,UINT16 FileNum,UINT16 *SubInfoBuff
 #endif
         uiFirsCharSortVal = /*GetCmpResult*/(pTemp->SortFileName[0]);
         j = 0;
-        while (uiFirsCharSortVal>gChildChainDivValue[j]) // Í¨¹ý³¤ÎÄ¼þµÄµÚÒ»¸ö×Ö·ûÀ´ÅÐ¶ÏÐèÒªÔÚÄÄ¸ö×ÓÁ´±íÖÐÅÅÐò
+        while (uiFirsCharSortVal>gChildChainDivValue[j]) // Í¨ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½Äµï¿½Ò»ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             j++;
 
         if (pHeadBk != pChildChainHead[j])
@@ -926,12 +926,12 @@ UINT32 SingleTypeSortFunction(UINT16 StartNum,UINT16 FileNum,UINT16 *SubInfoBuff
             pChildChainLast = pChildChainHead[j];
             pChildChainLast2 = pChildChainHead[j];
         }
-        BrowserListInsertBySort(pChildChainHead[j], pTemp); // ½«gSortNameBuffer0ÖÐµÄÎÄ¼þÐÅÏ¢Öð¸ö²åÈëÁ´±ípChildChainHeadÖÐ
+        BrowserListInsertBySort(pChildChainHead[j], pTemp); // ï¿½ï¿½gSortNameBuffer0ï¿½Ðµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½pChildChainHeadï¿½ï¿½
         pTemp++;
     }
 
-    //SortSubNum ´ø»ØÅÅÐòºóµÄ·ÖÀàsubÊýÄ¿
-    SortSubNum = SaveSortInfo(Deep, (UINT8*)SubInfoBuffer, StartNum, FileIDBuffer1, Flag); //±£´æÎÄ¼þµÄÅÅÐòºÅ¡¦ÒÔ¼°·ÖÀàÐÅÏ¢¡¦²¢·µ»Ø¸ÃÀàÎÄ¼þµÄÊýÁ¿
+    //SortSubNum ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä·ï¿½ï¿½ï¿½subï¿½ï¿½Ä¿
+    SortSubNum = SaveSortInfo(Deep, (UINT8*)SubInfoBuffer, StartNum, FileIDBuffer1, Flag); //ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¡ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
     return SortSubNum;
 }
@@ -940,22 +940,22 @@ UINT32 SingleTypeSortFunction(UINT16 StartNum,UINT16 FileNum,UINT16 *SubInfoBuff
 --------------------------------------------------------------------------------
   Function name : void GetSortName(UINT32 SectorOffset)
   Author        : anzhiguo
-  Description   : ÎÄ¼þÅÅÐò¹¦ÄÜº¯Êý
+  Description   : ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Üºï¿½ï¿½ï¿½
 
-  Input         : uiSaveAddrOffset¡¦´ýÅÅÐò×Ö·û(ÎÄ¼þÃû¡¦id3title¡¦id3singer¡¦id3ablum)ÔÚÎÄ¼þÐÅÏ¢ÖÐµÄÆ«ÒÆµØÖ·
-                  FileNum---ÅÅÐòµÄÎÄ¼þ×ÜÊý
-                  Deep  --- ÅÅÐòµÄÉî¶È(Ä¿Â¼²ã´Î)
-                 // uiSortType ---ÅÅÐòµÄÀàÐÍ
-                  SortSubNum ---ÅÅÐòºóÉú³ÉµÄ×Ó¡¦¸öÊý
-                  buffer1   --- ÅÅÐòÐÅÏ¢´æ·Åbuff
-                  buffer2   --- ÅÅÐòÖÐÓÃµ½ÉÏ¼¶ÅÅÐòµÄÐÅÏ¢buf
-                  Flag  --- ¶ÁÈ¡ÎÄ¼þÐÅÏ¢µÄ·½Ê½
-                  SubNum --- ÓÃÓÚ·Ö¼¶ÅÅÐòÊ±¡¦È·¶¨Íâ²ãÑ­»·´ÎÊý
+  Input         : uiSaveAddrOffsetï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½(ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½id3titleï¿½ï¿½id3singerï¿½ï¿½id3ablum)ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½Ðµï¿½Æ«ï¿½Æµï¿½Ö·
+                  FileNum---ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
+                  Deep  --- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(Ä¿Â¼ï¿½ï¿½ï¿½)
+                 // uiSortType ---ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+                  SortSubNum ---ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Éµï¿½ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½ï¿½
+                  buffer1   --- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½buff
+                  buffer2   --- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½ï¿½Ï¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢buf
+                  Flag  --- ï¿½ï¿½È¡ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½Ä·ï¿½Ê½
+                  SubNum --- ï¿½ï¿½ï¿½Ú·Ö¼ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   Return        :
 
   History:     <author>         <time>         <version>
                 anzhiguo     2009/06/02         Ver1.0
-  desc:         ½«gSortNameBuffer0ºÍgSortNameBuffer1 ÖÐµÄÐÅÏ¢½øÐÐ·ÖÀàÅÅÁÐ¡¦¼´·ÖÅÉµ½¶ÔÓ¦×ÓÁ´±ípChildChainHeadµÄÊÊµ±µÄÎ»×ÓÉÏ
+  desc:         ï¿½ï¿½gSortNameBuffer0ï¿½ï¿½gSortNameBuffer1 ï¿½Ðµï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ð·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Éµï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½pChildChainHeadï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½
 --------------------------------------------------------------------------------
 */
 _FILE_INFO_SORT_CODE_
@@ -964,7 +964,7 @@ void SortFunction(UINT32* uiSaveAddrOffset,UINT16 * FileNum,UINT16 Deep,UINT32 *
     UINT32  i,j;
 
     UINT16* subbuf1,subbuf2;
-    UINT32 uiFirsCharSortVal=0; // µ±Ç°²åÈë½áµãÅÅÐòÃû×ÖµÄÊ××Ö·ûµÄÆ´ÒôÅÅÐòÖµ
+    UINT32 uiFirsCharSortVal=0; // ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
     UINT16  filenum = 0;
     SORTINFO_STRUCT * pSortInfo1;
     SORTINFO_STRUCT * pSortInfo2;
@@ -986,17 +986,17 @@ void SortFunction(UINT32* uiSaveAddrOffset,UINT16 * FileNum,UINT16 Deep,UINT32 *
         }
         else
         {
-            GetSortName(uiSaveAddrOffset[Deep-1], *FileNum, Flag);     // ¸ù¾Ýµ±Ç°µÄÅÅÐòÉî¶È¡¦»ñÈ¡ÐèÒªµÄÅÅÐòÐÅÏ¢(ËùÓÐÎÄ¼þ)µ½gSortNameBuffer0ÖÐ
+            GetSortName(uiSaveAddrOffset[Deep-1], *FileNum, Flag);     // ï¿½ï¿½ï¿½Ýµï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½È¡ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢(ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½)ï¿½ï¿½gSortNameBuffer0ï¿½ï¿½
         }
     }
 
     if (Flag)
     {
-        ChildChainInit(1);  // ¶Ô¸÷×ÓÁ´±íµÄÍ·½Úµã½øÐÐ³õÊ¼»¯¡¦²¢¸ø¶¨ÒåÃ¿¸öÁ´±íµÄ·Ö¶Î¹Ø¼ü×Ö
+        ChildChainInit(1);  // ï¿½Ô¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·ï¿½Úµï¿½ï¿½ï¿½Ð³ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä·Ö¶Î¹Ø¼ï¿½ï¿½ï¿½
 
-        //SortSubNum»ñÈ¡×îÍâÒ»²ãÅÅÐòºóµÄ·ÖÀà×Ó¡¦¸öÊý
-        //´ÓgSortNameBuffer0µÄµÚ0¸öÎ»ÖÃµÄÎÄ¼þ¿ªÊ¼¡¦ÅÅÐòFileNum¸öÎÄ¼þ¡¦ÅÅÐòºóµÄ·ÖÀàÐÅÏ¢ÒÔ½á¹¹´æ·ÅÔÚbuffer1ÖÐ
-        //buffer2 ´æ·ÅÉÏÒ»¼¶ÅÅÐòµÄÐÅÏ¢¡¦ÔÚÄÚ²ãÅÅÐòÊ±¡¦Ìá¹©Ò»Ð©²ÎÊý
+        //SortSubNumï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä·ï¿½ï¿½ï¿½ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½ï¿½
+        //ï¿½ï¿½gSortNameBuffer0ï¿½Äµï¿½0ï¿½ï¿½Î»ï¿½Ãµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½FileNumï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä·ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½Ô½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½buffer1ï¿½ï¿½
+        //buffer2 ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½á¹©Ò»Ð©ï¿½ï¿½ï¿½ï¿½
         filenum = SingleTypeSortFunction(0,*FileNum,buffer1,Deep,Flag);
         *SortSubNum  = filenum;
     }
@@ -1010,18 +1010,18 @@ void SortFunction(UINT32* uiSaveAddrOffset,UINT16 * FileNum,UINT16 Deep,UINT32 *
         pSortInfo2 = (SORTINFO_STRUCT *)buffer1 ;
 
         for (i=0; i < SubNum; i++)
-        {   //»ñÈ¡·ÖÀà×Ó¡¦¸öÊý
+        {   //ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½ï¿½
             ChildChainInit(0);
             IDnum = SingleTypeSortFunction(pSortInfo1->BaseID,pSortInfo1->FileNum,(UINT16*)pSortInfo2,Deep,Flag);
-            //Æ«ÒÆ´æ·ÅÅÅÐòºósubµÄÍ·Ö¸Õë¡¦ÎªÏÂ´ÎÅÅÐò×¼±¸,ÕâÀïÊÇ·ñÐèÒª¼Ó±£»¤´ëÊ©?????
+            //Æ«ï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½subï¿½ï¿½Í·Ö¸ï¿½ë¡¦Îªï¿½Â´ï¿½ï¿½ï¿½ï¿½ï¿½×¼ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Òªï¿½Ó±ï¿½ï¿½ï¿½ï¿½ï¿½Ê©?????
 
             pSortInfo2 += IDnum;
 
             //numtemp = pSortInfo1->ItemNum;
-            //±£´æ·ÖÀà×Ó¡¦¸öÊý
+            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½ï¿½
             basenum += IDnum ;
             pSortInfo1->ItemNum = IDnum;
-            //½á¹¹Ö¸Õë×Ô¼Ó¡¦Ö¸¡¦Ò»¸ösub¿éµÄÐÅÏ¢½á¹¹¡¦²¢±£´æÆäÆðÊ¼id
+            //ï¿½á¹¹Ö¸ï¿½ï¿½ï¿½Ô¼Ó¡ï¿½Ö¸ï¿½ï¿½Ò»ï¿½ï¿½subï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼id
             if (i < (SORT_FILENUM_DEFINE - 1))
             {
                 pSortInfo1 ++;
@@ -1031,7 +1031,7 @@ void SortFunction(UINT32* uiSaveAddrOffset,UINT16 * FileNum,UINT16 Deep,UINT32 *
             filenum +=IDnum;
 
         }
-        //ÔÚÕâÀï¡¦ÉÏ²ãÅÅÐòÍê³É¡¦ÐèÒªÐ´buffer2µ½flashÖÐÒÔ±£´æÐÅÏ¢
+        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¡¦ï¿½Ï²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¡ï¿½ï¿½ï¿½ÒªÐ´buffer2ï¿½ï¿½flashï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
 
         ModuleOverlay(MODULE_ID_FLASH_PROG, MODULE_OVERLAY_ALL);
 
@@ -1046,7 +1046,7 @@ void SortFunction(UINT32* uiSaveAddrOffset,UINT16 * FileNum,UINT16 Deep,UINT32 *
 
     if (Deep == 0)
     {
-        //½«fileidbuffer Ð´flash¡¦ÒÔ¼°ÅÅÐòsubÐÅÏ¢buffer
+        //ï¿½ï¿½fileidbuffer Ð´flashï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½subï¿½ï¿½Ï¢buffer
         ModuleOverlay(MODULE_ID_FLASH_PROG, MODULE_OVERLAY_ALL);
 
         if (DirSort == 0)
@@ -1083,7 +1083,7 @@ void SortFunction(UINT32* uiSaveAddrOffset,UINT16 * FileNum,UINT16 Deep,UINT32 *
 --------------------------------------------------------------------------------
   Function name : void SortUpdateFun(void)
   Author        : anzhiguo
-  Description   : ¶ÔÎÄ¼þÃûÐÅÏ¢½øÐÐÅÅÐò¡¦²¢ÔÚÖ¸¶¨FlashÖÐ´æ´¢ÅÅÐòÐÅÏ¢
+  Description   : ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ò¡¦²ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½Flashï¿½Ð´æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
 
   Input         :
 
@@ -1097,10 +1097,10 @@ void SortFunction(UINT32* uiSaveAddrOffset,UINT16 * FileNum,UINT16 Deep,UINT32 *
 _FILE_INFO_SORT_CODE_
 void SortUpdateFun(MEDIALIB_CONFIG * Sysfilenum ,UINT32 MediaInfoAddress)
 {
-    UINT16   PathDeep;//Ã½Ìå¿âÅÅÐòÉîµÄ(Ä¿Â¼²ãÊý)
+    UINT16   PathDeep;//Ã½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(Ä¿Â¼ï¿½ï¿½ï¿½ï¿½)
     UINT16   *buffer1;
     UINT16   *buffer2;
-    UINT32   uiSortTypeCount = 0;            // ÅÅÐòÀàÐÍÑ¡Ôñ
+    UINT32   uiSortTypeCount = 0;            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½
 
     UINT32   uiCountTemp[SORT_TYPE_ITEM_NUM];
     UINT16   FileNum;
@@ -1117,13 +1117,13 @@ void SortUpdateFun(MEDIALIB_CONFIG * Sysfilenum ,UINT32 MediaInfoAddress)
 #ifdef _WATCH_DOG_
             WatchDogReload();
 #endif
-            switch (uiSortTypeCount)//ÉèÖÃ¡¦Ó¦µÄµØÖ·ÐÅÏ¢
+            switch (uiSortTypeCount)//ï¿½ï¿½ï¿½Ã¡ï¿½Ó¦ï¿½Äµï¿½Ö·ï¿½ï¿½Ï¢
             {
                     /*
                     case FILE_NAME_TYPE:
-                        //ÅÅÐò½áÊøºó¡¦ÅÅÐò½á¹û±£´æµ½flashÖÐµÄµØÖ·
+                        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æµ½flashï¿½ÐµÄµï¿½Ö·
                         MediaInfoSaveAdd[0] = MediaInfoAddress + FILENAME_SORT_INFO_SECTOR_START;
-                        //ÅÅÐò¿ªÊ¼Ç°¡¦ÐèÒª´Ó¸ÃµØÖ·´¦¶ÁÈ¡ÐèÒªµÄÅÅÐòÐÅÏ¢
+                        //ï¿½ï¿½ï¿½ï¿½Ê¼Ç°ï¿½ï¿½ï¿½ï¿½Òªï¿½Ó¸Ãµï¿½Ö·ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
                         MediaInfoReadAdd[0] = FILE_NAME_SAVE_ADDR_OFFSET;
 
                         PathDeep = 1;
@@ -1142,7 +1142,7 @@ void SortUpdateFun(MEDIALIB_CONFIG * Sysfilenum ,UINT32 MediaInfoAddress)
 
 
                 case ID3_TITLE_TYPE:
-                    MediaInfoReadAdd[0] = ID3_TITLE_SAVE_ADDR_OFFSET;//±£´æµÄÎÄ¼þÐÅÏ¢µÄÆ«ÒÆµØÖ·(¡¦¶ÔÓÚ±£´æÎÄ¼þÐÅÏ¢ÆðÊ¼µØÖ·)
+                    MediaInfoReadAdd[0] = ID3_TITLE_SAVE_ADDR_OFFSET;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·(ï¿½ï¿½ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ê¼ï¿½ï¿½Ö·)
                     MediaInfoSaveAdd[0] = MediaInfoAddress + ID3TITLE_SORT_INFO_SECTOR_START;
 
                     PathDeep = 1;
@@ -1181,19 +1181,19 @@ void SortUpdateFun(MEDIALIB_CONFIG * Sysfilenum ,UINT32 MediaInfoAddress)
                     break;
 
             }
-            //¿ªÊ¼Ò»Àà(Á÷ÅÉ¡¦×¨¼­¡¦¸èÊÖ¡¦ÎÄ¼þÃû)ÐÅÏ¢µÄÅÅÐò
+            //ï¿½ï¿½Ê¼Ò»ï¿½ï¿½(ï¿½ï¿½ï¿½É¡ï¿½×¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¡ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½)ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             memset(FileIDBuffer,0,sizeof(FileIDBuffer));           // 4 * SORT_FILE_NAME_BUF_SIZE
             memset(GerneAblumBuffer,0,sizeof(GerneAblumBuffer));   // 8*SORT_FILE_NAME_BUF_SIZE
             memset(SingerBuffer,0,sizeof(SingerBuffer));           // 16*SORT_FILE_NAME_BUF_SIZE
 
-            SortFunction(MediaInfoReadAdd,(uint16 *)&(Sysfilenum->gMusicFileNum),PathDeep,&uiCountTemp[uiSortTypeCount],1,buffer1,buffer2,0, 0, 0);//»ñÈ¡¶ÔÓ¦µÄÎÄ¼þÐÅÏ¢¡¦²¢ÅÅÐò¡¦Ò»´ÎÖ»ÄÜÊÇÒ»ÖÖÐÅÏ¢
+            SortFunction(MediaInfoReadAdd,(uint16 *)&(Sysfilenum->gMusicFileNum),PathDeep,&uiCountTemp[uiSortTypeCount],1,buffer1,buffer2,0, 0, 0);//ï¿½ï¿½È¡ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ï¢
 
         }
 
-        Sysfilenum->gID3TitleFileNum =  uiCountTemp[0]; // µÃµ½¾ßÓÐID3 TitleÐÅÏ¢µÄÎÄ¼þ¸öÊý   uiCountTemp[0] ÊÇËùÓÐµÄÒôÀÖÎÄ¼þ¸öÊý
-        Sysfilenum->gID3AlbumFileNum =  uiCountTemp[1]; // µÃµ½¾ßÓÐID3 AlbumÐÅÏ¢µÄÎÄ¼þ¸öÊý
-        Sysfilenum->gID3ArtistFileNum = uiCountTemp[2]; // µÃµ½¾ßÓÐID3 ArtistÐÅÏ¢µÄÎÄ¼þ¸öÊý
-        Sysfilenum->gID3GenreFileNum =  uiCountTemp[3]; // µÃµ½¾ßÓÐID3 GenreÐÅÏ¢µÄÎÄ¼þ¸öÊý
+        Sysfilenum->gID3TitleFileNum =  uiCountTemp[0]; // ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ID3 Titleï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½   uiCountTemp[0] ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
+        Sysfilenum->gID3AlbumFileNum =  uiCountTemp[1]; // ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ID3 Albumï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
+        Sysfilenum->gID3ArtistFileNum = uiCountTemp[2]; // ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ID3 Artistï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
+        Sysfilenum->gID3GenreFileNum =  uiCountTemp[3]; // ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ID3 Genreï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
     }
 
     if (Sysfilenum->gTotalFileNum != 0)

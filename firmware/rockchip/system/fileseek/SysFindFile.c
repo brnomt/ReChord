@@ -4,7 +4,8 @@
 #define  IN_SYS_FINDFILE
 
 #include "SysInclude.h"
-#include "FsInclude.h"
+#include "freq_enums.h"   /* FREQ_* enum incl. FREQ_MAX */
+#include "fsinclude.h"
 #include "SysFindFile.h"
 #include "AudioControl.h"
 #include "myRandom.h"
@@ -157,8 +158,8 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
         return (RETURN_OK);
     }
 
-    //¸ù¾Ý²¥·ÅË³ÐòºÍ²¥·ÅÄ£Ê½(Ä¿Â¼»¹ÊÇÈ«²¿)µ÷Õûµ±Ç°²¥·ÅÎÄ¼þµÄÎÄ¼þºÅ
-    if(pSysFileInfo->PlayOrder == AUDIO_RAND) //Ëæ»ú²¥·Å   azg 8.18
+    //ï¿½ï¿½ï¿½Ý²ï¿½ï¿½ï¿½Ë³ï¿½ï¿½Í²ï¿½ï¿½ï¿½Ä£Ê½(Ä¿Â¼ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½)ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½
+    if(pSysFileInfo->PlayOrder == AUDIO_RAND) //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½   azg 8.18
     {
 //        if(GetMsg(MSG_MEDIA_BREAKPOINT_PLAY)==FALSE)
         {
@@ -275,9 +276,9 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
         }
         pSysFileInfo->PlayedFileNum = pSysFileInfo->CurrentFileNum;
     }
-    else //Ë³Ðò²¥·Å
+    else //Ë³ï¿½ò²¥·ï¿½
     {
-        if(Offset > 0) //ÏÂÒ»Çú
+        if(Offset > 0) //ï¿½ï¿½Ò»ï¿½ï¿½
         {
             pSysFileInfo->CurrentFileNum ++ ;
 
@@ -285,11 +286,11 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
             {
                 pSysFileInfo->CurrentFileNum = 1;
 
-                if(pSysFileInfo->ucSelPlayType == SORT_TYPE_SEL_BROWSER)//×ÊÔ´¹ÜÀíÆ÷·½Ê½ÏÂ¡¦ÐèÒª°ÑÎÄ¼þÂ·¾¶Ö¸»ØµÚÒ»¸öÎÄ¼þµÄÂ·¾¶
+                if(pSysFileInfo->ucSelPlayType == SORT_TYPE_SEL_BROWSER)//ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ï¿½Â¡ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½Ä¼ï¿½Â·ï¿½ï¿½Ö¸ï¿½Øµï¿½Ò»ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Â·ï¿½ï¿½
                 {
-                    if(pSysFileInfo->Range == FIND_FILE_RANGE_DIR)//Ä¿Â¼ÄÚÑ­»·  //ÎÄ¼þ²éÕÒ·¶Î§ÊÇÒ»¸öÎÄ¼þ¼Ð
+                    if(pSysFileInfo->Range == FIND_FILE_RANGE_DIR)//Ä¿Â¼ï¿½ï¿½Ñ­ï¿½ï¿½  //ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Ò·ï¿½Î§ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½
                     {
-                        //²¥Íê×îºóÒ»Çú¡¦·µ»Ø´ÓÍ·¿ªÊ¼ÕÒÄ¿Â¼ÖÐµÄµÚÒ»Ê×¸è
+                        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø´ï¿½Í·ï¿½ï¿½Ê¼ï¿½ï¿½Ä¿Â¼ï¿½ÐµÄµï¿½Ò»ï¿½×¸ï¿½
                         FindFileResult = FindFirstFile(&pSysFileInfo->Fdt, &pSysFileInfo->FindData, pSysFileInfo->pExtStr, FS_FAT);
                         uiNeedFindNext = 0;
                     }
@@ -303,9 +304,9 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
                 }
                 else if(pSysFileInfo->ucSelPlayType == SORT_TYPE_SEL_FOLDER)
                 {
-                    if(pSysFileInfo->Range == FIND_FILE_RANGE_DIR)//Ä¿Â¼ÄÚÑ­»·  //ÎÄ¼þ²éÕÒ·¶Î§ÊÇÒ»¸öÎÄ¼þ¼Ð
+                    if(pSysFileInfo->Range == FIND_FILE_RANGE_DIR)//Ä¿Â¼ï¿½ï¿½Ñ­ï¿½ï¿½  //ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Ò·ï¿½Î§ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½
                     {
-                        //²¥Íê×îºóÒ»Çú¡¦·µ»Ø´ÓÍ·¿ªÊ¼ÕÒÄ¿Â¼ÖÐµÄµÚÒ»Ê×¸è
+                        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø´ï¿½Í·ï¿½ï¿½Ê¼ï¿½ï¿½Ä¿Â¼ï¿½ÐµÄµï¿½Ò»ï¿½×¸ï¿½
                         FindFileResult = FindFirstFile(&pSysFileInfo->Fdt, &pSysFileInfo->FindData, pSysFileInfo->pExtStr, MUSIC_DB);
                         uiNeedFindNext = 0;
                     }
@@ -318,7 +319,7 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
                     }
                 }
                 #ifdef _RECORD_
-                else if(pSysFileInfo->ucSelPlayType == MUSIC_TYPE_SEL_RECORDFILE)//Ã½Ìå¿âÖÐµÄÂ¼ÒôÒ²ÐèÒªÖ¸»ØµÚÒ»¸öÎÄ¼þ
+                else if(pSysFileInfo->ucSelPlayType == MUSIC_TYPE_SEL_RECORDFILE)//Ã½ï¿½ï¿½ï¿½ï¿½Ðµï¿½Â¼ï¿½ï¿½Ò²ï¿½ï¿½ÒªÖ¸ï¿½Øµï¿½Ò»ï¿½ï¿½ï¿½Ä¼ï¿½
                 {
                     FindFileResult = FindFirstFile(&pSysFileInfo->Fdt, &pSysFileInfo->FindData, pSysFileInfo->pExtStr, RECORD_DB);
                     uiNeedFindNext = 0;
@@ -334,7 +335,7 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
             }
 
         }
-        else if (Offset < 0) //ÉÏÒ»Çú
+        else if (Offset < 0) //ï¿½ï¿½Ò»ï¿½ï¿½
         {
 
             pSysFileInfo->CurrentFileNum -- ;
@@ -351,7 +352,7 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
     pSysFileInfo->uiCurId[pSysFileInfo->ucCurDeep]= pSysFileInfo->CurrentFileNum - 1;//7.3 azg add
     #endif
 
-    //¸ù¾ÝÎÄ¼þºÅ¿ªÊ¼ÕÒÎÄ¼þ¡¦»ñÈ¡Â·¾¶ºÍ¶ÌÎÄ¼þÃûÐÅÏ¢¡¦ÎªÏÂÃæµÄ´ò¿ªÎÄ¼þ×ö×¼±¸
+    //ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½Å¿ï¿½Ê¼ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½È¡Â·ï¿½ï¿½ï¿½Í¶ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½×¼ï¿½ï¿½
     if(pSysFileInfo->ucSelPlayType == SORT_TYPE_SEL_BROWSER)
     {
         if((Offset < 0) || (pSysFileInfo->PlayOrder == AUDIO_RAND))
@@ -359,7 +360,7 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
 
             tempFileNum = pSysFileInfo->CurrentFileNum;
 
-            if (pSysFileInfo->Range != FIND_FILE_RANGE_DIR)//Ä¿Â¼ÄÚÑ­»·
+            if (pSysFileInfo->Range != FIND_FILE_RANGE_DIR)//Ä¿Â¼ï¿½ï¿½Ñ­ï¿½ï¿½
             {
                 tempFileNum = GetCurFileNum(pSysFileInfo->CurrentFileNum, &pSysFileInfo->FindData, pSysFileInfo->pExtStr, FS_FAT);
             }
@@ -376,7 +377,7 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
         {
             FindFileResult = FindNextFile(&pSysFileInfo->Fdt, &pSysFileInfo->FindData, pSysFileInfo->pExtStr, FS_FAT);
 
-            if (FindFileResult == NOT_FIND_FILE) /* Ã»ÓÐ·¢¡¦Ö¸¶¨ÎÄ¼þ*/
+            if (FindFileResult == NOT_FIND_FILE) /* Ã»ï¿½Ð·ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Ä¼ï¿½*/
             {
                 tempFileNum = GetCurFileNum(pSysFileInfo->CurrentFileNum, &pSysFileInfo->FindData, pSysFileInfo->pExtStr, FS_FAT);
                 FindFileResult = FindFirstFile(&pSysFileInfo->Fdt, &pSysFileInfo->FindData, pSysFileInfo->pExtStr, FS_FAT);
@@ -390,7 +391,7 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
 
             tempFileNum = pSysFileInfo->CurrentFileNum;
 
-            if (pSysFileInfo->Range != FIND_FILE_RANGE_DIR)//Ä¿Â¼ÄÚÑ­»·
+            if (pSysFileInfo->Range != FIND_FILE_RANGE_DIR)//Ä¿Â¼ï¿½ï¿½Ñ­ï¿½ï¿½
             {
                 tempFileNum = GetCurFileNum(pSysFileInfo->CurrentFileNum, &pSysFileInfo->FindData, pSysFileInfo->pExtStr, MUSIC_DB);
             }
@@ -407,7 +408,7 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
         {
             FindFileResult = FindNextFile(&pSysFileInfo->Fdt, &pSysFileInfo->FindData, pSysFileInfo->pExtStr, MUSIC_DB);
 
-            if (FindFileResult == NOT_FIND_FILE) /* Ã»ÓÐ·¢¡¦Ö¸¶¨ÎÄ¼þ*/
+            if (FindFileResult == NOT_FIND_FILE) /* Ã»ï¿½Ð·ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Ä¼ï¿½*/
             {
                 tempFileNum = GetCurFileNum(pSysFileInfo->CurrentFileNum, &pSysFileInfo->FindData, pSysFileInfo->pExtStr, MUSIC_DB);
                 FindFileResult = FindFirstFile(&pSysFileInfo->Fdt, &pSysFileInfo->FindData, pSysFileInfo->pExtStr, MUSIC_DB);
@@ -416,7 +417,7 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
     }
 
     #ifdef _RECORD_
-    // ----½â¾öÂ¼ÒôÎÄ¼þ¼ÐÄÚÎÄ¼þ¡¦²¥·ÅÇ°Ò»Ê×¸èµÄÎÊÌâ
+    // ----ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°Ò»ï¿½×¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     else if(pSysFileInfo->ucSelPlayType == MUSIC_TYPE_SEL_RECORDFILE)
     {
         #if 0
@@ -509,7 +510,7 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
 
                     MDReadData(DataDiskID, (pSysFileInfo->ulSortInfoSectorAddr << 9) + (UINT32) ((pSysFileInfo->CurrentFileNum + pSysFileInfo->uiBaseSortId[pSysFileInfo->ucCurDeep] - 1) * 2), 2, ucBufTemp);
 
-                    temp1 = (ucBufTemp[0]&0xff)+((ucBufTemp[1]&0xff)<<8); // »ñÈ¡ÎÄ¼þºÅ (ÔÚ¡¦Ï¸ÎÄ¼þÐÅÏ¢±íÖÐµÄÎ»ÖÃ)
+                    temp1 = (ucBufTemp[0]&0xff)+((ucBufTemp[1]&0xff)<<8); // ï¿½ï¿½È¡ï¿½Ä¼ï¿½ï¿½ï¿½ (ï¿½Ú¡ï¿½Ï¸ï¿½Ä¼ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ðµï¿½Î»ï¿½ï¿½)
                     MDReadData(DataDiskID, (pSysFileInfo->ulFullInfoSectorAddr<<9)+(UINT32)(temp1)*BYTE_NUM_SAVE_PER_FILE + (UINT32)DIR_CLUS_SAVE_ADDR_OFFSET, 8, (uint8 *)&(pSysFileInfo->FindData));
 
 #ifdef _RK_CUE_
@@ -529,10 +530,10 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
                     FindFileResult = RETURN_OK;
 
                     if(FindFileResult==RETURN_OK)
-                        break; // ÕÒµ½¿É²¥·Å¸èÇú
+                        break; // ï¿½Òµï¿½ï¿½É²ï¿½ï¿½Å¸ï¿½ï¿½ï¿½
 
                     if(i==pSysFileInfo->TotalFiles)
-                        break; // µ±Ñ­»·ËùÓÐ¸èÇú·¢¡¦Ã»ÓÐ¿É²¥·ÅÒôÀÖÊ±ÍË³ö¸Ã³ÌÐò
+                        break; // ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½Ð¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ð¿É²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ë³ï¿½ï¿½Ã³ï¿½ï¿½ï¿½
 
                    i++;
                 }while(1);
@@ -540,7 +541,7 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
                 break;
 
             case MUSIC_TYPE_SEL_MYFAVORITE:
-                pSysFileInfo->TotalFiles = gSysConfig.MedialibPara.gMyFavoriteFileNum; // ·ÀÖ¹ÔÚ²¥·ÅÒôÀÖÊ±É¾³ýÁËÊÕ²Ø¼Ð¸èÇú
+                pSysFileInfo->TotalFiles = gSysConfig.MedialibPara.gMyFavoriteFileNum; // ï¿½ï¿½Ö¹ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±É¾ï¿½ï¿½ï¿½ï¿½ï¿½Õ²Ø¼Ð¸ï¿½ï¿½ï¿½
 
                 if(pSysFileInfo->TotalFiles ==0)
                 {
@@ -552,9 +553,9 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
                 {
                    FindFileResult = GetFavoInfo(&pSysFileInfo->FindData, (pSysFileInfo->CurrentFileNum + pSysFileInfo->uiBaseSortId[pSysFileInfo->ucCurDeep] - 1), MusicLongFileName);
 
-                   if(FindFileResult==RETURN_OK) break; // ÕÒµ½¿É²¥·Å¸èÇú
+                   if(FindFileResult==RETURN_OK) break; // ï¿½Òµï¿½ï¿½É²ï¿½ï¿½Å¸ï¿½ï¿½ï¿½
 
-                   if(pSysFileInfo->TotalFiles == i)  break; // ²¥·ÅÊÕ²Ø¼ÐÒôÀÖÊ±¿ÉÄÜÇå¿ÕÁËÊÕ²Ø¼Ð
+                   if(pSysFileInfo->TotalFiles == i)  break; // ï¿½ï¿½ï¿½ï¿½ï¿½Õ²Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ²Ø¼ï¿½
                    i++;
                 }while(1);
                 break;
@@ -573,7 +574,7 @@ INT16 SysFindFileExt(SYS_FILE_INFO *pSysFileInfo,INT16 Offset)
 --------------------------------------------------------------------------------
   Function name : INT16 SysFindFile(SYS_FILE_INFO *pSysFileInfo,    INT16 Offset)
   Author        :  zs
-  Description   :  ²éÕÒÎÄ¼þ
+  Description   :  ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½
   Description   :  search file.
   Input         :  SYS_FILE_INFO *pSysFileInfo:structure to find file.
                    Offset == 0   find current file.
@@ -625,8 +626,8 @@ INT16 SysFindFile(SYS_FILE_INFO *pSysFileInfo,    INT16 Offset)
 *  Author:          ZHengYongzhi
 *  Description:     get file full path
 *
-*  Input:   pPath           ¡ª¡ª store the start address of file path.
-*  Output:  pPath           ¡ª¡ª file path
+*  Input:   pPath           ï¿½ï¿½ï¿½ï¿½ store the start address of file path.
+*  Output:  pPath           ï¿½ï¿½ï¿½ï¿½ file path
 *  Return:
 *  Calls:
 *

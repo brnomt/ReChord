@@ -5,7 +5,7 @@
 *                                    V1.00
 * FileName   : SortInfoGet.c
 * Author     :
-* Description: ц╫лЕ©Бuiй╠╣Всц
+* Description: ц╫О©╫О©╫О©╫uiй╠О©╫О©╫О©╫О©╫
 * History    :
 *           <author>        <time>     <version>       <desc>
 *            azg            06/08/09       1.0            ORG
@@ -16,7 +16,7 @@
 
 #include "SysInclude.h"
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 
 #include "AddrSaveMacro.h"
 #include "FileInfo.h"
@@ -33,13 +33,13 @@ _ATTR_MEDIABROWIN_BSS_ SORTINFO_STRUCT Subinfo;
   Function name : void GetSavedMusicPath(UINT8 *pPathBuffer, UINT32 ulFullInfoSectorAddr, UINT32 ulSortSectorAddr, UINT16 uiSortId)
 
   Author        : anzhiguo
-  Description   : ╩Ях║б╥╬╤пео╒ё╛ё╛нд╪Ч╨её╛рт╪╟Ё╓нд╪ЧцШ
+  Description   : О©╫О©╫х║б╥О©╫О©╫О©╫О©╫о╒О©╫О©╫О©╫О©╫О©╫д╪О©╫О©╫еёО©╫О©╫т╪О©╫О©╫О©╫О©╫д╪О©╫О©╫О©╫
 
-  Input         : pPathBuffer -- ╩Ях║╣дб╥╬╤пео╒╢Ф╥еbuf
-                  ulFullInfoSectorAddr --- flashжп╢Ф╥еоЙо╦нд╪Чпео╒╣дфПй╪╣ьж╥
-                  ulSortSectorAddr --- flashжп╢Ф╥е╥жюЮеепРпео╒╣дфПй╪╣ьж╥
-                  uiSortId -- пХр╙╩Ях║╣днд╪Чтз╥жюЮпео╒жп╣деепР╨е
-                  Filenum -- ╣╠г╟р╙╩Ях║╣днд╪ЧтзкЫспнд╪Чжп╣дпР╨е(╢с 1 ©╙й╪)ё╛сцсзтзйу╡ь╪пжплМ╪снд╪Чйгеп╤ойг╥Яжь╦╢лМ╪с
+  Input         : pPathBuffer -- О©╫О©╫х║О©╫О©╫б╥О©╫О©╫О©╫О©╫о╒О©╫О©╫О©╫buf
+                  ulFullInfoSectorAddr --- flashО©╫п╢О©╫О©╫О©╫О©╫о╦О©╫д╪О©╫О©╫О©╫о╒О©╫О©╫О©╫О©╫й╪О©╫О©╫ж╥
+                  ulSortSectorAddr --- flashО©╫п╢О©╫е╥О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫о╒О©╫О©╫О©╫О©╫й╪О©╫О©╫ж╥
+                  uiSortId -- О©╫О©╫р╙О©╫О©╫х║О©╫О©╫О©╫д╪О©╫О©╫з╥О©╫О©╫О©╫О©╫О©╫о╒О©╫п╣О©╫О©╫О©╫О©╫О©╫О©╫
+                  Filenum -- О©╫О©╫г╟р╙О©╫О©╫х║О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫О©╫п╣О©╫О©╫О©╫О©╫(О©╫О©╫ 1 О©╫О©╫й╪)О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫у╡ь╪О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫п╤О©╫О©╫г╥О©╫О©╫ь╦О©╫О©╫О©╫О©╫О©╫
   Return        :
 
   History:     <author>         <time>         <version>
@@ -76,14 +76,14 @@ void GetSavedMusicDir(FIND_DATA * pFindData, UINT32 ulFullInfoSectorAddr, UINT32
   Function name :
   void GetSavedMusicFileName(unsigned char *pFileName, SORT_INFO_ADDR_STRUCT AddrInfo, unsigned int uiSortId, unsigned int uiCharNum, unsigned int uiCurDeep)
   Author        : anzhiguo
-  Description   : ╩Ях║ц╫лЕ©Ботй╬лУд©╣дпео╒(аВеицШё╛╦ХйжцШё╛в╗╪╜цШё╛Ё╓нд╪ЧцШё╛ID3Tilte)
+  Description   : О©╫О©╫х║ц╫О©╫О©╫О©╫О©╫О©╫й╬О©╫О©╫д©О©╫О©╫О©╫О©╫о╒(О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫в╗О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫ID3Tilte)
 
-  Input         : AddrInfo -- нд╪Чпео╒╢Ф╥е╣ьж╥╫А╧╧лЕ╠Да©
-                : uiSortId -- нд╪Ч╨е
-                : uiCharNum --- р╙╤ах║╣двж╫зйЩ
-                : uiCurDeep --- м╗╧Щ╦ц╠Да©х╥╤╗ф╚рф╣ьж╥
-                : Flag --- еп╤ойг╥Я╤ах║нд╪ЧцШ╩РID3Title н╙1╠Мй╬йг╤ах║нд╪ЧцШ╩РID3Titleё╛н╙0╠Мй╬╤ах║фДкШID3пео╒
-  Return        : pFileName р╙╩Ях║╣днд╪ЧЁ╓нд╪ЧцШ╣дж╦уК
+  Input         : AddrInfo -- О©╫д╪О©╫О©╫О©╫о╒О©╫О©╫е╣О©╫ж╥О©╫А╧╧О©╫О©╫О©╫О©╫О©╫
+                : uiSortId -- О©╫д╪О©╫О©╫О©╫
+                : uiCharNum --- р╙О©╫О©╫х║О©╫О©╫О©╫ж╫О©╫О©╫О©╫
+                : uiCurDeep --- м╗О©╫О©╫О©╫ц╠О©╫О©╫О©╫х╥О©╫О©╫ф╚О©╫ф╣О©╫ж╥
+                : Flag --- О©╫п╤О©╫О©╫г╥О©╫О©╫х║О©╫д╪О©╫О©╫О©╫О©╫О©╫ID3Title н╙1О©╫О©╫й╬О©╫г╤О©╫х║О©╫д╪О©╫О©╫О©╫О©╫О©╫ID3TitleО©╫О©╫н╙0О©╫О©╫й╬О©╫О©╫х║О©╫О©╫О©╫О©╫ID3О©╫О©╫о╒
+  Return        : pFileName р╙О©╫О©╫х║О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫ж╦О©╫О©╫
 
   History:     <author>         <time>         <version>
                 anzhiguo     2009/06/02         Ver1.0
@@ -97,25 +97,25 @@ void GetMediaItemInfo(UINT16 *pFileName, SORT_INFO_ADDR_STRUCT AddrInfo, UINT16 
     UINT16 temp1;
     UINT8   ucBufTemp[8],ucBufTemp1[2];
     UINT32  AddrOffset;
-    UINT8 	FileInfoBuf[MEDIA_ID3_SAVE_CHAR_NUM *2];//Ё╓нд╪ЧцШ╠хID3╣дпео╒р╙Ё╓ё╛╧йя║тЯЁ╓нд╪Ч╣дЁ╓╤х©╙©у╪Д╡╩╩АЁЖожйЩвИт╫╫Г
+    UINT8 	FileInfoBuf[MEDIA_ID3_SAVE_CHAR_NUM *2];//О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫ID3О©╫О©╫О©╫О©╫о╒р╙О©╫О©╫О©╫О©╫О©╫О©╫я║О©╫О©╫О©╫д╪О©╫О©╫дЁО©╫О©╫х©О©╫О©╫у╪Д╡╩О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫т╫О©╫О©╫
 
    SORTINFO_STRUCT *Subinfo = (SORTINFO_STRUCT *)ucBufTemp;
 
    if(Flag)
    {
         MDReadData(DataDiskID,(AddrInfo.ulFileSortInfoSectorAddr<<9)+(unsigned long)(uiSortId*2), 2, ucBufTemp);
-        temp1 = (ucBufTemp[0]&0xff)+((ucBufTemp[1]&0xff)<<8); // ╩Я╣ц╤тс╕╣днд╪Ч╠ё╢Ф╨е
+        temp1 = (ucBufTemp[0]&0xff)+((ucBufTemp[1]&0xff)<<8); // О©╫О©╫ц╤О©╫с╕О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫О©╫
    }
    else
    {
-        //╩Ях║р╩╦ЖвсоН╣дпео╒╫А╧╧ SORTINFO_STRUCT
+        //О©╫О©╫х║р╩О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫о╒О©╫А╧╧ SORTINFO_STRUCT
         MDReadData(DataDiskID,(AddrInfo.ulSortSubInfoSectorAddr[uiCurDeep]<<9)+(unsigned long)(uiSortId*sizeof(SORTINFO_STRUCT)), sizeof(SORTINFO_STRUCT), ucBufTemp);
-        //м╗╧Щпео╒╫А╧╧жп╣д BaseID ╡нйЩ╩Ях║пХр╙╣днд╪Ч╨е
+        //м╗О©╫О©╫О©╫О©╫о╒О©╫А╧╧О©╫п╣О©╫ BaseID О©╫О©╫О©╫О©╫О©╫О©╫х║О©╫О©╫р╙О©╫О©╫О©╫д╪О©╫О©╫О©╫
         MDReadData(DataDiskID,(AddrInfo.ulFileSortInfoSectorAddr<<9)+Subinfo->BaseID*2, 2, ucBufTemp1);
-        temp1 = (ucBufTemp1[0]&0xff)+((ucBufTemp1[1]&0xff)<<8); // ╩Я╣ц╤тс╕╣днд╪Ч╠ё╢Ф╨е
+        temp1 = (ucBufTemp1[0]&0xff)+((ucBufTemp1[1]&0xff)<<8); // О©╫О©╫ц╤О©╫с╕О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫О©╫
    }
 
-    AddrOffset = (UINT32)(temp1)*BYTE_NUM_SAVE_PER_FILE + AddrInfo.uiSortInfoAddrOffset[uiCurDeep]; // м╗╧Щф╚рфн╩жцю╢х╥╤╗╤ах║╣дйгЁ╓нд╪ЧцШпео╒╩╧йгID3Titleпео╒
+    AddrOffset = (UINT32)(temp1)*BYTE_NUM_SAVE_PER_FILE + AddrInfo.uiSortInfoAddrOffset[uiCurDeep]; // м╗О©╫О©╫ф╚О©╫О©╫н╩О©╫О©╫О©╫О©╫х╥О©╫О©╫О©╫О©╫х║О©╫О©╫О©╫гЁО©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫о╒О©╫О©╫О©╫О©╫ID3TitleО©╫О©╫о╒
 
     MDReadData(DataDiskID,(AddrInfo.ulFileFullInfoSectorAddr<<9)+AddrOffset, uiCharNum*2, FileInfoBuf);
 
@@ -131,16 +131,16 @@ void GetMediaItemInfo(UINT16 *pFileName, SORT_INFO_ADDR_STRUCT AddrInfo, UINT16 
   Function name : unsigned int GetSummaryInfo(unsigned long ulSumSectorAddr, unsigned int uiSumId, unsigned int uiFindSumType)
 {
   Author        : anzhiguo
-  Description   : ╩Ях║ID3╧ИюЮпео╒╣длУд©(в╗╪╜об╣днд╪Ч╦ЖйЩё╛╩Рйгм╛р╩╦ЖруйУ╪роб╣днд╪Ч╦ЖйЩ)
+  Description   : О©╫О©╫х║ID3О©╫О©╫О©╫О©╫О©╫О©╫о╒О©╫О©╫О©╫О©╫д©(в╗О©╫О©╫О©╫б╣О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫м╛р╩О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫б╣О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫)
 
-  Input         : ulSumSectorAddr ID3пео╒╧ИюЮ╢Ф╢╒╣ьж╥
-                : uiSumId  -- лУд©id
-                : uiFindSumType -- ╩Ях║лУд©пео╒╣дюЮпмё╛(лУд©вэйЩ╩╧йгё╛фПй╪лУд©пР╨её╛╩╧йг╬ълЕ╣дID3пео╒)
+  Input         : ulSumSectorAddr ID3О©╫О©╫о╒О©╫О©╫О©╫О©╫Ф╢╒О©╫О©╫ж╥
+                : uiSumId  -- О©╫О©╫д©id
+                : uiFindSumType -- О©╫О©╫х║О©╫О©╫д©О©╫О©╫о╒О©╫О©╫О©╫О©╫О©╫мёО©╫(О©╫О©╫д©О©╫О©╫О©╫О©╫О©╫О©╫О©╫гёО©╫О©╫О©╫й╪О©╫О©╫д©О©╫О©╫еёО©╫О©╫О©╫О©╫г╬О©╫О©╫О©╫О©╫ID3О©╫О©╫о╒)
   Return        :
 
   History:     <author>         <time>         <version>
                 anzhiguo     2009/06/02         Ver1.0
-  desc:         ж╦╣╫╤тс╕пео╒тзflashжп╣дsec╣ьж╥
+  desc:         ж╦О©╫О©╫О©╫О©╫с╕О©╫О©╫о╒О©╫О©╫flashО©╫п╣О©╫secО©╫О©╫ж╥
 --------------------------------------------------------------------------------
 */
 _ATTR_MEDIABROWIN_CODE_
@@ -153,15 +153,15 @@ UINT16 GetSummaryInfo(UINT32 ulSumSectorAddr, UINT16 uiSumId, UINT16 uiFindSumTy
 
     MDReadData(DataDiskID,(ulSumSectorAddr<<9)+(UINT32)uiSumId*8, 8, ucBufTemp);
 
-    if(uiFindSumType==FIND_SUM_STARTFILEID)//мЙуШ╣дпео╒
+    if(uiFindSumType==FIND_SUM_STARTFILEID)//О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫о╒
     {
         uiSumInfo = Subinfo.BaseID;
     }
-    else if(uiFindSumType==FIND_SUM_SORTSTART)//фПй╪нд╪Ч╨е
+    else if(uiFindSumType==FIND_SUM_SORTSTART)//О©╫О©╫й╪О©╫д╪О©╫О©╫О©╫
     {
         uiSumInfo = Subinfo.ItemBaseID;
     }
-    else if(uiFindSumType==FIND_SUM_ITEMNUM)//лУд©пео╒
+    else if(uiFindSumType==FIND_SUM_ITEMNUM)//О©╫О©╫д©О©╫О©╫о╒
     {
         uiSumInfo = Subinfo.ItemNum;
  	 //Rk Aaron.sun
@@ -170,7 +170,7 @@ UINT16 GetSummaryInfo(UINT32 ulSumSectorAddr, UINT16 uiSumId, UINT16 uiFindSumTy
 		uiSumInfo++;  // for All Album
 	 }
     }
-    else if (uiFindSumType==FIND_SUM_FILENUM)//нд╪ЧвэйЩ
+    else if (uiFindSumType==FIND_SUM_FILENUM)//О©╫д╪О©╫О©╫О©╫О©╫О©╫
     {
         uiSumInfo = Subinfo.FileNum;
     }

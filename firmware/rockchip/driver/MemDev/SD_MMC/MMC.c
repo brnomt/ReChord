@@ -15,7 +15,7 @@ $Log: $
 /*-------------------------------- Includes ----------------------------------*/
 
 #include "SDConfig.h"
-#include "powermanager.h"
+#include "PowerManager.h"
 
 #if (CONFIG_EMMC_SPEC ==1)
 
@@ -35,17 +35,17 @@ $Log: $
 /*
 uint8 EMMC_MIDTbl[]=
 {
-    0x15,					    //ÈýÐÇSAMSUNG
-    0x11,					    //¶«Ö¥TOSHIBA
-    0x90,					    //º£Á¦Ê¿HYNIX
-    0xff,					    //Ó¢·ÉÁèINFINEON
-    0x13,					    //ÃÀ¹âMICRON
-    0xff,					    //ÈðÈøRENESAS
-    0xff,					    //Òâ·¨°ëµ¼ÌåST
-    0xff,					    //Ó¢ÌØ¶ûintel
+    0x15,					    //ï¿½ï¿½ï¿½ï¿½SAMSUNG
+    0x11,					    //ï¿½ï¿½Ö¥TOSHIBA
+    0x90,					    //ï¿½ï¿½ï¿½ï¿½Ê¿HYNIX
+    0xff,					    //Ó¢ï¿½ï¿½ï¿½ï¿½INFINEON
+    0x13,					    //ï¿½ï¿½ï¿½ï¿½MICRON
+    0xff,					    //ï¿½ï¿½ï¿½ï¿½RENESAS
+    0xff,					    //ï¿½â·¨ï¿½ëµ¼ï¿½ï¿½ST
+    0xff,					    //Ó¢ï¿½Ø¶ï¿½intel
     0x45,                       //SanDisk
     0x70,                       //Kingston
-    0xfe                        //ºãÒä Numonyx
+    0xfe                        //ï¿½ï¿½ï¿½ï¿½ Numonyx
 };
 */
 _ATTR_SYS_BSS_     uint16 eMMC_ID;
@@ -69,7 +69,7 @@ Log:
 _ATTR_SD_INIT_CODE_
 uint16 _MMCGenerateRCA(void)
 {
-    //static uint16 max = 2;   //rca = 0001ÊÇMMCÉÏµçºó³õÊ¼»¯Ê±Ê¹ÓÃµÄÄ¬ÈÏµØÖ·£¬ËùÒÔ´Ó2¿ªÊ¼
+    //static uint16 max = 2;   //rca = 0001ï¿½ï¿½MMCï¿½Ïµï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Ê±Ê¹ï¿½Ãµï¿½Ä¬ï¿½Ïµï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½2ï¿½ï¿½Ê¼
 
     return (MMC_RCA++);
 }
@@ -113,8 +113,8 @@ static void _MMCDecodeCSD(uint32 *pCSD, pSDM_CARD_INFO pCard)
 #ifdef IN_LOADER
 /*
 Name:       _MMCSetBootSize
-Desc:        SAMSUMG µÄÒ»Ð©EMMC Ä¬ÈÏµÄBootSizeÎª0, ²Î¼ûSAMSUMG DATASHEET
-Param:       boot_size µ¥Î»ÊÇ128K
+Desc:        SAMSUMG ï¿½ï¿½Ò»Ð©EMMC Ä¬ï¿½Ïµï¿½BootSizeÎª0, ï¿½Î¼ï¿½SAMSUMG DATASHEET
+Param:       boot_size ï¿½ï¿½Î»ï¿½ï¿½128K
 Return:
 Global:
 Note:
@@ -153,14 +153,14 @@ static int32 _MMCSetBootSize(pSDM_CARD_INFO         pCard, uint32 boot_size)
 #endif
 
 /****************************************************************/
-//º¯ÊýÃû:MMC_SwitchBoot
-//ÃèÊö:ÇÐ»»boot partition»òÕßuser area
-//²ÎÊýËµÃ÷:pCard ÊäÈë²ÎÊý  ¿¨ÐÅÏ¢µÄÖ¸Õë
-//         enable     ÊäÈë²ÎÊý  Ê¹ÄÜ
-//         partition  ÊäÈë²ÎÊý  ¾ßÌå²Ù×÷ÄÄ¸öboot partition
-//·µ»ØÖµ:
-//Ïà¹ØÈ«¾Ö±äÁ¿:
-//×¢Òâ:
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:MMC_SwitchBoot
+//ï¿½ï¿½ï¿½ï¿½:ï¿½Ð»ï¿½boot partitionï¿½ï¿½ï¿½ï¿½user area
+//ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½:pCard ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö¸ï¿½ï¿½
+//         enable     ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  Ê¹ï¿½ï¿½
+//         partition  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½boot partition
+//ï¿½ï¿½ï¿½ï¿½Öµ:
+//ï¿½ï¿½ï¿½È«ï¿½Ö±ï¿½ï¿½ï¿½:
+//×¢ï¿½ï¿½:
 /****************************************************************/
 _ATTR_SD_INIT_CODE_
 int32 MMC_PartitionConfig(pSDM_CARD_INFO         pCard, uint8 value)
@@ -182,8 +182,8 @@ int32 MMC_PartitionConfig(pSDM_CARD_INFO         pCard, uint8 value)
 
 /*
 Name:       _MMC_SwitchFunction
-Desc:       ¶ÁÈ¡EXT_CSD¼Ä´æÆ÷£¬¸ù¾Ý¿¨ÊÇ·ñÖ§³Ö¿íÊý¾ÝÏß£¬¸Ä±äÊý¾ÝÏßµÄ¿í¶È
-            ÒÔ¼°¸ù¾Ý¿¨ÊÇ·ñÖ§³Ö¸ßËÙÄ£Ê½£¬ÇÐ»»µ½¸ßËÙÄ£Ê½
+Desc:       ï¿½ï¿½È¡EXT_CSDï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½Ç·ï¿½Ö§ï¿½Ö¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß£ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßµÄ¿ï¿½ï¿½ï¿½
+            ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½Ç·ï¿½Ö§ï¿½Ö¸ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½
 Param:
 Return:
 Global:
@@ -235,7 +235,7 @@ static void _MMCSwitchFunction(pSDM_CARD_INFO pCard)
         {
             pCard->capability = value;
         }
-        if (pBuf[196] & 0x3) //Ö§³Ö¸ßËÙÄ£Ê½
+        if (pBuf[196] & 0x3) //Ö§ï¿½Ö¸ï¿½ï¿½ï¿½Ä£Ê½
         {
             ret = SDC_SendCmd(pCard->SDCPort, \
                              (MMC4_SWITCH_FUNC | SD_NODATA_OP | SD_RSP_R1B | WAIT_PREV), \
@@ -268,8 +268,8 @@ static void _MMCSwitchFunction(pSDM_CARD_INFO pCard)
             }
         }
 
-        //ÇÐ»»¸ßËÙÄ£Ê½ÓÐ²»³É¹¦²»Ö±½Óreturn£¬Ïß¿íµÄÇÐ»»¿ÉÒÔ¼ÌÐø
-        //ÇÐ»»Ïß¿í·ÅÔÚ¸ßËÙÄ£Ê½ÇÐ»»Ö®ºó×ö£¬ÕâÑù¿ÉÒÔË³±ã¼ì²éÒ»ÏÂÔÚ¸ßËÙÄ£Ê½ÏÂÓÃ½Ï¿íµÄÊý¾ÝÏß»á²»»á³ö´í
+        //ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½Ð²ï¿½ï¿½É¹ï¿½ï¿½ï¿½Ö±ï¿½ï¿½returnï¿½ï¿½ï¿½ß¿ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½
+        //ï¿½Ð»ï¿½ï¿½ß¿ï¿½ï¿½ï¿½ï¿½Ú¸ï¿½ï¿½ï¿½Ä£Ê½ï¿½Ð»ï¿½Ö®ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ú¸ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½Ã½Ï¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß»á²»ï¿½ï¿½ï¿½ï¿½ï¿½
         ret = SDC_GetBusWidth(pCard->SDCPort, &wide);
         if((wide == BUS_WIDTH_INVALID) || (wide == BUS_WIDTH_MAX))
         {
@@ -284,7 +284,7 @@ static void _MMCSwitchFunction(pSDM_CARD_INFO pCard)
             {
                 break;
             }
-            //ÏÂÃæÁ½¸öÃüÁî¶¼²»Òª¼ì²é·µ»ØÖµÊÇ·ñ³É¹¦£¬ÒòÎªËüÃÇµÄCRC»á´í
+            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½î¶¼ï¿½ï¿½Òªï¿½ï¿½é·µï¿½ï¿½Öµï¿½Ç·ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Çµï¿½CRCï¿½ï¿½ï¿½
             pBuf[0] = 0x5A;
             pBuf[1] = 0x5A;
             pBuf[2] = 0x5A;
@@ -320,7 +320,7 @@ static void _MMCSwitchFunction(pSDM_CARD_INFO pCard)
             {
                 break;
             }
-            //ÏÂÃæÁ½¸öÃüÁî¶¼²»Òª¼ì²é·µ»ØÖµÊÇ·ñ³É¹¦£¬ÒòÎªËüÃÇµÄCRC»á´í
+            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½î¶¼ï¿½ï¿½Òªï¿½ï¿½é·µï¿½ï¿½Öµï¿½Ç·ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Çµï¿½CRCï¿½ï¿½ï¿½
             pBuf[0] = 0x55;
             pBuf[1] = 0xAA;
             pBuf[2] = 0x55;
@@ -404,7 +404,7 @@ int32 MMC_Init(pSDM_CARD_INFO    pCard)
     MMC_RCA = 2;
 
     /**************************************************/
-    // ÈÃ¿¨½øÈëReady State
+    // ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½Ready State
     /**************************************************/
     for (i=0; i<((FOD_FREQ*1000)/(48+2)); i++)
     {
@@ -442,13 +442,13 @@ int32 MMC_Init(pSDM_CARD_INFO    pCard)
     {
         return ret;
     }
-    //³¤Ê±¼äbusy
+    //ï¿½ï¿½Ê±ï¿½ï¿½busy
     if (((FOD_FREQ*1000)/(48+2)) == i)
     {
         return SDM_VOLTAGE_NOT_SUPPORT;
     }
     /**************************************************/
-    // ÈÃ¿¨½øÈëStand-by State
+    // ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½Stand-by State
     /**************************************************/
     memset(LongResp, 0, sizeof(LongResp));
     ret = SDC_SendCmd(pCard->SDCPort, (SD_ALL_SEND_CID | SD_NODATA_OP | SD_RSP_R2 | WAIT_PREV), 0, LongResp);
@@ -485,7 +485,7 @@ int32 MMC_Init(pSDM_CARD_INFO    pCard)
         return ret;
     }
     /**************************************************/
-    // ÈÃ¿¨½øÈëTransfer State
+    // ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½Transfer State
     /**************************************************/
     ret = SDC_SendCmd(pCard->SDCPort, (SD_SELECT_DESELECT_CARD | SD_NODATA_OP | SD_RSP_R1B | WAIT_PREV), (rca << 16), &status);
     if (SDC_SUCCESS != ret)
@@ -493,15 +493,15 @@ int32 MMC_Init(pSDM_CARD_INFO    pCard)
         return ret;
     }
 
-    /* Ð­Òé¹æ¶¨²»¹ÜÊÇSD1.X»òÕßSD2.0»òÕßSDHC¶¼±ØÐëÖ§³Öblock´óÐ¡Îª512, ¶øÇÒÎÒÃÇÒ»°ãÒ²Ö»ÓÃ512£¬Òò´ËÕâÀïÖ±½ÓÉèÎª512 */
+    /* Ð­ï¿½ï¿½æ¶¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½SD1.Xï¿½ï¿½ï¿½ï¿½SD2.0ï¿½ï¿½ï¿½ï¿½SDHCï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ï¿½blockï¿½ï¿½Ð¡Îª512, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ò²Ö»ï¿½ï¿½512ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Îª512 */
     ret = SDC_SendCmd(pCard->SDCPort, (SD_SET_BLOCKLEN | SD_NODATA_OP | SD_RSP_R1 | WAIT_PREV), 512, &status);
     if (SDC_SUCCESS != ret)
     {
         return ret;
     }
 
-    pCard->WriteProt = FALSE;  //MMC¿¨¶¼Ã»ÓÐÐ´±£»¤
-    //¿¨ÊäÈë¿ªÆôÃÜÂëÔÚÕâÀï×ö
+    pCard->WriteProt = FALSE;  //MMCï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ë¿ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     if (status & CARD_IS_LOCKED)
     {
         pCard->bPassword = TRUE;

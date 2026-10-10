@@ -30,9 +30,9 @@
 *-------------------------------------------------------------------------------
 */
 
-#define _ATTR_PIC_CODE_                    __attribute__((section("PicWinCode")))
-#define _ATTR_PIC_DATA_                    __attribute__((section("PicWinData")))
-#define _ATTR_PIC_BSS_                     __attribute__((section("PicWinBss"),zero_init))
+#define _ATTR_PIC_CODE_                    
+#define _ATTR_PIC_DATA_                    
+#define _ATTR_PIC_BSS_                     
 
 /*
 ********************************************************************************

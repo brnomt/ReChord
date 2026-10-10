@@ -216,3 +216,24 @@ was verified byte-exact: stub code at IMG 0x81A14, tail 100% stock
 `rechord_main` run the SDK's real `Main2()` service loop (V0.20 registers
 the ISRs but never consumes `pcb.audio_decode_status`, so no replies are
 ever sent), or extend the stub with the file/DB protocol.
+
+## Reference-CFW implementation notes (extracted via Ghidra, 2026-10-09)
+
+From the reference CFW image (project `ReChordV2`, program `refcfw_ramimg` —
+bases byte-verified). Reusable knowledge for our BB side:
+
+1. **Mailbox registers** (base 0x40110000, 0x50-byte block):
+   - `+0x28` / `+0x2c`: IRQ set / **status+ack (W1C, mask 0xf = IRQ 9..12)**
+     — the AP ISR reads `+0x2c`, masks `&0xf`, writes the mask back to ack.
+   - `+0x30`: status/magic — **`0xfa` = B-core ready** (handshake sentinel).
+2. **B->A log stream** (how ECHOLOG.TXT is fed): a 0x600-byte **ring buffer in
+   shared SRAM at 0x010201E8**, write index `@0x010201DC`, read index
+   `@0x010201E0`, event word `@0x010201E4`. The B core appends bytes; the AP
+   drains on mailbox IRQ, splits on '\n', and logs each line. Lines >127 chars
+   are flushed as-is. This is the model to copy for our BB logging.
+3. **B-core status block** (the `B: up at 400 MHz, image N B sum X, ram R,
+   stack S` log line): fields read from a struct at `+0xB4..+0xD4` of the
+   shared block after the handshake flag flips.
+4. The B-side firmware (module `m78`, 41196 B = 0xA0EC, checksum-verified and
+   loaded into HIGHRAM0 0x0307A000..0x0309F000) calls back into the same
+   0x0305xxxx low-level primitives — shared code window between cores.

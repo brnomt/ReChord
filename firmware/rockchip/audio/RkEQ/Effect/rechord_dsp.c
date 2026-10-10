@@ -134,3 +134,13 @@ long EffectProcess(EQ_TYPE *pBuffer, long PcmLen)
 
     return rch_dsp_process((int32_t *)pBuffer, (int)PcmLen);
 }
+
+
+/* EQ_ClearBuff — vendor-EQ entry point kept under its original name:
+ * AudioControl.c calls it right after EffectInit() to drop filter history.
+ * The from-source EQ replaces the RkNano_EQ .lib (see manifests/bb.mk), so
+ * the adapter must provide every entry point the SDK links against. */
+void EQ_ClearBuff(void)
+{
+    rch_dsp_reset();
+}

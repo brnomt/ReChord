@@ -3,7 +3,7 @@
 *                   Copyright (c) 2012,SunChuanHu
 *                         All rights reserved.
 *
-* File Name?¨ºo   MDBBuildWin.c
+* File Name?ï¿½ï¿½o   MDBBuildWin.c
 *
 * Description:
 *
@@ -17,9 +17,9 @@
 #define _IN_MDBBUILDWIN_
 
 #include "SysInclude.h"
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "MDBBuildWin.h"
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "MediaBroWin.h"
 #ifdef _BLUETOOTH_
 #include "BlueToothControl.h"
@@ -88,7 +88,7 @@ void MedialibUpdateDisplayHook(void)
 --------------------------------------------------------------------------------
   Function name : void SysCpuInit(void)
   Author        : ZHengYongzhi
-  Description   : PLL setting??¨¦Disable int??¨¦PWM Disable,etc
+  Description   : PLL setting??ï¿½ï¿½Disable int??ï¿½ï¿½PWM Disable,etc
 
   Input         :
   Return        :
@@ -260,7 +260,7 @@ void MdbBuildWinInit(void * pArg)
 --------------------------------------------------------------------------------
   Function name : void MainMenuIntDeInit(void)
   Author        : ZHengYongzhi
-  Description   : ???2?|¨¬¡ê¡è?D???¡è??3?¡§o???£¤
+  Description   : ???2?|ï¿½ï¿½ï¿½ï¿½ï¿½?D???ï¿½ï¿½??3?ï¿½ï¿½o???ï¿½ï¿½
 
   Input         :
   Return        :
@@ -273,14 +273,14 @@ void MdbBuildWinInit(void * pArg)
 _ATTR_MDBBUILDWIN_CODE_
 void MdbBuildWinDeInit(void)
 {
-    //MainMenu?D???¡è??3?¡§o???£¤
+    //MainMenu?D???ï¿½ï¿½??3?ï¿½ï¿½o???ï¿½ï¿½
 }
 
 /*
 --------------------------------------------------------------------------------
   Function name : UINT32 MainMenuService(void)
   Author        : ZHengYongzhi
-  Description   : ???2?|¨¬¡ê¡è?¡èt??3¡§?D¡§¡ã,¡§??¡§?¡§2??|¡§¡è¡§a?????¡§2????¨¦??¨¦?????¡§2?¡èt??|¨¬¡§¡§¡§¡§???
+  Description   : ???2?|ï¿½ï¿½ï¿½ï¿½ï¿½?ï¿½ï¿½t??3ï¿½ï¿½?Dï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½??ï¿½ï¿½?ï¿½ï¿½2??|ï¿½ï¿½ï¿½è¡§a?????ï¿½ï¿½2????ï¿½ï¿½??ï¿½ï¿½?????ï¿½ï¿½2?ï¿½ï¿½t??|ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½???
 
   Input         :
   Return        :

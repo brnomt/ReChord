@@ -15,6 +15,12 @@
 #define _IN_OSHOOK_
 
 //#include "OsInclude.h"
+
+#include "freq_enums.h"             /* FREQ_BLON / FREQ_IDLE */
+#include "driver/GPIO/gpio.h"      /* GPIO_CH2, GPIOPortA_Pin5 */
+#include "driver/driverlib_def.h"  /* IntrTypeRisingEdge enum */
+#include "driver/CRU/Hw_cru.h"     /* CRU gate IDs */
+#include "driver/pmc/pmc.h"         /* SCU_DCOUT_* levels */
 #include "SysInclude.h"
 
 /*

@@ -15,7 +15,7 @@
 ********************************************************************************************
 */
 
-#include "Typedef.h"
+#include "typedef.h"
 #include "DriverInclude.h"
 
 /*
@@ -36,10 +36,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _CPU_NANOD_LIB_VOP_READ_  __attribute__((section("cpu_nanod_lib_vop_read")))
-#define _CPU_NANOD_LIB_VOP_WRITE_ __attribute__((section("cpu_nanod_lib_vop_write")))
-#define _CPU_NANOD_LIB_VOP_INIT_  __attribute__((section("cpu_nanod_lib_vop_init")))
-#define _CPU_NANOD_LIB_VOP_SHELL_  __attribute__((section("cpu_nanod_lib_vop_shell")))
+#define _CPU_NANOD_LIB_VOP_READ_  
+#define _CPU_NANOD_LIB_VOP_WRITE_ 
+#define _CPU_NANOD_LIB_VOP_INIT_  
+#define _CPU_NANOD_LIB_VOP_SHELL_  
 
 
 /*

@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   audio_globals.h
+* File Nameï¿½ï¿½   audio_globals.h
 *
 * Description:
 *
@@ -16,7 +16,7 @@
 #define _AUDIO_GLOBALS_H_
 
 #include "audio_main.h"
-#include "Effect.h"
+#include "effect.h"
 //****************************************************************************
 // The following values are the IOCTLs which are sent to the individual codec
 // drivers.

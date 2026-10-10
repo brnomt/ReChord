@@ -1,18 +1,13 @@
-/* File.h — file handle typedefs (Debug2.c). */
-#ifndef FILE_H
-#define FILE_H
-#include "typedef.h"
-#include "FileInfo.h"
-typedef struct { void *pData; } FILE_HANDLE;
-#endif
+/*
+ * File.h - compatibility wrapper.
+ * The old synthesized prototypes here (int FileOpen(void*) style) clashed
+ * with the vendor filesys/file.h signatures whenever both were seen.
+ * Since 2026-10-10 this re-exports the vendor header; file.c provides the
+ * implementations.
+ */
+#ifndef RECHORD_FILE_WRAPPER_H
+#define RECHORD_FILE_WRAPPER_H
 
-/* ---- file I/O API (audio_file_access.c) ---- */
-#ifndef FILE_IO_API
-#define FILE_IO_API
-API int  FileOpen(void *handle, const char *path, int mode);
-API int  FileClose(void *handle);
-API int  FileRead(void *handle, void *buf, int size);
-API int  FileWrite(void *handle, const void *buf, int size, int param);
-API int  FileSeek(void *handle, int offset, int whence);
-API int  FileEof(void *handle);
-#endif
+#include "filesys/file.h"
+
+#endif /* RECHORD_FILE_WRAPPER_H */

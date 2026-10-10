@@ -35,10 +35,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _BBSYSTEM_PCODECS2_READ_  __attribute__((section("bbsystem_pcodecs2_read")))
-#define _BBSYSTEM_PCODECS2_WRITE_ __attribute__((section("bbsystem_pcodecs2_write")))
-#define _BBSYSTEM_PCODECS2_INIT_  __attribute__((section("bbsystem_pcodecs2_init")))
-#define _BBSYSTEM_PCODECS2_SHELL_  __attribute__((section("bbsystem_pcodecs2_shell")))
+#define _BBSYSTEM_PCODECS2_READ_  
+#define _BBSYSTEM_PCODECS2_WRITE_ 
+#define _BBSYSTEM_PCODECS2_INIT_  
+#define _BBSYSTEM_PCODECS2_SHELL_  
 
 
 /*

@@ -28,8 +28,8 @@
 #include "LcdInterface.h"
 #include "vop.h"
 #include "yuv2rgb.h"
-#include "Hw_vop.h"
-#include "dma.h"
+#include "hw_vop.h"
+#include "Dma.h"
 
 
 /*
@@ -40,10 +40,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _CPU_NANOC_LIB_HW_YUV2RGB_READ_  __attribute__((section("cpu_nanoc_lib_hw_yuv2rgb_read")))
-#define _CPU_NANOC_LIB_HW_YUV2RGB_WRITE_ __attribute__((section("cpu_nanoc_lib_hw_yuv2rgb_write")))
-#define _CPU_NANOC_LIB_HW_YUV2RGB_INIT_  __attribute__((section("cpu_nanoc_lib_hw_yuv2rgb_init")))
-#define _CPU_NANOC_LIB_HW_YUV2RGB_SHELL_  __attribute__((section("cpu_nanoc_lib_hw_yuv2rgb_shell")))
+#define _CPU_NANOC_LIB_HW_YUV2RGB_READ_  
+#define _CPU_NANOC_LIB_HW_YUV2RGB_WRITE_ 
+#define _CPU_NANOC_LIB_HW_YUV2RGB_INIT_  
+#define _CPU_NANOC_LIB_HW_YUV2RGB_SHELL_  
 
 /*
 *---------------------------------------------------------------------------------------------------------------------

@@ -15,6 +15,8 @@
 
 #ifndef _HWAPI_GRF_H
 #define _HWAPI_GRF_H
+#include "typedef.h"   /* UINT32 & friends */
+#include "driver/hw_memap.h"   /* GRF_BASE */
 
 typedef volatile struct GRFREG_t
 {

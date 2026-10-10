@@ -32,37 +32,37 @@
 */
 //section define
 //常驻代码
-#define _ATTR_MEDIABROWIN_CODE_         __attribute__((section("MediaBroCode")))
-#define _ATTR_MEDIABROWIN_DATA_         __attribute__((section("MediaBroData")))
-#define _ATTR_MEDIABROWIN_BSS_          __attribute__((section("MediaBroBss"),zero_init))
+#define _ATTR_MEDIABROWIN_CODE_         
+#define _ATTR_MEDIABROWIN_DATA_         
+#define _ATTR_MEDIABROWIN_BSS_          
 
 //初始化代码
-#define _ATTR_MEDIABROWIN_INIT_CODE_    __attribute__((section("MediaBroInitCode")))
-#define _ATTR_MEDIABROWIN_INIT_DATA_    __attribute__((section("MediaBroInitData")))
-#define _ATTR_MEDIABROWIN_INIT_BSS_     __attribute__((section("MediaBroInitBss"),zero_init))
+#define _ATTR_MEDIABROWIN_INIT_CODE_    
+#define _ATTR_MEDIABROWIN_INIT_DATA_    
+#define _ATTR_MEDIABROWIN_INIT_BSS_     
 
 //反初始化代码
-#define _ATTR_MEDIABROWIN_DEINIT_CODE_  __attribute__((section("MediaBroDeInitCode")))
-#define _ATTR_MEDIABROWIN_DEINIT_DATA_  __attribute__((section("MediaBroDeInitData")))
-#define _ATTR_MEDIABROWIN_DEINIT_BSS_   __attribute__((section("MediaBroDeInitBss"),zero_init))
+#define _ATTR_MEDIABROWIN_DEINIT_CODE_  
+#define _ATTR_MEDIABROWIN_DEINIT_DATA_  
+#define _ATTR_MEDIABROWIN_DEINIT_BSS_   
 
 //可调度代码
-#define _ATTR_MEDIABROWIN_SERVICE_CODE_  __attribute__((section("MediaBroServiceCode")))
-#define _ATTR_MEDIABROWIN_SERVICE_DATA_ __attribute__((section("MediaBroServiceData")))
-#define _ATTR_MEDIABROWIN_SERVICE_BSS_   __attribute__((section("MediaBroServiceBss"),zero_init))
+#define _ATTR_MEDIABROWIN_SERVICE_CODE_  
+#define _ATTR_MEDIABROWIN_SERVICE_DATA_ 
+#define _ATTR_MEDIABROWIN_SERVICE_BSS_   
 //
 //条目信息获取段
-#define _ATTR_MEDIABRO_SORTGET_CODE_         __attribute__((section("MediaBroSortGetCode")))
-#define _ATTR_MEDIABRO_SORTGET_DATA_         __attribute__((section("MediaBroSortGetData")))
-#define _ATTR_MEDIABRO_SORTGET_BSS_          __attribute__((section("MediaBroSortGetBss"),zero_init))
+#define _ATTR_MEDIABRO_SORTGET_CODE_         
+#define _ATTR_MEDIABRO_SORTGET_DATA_         
+#define _ATTR_MEDIABRO_SORTGET_BSS_          
 
-#define _ATTR_MEDIABROSUBWIN_CODE_         __attribute__((section("MediaBroSubCode")))
-#define _ATTR_MEDIABROSUBWIN_DATA_         __attribute__((section("MediaBroSubData")))
-#define _ATTR_MEDIABROSUBWIN_BSS_          __attribute__((section("MediaBroSubBss"),zero_init))
+#define _ATTR_MEDIABROSUBWIN_CODE_         
+#define _ATTR_MEDIABROSUBWIN_DATA_         
+#define _ATTR_MEDIABROSUBWIN_BSS_          
 
-#define _ATTR_MEDIAFAVOSUBWIN_CODE_         __attribute__((section("MediaFavoSubCode")))
-#define _ATTR_MEDIAFAVOSUBWIN_DATA_         __attribute__((section("MediaFavoSubData")))
-#define _ATTR_MEDIAFAVOSUBWIN_BSS_          __attribute__((section("MediaFavoSubBss"),zero_init))
+#define _ATTR_MEDIAFAVOSUBWIN_CODE_         
+#define _ATTR_MEDIAFAVOSUBWIN_DATA_         
+#define _ATTR_MEDIAFAVOSUBWIN_BSS_          
 
 
 

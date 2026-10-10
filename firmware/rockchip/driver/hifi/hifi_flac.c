@@ -41,10 +41,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _CPU_NANOD_LIB_HIFI_FLAC_READ_  __attribute__((section("cpu_nanod_lib_hifi_flac _read")))
-#define _CPU_NANOD_LIB_HIFI_FLAC_WRITE_ __attribute__((section("cpu_nanod_lib_hifi_flac _write")))
-#define _CPU_NANOD_LIB_HIFI_FLAC_INIT_  __attribute__((section("cpu_nanod_lib_hifi_flac _init")))
-#define _CPU_NANOD_LIB_HIFI_FLAC_SHELL_  __attribute__((section("cpu_nanod_lib_hifi_flac _shell")))
+#define _CPU_NANOD_LIB_HIFI_FLAC_READ_  
+#define _CPU_NANOD_LIB_HIFI_FLAC_WRITE_ 
+#define _CPU_NANOD_LIB_HIFI_FLAC_INIT_  
+#define _CPU_NANOD_LIB_HIFI_FLAC_SHELL_  
 
 
 /*

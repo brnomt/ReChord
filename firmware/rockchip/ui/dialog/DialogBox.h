@@ -30,9 +30,9 @@
 *  
 *-------------------------------------------------------------------------------
 */
-#define _ATTR_DIALOGBOX_CODE_         __attribute__((section("DialogBoxCode")))
-#define _ATTR_DIALOGBOX_DATA_         __attribute__((section("DialogBoxData")))
-#define _ATTR_DIALOGBOX_BSS_          __attribute__((section("DialogBoxBss"),zero_init))
+#define _ATTR_DIALOGBOX_CODE_         
+#define _ATTR_DIALOGBOX_DATA_         
+#define _ATTR_DIALOGBOX_BSS_          
 
 #define DIALOG_BUTTON_YES             1//4.22 an 
 #define DIALOG_BUTTON_NO              0//4.22 an 

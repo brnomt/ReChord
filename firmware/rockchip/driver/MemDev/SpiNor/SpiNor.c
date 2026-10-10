@@ -14,11 +14,11 @@ $Log: $
 
 /*-------------------------------- Includes ----------------------------------*/
 
-#include "MDconfig.h"
+#include "MDConfig.h"
 
 #if (SPINOR_DRIVER==1)
 
-#include "hw_spi.h"
+#include "Hw_spi.h"
 #include "SpiNor.h"
 
 /*------------------------------------ Defines -------------------------------*/
@@ -122,7 +122,7 @@ Log:
 _ATTR_FLASH_INIT_CODE_
 static void SPISetClk(void)
 {
-    //SPI CTRL Ñ¡Ôñ24M ¾§Õñ ²»·ÖÆµÊäÈë
+    //SPI CTRL Ñ¡ï¿½ï¿½24M ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½
     //CRUReg->CRU_CLKSEL_SPI_CON = 1<<0 | 0<<1 | 1<<16 | 63<<17;
     SetSPIFreq(SPI_CH0,XIN24M,24*1000*1000);
 }
@@ -145,10 +145,10 @@ static void SPIIomux(uint32 index)
         //spi_rxd_p1, spi_txd_p1, spi_clk_p1, spi_csn1
         GRFReg->GPIO0B_IOMUX = 1<<2 | 1<<4 | 1<<6 | 1<<8 | 3<<18| 3<<20| 3<<22 | 3<<24;
 
-        //spi0 ÇÐµ½gpio±ÜÃâÓ°Ïìµ½ spi1 ½Ó¿Ú
+        //spi0 ï¿½Ðµï¿½gpioï¿½ï¿½ï¿½ï¿½Ó°ï¿½ìµ½ spi1 ï¿½Ó¿ï¿½
         GRFReg->GPIO0A_IOMUX = 0<<6 | 0<<8 | 0<<10 | 0<<12 | 3<<22| 3<<24| 3<<26 | 3<<28;
 
-        GRFReg->IOMUX_CON1 = 1<<1 | 1<<17; //spi_xxx_p1 available for spi ´ËÉèÖÃÖ»Ó°Ïìmiso
+        GRFReg->IOMUX_CON1 = 1<<1 | 1<<17; //spi_xxx_p1 available for spi ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»Ó°ï¿½ï¿½miso
         SPICsn = 2;
     }
     else
@@ -156,10 +156,10 @@ static void SPIIomux(uint32 index)
         //spi_rxd_p0, spi_txd_p0, spi_clk_p0, spi_csn0
         GRFReg->GPIO0A_IOMUX = 2<<6 | 2<<8 | 2<<10 | 2<<12 | 3<<22| 3<<24| 3<<26 | 3<<28;
 
-        //spi1 ÇÐµ½gpio±ÜÃâÓ°Ïìµ½ spi0 ½Ó¿Ú
+        //spi1 ï¿½Ðµï¿½gpioï¿½ï¿½ï¿½ï¿½Ó°ï¿½ìµ½ spi0 ï¿½Ó¿ï¿½
         GRFReg->GPIO0B_IOMUX = 0<<2 | 0<<4 | 0<<6 | 0<<8 | 3<<18| 3<<20| 3<<22 | 3<<24;
 
-        GRFReg->IOMUX_CON1 = 0<<1 | 1<<17; //spi_xxx_p0 available for spi ´ËÉèÖÃÖ»Ó°Ïìmiso
+        GRFReg->IOMUX_CON1 = 0<<1 | 1<<17; //spi_xxx_p0 available for spi ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»Ó°ï¿½ï¿½miso
         SPICsn = 1;
     }
 }
@@ -200,7 +200,7 @@ static uint32 SPIProgCmd(uint32 *pCmd, uint32 CmdLen, uint8 *pData, uint32 size)
 
     while ((SPICtl->SPI_SR & TRANSMIT_FIFO_EMPTY) != TRANSMIT_FIFO_EMPTY);
 
-    DelayUs(1); //ÆµÂÊÅÜ½Ï¸ßÊ±£¬Èç12MHZ£¬²»¼ÓÕâ¸öÑÓÊ±£¬±à³Ì»áÊ§°Ü
+    DelayUs(1); //Æµï¿½ï¿½ï¿½Ü½Ï¸ï¿½Ê±ï¿½ï¿½ï¿½ï¿½12MHZï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ì»ï¿½Ê§ï¿½ï¿½
     SPICtl->SPI_SER = 0;
     SPICtl->SPI_ENR = 0;
     DelayUs(1);               //cs# high time > 100ns
@@ -231,9 +231,9 @@ static uint32 SPISendCmd(uint32 *pCmd, uint32 CmdLen, uint8 *pData, uint32 size)
     SPICtl->SPI_ENR = 1;
     SPICtl->SPI_SER = SPICsn;
 
-    /*²ÉÓÃÁËÊÕ·¢Ä£Ê½, ·¢ËÍÃüÁîµÄÍ¬Ê±»á½ÓÊÜÊý¾Ý½øÀ´, ËùÒÔÒª¹ýÂËµôCmdLen³¤¶ÈµÄÊý¾Ý
-     DummySize ÊÇÃüÁî·¢ËÍÍê³Éºó, Êý¾ÝÃ»ÓÐÂíÉÏ³öÀ´, ÐèÒªµÈ´ýµÄÎÞÐ§µÄÊý¾Ý³¤¶È,
-     Ò»°ãSPINORÊÇ²»ÐèÒªµÈ´ýµÄ, ËùÒÔDummySize=0*/
+    /*ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ·ï¿½Ä£Ê½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½Ëµï¿½CmdLenï¿½ï¿½ï¿½Èµï¿½ï¿½ï¿½ï¿½ï¿½
+     DummySize ï¿½ï¿½ï¿½ï¿½ï¿½î·¢ï¿½ï¿½ï¿½ï¿½Éºï¿½, ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½Ï³ï¿½ï¿½ï¿½, ï¿½ï¿½Òªï¿½È´ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½ï¿½Ý³ï¿½ï¿½ï¿½,
+     Ò»ï¿½ï¿½SPINORï¿½Ç²ï¿½ï¿½ï¿½Òªï¿½È´ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½DummySize=0*/
     DummyLen = (size > 0)? (DummySize+CmdLen):CmdLen;
     DataLen = size + DummyLen;
     while (DataLen)
@@ -248,13 +248,13 @@ static uint32 SPISendCmd(uint32 *pCmd, uint32 CmdLen, uint8 *pData, uint32 size)
             SPICtl->SPI_TXDR[0] = 0xFF;     //send clock
         }
 
-        for(time=0; time<100; time++)  //ÏÖÔÚSPI FlashËÙ¶ÈÊÇ12Mb£¬·¢Ò»¸öÊý¾Ý»ØÀ´Ò»¸öÊý¾Ý£¬Òò´ËÐèÒª¾­¹ý8bitµÄÊ±¼ä£¬Ò²¾ÍÊÇ83.34ns*8=666.67ns£¬timeout±È1us´ó¾ÍÐÐ
+        for(time=0; time<100; time++)  //ï¿½ï¿½ï¿½ï¿½SPI Flashï¿½Ù¶ï¿½ï¿½ï¿½12Mbï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Ý»ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½8bitï¿½ï¿½Ê±ï¿½ä£¬Ò²ï¿½ï¿½ï¿½ï¿½83.34ns*8=666.67nsï¿½ï¿½timeoutï¿½ï¿½1usï¿½ï¿½ï¿½ï¿½ï¿½
         {
             if ((SPICtl->SPI_SR & RECEIVE_FIFO_EMPTY) != RECEIVE_FIFO_EMPTY)
             {
-                if (DummyLen > 0)   //·¢ËÍÍêÃüÁîºó, ¿ÉÄÜÒªµÈ¼¸¸öÊ±ÖÓ,Êý¾Ý²Å³öÀ´
+                if (DummyLen > 0)   //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½Òªï¿½È¼ï¿½ï¿½ï¿½Ê±ï¿½ï¿½,ï¿½ï¿½ï¿½Ý²Å³ï¿½ï¿½ï¿½
                 {
-                    *pData = (uint8)(SPICtl->SPI_RXDR[0] & 0xFF); //ÎÞÐ§Êý¾Ý
+                    *pData = (uint8)(SPICtl->SPI_RXDR[0] & 0xFF); //ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½
                     DummyLen--;
                 }
                 else
@@ -341,7 +341,7 @@ uint32 SPINorInit(void)
                             | MSB_FBIT | LITTLE_ENDIAN_MODE | CS_2_SCLK_OUT_1_CK | CS_KEEP_LOW | SERIAL_CLOCK_POLARITY_HIGH
                             | SERIAL_CLOCK_PHASE_START | DATA_FRAME_8BIT); // 8bit data frame size, CPOL=1,CPHA=1
     //iomux
-    //ÏÈÉèÍêspiµÄÔÙÉèiomux£¬·ñÔòSPI-CLK»áÓÐÒ»¸öµÍÂö³å
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½spiï¿½ï¿½ï¿½ï¿½ï¿½ï¿½iomuxï¿½ï¿½ï¿½ï¿½ï¿½ï¿½SPI-CLKï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     //SPIIomux();
 
     DummySize = 0;
@@ -349,7 +349,7 @@ uint32 SPINorInit(void)
     cmd[0] = CMD_READ_JEDECID;
     //cmd[1] = cmd[2] = cmd[3] = 0;
 
-    for(i=1; i>=0; i--)  //Ì½²âSPI1 ºÍ SPI0 ÊÇ·ñÓÐ½ÓNOR
+    for(i=1; i>=0; i--)  //Ì½ï¿½ï¿½SPI1 ï¿½ï¿½ SPI0 ï¿½Ç·ï¿½ï¿½Ð½ï¿½NOR
     {
         SPIIomux(i);
         if (OK != SPISendCmd(cmd, 1, data, 3))
@@ -391,7 +391,7 @@ uint32 SPINorInit(void)
         pIDSEC0 IdSec0;
         pIDSEC1 IdSec1;
 
-		for (i=0; i<SPI_IDB_NUM; i++)	//ÔÚ2¸öBLOCKÀï²éÕÒID PAGE
+		for (i=0; i<SPI_IDB_NUM; i++)	//ï¿½ï¿½2ï¿½ï¿½BLOCKï¿½ï¿½ï¿½ï¿½ï¿½ID PAGE
 		{
             if (OK != SPINorRead((i*spec->BlockSize)<<9, DataBuf, 1024))
             {
@@ -426,7 +426,7 @@ uint32 SPINorInit(void)
     if (OK == ret)
         spec->valid = 1;
 
-    return ret;  //×ÜÊÇ·µ»ØOK£¬ÕâÑù¾Í²»ÓÃ½øÐÐÌ½²âÁË
+    return ret;  //ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½OKï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í²ï¿½ï¿½Ã½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½
 }
 
 /*
@@ -493,7 +493,7 @@ uint32 SPINorWrite(uint32 Addr, uint8 *pData, uint32 size)
     pSPINOR_SPEC spec = &NorSpec;
 
     PageSize = spec->PageSize;
-    if (Addr & (PageSize-1))    //µØÖ·±ØÐëÊÇPAGE¶ÔÆë
+    if (Addr & (PageSize-1))    //ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½PAGEï¿½ï¿½ï¿½ï¿½
         return ERROR;
 
     nPage = size/PageSize;
@@ -684,8 +684,8 @@ uint32 MDSPIGetInfo(uint8 lun, pMEMDEV_INFO pDevInfo)
 
 #if 0
 
-/*extern*/ uint32 ProbeReadBuf[PAGE_SIZE];   //FLASHÌ½²âÊ±ÓÃµÄPAGE BUF
-/*extern*/ uint32 ProbeWriteBuf[PAGE_SIZE];  //FLASHÌ½²âÊ±ÓÃµÄPAGE BUF
+/*extern*/ uint32 ProbeReadBuf[PAGE_SIZE];   //FLASHÌ½ï¿½ï¿½Ê±ï¿½Ãµï¿½PAGE BUF
+/*extern*/ uint32 ProbeWriteBuf[PAGE_SIZE];  //FLASHÌ½ï¿½ï¿½Ê±ï¿½Ãµï¿½PAGE BUF
 //uint8 TestSPIRet;
 
 /*

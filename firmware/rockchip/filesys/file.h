@@ -14,6 +14,9 @@
 */
 #ifndef _FILE_H
 #define _FILE_H
+#include "include/SysConfig.h"   /* SYS_SUPPROT_STRING_MAX_LEN & config */
+#include "filesys/FDT.h"
+#include "filesys/dir.h"   /* FS_TYPE enum */   /* FIND_DATA (search cursor) - explicit path: include/ has a shadow FDT.h */
 
 #undef  EXT
 #ifdef  IN_FILE
@@ -158,6 +161,8 @@ typedef enum
 }FIND_TYPE;
 
 
+#ifndef _MEDIA_MSGBOX_FILE_CMD_DEFINED
+#define _MEDIA_MSGBOX_FILE_CMD_DEFINED
 typedef enum _MEDIA_MSGBOX_FILE_CMD
 {
     MEDIA_MSGBOX_CMD_FILE_NULL = 100,
@@ -190,6 +195,8 @@ typedef enum _MEDIA_MSGBOX_FILE_CMD
     MEDIA_MSGBOX_CMD_FILE_CLOSE_HANDSHK,
 
 }MEDIA_MSGBOX_FILE_CMD;
+#endif /* _MEDIA_MSGBOX_FILE_CMD_DEFINED */
+
 
 
 /*
@@ -203,7 +210,7 @@ DRAM_FAT           EXT     uint32      CurDirClus;                             /
 DRAM_FAT         EXT     uint32      gwSaveDirClus;
 
 //DRAM_FAT        EXT     uint32      FreeMem[2];
-DRAM_FAT        EXT     MY_FILE     FileInfo[MAX_OPEN_FILES];               //file infromation table opened at the same time.
+DRAM_FAT        EXT     MY_FILE     OpenFileInfo[MAX_OPEN_FILES];               //file infromation table opened at the same time.
 DRAM_FAT        EXT     uint16      LongFileName[MAX_FILENAME_LEN];         //long file name.UNICODE
 //DRAM_FAT        EXT     RCV_INFO    EncRcvInfo ;
 

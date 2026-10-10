@@ -14,7 +14,7 @@ $Log: $
 
 /*-------------------------------- Includes ----------------------------------*/
 
-#include "Sysconfig.h"
+#include "SysConfig.h"
 #include "MDConfig.h"
 
 #ifdef SPIFLASH_DRIVER
@@ -24,7 +24,7 @@ $Log: $
 
 /*------------------------------------ Defines -------------------------------*/
 
-#define SPINOR_IDB_NUM               1      //ID Block µÄ¸öÊý¼´ Boot ÉÕÐ´µÄ¸öÊý
+#define SPINOR_IDB_NUM               1      //ID Block ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½ Boot ï¿½ï¿½Ð´ï¿½Ä¸ï¿½ï¿½ï¿½
 
 #define SPINAND_IDB_NUM              2
 
@@ -40,7 +40,7 @@ _ATTR_FLASH_BSS_ static SFLASH_DRIVER *pSFlashDrv;
 
 _ATTR_FLASH_BSS_ static uint32 SPI_IDB_SIZE;
 
-_ATTR_FLASH_BSS_ static uint32 SPI_FW_OFFSET;       //¹Ì¼þµÄÆ«ÒÆµØÖ·, sec uint
+_ATTR_FLASH_BSS_ static uint32 SPI_FW_OFFSET;       //ï¿½Ì¼ï¿½ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·, sec uint
 
 _ATTR_FLASH_BSS_  uint32    SFlashSysProtMagic;
 
@@ -50,7 +50,7 @@ _ATTR_FLASH_BSS_  uint32    SFlashSysProtMagic;
 
 /*
 Name:       SFlashSysProtSet
-Desc:       ÏµÍ³ÇøÐ´±£»¤¹Ø
+Desc:       ÏµÍ³ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 Param:
 Return:
 Global:
@@ -82,8 +82,8 @@ uint32 SFlashProtStatusGet(void)
 
 /*
 Name:       NandSysProtChk
-Desc:       Èë¿Ú²ÎÊý:½«Òª²ÁÐ´µÄÉÈÇøµØÖ·
-            ³ö¿Ú²ÎÊý:0=·ÇÏµÍ³±£»¤Çø, 1=ÏµÍ³±£»¤Çø
+Desc:       ï¿½ï¿½Ú²ï¿½ï¿½ï¿½:ï¿½ï¿½Òªï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·
+            ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½:0=ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, 1=ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 Param:
 Return:
 Global:
@@ -99,7 +99,7 @@ uint32 SFlashSysProtChk(uint32 SecAddr)
     #ifdef SYS_PROTECT
     if (SFlashProtStatusGet() != FLASH_PROT_MAGIC)
     {
-        if (SecAddr < SFlashGetCapacity(0))    //ÏµÍ³±£ÁôÇø
+        if (SecAddr < SFlashGetCapacity(0))    //ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             protect=1;
     }
     #endif
@@ -119,7 +119,8 @@ Log:
 */
 _ATTR_FLASH_CODE_
 uint32 SFlashRead(uint32 sec, uint32 nSec, void *pData)
-{
+{
+
     if (pSFlashDrv)
         return pSFlashDrv->read(sec, nSec, pData);
     else
@@ -139,7 +140,8 @@ Log:
 */
 _ATTR_FLASH_CODE_
 uint32 SFlashWrite(uint32 sec, uint32 nSec, void *pData)
-{
+{
+
     if (pSFlashDrv)
         return pSFlashDrv->write(sec, nSec, pData);
     else
@@ -160,7 +162,8 @@ Log:
 */
 _ATTR_FLASH_CODE_
 uint32 SFlashErase(uint32 SecAddr)
-{
+{
+
     if (pSFlashDrv)
         return pSFlashDrv->erase(SecAddr);
     else
@@ -225,7 +228,7 @@ static int32 SFlashReadID(uint8* data, bool bNand)
 
     sfcmd.d32 = 0;
     sfcmd.b.cmd = CMD_READ_JEDECID;
-    sfcmd.b.datasize = 3;               //ID ×Ö½ÚÊýÊÇ2-3B, ²»Í¬³§ÉÌ²»Ò»Ñù
+    sfcmd.b.datasize = 3;               //ID ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½2-3B, ï¿½ï¿½Í¬ï¿½ï¿½ï¿½Ì²ï¿½Ò»ï¿½ï¿½
 
     sfctrl.d32 = 0;
     if (bNand)
@@ -322,7 +325,7 @@ uint32 SFlashInit(void)
         return ERROR;
 
     DEBUG("SPI FLASH ID:%x %x %x\n", data[0], data[1], data[2]);
-    //²»Ê¹ÓÃdata[0]ÅÐ¶Ï, ÊÇ¿¼ÂÇ¼æÈÝnand, ½ÓnandÊ±data[0]=0xFF(IOÄ¬ÈÏÓÐÉÏÀ­µç×è)
+    //ï¿½ï¿½Ê¹ï¿½ï¿½data[0]ï¿½Ð¶ï¿½, ï¿½Ç¿ï¿½ï¿½Ç¼ï¿½ï¿½ï¿½nand, ï¿½ï¿½nandÊ±data[0]=0xFF(IOÄ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
     if ((0xFF==data[2] && 0xFF==data[1]) || (0x00==data[2] && 0x00==data[1]))
     {
         return ERROR;
@@ -356,7 +359,7 @@ uint32 SFlashInit(void)
 		uint8 DataBuf[1024];
         pIDSEC0 IdSec0;
         pIDSEC1 IdSec1;
-		for (i=0; i<SPI_IDB_NUM; i++)	//ÔÚ2¸öBLOCKÀï²éÕÒID PAGE
+		for (i=0; i<SPI_IDB_NUM; i++)	//ï¿½ï¿½2ï¿½ï¿½BLOCKï¿½ï¿½ï¿½ï¿½ï¿½ID PAGE
 		{
             if (OK != SFlashRead((i*spec->BlockSize), 2, DataBuf))
             {
@@ -380,7 +383,7 @@ uint32 SFlashInit(void)
                     SysProgRawDiskCapacity = SysProgDiskCapacity>>1;
                     //SysDataDiskCapacity = SysUserDisk2Capacity=0;
 
-                    //if ((SysProgDiskCapacity) <= spec->capacity) //¹Ì¼þÈÝÁ¿´óÓÚNORÈÝÁ¿, ¹Ì¼þÔò´æÔÚ¿¨ÉÏ
+                    //if ((SysProgDiskCapacity) <= spec->capacity) //ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½NORï¿½ï¿½ï¿½ï¿½, ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½Ú¿ï¿½ï¿½ï¿½
                     ret = OK;
 
                     break;
@@ -624,7 +627,7 @@ int32 SFlashGetProductSn(void *pSn)
     PRKNANO_IDB_SEC3 pIDBSec3;
 
     DEBUG("SFlashGetProductSn in");
-    if (SDM_SUCCESS != SFlashReadIDB(3, 1, DataBuf))//´æÔÚIDBµÚ3¸öÉÈÇø.
+    if (SDM_SUCCESS != SFlashReadIDB(3, 1, DataBuf))//ï¿½ï¿½ï¿½ï¿½IDBï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.
     {
         return ret;
     }
@@ -660,7 +663,7 @@ int32 SFlashGetBluetoothMac(void *pBTMac)
     PRKNANO_IDB_SEC3 pIDBSec3;
 
     DEBUG("SFlashGetBluetoothMac in");
-    if (SDM_SUCCESS != SFlashReadIDB(3, 1, DataBuf))//´æÔÚIDBµÚ3¸öÉÈÇø.
+    if (SDM_SUCCESS != SFlashReadIDB(3, 1, DataBuf))//ï¿½ï¿½ï¿½ï¿½IDBï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.
     {
         return ret;
     }
@@ -703,7 +706,7 @@ uint32 MDSFlashErase(uint32 ChipSel, uint32 BlkStart, uint32 BlkNum, uint32 mod)
     StartAddr = BlkStart*spec->BlockSize;
     EndAddr = StartAddr+BlkNum*spec->BlockSize;
 
-    if (ChipSel > 0 || EndAddr > SPI_IDB_SIZE) //Ö»ÄÜ²Á³ýIDB block
+    if (ChipSel > 0 || EndAddr > SPI_IDB_SIZE) //Ö»ï¿½Ü²ï¿½ï¿½ï¿½IDB block
     {
         return OK;
     }

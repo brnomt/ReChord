@@ -32,9 +32,9 @@
 */
 //section define
 
-#define _ATTR_BRO_CORE_CODE_         __attribute__((section("BroCoreCode")))
-#define _ATTR_BRO_CORE_DATA_         __attribute__((section("BroCoreData")))
-#define _ATTR_BRO_CORE_BSS_          __attribute__((section("BroCoreBss"),zero_init))
+#define _ATTR_BRO_CORE_CODE_         
+#define _ATTR_BRO_CORE_DATA_         
+#define _ATTR_BRO_CORE_BSS_          
 
 
 #ifndef PATH_MAXLEN

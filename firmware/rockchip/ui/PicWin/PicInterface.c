@@ -3,7 +3,7 @@
 *                   Copyright (c) 2008, Rock-Chips
 *                         All rights reserved.
 *
-* File Name£º  PicInterface.c
+* File Nameï¿½ï¿½  PicInterface.c
 * 
 * Description:  
 *
@@ -17,7 +17,7 @@
 #include "SysInclude.h"
 #ifdef _PICTURE_
 #pragma arm section code = "PicWinCode", rodata = "PicWinCode", rwdata = "PicWinData", zidata = "PicWinBss"
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "SysFindFile.h"
 #include "PicWin.h"
 #include "PicInterface.h"

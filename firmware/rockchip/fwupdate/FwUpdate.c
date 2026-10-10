@@ -15,16 +15,16 @@ $Log: $
 /*-------------------------------- Includes ----------------------------------*/
 
 #include "SysConfig.h"
-#include "MDconfig.h"
+#include "MDConfig.h"
 #include "ModuleOverlay.h"
 #include "FwUpdate.h"
 
 #ifdef FW_UPDATE
 
 /*----------------------------------- Typedefs -------------------------------*/
-#define _ATTR_FW_UPGRADE_CODE_    __attribute__((section("FwUpgradeCode")))
-#define _ATTR_FW_UPGRADE_DATA_    __attribute__((section("FwUpgradeData")))
-#define _ATTR_FW_UPGRADE_BSS_     __attribute__((section("FwUpgradeBSS"),zero_init))
+#define _ATTR_FW_UPGRADE_CODE_    
+#define _ATTR_FW_UPGRADE_DATA_    
+#define _ATTR_FW_UPGRADE_BSS_     
 
 /*------------------------------------ Defines -------------------------------*/
 //#define  _FW_CRC_
@@ -75,7 +75,7 @@ int32 FwCheck(void)
     pFWHead2 = (PFIRMWARE_HEADER)TmpBuf2;
 
     addr = 0;
-    MDRead(SysDiskID, addr, 1, TmpBuf1);       //ÏÈ¼ì²éµÚÒ»·Ý¹Ì¼þ
+    MDRead(SysDiskID, addr, 1, TmpBuf1);       //ï¿½È¼ï¿½ï¿½ï¿½Ò»ï¿½Ý¹Ì¼ï¿½
     //printf("Fw1Sign1 = %s\n", pFWHead1->FwSign);
 
     if (0 == memcmp(pFWHead1->FwSign, FwSign, 8))
@@ -103,7 +103,7 @@ int32 FwCheck(void)
         addr += ((((pFWHead1->FwEndOffset + 16*1024 + FW_ALIGN_SIZE)/FW_ALIGN_SIZE)*FW_ALIGN_SIZE)>>9);
     else
         addr += SysProgRawDiskCapacity;
-    for(i = 0; i < 20, addr > 0; i++) //²éÕÒµÚ¶þ·Ý¹Ì¼þ,¹Ì¼þ¿ÉÄÜ±ä´ó
+    for(i = 0; i < 20, addr > 0; i++) //ï¿½ï¿½ï¿½ÒµÚ¶ï¿½ï¿½Ý¹Ì¼ï¿½,ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½Ü±ï¿½ï¿½
     {
         //DEBUG("i = %d", i);
         MDRead(SysDiskID, addr, 1, TmpBuf2);
@@ -132,17 +132,17 @@ int32 FwCheck(void)
         printf("No find fw2!\n");
     }
 
-    if (0==FW1Valid && 0==FW2Valid)    //Á½·Ý¶¼´íÁË
+    if (0==FW1Valid && 0==FW2Valid)    //ï¿½ï¿½ï¿½Ý¶ï¿½ï¿½ï¿½ï¿½ï¿½
     {
         printf("fw1 && fw2 error!\n");
         return -1;
     }
 
-    if (0==FW2Valid) //µÚ¶þ·ÝÓÐ³ö´í
+    if (0==FW2Valid) //ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½Ð³ï¿½ï¿½ï¿½
     {
         printf("fw2 error!\n");
-        //SysProgRawDiskCapacity = (((pFWHead1->FwEndOffset + 512 /*16*1024*/ + FW_ALIGN_SIZE - 1)/FW_ALIGN_SIZE)*FW_ALIGN_SIZE)>>9;    //ÒÔM¶ÔÆë,ÒÔsecÎªµ¥Î»
-        SysProgRawDiskCapacity = ((((pFWHead1->FwEndOffset + 16*1024 + FW_ALIGN_SIZE)/FW_ALIGN_SIZE)*FW_ALIGN_SIZE)>>9);    //ÒÔM¶ÔÆë,ÒÔsecÎªµ¥Î»
+        //SysProgRawDiskCapacity = (((pFWHead1->FwEndOffset + 512 /*16*1024*/ + FW_ALIGN_SIZE - 1)/FW_ALIGN_SIZE)*FW_ALIGN_SIZE)>>9;    //ï¿½ï¿½Mï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½secÎªï¿½ï¿½Î»
+        SysProgRawDiskCapacity = ((((pFWHead1->FwEndOffset + 16*1024 + FW_ALIGN_SIZE)/FW_ALIGN_SIZE)*FW_ALIGN_SIZE)>>9);    //ï¿½ï¿½Mï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½secÎªï¿½ï¿½Î»
     }
     else
     {
@@ -154,7 +154,7 @@ int32 FwCheck(void)
         #ifdef _SPINOR_
         SysProgDiskCapacity = (SysProgRawDiskCapacity<<1);
         #else
-        SysProgDiskCapacity = (SysProgRawDiskCapacity<<1)+4*2048;   // +4M, ±ÜÃâ¹Ì¼þÔö´óÎÄ¼þÏµÍ³±»³å
+        SysProgDiskCapacity = (SysProgRawDiskCapacity<<1)+4*2048;   // +4M, ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½
         #endif
     }
 
@@ -163,7 +163,7 @@ int32 FwCheck(void)
         MDRead(SysDiskID, 0, 1, TmpBuf1);
         if (0 != memcmp(TmpBuf1, TmpBuf2, 512))
         {
-            if (((pFWHead2->Year<<16)+pFWHead2->Date) > ((pFWHead1->Year<<16)+pFWHead1->Date))  //ÈÕÆÚ±È½ÏÐÂµÄ¹Ì¼þÊÇÓÐÐ§µÄ
+            if (((pFWHead2->Year<<16)+pFWHead2->Date) > ((pFWHead1->Year<<16)+pFWHead1->Date))  //ï¿½ï¿½ï¿½Ú±È½ï¿½ï¿½ÂµÄ¹Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½
                 FW1Valid = 0;
             else
                 FW2Valid = 0;
@@ -254,9 +254,9 @@ static int32 FwRecovery(uint32 DstAddr, uint32 SrcAddr, uint32 FwSize)
     DEBUG("FwRecovery Enter: addr = %d", DstAddr);
 
     memset (pUBuf, 0xFF, FW_BUF_LEN);
-    FwWrite(DstAddr, FW_BUF_LEN>>9, pUBuf);                   //ÏÈÇå³ý¹Ì¼þÍ·
+    FwWrite(DstAddr, FW_BUF_LEN>>9, pUBuf);                   //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½Í·
 
-    SrcAddr += (FW_BUF_LEN>>9);                                //´Ó¹Ì¼þµÄFW_BUF_LENÎ»ÖÃ¿ªÊ¼Éý¼¶
+    SrcAddr += (FW_BUF_LEN>>9);                                //ï¿½Ó¹Ì¼ï¿½ï¿½ï¿½FW_BUF_LENÎ»ï¿½Ã¿ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
     DstAddr += (FW_BUF_LEN>>9);
 
     for(i = 0; i<(FwSize-FW_BUF_LEN); i+=FW_BUF_LEN)
@@ -277,7 +277,7 @@ static int32 FwRecovery(uint32 DstAddr, uint32 SrcAddr, uint32 FwSize)
             return ret;
         }
 
-        SrcAddr += (FW_BUF_LEN>>9);                                //´Ó¹Ì¼þµÄFW_BUF_LENÎ»ÖÃ¿ªÊ¼Éý¼¶
+        SrcAddr += (FW_BUF_LEN>>9);                                //ï¿½Ó¹Ì¼ï¿½ï¿½ï¿½FW_BUF_LENÎ»ï¿½Ã¿ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
         DstAddr += (FW_BUF_LEN>>9);
     }
 
@@ -289,7 +289,7 @@ static int32 FwRecovery(uint32 DstAddr, uint32 SrcAddr, uint32 FwSize)
         return -1;
     }
 
-    ret = FwWrite(DstAddr, FW_BUF_LEN>>9, pUBuf);             //ÔÙÐ´µÚÒ»·Ý¹Ì¼þÍ·
+    ret = FwWrite(DstAddr, FW_BUF_LEN>>9, pUBuf);             //ï¿½ï¿½Ð´ï¿½ï¿½Ò»ï¿½Ý¹Ì¼ï¿½Í·
     if (ret < 0)
     {
         DEBUG("Error!");
@@ -484,11 +484,11 @@ int32 FwUpdate(void *arg)
     }
 
 
-    //FwSize = ((pFWHead->FwEndOffset + 16*1024 + 1024*1024 - 1)>>20)<<20;    //ÒÔM¶ÔÆë
+    //FwSize = ((pFWHead->FwEndOffset + 16*1024 + 1024*1024 - 1)>>20)<<20;    //ï¿½ï¿½Mï¿½ï¿½ï¿½ï¿½
     FwSize = ((pFWHead->FwEndOffset + 16*1024+ FW_ALIGN_SIZE)/FW_ALIGN_SIZE)*FW_ALIGN_SIZE;
     //FwSize = ((pFWHead->FwEndOffset + 512 /*16*1024*/+ FW_ALIGN_SIZE - 1)/FW_ALIGN_SIZE)*FW_ALIGN_SIZE;
 
-    #if 0   //²»×öÐ£Ñé£¬·ÀÖ¹¹Ì¼þ±ÈÔ­À´´óÓÚ64K »òÐ¡ÓÚ 64K ¶¼»áÐ£Ñé²»¹ý
+    #if 0   //ï¿½ï¿½ï¿½ï¿½Ð£ï¿½é£¬ï¿½ï¿½Ö¹ï¿½Ì¼ï¿½ï¿½ï¿½Ô­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½64K ï¿½ï¿½Ð¡ï¿½ï¿½ 64K ï¿½ï¿½ï¿½ï¿½Ð£ï¿½é²»ï¿½ï¿½
     updatesize = FileGetSize(hFile);
     DEBUG("FwSize = %d updatesize = %d",FwSize,updatesize);
     if ((FwSize+4) != updatesize)
@@ -538,22 +538,22 @@ int32 FwUpdate(void *arg)
 
     DEBUG("Fw2 Update Start");
 
-    addr2 = SysProgRawDiskCapacity;                  //»ñÈ¡µÚ¶þ·Ý¹Ì¼þµØÖ·
+    addr2 = SysProgRawDiskCapacity;                  //ï¿½ï¿½È¡ï¿½Ú¶ï¿½ï¿½Ý¹Ì¼ï¿½ï¿½ï¿½Ö·
     memset (pUBuf, 0xFF, FW_BUF_LEN);
-    ret = FwWrite(addr2, FW_BUF_LEN>>9, pUBuf);         //ÏÈÇå³ý¾ÉµÄµÚ¶þ·Ý¹Ì¼þÍ·
+    ret = FwWrite(addr2, FW_BUF_LEN>>9, pUBuf);         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÉµÄµÚ¶ï¿½ï¿½Ý¹Ì¼ï¿½Í·
     if (ret < 0)
     {
         DEBUG("FwWrite Error!");
         goto UPDATE_ERROR;
     }
 
-    if (FwSize > (SysProgRawDiskCapacity<<9))      //¹Ì¼þ´óÐ¡ÓÐ±ä´ó
+    if (FwSize > (SysProgRawDiskCapacity<<9))      //ï¿½Ì¼ï¿½ï¿½ï¿½Ð¡ï¿½Ð±ï¿½ï¿½
     {
-        addr2 = FwSize>>9;                          //µÚ¶þ·Ý¹Ì¼þÐÂµÄÆðÊ¼µØÖ·
+        addr2 = FwSize>>9;                          //ï¿½Ú¶ï¿½ï¿½Ý¹Ì¼ï¿½ï¿½Âµï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Ö·
         DEBUG("FwSize = %d",FwSize);
     }
 
-    FileSeek(FW_BUF_LEN, SEEK_SET, hFile);          //´Ó¹Ì¼þµÄFW_BUF_LENÎ»ÖÃ¿ªÊ¼Éý¼¶
+    FileSeek(FW_BUF_LEN, SEEK_SET, hFile);          //ï¿½Ó¹Ì¼ï¿½ï¿½ï¿½FW_BUF_LENÎ»ï¿½Ã¿ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
     addr2 += (FW_BUF_LEN>>9);
 
     for (i = 0; i < (FwSize-FW_BUF_LEN); i+= FW_BUF_LEN)
@@ -579,7 +579,7 @@ int32 FwUpdate(void *arg)
         addr2 += (FW_BUF_LEN>>9);
     }
 
-    FileSeek(0, SEEK_SET, hFile);                       //ÔÙÐ´µÚ¶þ·Ý¹Ì¼þÍ·
+    FileSeek(0, SEEK_SET, hFile);                       //ï¿½ï¿½Ð´ï¿½Ú¶ï¿½ï¿½Ý¹Ì¼ï¿½Í·
     if (0 == FileRead(pUBuf, FW_BUF_LEN, hFile))
     {
         DEBUG("Error!");
@@ -597,7 +597,7 @@ int32 FwUpdate(void *arg)
 
     DEBUG("Fw2 Update End");
 
-    ret = FwRecovery(0, addr2, FwSize);               //ÓÃµÚ¶þ·Ý¹Ì¼þÈ¥Éý¼¶µÚÒ»·Ý¹Ì¼þ
+    ret = FwRecovery(0, addr2, FwSize);               //ï¿½ÃµÚ¶ï¿½ï¿½Ý¹Ì¼ï¿½È¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Ý¹Ì¼ï¿½
 
 
 UPDATE_ERROR:

@@ -14,7 +14,7 @@ $Log    :
 /****************************************************************/
 #pragma arm section code = "ImageContrlCode", rodata = "ImageContrlCode", rwdata = "ImageContrlData", zidata = "ImageContrlBss"
 #include "../ImageConfig.h"
-#include "../Imageinclude/image_globals.h"
+#include "image_globals.h"
 
 #ifdef _PICTURE_
 

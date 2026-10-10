@@ -3,20 +3,14 @@
 # from-source EQ (rechord_dsp.c) replaces it and the RkNano_EQ .lib.
 BB_SRCS := \
   firmware/rockchip/driver/mailbox/mailbox.c \
-  firmware/rockchip/audio/AAC/pAAC2.c \
   firmware/rockchip/audio/AudioControl/AudioControl.c \
   firmware/rockchip/audio/AudioControl/HoldonPlay.c \
   firmware/rockchip/audio/AudioControl/Pcm.c \
   firmware/rockchip/audio/Common/audio_track_control.c \
   firmware/rockchip/audio/Common/pCODECS.c \
-  firmware/rockchip/audio/DSDIFF/pDSDIFF2.c \
-  firmware/rockchip/audio/DSF/pDSF2.c \
-  firmware/rockchip/audio/HIFI/alac/p_hifi_alac2.c \
-  firmware/rockchip/audio/HIFI/ape/p_hifi_Ape2.c \
   firmware/rockchip/audio/HIFI/flac/p_hifi_flac2.c \
   firmware/rockchip/audio/HIFI/hifi_get_bits.c \
   firmware/rockchip/audio/Mp3/pMP32.c \
-  firmware/rockchip/audio/Ogg/pOGG2.c \
   firmware/rockchip/audio/sbc/sbc_encode/sbc_enc_interface.c \
   firmware/rockchip/audio/SSRC/resample_interface.c \
   firmware/rockchip/audio/Wav/pWAV.c \
@@ -24,6 +18,47 @@ BB_SRCS := \
   firmware/rockchip/audio/Wav/pWAVEnc.c \
   firmware/rockchip/bbsystem/audio_file_access2.c \
   firmware/rockchip/bbsystem/BSP2.c \
+  firmware/rockchip/bbsystem/bb_globals.c \
+  firmware/rockchip/driver/MemDev/MemDev.c \
+  firmware/rockchip/driver/MemDev/SD_MMC/eMMC.c \
+  firmware/rockchip/driver/MemDev/SD_MMC/MMC.c \
+  firmware/rockchip/driver/MemDev/SD_MMC/SDM.c \
+  firmware/rockchip/driver/MemDev/SD_MMC/SDCtrl.c \
+  firmware/rockchip/driver/MemDev/SD_MMC/SD.c \
+  firmware/rockchip/driver/MemDev/SD_MMC/SDAdapt.c \
+  firmware/rockchip/driver/USB/host/usb_msc_host.c \
+  firmware/rockchip/driver/USB/host/USB_DWCHost.c \
+  firmware/rockchip/driver/GRF/grf.c \
+  firmware/rockchip/driver/CRU/cru.c \
+  firmware/rockchip/driver/DMA/Dma.c \
+  firmware/rockchip/system/os/interrupt.c \
+  firmware/rockchip/system/sysservice/Delay.c \
+  firmware/rockchip/system/sysservice/PowerManager.c \
+  firmware/rockchip/driver/USB/USBComm.c \
+  firmware/rockchip/driver/GPIO/gpio.c \
+  firmware/rockchip/driver/UART/uart.c \
+  firmware/rockchip/audio/ID3/ID3.c \
+  firmware/rockchip/audio/ID3/AsicToUnicode.c \
+  firmware/rockchip/driver/USB/device/USBDevice.c \
+  firmware/rockchip/driver/USB/device/USBIsr.c \
+  firmware/rockchip/ui/USB/FunUSB.c \
+  firmware/rockchip/system/os/SysTickHandler.c \
+  firmware/rockchip/display/LcdInterface.c \
+  firmware/rockchip/display/LcdChar.c \
+  firmware/rockchip/display/LcdImage.c \
+  firmware/rockchip/display/LcdCharLib.c \
+  firmware/rockchip/driver/ADC/Adc.c \
+  firmware/rockchip/driver/USB/device/storage.c \
+  firmware/rockchip/driver/AD_KEY/AD_Key.c \
+  firmware/rockchip/usbcontrol/USBControl.c \
+  firmware/rockchip/bt/lwbt/uartif_h5.c \
+  firmware/rockchip/bt/lwbt/btHwControl.c \
+  firmware/rockchip/bt/BlueToothSysParam.c \
+  firmware/rockchip/bt/lwbt/a2dp_source/bt_ip_dt_source.c \
+  firmware/rockchip/driver/BB/BBSystem.c \
+  firmware/rockchip/driver/SYSTICK/systick.c \
+  firmware/rockchip/driver/vop/vop.c \
+  firmware/rockchip/driver/PMU/PMU.c \
   firmware/rockchip/bbsystem/cru2.c \
   firmware/rockchip/bbsystem/Debug2.c \
   firmware/rockchip/bbsystem/Delay2.c \
@@ -45,15 +80,65 @@ BB_SRCS := \
   firmware/rockchip/system/sysservice/bb_core.c \
   firmware/rockchip/system/sysservice/Hook.c \
   firmware/rockchip/system/sysservice/Service.c \
-  firmware/rockchip/system/sysservice/UsbAdapterProbe.c
+  firmware/rockchip/system/sysservice/UsbAdapterProbe.c \
+  firmware/rockchip/filesys/Decode.c \
+  firmware/rockchip/filesys/FDT.c \
+  firmware/rockchip/filesys/FileSeek.c \
+  firmware/rockchip/filesys/dir.c \
+  firmware/rockchip/filesys/fat.c \
+  firmware/rockchip/filesys/file.c \
+  firmware/rockchip/filesys/nFAT.c \
+  firmware/rockchip/sortfileinfo/FavoOperate.c \
+  firmware/rockchip/sortfileinfo/FavoReset.c \
+  firmware/rockchip/sortfileinfo/FileInfoSave.c \
+  firmware/rockchip/sortfileinfo/FileInfoSort.c \
+  firmware/rockchip/sortfileinfo/SortInfoGet.c
 
 # Include directories preserved from SDK_INCLUDES in the current Makefile.
 BB_INCLUDE_DIRS := \
-  firmware/rockchip/include \
-  firmware/rockchip \
+  firmware/rockchip/driver/DAC/ALC5633 \
+  firmware/rockchip/driver/DAC/rockcodec \
+  firmware/rockchip/driver/DAC/wm8987 \
+  firmware/rockchip/driver/MemDev/SD_MMC \
+  firmware/rockchip/driver/MemDev/SPIFlash \
+  firmware/rockchip/driver/MemDev/SpiNor \
+  firmware/rockchip/driver/RadioDriver/FM5767 \
+  firmware/rockchip/driver/RadioDriver/FM5807 \
+  firmware/rockchip/driver/RadioDriver/QN8035 \
+  firmware/rockchip/driver/USB/device \
+  firmware/rockchip/driver/USB/host \
   firmware/rockchip/driver \
-  firmware/rockchip/driver/mailbox \
+  firmware/rockchip/display \
+  firmware/rockchip \
+  firmware/rockchip/driver/ADC \
+  firmware/rockchip/driver/AD_KEY \
+  firmware/rockchip/driver/BB \
+  firmware/rockchip/driver/CRU \
+  firmware/rockchip/driver/DAC \
+  firmware/rockchip/driver/DMA \
+  firmware/rockchip/driver/GPIO \
+  firmware/rockchip/driver/GRF \
+  firmware/rockchip/driver/I2C \
+  firmware/rockchip/driver/IIS \
+  firmware/rockchip/driver/IMDCT36_SYNTH \
+  firmware/rockchip/driver/LCD \
   firmware/rockchip/driver/MemDev \
+  firmware/rockchip/driver/NVIC \
+  firmware/rockchip/driver/PMU \
+  firmware/rockchip/driver/PVTM \
+  firmware/rockchip/driver/PWM \
+  firmware/rockchip/driver/RadioDriver \
+  firmware/rockchip/driver/SDMMC \
+  firmware/rockchip/driver/SPI \
+  firmware/rockchip/driver/SYSTICK \
+  firmware/rockchip/driver/TIMER \
+  firmware/rockchip/driver/UART \
+  firmware/rockchip/driver/USB \
+  firmware/rockchip/driver/WatchDog \
+  firmware/rockchip/driver/hifi \
+  firmware/rockchip/driver/mailbox \
+  firmware/rockchip/driver/pmc \
+  firmware/rockchip/driver/vop \
   firmware/rockchip/audio/Include \
   firmware/rockchip/audio/AudioControl \
   firmware/rockchip/audio/Common \
@@ -66,4 +151,12 @@ BB_INCLUDE_DIRS := \
   firmware/rockchip/system/fileseek \
   firmware/rockchip/system/module_overlay \
   firmware/rockchip/system/sysservice \
-  firmware/rockchip/bbsystem
+  firmware/rockchip/bbsystem \
+  firmware/rockchip/ui/SetMenu \
+  firmware/rockchip/filesys \
+  firmware/rockchip/sortfileinfo \
+  firmware/rockchip/bt \
+  firmware/rockchip/bt/lwbt \
+  firmware/rockchip/bt/lwbt/a2dp_source \
+  firmware/rockchip/usbcontrol \
+  firmware/rockchip/include

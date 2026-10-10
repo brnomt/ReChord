@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  ModuleOverlay.c
+* File Nameï¿½ï¿½  ModuleOverlay.c
 *
 * Description:
 *
@@ -15,7 +15,7 @@
 #define _IN_MODULEOVERLAY_
 
 #include "SysInclude.h"
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "SysReservedOperation.h"
 
 uint32 MDReadData(MEMDEV_ID DevID, uint32 offset, uint32 len, void *buf);
@@ -142,7 +142,7 @@ uint32 MDReadData(MEMDEV_ID DevID, uint32 offset, uint32 len, void *buf)
     {
         if (ValidSysDisk)
         {
-            sectorNum += SysProgRawDiskCapacity; //¶ÁµÚ¶þ·Ý¹Ì¼þ
+            sectorNum += SysProgRawDiskCapacity; //ï¿½ï¿½ï¿½Ú¶ï¿½ï¿½Ý¹Ì¼ï¿½
         }
     }
 
@@ -386,18 +386,18 @@ uint32 ModuleOverlayExt(uint32 ModuleNum, uint8 Type)
 
     UserIsrDisable();
 
-    //ÏÈ¶ÁÈ¡¹Ì¼þÏà¶ÔÆðÊ¼µØÖ·
+    //ï¿½È¶ï¿½È¡ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Ö·
     MDReadData(SysDiskID, CodeLogicAddress, 512, FlashBuf);
     pFirmwareModuleInfo = (FIRMWARE_INFO_T *)FlashBuf;
     LoadStartBase = pFirmwareModuleInfo -> LoadStartBase;
 
-    //¶ÁÈ¡Ä£¿éÐÅÏ¢CODE_INFO_T
+    //ï¿½ï¿½È¡Ä£ï¿½ï¿½ï¿½ï¿½Ï¢CODE_INFO_T
     CodeInfoAddr  = CodeLogicAddress + sizeof(pFirmwareModuleInfo -> LoadStartBase);
     CodeInfoAddr  = CodeInfoAddr + sizeof(pFirmwareModuleInfo -> ModuleInfo.ModuleNum) + ModuleNum * sizeof(CODE_INFO_T);
     MDReadData(SysDiskID, CodeInfoAddr, sizeof(CODE_INFO_T), FlashBuf);
     Module = *(CODE_INFO_T *)FlashBuf;
 
-    //¶ÁÈ¡´úÂë¡¢Êý¾Ý£»Çå³ýBSS¶Î
+    //ï¿½ï¿½È¡ï¿½ï¿½ï¿½ë¡¢ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½BSSï¿½ï¿½
     if (Type & MODULE_OVERLAY_CODE)
     {
         LoadBase    = Module.CodeLoadBase - LoadStartBase + CodeLogicAddress;
@@ -461,18 +461,18 @@ uint32 ReadModuleData(uint32 ModuleNum, uint8 *pBuf, uint32 Offset, uint32 Lengt
 
     UserIsrDisable();
 
-    //ÏÈ¶ÁÈ¡¹Ì¼þÏà¶ÔÆðÊ¼µØÖ·
+    //ï¿½È¶ï¿½È¡ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Ö·
     MDReadData(SysDiskID, CodeLogicAddress, 512, FlashBuf);
     pFirmwareModuleInfo = (FIRMWARE_INFO_T *)FlashBuf;
     LoadStartBase = pFirmwareModuleInfo -> LoadStartBase;
 
-    //¶ÁÈ¡Ä£¿éÐÅÏ¢CODE_INFO_T
+    //ï¿½ï¿½È¡Ä£ï¿½ï¿½ï¿½ï¿½Ï¢CODE_INFO_T
     CodeInfoAddr  = CodeLogicAddress + sizeof(pFirmwareModuleInfo -> LoadStartBase);
     CodeInfoAddr  = CodeInfoAddr + sizeof(pFirmwareModuleInfo -> ModuleInfo.ModuleNum) + ModuleNum * sizeof(CODE_INFO_T);
     MDReadData(SysDiskID, CodeInfoAddr, sizeof(CODE_INFO_T), FlashBuf);
     Module = *(CODE_INFO_T *)FlashBuf;
 
-    //¶ÁÈ¡ÏëÒªµÄÊý¾Ý
+    //ï¿½ï¿½È¡ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     LoadBase    = Module.DataLoadBase - LoadStartBase + CodeLogicAddress;
     ModuleOverlayLoadData(LoadBase + Offset, (uint32)pBuf, Length);
 
@@ -519,7 +519,7 @@ uint32 GetSysReservedNextPage(uint32 block)
 
         LBA = DevInfo.BlockSize * block;
 
-        //´ÓBlockµÄÆðÊ¼Page + Æ«ÒÆµØÖ· ¿ªÊ¼ËÑË÷¿ÕµÄPage
+        //ï¿½ï¿½Blockï¿½ï¿½ï¿½ï¿½Ê¼Page + Æ«ï¿½Æµï¿½Ö· ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½Õµï¿½Page
         for (Page = 0; Page < SysPagePerBlock; Page++)
         {
             MDRead(DataDiskID, LBA + Page * SysSecPerPage, 1, FlashBuf);
@@ -548,7 +548,7 @@ uint32 GetSysReservedNextPage(uint32 block)
   Description   : search a page that has not been worte,it start form specified block address add a offset
                   inside of the block,this offset is left for forture use,if found,return this page.
   Input         :
-  Return        : PageµØÖ·
+  Return        : Pageï¿½ï¿½Ö·
 
   History:     <author>         <time>         <version>
              ZhengYongzhi     2008/07/21         Ver1.0

@@ -17,11 +17,21 @@ MEMORY
     /* Code window (section_3 region, SPI-loaded) */
     FW_CODE (rx)  : ORIGIN = 0x03000000, LENGTH = 0x00939000
     /* On-chip SRAM for data/stack */
-    FW_RAM  (rwx) : ORIGIN = 0x03005AFC, LENGTH = 0x0005A504
+    /* 2026-10-10: extended into 0x03060000..0x030E0000, which HARDWARE.md maps
+ * as the "Codec implementations" overlay area (the stock overlaid codecs
+ * there; we link ours statically for now). TODO(overlay): load codec modules
+ * into this area at runtime and shrink FW_RAM back to 0x5A504. */
+    FW_RAM  (rwx) : ORIGIN = 0x03005AFC, LENGTH = 0x000DA504
 }
 
 /* Main stack top — 16 KiB block @ 0x0301E794 (segment table) */
 __stack_top = 0x0301E794 + 0x4000;
+
+/* Keil scatter-link symbols referenced by the SDK vector tables
+ * (system/os/interrupt.c, bbsystem/interrupt2.c). Alias them to our stack
+ * top so the tables link without inventing new memory regions. */
+PROVIDE(Image$$BB_MAIN_STACK$$ZI$$Limit = __stack_top);
+PROVIDE(Image$$AP_MAIN_STACK$$ZI$$Limit = __stack_top);
 __main_stack = 0x0301E794;
 
 /* Keil scatter-file symbols the SDK references */
@@ -44,6 +54,8 @@ SECTIONS
         KEEP(*(.text.boot))
         *(.text*)
         *(.rodata*)
+        /* String literals emitted by the prebuilt Keil codec .lib archives. */
+        *(.conststrlit)
         *(.ARM.extab*)
         *(.ARM.exidx*)
         . = ALIGN(4);

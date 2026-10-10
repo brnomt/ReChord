@@ -39,20 +39,20 @@
 *-------------------------------------------------------------------------------
 */
 //section define
-#define _ATTR_SYS_CODE_         __attribute__((section("SysCode")))
-#define _ATTR_SYS_DATA_         __attribute__((section("SysData")))
-#define _ATTR_SYS_BSS_          __attribute__((section("SysBss"),zero_init))
+#define _ATTR_SYS_CODE_         
+#define _ATTR_SYS_DATA_         
+#define _ATTR_SYS_BSS_          
 
-#define _ATTR_SYS_INIT_CODE_    __attribute__((section("SysInitCode")))
-#define _ATTR_SYS_INIT_DATA_    __attribute__((section("SysInitData")))
-#define _ATTR_SYS_INIT_BSS_     __attribute__((section("SysInitBss"),zero_init))
+#define _ATTR_SYS_INIT_CODE_    
+#define _ATTR_SYS_INIT_DATA_    
+#define _ATTR_SYS_INIT_BSS_     
 
-#define _ATTR_SYS_REBOOT_BSS_   __attribute__((section("RebootFlag"),zero_init))
+#define _ATTR_SYS_REBOOT_BSS_   
 
 
-#define _ATTR_BB_SYS_CODE_          __attribute__((section("BBSysCode")))
-#define _ATTR_BB_SYS_DATA_          __attribute__((section("BBSysData")))
-#define _ATTR_BB_SYS_BSS_           __attribute__((section("BBSysBss"), zero_init))
+#define _ATTR_BB_SYS_CODE_          
+#define _ATTR_BB_SYS_DATA_          
+#define _ATTR_BB_SYS_BSS_           
 
 /*
 *-------------------------------------------------------------------------------

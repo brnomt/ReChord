@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   Task.h
+* File Nameï¿½ï¿½   Task.h
 * 
 * Description:  
 *
@@ -24,9 +24,9 @@
 *-------------------------------------------------------------------------------
 */
 //section define
-#define _ATTR_OS_CODE_        __attribute__((section("SysCode")))
-#define _ATTR_OS_DATA_        __attribute__((section("SysData")))
-#define _ATTR_OS_BSS_         __attribute__((section("SysBss"),zero_init))
+#define _ATTR_OS_CODE_        
+#define _ATTR_OS_DATA_        
+#define _ATTR_OS_BSS_         
 
 /*
 *-------------------------------------------------------------------------------
@@ -40,7 +40,7 @@
 #include "SysConfig.h"
 #include "driverlib_def.h"
 #include "typedef.h"
-#include "Macro.h"
+#include "macro.h"
 #include "global.h"
 #include "debug.h"
 #include "delay.h"

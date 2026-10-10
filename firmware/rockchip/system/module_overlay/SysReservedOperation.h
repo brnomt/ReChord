@@ -41,9 +41,9 @@
 #define MEDIA_BLK          3
 
 //section define
-#define _ATTR_SYSRESERVED_OP_CODE_         __attribute__((section("SysReservedCode")))
-#define _ATTR_SYSRESERVED_OP_DATA_         __attribute__((section("SysReservedData")))
-#define _ATTR_SYSRESERVED_OP_BSS_          __attribute__((section("SysReservedBss"),zero_init))
+#define _ATTR_SYSRESERVED_OP_CODE_         
+#define _ATTR_SYSRESERVED_OP_DATA_         
+#define _ATTR_SYSRESERVED_OP_BSS_          
 
 /*
 *-------------------------------------------------------------------------------

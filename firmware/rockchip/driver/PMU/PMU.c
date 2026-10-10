@@ -36,10 +36,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _COMMON_DRIVER_PMU_PMU_READ_  __attribute__((section("common_driver_pmu_pmu_read")))
-#define _COMMON_DRIVER_PMU_PMU_WRITE_ __attribute__((section("common_driver_pmu_pmu_write")))
-#define _COMMON_DRIVER_PMU_PMU_INIT_  __attribute__((section("common_driver_pmu_pmu_init")))
-#define _COMMON_DRIVER_PMU_PMU_SHELL_  __attribute__((section("common_driver_pmu_pmu_shell")))
+#define _COMMON_DRIVER_PMU_PMU_READ_  
+#define _COMMON_DRIVER_PMU_PMU_WRITE_ 
+#define _COMMON_DRIVER_PMU_PMU_INIT_  
+#define _COMMON_DRIVER_PMU_PMU_SHELL_  
 
 
 /*

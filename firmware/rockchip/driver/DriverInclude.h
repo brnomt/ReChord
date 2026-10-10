@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   DriverInclude.h
+* File Nameï¿½ï¿½   DriverInclude.h
 *
 * Description:
 *
@@ -28,7 +28,7 @@
 #include "SysConfig.h"
 #include "driverlib_def.h"
 #include "typedef.h"
-#include "Macro.h"
+#include "macro.h"
 #include "global.h"
 #include "debug.h"
 
@@ -38,7 +38,7 @@
 #include "hw_memap.h"
 #include "hw_nvic.h"
 #include "hw_lcd.h"
-#include "hw_adc.h"
+#include "Hw_Adc.h"
 #include "hw_gpio.h"
 #include "Hw_dma.h"
 #include "hw_i2c.h"
@@ -61,23 +61,23 @@
 
 #include "gpio.h"
 #include "timer.h"
-#include "adc.h"
+#include "Adc.h"
 
 #include "AD_Key.h"
 
-#include "Nvic.h"
+#include "nvic.h"
 #include "pmc.h"
 #include "pmu.h"
-#include "powermanager.h"
+#include "PowerManager.h"
 #include "cru.h"
 
-#include "dma.h"
+#include "Dma.h"
 #include "i2c.h"
-#include "i2s.h"
-#include "SysTick.h"
+#include "I2s.h"
+#include "systick.h"
 
-#include "lcd.h"
-#include "spi.h"
+#include "Lcd.h"
+#include "Spi.h"
 //#include "codec.h"
 
 #include "delay.h"
@@ -93,8 +93,8 @@
 #include "mailbox.h"
 #include "pvtm.h"
 
-#include "hw_alc5633.h"
-#include "Rockcodec.h"
+#include "Hw_alc5633.h"
+#include "rockcodec.h"
 #include "BBSystem.h"
 
 #include "rockcodec.h"

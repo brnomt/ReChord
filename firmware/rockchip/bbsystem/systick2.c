@@ -17,7 +17,7 @@
 #include <typedef.h>
 #include <DriverInclude.h>
 
-__attribute__((section("chip_freq2")))
+
 chip_freq_t chip_freq2;
 
 

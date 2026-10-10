@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   LcdInterface.c
+* File Nameï¿½ï¿½   LcdInterface.c
 *
 * Description:
 *
@@ -14,7 +14,7 @@
 */
 
 #define _IN_LCDINTERFACE_
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "DriverInclude.h"
 #include "LcdInclude.h"
 #include "ModuleInfoTab.h"
@@ -156,7 +156,7 @@ void PowerOnLcdinit(void)
   Return        : null
 
   History:     <author>         <time>         <version>
-             yangwenjie     2008-1¡ª15         Ver1.0
+             yangwenjie     2008-1ï¿½ï¿½15         Ver1.0
   desc:         ORG
 --------------------------------------------------------------------------------
 */
@@ -200,7 +200,7 @@ int32 Lcd_DMATranfer (UINT16 x0,UINT16 y0,UINT16 x1,UINT16 y1,UINT16 *pSrc)
   Return        : null
 
   History:     <author>         <time>         <version>
-             yangwenjie     2008-1¡ª15         Ver1.0
+             yangwenjie     2008-1ï¿½ï¿½15         Ver1.0
   desc:         ORG
 --------------------------------------------------------------------------------
 */
@@ -234,9 +234,9 @@ int32 Lcd_DMATranfer32 (UINT16 x0,UINT16 y0,UINT16 x1,UINT16 y1,UINT32 *pSrc)
   Author        : yangwenjie
   Description   : get resource data.
 
-  Input         : Addr      £ºFlash resource address
-                  Buffer    £ºcharactor data buffer.
-				  Length    £ºget data length.
+  Input         : Addr      ï¿½ï¿½Flash resource address
+                  Buffer    ï¿½ï¿½charactor data buffer.
+				  Length    ï¿½ï¿½get data length.
   Return        :null
 
   History:     <author>         <time>         <version>
@@ -253,7 +253,7 @@ void  LcdGetResourceData(UINT32 Addr,UINT8*pData,UINT16 Length)
     ReadResourceData(Addr,pData,Length);
 #else
     //for SPI Flash Test
-    if ((hMainFile = FileOpenW(NULL,L"\\",L"RkNanoImage.uis", "R")) == -1)//´ò¿ªÎÄ¼þ³É¹¦£¬¼ÓÔØ´ÅÅÌ
+    if ((hMainFile = FileOpenW(NULL,L"\\",L"RkNanoImage.uis", "R")) == -1)//ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø´ï¿½ï¿½ï¿½
     {
         DEBUG("Open File ERROR");
     }
@@ -270,9 +270,9 @@ void  LcdGetResourceData(UINT32 Addr,UINT8*pData,UINT16 Length)
   Author        : yangwenjie
   Description   : get front12 resource data.
 
-  Input         : Addr      £ºFlash resource address
-                  Buffer    £ºcharactor data buffer.
-                  Length    £ºget data length.
+  Input         : Addr      ï¿½ï¿½Flash resource address
+                  Buffer    ï¿½ï¿½charactor data buffer.
+                  Length    ï¿½ï¿½get data length.
   Return        :null
 
   History:     <author>         <time>         <version>
@@ -291,7 +291,7 @@ void  LcdGetFront12Data(UINT32 Addr,UINT8*pData,UINT16 Length)
     ReadResourceData(Addr,pData,Length);
 #else
     //for SPI Flash Test
-    if ((hMainFile = FileOpenW(NULL,L"\\",L"Font12.bin", "R")) == -1)//´ò¿ªÎÄ¼þ³É¹¦£¬¼ÓÔØ´ÅÅÌ
+    if ((hMainFile = FileOpenW(NULL,L"\\",L"Font12.bin", "R")) == -1)//ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø´ï¿½ï¿½ï¿½
     {
         DEBUG("Open File ERROR");
     }
@@ -309,9 +309,9 @@ void  LcdGetFront12Data(UINT32 Addr,UINT8*pData,UINT16 Length)
   Author        : yangwenjie
   Description   : get front12 resource data.
 
-  Input         : Addr      £ºFlash resource address
-                  Buffer    £ºcharactor data buffer.
-                  Length    £ºget data length.
+  Input         : Addr      ï¿½ï¿½Flash resource address
+                  Buffer    ï¿½ï¿½charactor data buffer.
+                  Length    ï¿½ï¿½get data length.
   Return        :null
 
   History:     <author>         <time>         <version>
@@ -328,7 +328,7 @@ void  LcdGetFront16Data(UINT32 Addr,UINT8*pData,UINT16 Length)
     ReadResourceData(Addr,pData,Length);
 #else
     //for SPI Flash Test
-    if ((hMainFile = FileOpenW(NULL,L"\\",L"Font16.bin", "R")) == -1)//´ò¿ªÎÄ¼þ³É¹¦£¬¼ÓÔØ´ÅÅÌ
+    if ((hMainFile = FileOpenW(NULL,L"\\",L"Font16.bin", "R")) == -1)//ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø´ï¿½ï¿½ï¿½
     {
         DEBUG("Open File ERROR");
     }
@@ -346,9 +346,9 @@ void  LcdGetFront16Data(UINT32 Addr,UINT8*pData,UINT16 Length)
   Author        : yangwenjie
   Description   : get resource information
 
-  Input         : Addr      £ºFlash×ÊÔ´µØÖ·
-                  Buffer    £º×Ö·ûÊý¾ÝBuffer
-				  Length    £º»ñÈ¡Êý¾ÝµÄ³¤¶È
+  Input         : Addr      ï¿½ï¿½Flashï¿½ï¿½Ô´ï¿½ï¿½Ö·
+                  Buffer    ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Buffer
+				  Length    ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½ÝµÄ³ï¿½ï¿½ï¿½
   Return        :null
 
   History:     <author>         <time>         <version>
@@ -637,7 +637,7 @@ void Lcd_SendData(UINT16 data)
 
     Refresh = 1;
 
-    if (RECT.y < LCD_HEIGHTA)  //ÏÈËÍAcore Buffer Êý¾Ý
+    if (RECT.y < LCD_HEIGHTA)  //ï¿½ï¿½ï¿½ï¿½Acore Buffer ï¿½ï¿½ï¿½ï¿½
     {
         if (RECT.x % 2)
             frame_buffer[CurrentFrameIndex][RECT.y][ RECT.x - 1]= data;
@@ -790,7 +790,7 @@ void LCD_ClrRect(int x0, int y0, int x1, int y1)
 _ATTR_LCD_CODE_
 void Lcd_WriteRAM_Prepare(void)
 {
-//scatterloader.cÖÐ×¢²áÁËST7735Çý¶¯
+//scatterloader.cï¿½ï¿½×¢ï¿½ï¿½ï¿½ï¿½ST7735ï¿½ï¿½ï¿½ï¿½
     SystemLcdPara.pLcd_WriteRAM_Prepare();
 }
 

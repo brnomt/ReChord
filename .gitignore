@@ -41,3 +41,10 @@ community/Rockchip RKNanoD TRM V1.0.pdf
 .DS_Store
 Thumbs.db
 .pi-subagents/
+
+# Extracted reference-CFW firmware (proprietary, analysis-only) and external
+# flashing tool clone - never committed.
+tools/HIFIEC37_unpacked/
+tools/rkflashtool/
+.work/
+stubs.d

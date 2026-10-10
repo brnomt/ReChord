@@ -121,165 +121,165 @@ typedef enum _MEDIA_MSGBOX_DECODE_CMD
 /* sections define */
 //------------------------------------------------------------------------------
 //Music Section define
-#define     _ATTR_AUDIO_TEXT_          __attribute__((section("AudioCode")))
-#define     _ATTR_AUDIO_DATA_          __attribute__((section("AudioData")))
-#define     _ATTR_AUDIO_BSS_           __attribute__((section("AudioBss"),zero_init))
+#define     _ATTR_AUDIO_TEXT_          
+#define     _ATTR_AUDIO_DATA_          
+#define     _ATTR_AUDIO_BSS_           
 
 
 //-------------------------------------------MP3----------------------------------------------------------
-#define _ATTR_MP3INIT_TEXT_     __attribute__((section("Mp3InitCode")))
-#define _ATTR_MP3INIT_DATA_     __attribute__((section("Mp3InitData")))
-#define _ATTR_MP3INIT_BSS_      __attribute__((section("Mp3InitBss"),zero_init))
+#define _ATTR_MP3INIT_TEXT_     
+#define _ATTR_MP3INIT_DATA_     
+#define _ATTR_MP3INIT_BSS_      
 
-#define _ATTR_MP3DEC_TEXT_     __attribute__((section("Mp3DecCode")))
-#define _ATTR_MP3DEC_DATA_     __attribute__((section("Mp3DecData")))
-#define _ATTR_MP3DEC_BSS_      __attribute__((section("Mp3DecBss"),zero_init))
+#define _ATTR_MP3DEC_TEXT_     
+#define _ATTR_MP3DEC_DATA_     
+#define _ATTR_MP3DEC_BSS_      
 
 //-------------------------------------------WAV----------------------------------------------------------
-#define _ATTR_WAVDEC_INIT_TEXT_     __attribute__((section("WavDecInitCode")))
-#define _ATTR_WAVDEC_INIT_DATA_     __attribute__((section("WavDecInitData")))
-#define _ATTR_WAVDEC_INIT_BSS_      __attribute__((section("WavDecInitBss"),zero_init))
+#define _ATTR_WAVDEC_INIT_TEXT_     
+#define _ATTR_WAVDEC_INIT_DATA_     
+#define _ATTR_WAVDEC_INIT_BSS_      
 
-#define _ATTR_WAVDEC_TEXT_     __attribute__((section("WavDecCode")))
-#define _ATTR_WAVDEC_DATA_     __attribute__((section("WavDecData")))
-#define _ATTR_WAVDEC_BSS_      __attribute__((section("WavDecBss"),zero_init))
+#define _ATTR_WAVDEC_TEXT_     
+#define _ATTR_WAVDEC_DATA_     
+#define _ATTR_WAVDEC_BSS_      
 
 //-----------------------------------------FLAC----------------------------------------------------------
-#define     _ATTR_FLACDEC_TEXT_          __attribute__((section("FlacDecCode")))
-#define     _ATTR_FLACDEC_DATA_          __attribute__((section("FlacDecData")))
-#define     _ATTR_FLACDEC_BSS_           __attribute__((section("FlacDecBss"),zero_init))
+#define     _ATTR_FLACDEC_TEXT_          
+#define     _ATTR_FLACDEC_DATA_          
+#define     _ATTR_FLACDEC_BSS_           
 
 //-----------------------------------------AAC----------------------------------------------------------
-#define     _ATTR_AACDEC_TEXT_          __attribute__((section("AacDecCode")))
-#define     _ATTR_AACDEC_DATA_          __attribute__((section("AacDecData")))
-#define     _ATTR_AACDEC_BSS_           __attribute__((section("AacDecBss"),zero_init))
-#define     _ATTR_AACDEC_DATA_RO        __attribute__((section("AacROData")))
+#define     _ATTR_AACDEC_TEXT_          
+#define     _ATTR_AACDEC_DATA_          
+#define     _ATTR_AACDEC_BSS_           
+#define     _ATTR_AACDEC_DATA_RO        
 
 //-----------------------------------------APE----------------------------------------------------------
-#define     _ATTR_APEDEC_TEXT_          __attribute__((section("ApeDecCode")))
-#define     _ATTR_APEDEC_DATA_          __attribute__((section("ApeDecData")))
-#define     _ATTR_APEDEC_BSS_           __attribute__((section("ApeDecBss"),zero_init))
+#define     _ATTR_APEDEC_TEXT_          
+#define     _ATTR_APEDEC_DATA_          
+#define     _ATTR_APEDEC_BSS_           
 
 //-----------------------------------------OGG----------------------------------------------------------
-#define     _ATTR_OGGDEC_TEXT_          __attribute__((section("OggDecCode")))
-#define     _ATTR_OGGDEC_DATA_          __attribute__((section("OggDecData")))
-#define     _ATTR_OGGDEC_BSS_           __attribute__((section("OggDecBss"),zero_init))
+#define     _ATTR_OGGDEC_TEXT_          
+#define     _ATTR_OGGDEC_DATA_          
+#define     _ATTR_OGGDEC_BSS_           
 
 //-----------------------------------------HIFI APE----------------------------------------------------------
-#define     _ATTR_HIFI_APEDEC_TEXT_          __attribute__((section("ApeHDecCode")))
-#define     _ATTR_HIFI_APEDEC_DATA_          __attribute__((section("ApeHDecData")))
-#define     _ATTR_HIFI_APEDEC_BSS_           __attribute__((section("ApeHDecBss"),zero_init))
+#define     _ATTR_HIFI_APEDEC_TEXT_          
+#define     _ATTR_HIFI_APEDEC_DATA_          
+#define     _ATTR_HIFI_APEDEC_BSS_           
 
 //-----------------------------------------HIFI FLAC----------------------------------------------------------
-#define     _ATTR_HIFI_FLACDEC_TEXT_          __attribute__((section("FlacHDecCode")))
-#define     _ATTR_HIFI_FLACDEC_DATA_          __attribute__((section("FlacHDecData")))
-#define     _ATTR_HIFI_FLACDEC_BSS_           __attribute__((section("FlacHDecBss"),zero_init))
+#define     _ATTR_HIFI_FLACDEC_TEXT_          
+#define     _ATTR_HIFI_FLACDEC_DATA_          
+#define     _ATTR_HIFI_FLACDEC_BSS_           
 
 //-----------------------------------------HIFI ALAC----------------------------------------------------------
-#define     _ATTR_HIFI_ALACDEC_TEXT_          __attribute__((section("AlacHDecCode")))
-#define     _ATTR_HIFI_ALACDEC_DATA_          __attribute__((section("AlacHDecData")))
-#define     _ATTR_HIFI_ALACDEC_BSS_           __attribute__((section("AlacHDecBss"),zero_init))
+#define     _ATTR_HIFI_ALACDEC_TEXT_          
+#define     _ATTR_HIFI_ALACDEC_DATA_          
+#define     _ATTR_HIFI_ALACDEC_BSS_           
 
 //-----------------------------------------DSDIFF----------------------------------------------------------
-#define     _ATTR_DSDIFFDEC_TEXT_          __attribute__((section("DsdiffDecCode")))
-#define     _ATTR_DSDIFFDEC_DATA_          __attribute__((section("DsdiffDecData")))
-#define     _ATTR_DSDIFFDEC_BSS_           __attribute__((section("DsdiffDecBss"),zero_init))
+#define     _ATTR_DSDIFFDEC_TEXT_          
+#define     _ATTR_DSDIFFDEC_DATA_          
+#define     _ATTR_DSDIFFDEC_BSS_           
 
 //-----------------------------------------DSF----------------------------------------------------------
-#define     _ATTR_DSFDEC_TEXT_          __attribute__((section("DsfDecCode")))
-#define     _ATTR_DSFDEC_DATA_          __attribute__((section("DsfDecData")))
-#define     _ATTR_DSFDEC_BSS_           __attribute__((section("DsfDecBss"),zero_init))
+#define     _ATTR_DSFDEC_TEXT_          
+#define     _ATTR_DSFDEC_DATA_          
+#define     _ATTR_DSFDEC_BSS_           
 
 //-----------for B core-----------
 //-------------------------------------------MP3 BIN----------------------------------------------------------
-#define _ATTR_MP3DEC_BIN_TEXT_     __attribute__((section("Mp3DecBinCode")))
-#define _ATTR_MP3DEC_BIN_DATA_     __attribute__((section("Mp3DecBinData")))
-#define _ATTR_MP3DEC_BIN_BSS_      __attribute__((section("Mp3DecBinBss"),zero_init))
+#define _ATTR_MP3DEC_BIN_TEXT_     
+#define _ATTR_MP3DEC_BIN_DATA_     
+#define _ATTR_MP3DEC_BIN_BSS_      
 
-#define _ATTR_MP3ENC_BIN_TEXT_     __attribute__((section("Mp3EncBinCode")))
-#define _ATTR_MP3ENC_BIN_DATA_     __attribute__((section("Mp3EncBinData")))
-#define _ATTR_MP3ENC_BIN_BSS_      __attribute__((section("Mp3EncBinBss"),zero_init))
+#define _ATTR_MP3ENC_BIN_TEXT_     
+#define _ATTR_MP3ENC_BIN_DATA_     
+#define _ATTR_MP3ENC_BIN_BSS_      
 
 //-------------------------------------------WAV BIN----------------------------------------------------------
-#define _ATTR_WAVDEC_BIN_TEXT_     __attribute__((section("WavDecBinCode")))
-#define _ATTR_WAVDEC_BIN_DATA_     __attribute__((section("WavDecBinData")))
-#define _ATTR_WAVDEC_BIN_BSS_      __attribute__((section("WavDecBinBss"),zero_init))
+#define _ATTR_WAVDEC_BIN_TEXT_     
+#define _ATTR_WAVDEC_BIN_DATA_     
+#define _ATTR_WAVDEC_BIN_BSS_      
 
 //-----------------------------------------FLAC BIN----------------------------------------------------------
-#define     _ATTR_FLACDEC_BIN_TEXT_          __attribute__((section("FlacDecBinCode")))
-#define     _ATTR_FLACDEC_BIN_DATA_          __attribute__((section("FlacDecBinData")))
-#define     _ATTR_FLACDEC_BIN_BSS_           __attribute__((section("FlacDecBinBss"),zero_init))
+#define     _ATTR_FLACDEC_BIN_TEXT_          
+#define     _ATTR_FLACDEC_BIN_DATA_          
+#define     _ATTR_FLACDEC_BIN_BSS_           
 
 
 //-----------------------------------------AAC BIN----------------------------------------------------------
-#define     _ATTR_AACDEC_BIN_TEXT_          __attribute__((section("AacDecBinCode")))
-#define     _ATTR_AACDEC_BIN_DATA_          __attribute__((section("AacDecBinData")))
-#define     _ATTR_AACDEC_BIN_BSS_           __attribute__((section("AacDecBinBss"),zero_init))
+#define     _ATTR_AACDEC_BIN_TEXT_          
+#define     _ATTR_AACDEC_BIN_DATA_          
+#define     _ATTR_AACDEC_BIN_BSS_           
 
 
 //-----------------------------------------APE BIN----------------------------------------------------------
-#define     _ATTR_APEDEC_BIN_TEXT_          __attribute__((section("ApeDecBinCode")))
-#define     _ATTR_APEDEC_BIN_DATA_          __attribute__((section("ApeDecBinData")))
-#define     _ATTR_APEDEC_BIN_BSS_           __attribute__((section("ApeDecBinBss"),zero_init))
+#define     _ATTR_APEDEC_BIN_TEXT_          
+#define     _ATTR_APEDEC_BIN_DATA_          
+#define     _ATTR_APEDEC_BIN_BSS_           
 
 //-----------------------------------------OGG BIN----------------------------------------------------------
-#define     _ATTR_OGGDEC_BIN_TEXT_          __attribute__((section("OggDecBinCode")))
-#define     _ATTR_OGGDEC_BIN_DATA_          __attribute__((section("OggDecBinData")))
-#define     _ATTR_OGGDEC_BIN_BSS_           __attribute__((section("OggDecBinBss"),zero_init))
+#define     _ATTR_OGGDEC_BIN_TEXT_          
+#define     _ATTR_OGGDEC_BIN_DATA_          
+#define     _ATTR_OGGDEC_BIN_BSS_           
 
 
 //-----------------------------------------HIFI APE BIN----------------------------------------------------------
-#define     _ATTR_HIFI_APEDEC_BIN_TEXT_          __attribute__((section("ApeHDecBinCode")))
-#define     _ATTR_HIFI_APEDEC_BIN_DATA_          __attribute__((section("ApeHDecBinData")))
-#define     _ATTR_HIFI_APEDEC_BIN_BSS_           __attribute__((section("ApeHDecBinBss"),zero_init))
+#define     _ATTR_HIFI_APEDEC_BIN_TEXT_          
+#define     _ATTR_HIFI_APEDEC_BIN_DATA_          
+#define     _ATTR_HIFI_APEDEC_BIN_BSS_           
 
 
 //-----------------------------------------HIFI FLAC BIN----------------------------------------------------------
-#define     _ATTR_HIFI_FLACDEC_BIN_TEXT_          __attribute__((section("FlacHDecBinCode")))
-#define     _ATTR_HIFI_FLACDEC_BIN_DATA_          __attribute__((section("FlacHDecBinData")))
-#define     _ATTR_HIFI_FLACDEC_BIN_BSS_           __attribute__((section("FlacHDecBinBss"),zero_init))
+#define     _ATTR_HIFI_FLACDEC_BIN_TEXT_          
+#define     _ATTR_HIFI_FLACDEC_BIN_DATA_          
+#define     _ATTR_HIFI_FLACDEC_BIN_BSS_           
 
 
 //-----------------------------------------HIFI ALAC BIN----------------------------------------------------------
-#define     _ATTR_HIFI_ALACDEC_BIN_TEXT_          __attribute__((section("AlacHDecBinCode")))
-#define     _ATTR_HIFI_ALACDEC_BIN_DATA_          __attribute__((section("AlacHDecBinData")))
-#define     _ATTR_HIFI_ALACDEC_BIN_BSS_           __attribute__((section("AlacHDecBinBss"),zero_init))
+#define     _ATTR_HIFI_ALACDEC_BIN_TEXT_          
+#define     _ATTR_HIFI_ALACDEC_BIN_DATA_          
+#define     _ATTR_HIFI_ALACDEC_BIN_BSS_           
 
 //-----------------------------------------DSDIFF BIN----------------------------------------------------------
-#define     _ATTR_DSDIFFDEC_BIN_TEXT_           __attribute__((section("DsdiffDecBinCode")))
-#define     _ATTR_DSDIFFDEC_BIN_DATA_           __attribute__((section("DsdiffDecBinData")))
-#define     _ATTR_DSDIFFDEC_BIN_BSS_            __attribute__((section("DsdiffDecBinBss"),zero_init))
+#define     _ATTR_DSDIFFDEC_BIN_TEXT_           
+#define     _ATTR_DSDIFFDEC_BIN_DATA_           
+#define     _ATTR_DSDIFFDEC_BIN_BSS_            
 
 //-----------------------------------------DSF BIN----------------------------------------------------------
-#define     _ATTR_DSFDEC_BIN_TEXT_           __attribute__((section("DsfDecBinCode")))
-#define     _ATTR_DSFDEC_BIN_DATA_           __attribute__((section("DsfDecBinData")))
-#define     _ATTR_DSFDEC_BIN_BSS_            __attribute__((section("DsfDecBinBss"),zero_init))
+#define     _ATTR_DSFDEC_BIN_TEXT_           
+#define     _ATTR_DSFDEC_BIN_DATA_           
+#define     _ATTR_DSFDEC_BIN_BSS_            
 
 
 //-------------------------------------------ID3----------------------------------------------------------
-#define _ATTR_ID3_TEXT_     __attribute__((section("Id3Code")))
-#define _ATTR_ID3_DATA_     __attribute__((section("Id3Data")))
-#define _ATTR_ID3_BSS_      __attribute__((section("Id3Bss"),zero_init))
+#define _ATTR_ID3_TEXT_     
+#define _ATTR_ID3_DATA_     
+#define _ATTR_ID3_BSS_      
 
 //-------------------------------------------ID3 JPG------------------------------------------------------
-//#define _ATTR_ID3JPG_TEXT_     __attribute__((section("Id3JpgCode")))
-//#define _ATTR_ID3JPG_DATA_     __attribute__((section("Id3JpgData")))
-//#define _ATTR_ID3JPG_BSS_      __attribute__((section("Id3JpgBss"),zero_init))
+//#define _ATTR_ID3JPG_TEXT_     
+//#define _ATTR_ID3JPG_DATA_     
+//#define _ATTR_ID3JPG_BSS_      
 
 //-------------------------------------------WAV Encode----------------------------------------------------------
-#define _ATTR_MSADPCM_TEXT_     __attribute__((section("EncodeMsadpcmCode")))
-#define _ATTR_MSADPCM_DATA_     __attribute__((section("EncodeMsadpcmData")))
-#define _ATTR_MSADPCM_BSS_      __attribute__((section("EncodeMsadpcmBss"),zero_init))
+#define _ATTR_MSADPCM_TEXT_     
+#define _ATTR_MSADPCM_DATA_     
+#define _ATTR_MSADPCM_BSS_      
 
 //-------------------------------------------MP3 Encode----------------------------------------------------------
 
-#define _ATTR_AUDIO_TEXT_     __attribute__((section("AudioCode")))
-#define _ATTR_AUDIO_DATA_     __attribute__((section("AudioData")))
-#define _ATTR_AUDIO_BSS_      __attribute__((section("AudioBss"),zero_init))
+#define _ATTR_AUDIO_TEXT_     
+#define _ATTR_AUDIO_DATA_     
+#define _ATTR_AUDIO_BSS_      
 
-#define _ATTR_MSEQ_TEXT_     __attribute__((section("MsEqCode")))
-#define _ATTR_MSEQ_DATA_     __attribute__((section("MsEqData")))
-#define _ATTR_MSEQ_BSS_      __attribute__((section("MsEqBss"),zero_init))
+#define _ATTR_MSEQ_TEXT_     
+#define _ATTR_MSEQ_DATA_     
+#define _ATTR_MSEQ_BSS_      
 
 //-------------------------------------------MP2 Encode----------------------------------------------------------
 #define _ATTR_MP2DEC_TEXT_     __attribute__((section("Mp2Code"/*"MP3DEC_CODE_SEG"*/)))
@@ -287,9 +287,9 @@ typedef enum _MEDIA_MSGBOX_DECODE_CMD
 #define _ATTR_MP2DEC_BSS_      __attribute__((section("Mp2Bss"/*"MP3DEC_BSS_SEG"*/),zero_init))
 
 //-----------------------------------------SBC----------------------------------------------------------
-#define     _ATTR_SBCDEC_TEXT_          __attribute__((section("SbcDecCode")))
-#define     _ATTR_SBCDEC_DATA_          __attribute__((section("SbcDecData")))
-#define     _ATTR_SBCDEC_BSS_           __attribute__((section("SbcDecBss"),zero_init))
+#define     _ATTR_SBCDEC_TEXT_          
+#define     _ATTR_SBCDEC_DATA_          
+#define     _ATTR_SBCDEC_BSS_           
 
 //-------------------------------------------OGG Decode----------------------------------------------------------
 

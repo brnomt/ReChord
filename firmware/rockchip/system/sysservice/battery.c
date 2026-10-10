@@ -16,6 +16,10 @@
 
 #include "SysInclude.h"
 
+#include "driver/ADC/Hw_Adc.h"   /* ADC_START, ADC_CH_MASK, ADC_POWERUP */
+#include "driver/ADC/Adc.h"      /* Adc instance, AdcSamplingCh */
+#include "driver/pmc/pmc.h"      /* CHARGE_CURRENT_* enum */
+
 //#define BATTERY_DBG
 #ifdef BATTERY_DBG
 uint32 battery_dbg_cnt = 0;

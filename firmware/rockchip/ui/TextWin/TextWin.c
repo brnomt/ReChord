@@ -3,7 +3,7 @@
 *                   Copyright (c) 2008, Rock-Chips
 *                         All rights reserved.
 *
-* File Name£º  TextDisplay.c
+* File Nameï¿½ï¿½  TextDisplay.c
 *
 * Description:  ebook module
 *
@@ -17,14 +17,14 @@
 
 #ifdef _EBOOK_
 
-#include "FsInclude.h"
-#include "Textconfig.h"
+#include "fsinclude.h"
+#include "TextConfig.h"
 #include "SysFindFile.h"
 #include "TextWin.h"
 #include "TextInterface.h"
 #include "TextBookmark.h"
 #include "BrowserUI.h"
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "Hold.h"
 
 /*
@@ -166,8 +166,8 @@ void TextWinInit(void *pArg)
 
     if (0 == bStatus)
     {
-        TextFileInfo.FileSize = TxtSysFileInfo.Fdt.FileSize;                 // ÎÄ¼þ´óÐ¡.
-        strncpy((char *)TextFileInfo.FilePath, (char *)TxtSysFileInfo.Path,MAX_PATH_NAME_LENGTH);  // Â·¾¶.
+        TextFileInfo.FileSize = TxtSysFileInfo.Fdt.FileSize;                 // ï¿½Ä¼ï¿½ï¿½ï¿½Ð¡.
+        strncpy((char *)TextFileInfo.FilePath, (char *)TxtSysFileInfo.Path,MAX_PATH_NAME_LENGTH);  // Â·ï¿½ï¿½.
 
         // long file name
         GetLongFileName(TxtSysFileInfo.FindData.Clus,TxtSysFileInfo.FindData.Index - 1, FS_FAT, TextFileInfo.LongFileName);
@@ -925,7 +925,7 @@ uint16 TextGetBytes(uint16 *GbkString, uint16 CharNumber)
             break;
 
             #if 0
-            case LANGUAGE_JAPANESE:     // ÈÕÓï, CP932
+            case LANGUAGE_JAPANESE:     // ï¿½ï¿½ï¿½ï¿½, CP932
             {
                 if (((0x81 <= GbkChar) && (GbkChar <= 0x9F))
                     || ((0xE0 <= GbkChar) && (GbkChar <= 0xFC)))

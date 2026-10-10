@@ -29,9 +29,9 @@
 /******************************************************************************/
 
 //setting menu permanent code.
-#define _ATTR_SYS_SET_SYSTEM_CODE_         __attribute__((section("SetMenuServiceCode")))
-#define _ATTR_SYS_SET_SYSTEM_DATA_         __attribute__((section("SetMenuServiceData")))
-#define _ATTR_SYS_SET_SYSTEM_BSS_          __attribute__((section("SetMenuServiceBss"),zero_init))
+#define _ATTR_SYS_SET_SYSTEM_CODE_         
+#define _ATTR_SYS_SET_SYSTEM_DATA_         
+#define _ATTR_SYS_SET_SYSTEM_BSS_          
 
 #ifdef _MUSIC_
 //play mode 

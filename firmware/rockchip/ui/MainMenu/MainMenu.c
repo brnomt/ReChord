@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name¡êo  MainMenu.c
+* File Nameï¿½ï¿½o  MainMenu.c
 *
 * Description:
 *
@@ -15,24 +15,24 @@
 #define _IN_MAINMENU_
 
 #include "SysInclude.h"
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "MainMenu.h"
 #include "MainMenuInterface.h"
 #include "BrowserUI.h"
 #include "Hold.h"
 #include "AudioControl.h"
-#include "MediaLibWin.h"
+#include "medialibwin.h"
 
 #ifdef _RECORD_
 #include  "File.h"
 #include  "FDT.h"
 
-#include  "PCM.H"
+#include  "pcm.h"
 #include  "pmu.h"
 
 #include  "audio_main.h"
 
-#include  "RecordControl.h"
+#include  "recordcontrol.h"
 #endif
 
 #ifdef _BLUETOOTH_

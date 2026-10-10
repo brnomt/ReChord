@@ -15,6 +15,7 @@
 
 #ifndef _HW_I2S_H_
 #define _HW_I2S_H_
+#include "driver/hw_memap.h"   /* I2S0_BASE / I2S1_BASE */
 
 #undef  EXT
 #ifdef _IN_I2S_

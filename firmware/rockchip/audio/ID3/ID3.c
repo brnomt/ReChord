@@ -1563,7 +1563,7 @@ int ID3_UpdateBufferData(HANDLE fHandle, unsigned char *tempbuf, int iRemainSize
 
 
 _ATTR_ID3_TEXT_
-long pow (int x, int y)
+static long id3_pow (int x, int y)
 {
     int i;
     long result = 1;

@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  BroCore.c
+* File Nameï¿½ï¿½  BroCore.c
 *
 * Description:
 *
@@ -19,7 +19,7 @@
 
 #ifdef  _BROWSER_
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "BrowserUI.h"
 #include "BroCore.h"
 

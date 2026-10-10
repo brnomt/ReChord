@@ -30,17 +30,17 @@
 ********************************************************************************
 */
 //section define
-#define _ATTR_MUSIC_LRC_INIT_CODE_         __attribute__((section("MusicLrcInitCode")))
-#define _ATTR_MUSIC_LRC_INIT_DATA_         __attribute__((section("MusicLrcInitData")))
-#define _ATTR_MUSIC_LRC_INIT_BSS_          __attribute__((section("MusicLrcInitBss"),zero_init))
+#define _ATTR_MUSIC_LRC_INIT_CODE_         
+#define _ATTR_MUSIC_LRC_INIT_DATA_         
+#define _ATTR_MUSIC_LRC_INIT_BSS_          
 
-#define _ATTR_MUSIC_LRCPLAY_CODE_         __attribute__((section("MusicLrcCode")))
-#define _ATTR_MUSIC_LRCPLAY_DATA_         __attribute__((section("MusicLrcData")))
-#define _ATTR_MUSIC_LRCPLAY_BSS_          __attribute__((section("MusicLrcBss"),zero_init))
+#define _ATTR_MUSIC_LRCPLAY_CODE_         
+#define _ATTR_MUSIC_LRCPLAY_DATA_         
+#define _ATTR_MUSIC_LRCPLAY_BSS_          
 
-#define _ATTR_MUSIC_LRCCOMMON_CODE_         __attribute__((section("MusicLrcCommonCode")))
-#define _ATTR_MUSIC_LRCCOMMON_DATA_         __attribute__((section("MusicLrcCommonData")))
-#define _ATTR_MUSIC_LRCCOMMON_BSS_          __attribute__((section("MusicLrcCommonBss"),zero_init))
+#define _ATTR_MUSIC_LRCCOMMON_CODE_         
+#define _ATTR_MUSIC_LRCCOMMON_DATA_         
+#define _ATTR_MUSIC_LRCCOMMON_BSS_          
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------

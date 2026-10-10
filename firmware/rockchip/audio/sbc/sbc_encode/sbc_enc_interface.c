@@ -1,5 +1,6 @@
 
 #include "audio_globals.h"
+#include "SysConfig.h"   /* _SBC_ENCODE_ feature gate */
 #include "SysInclude.h"
 
 #include "sbc_enc.h"

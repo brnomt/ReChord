@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  SysService.c
+* File Nameï¿½ï¿½  SysService.c
 *
 * Description:
 *
@@ -15,11 +15,28 @@
 #define _IN_SYSSERVICE_
 
 #include "SysInclude.h"
+
+#include "display/MenuResourceID.h"
+#include "ui/MainMenu/MainMenu.h"
+#include "filesys/fat.h"            /* USBHOST_FLASH & disk IDs (vendor) */    /* MAINMENU_ID_* menu IDs */ /* MAINMENU_ID_* */
+#include "driver/USB/USBConfig.h"  /* USB_CLASS_TYPE_*, USBHOST_FLASH */
+#include "driver/NVIC/hw_nvic.h"   /* nvic, NVIC_SYSTICKCTRL_* */
+#include "driver/CRU/Hw_cru.h"     /* CRU instance */
+#include "driver/CRU/cru.h"        /* chip_freq */
+#include "driver/pmc/pmc.h"         /* PMU control API */
+#include "driver/PMU/hw_pmu.h"         /* Pmu_Reg instance */
+#include "driver/GRF/hw_grf.h"     /* Grf instance */
+#include "driver/GRF/grf.h"        /* NOC_BOOT_ROM enum */
+#include "driver/GPIO/gpio.h"       /* GPIO_CH0..2 */
+
+#include "driver/DMA/Hw_dma.h"   /* DMA_CFGX, DMA_CTLL_* */
+#include "driver/DMA/Dma.h"      /* DMA_CHN_MAX & channel API */
+#include "driver/IIS/Hw_i2s.h"   /* I2s_Reg */
 #include "UsbAdapterProbe.h"
 
 #include "FunUSBInterface.h"
-#include "FsInclude.h"
-#include "Mainmenu.h"
+#include "fsinclude.h"
+#include "mainmenu.h"
 #include "RecordWinInterface.h"
 #include "FMControl.h"
 #include "AudioControl.h"
@@ -55,12 +72,12 @@ void GetBeepSourceInf(uint32 ModuleNum, uint32 *baseAddr, uint32 *moduleLen)
 
     FIRMWARE_INFO_T *pFirmwareModuleInfo;
 
-    //ÏÈ¶ÁÈ¡¹Ì¼þÏà¶ÔÆðÊ¼µØÖ·
+    //ï¿½È¶ï¿½È¡ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Ö·
     MDReadData(SysDiskID, CodeLogicAddress, 512, FlashBuf);
     pFirmwareModuleInfo = (FIRMWARE_INFO_T *)FlashBuf;
     LoadStartBase = pFirmwareModuleInfo -> LoadStartBase;
 
-    //¶ÁÈ¡Ä£¿éÐÅÏ¢CODE_INFO_T
+    //ï¿½ï¿½È¡Ä£ï¿½ï¿½ï¿½ï¿½Ï¢CODE_INFO_T
     CodeInfoAddr  = CodeLogicAddress + sizeof(pFirmwareModuleInfo -> LoadStartBase);
     CodeInfoAddr  = CodeInfoAddr + sizeof(pFirmwareModuleInfo -> ModuleInfo.ModuleNum) + ModuleNum * sizeof(CODE_INFO_T);
     MDReadData(SysDiskID, CodeInfoAddr, sizeof(CODE_INFO_T), FlashBuf);
@@ -108,7 +125,7 @@ void AudioDmaIsrHandler(void)
 --------------------------------------------------------------------------------
 */
 _ATTR_SYS_CODE_
-void Bit_Convertor(short *ppsBuffer, long *plLength, int bps) //Ö±½ÓÊä³ö£¬µÍÎ»²¹0
+void Bit_Convertor(short *ppsBuffer, long *plLength, int bps) //Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½0
 {
     int i = 0;
     int offset = 0 ;
@@ -161,7 +178,7 @@ void Bit_Convertor(short *ppsBuffer, long *plLength, int bps) //Ö±½ÓÊä³ö£¬µÍÎ»²¹
 --------------------------------------------------------------------------------
 */
 _ATTR_SYS_CODE_
-void Bit_Convertor_DEC(short *ppsBuffer, long *plLength, int bps) //½ô½Ó½âÂëÆ÷Êä³ö£¬¸ßÎ»²¹0£¬ÓÃÓÚEQµÈÔËËã
+void Bit_Convertor_DEC(short *ppsBuffer, long *plLength, int bps) //ï¿½ï¿½ï¿½Ó½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½EQï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 {
     int i = 0;
     int offset = 0 ;
@@ -214,7 +231,7 @@ void Bit_Convertor_DEC(short *ppsBuffer, long *plLength, int bps) //½ô½Ó½âÂëÆ÷Êä
 --------------------------------------------------------------------------------
 */
 _ATTR_SYS_CODE_
-void Bit_Convertor_shift(short *ppsBuffer, long *plLength, int bps) //¾­¹ýEQµÈ´¦ÀíºóµÄÊý¾Ý´«ËÍ
+void Bit_Convertor_shift(short *ppsBuffer, long *plLength, int bps) //ï¿½ï¿½ï¿½ï¿½EQï¿½È´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½
 {
     int i = 0;
     int offset = 0 ;
@@ -471,8 +488,8 @@ void AudioDecoding(void)
 --------------------------------------------------------------------------------
   Function name : UINT32 SysService(void)
   Author        : ZHengYongzhi
-  Description   : ÏµÍ³·þÎñ³ÌÐò£¬¸Ã³ÌÐòµ÷ÓÃÏµÍ³ÏûÏ¢¡¢ÏµÍ³Ïß³Ì¡¢ÍâÉè¼ì²âµÈºóÌ¨ÐèÒª
-                  Íê³ÉµÄ¹¤×÷
+  Description   : ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ò£¬¸Ã³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½Ï¢ï¿½ï¿½ÏµÍ³ï¿½ß³Ì¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Èºï¿½Ì¨ï¿½ï¿½Òª
+                  ï¿½ï¿½ÉµÄ¹ï¿½ï¿½ï¿½
 
   Input         :
   Return        :
@@ -530,7 +547,7 @@ uint32 USBHostStatusDetect(void)
                 TaskSwitch(TASK_ID_MAINMENU, &TaskArg);
                 //DEBUG ("HostDetect:0 MemorySelect = FLASH0");
                 MemorySelect = FLASH0;
-                FileSysSetup(MemorySelect);//USB hostÍË³öÄ¬ÈÏ°²×°Flash0
+                FileSysSetup(MemorySelect);//USB hostï¿½Ë³ï¿½Ä¬ï¿½Ï°ï¿½×°Flash0
                 ClearMsg(MSG_MEDIA_NOW_PLAY);
                 SendMsg(MSG_USBHOT_UPDATE);
                 return(RETURN_FAIL);
@@ -538,7 +555,7 @@ uint32 USBHostStatusDetect(void)
 #endif
             //DEBUG ("HostDetect:1 MemorySelect = FLASH0");
             MemorySelect = FLASH0;
-            FileSysSetup(MemorySelect);//USB hostÍË³öÄ¬ÈÏ°²×°Flash0
+            FileSysSetup(MemorySelect);//USB hostï¿½Ë³ï¿½Ä¬ï¿½Ï°ï¿½×°Flash0
             SendMsg(MSG_USBHOT_UPDATE);
         }
     }
@@ -586,12 +603,12 @@ uint32 USBStatusDetect(void)
         {
             if (1 == VbusDetStatus)
             {
-                if ((SysTickCounter - USBDebounceCount) > 50) // 500ms ·À¶¶ ÓÐÒç³ö·çÏÕ
+                if ((SysTickCounter - USBDebounceCount) > 50) // 500ms ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 {
                     if (FALSE == CheckMsg(MSG_VBUS_INSERT))
                     {
                         USBDEBUG("VBUS INSET");
-                        //Vbus ´Ó°Î³öµ½²åÈëÈôÊÇUSB HOST´æÔÚÔò·´³õÊ¼»¯USB HOST
+                        //Vbus ï¿½Ó°Î³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½USB HOSTï¿½ï¿½ï¿½ï¿½ï¿½ò·´³ï¿½Ê¼ï¿½ï¿½USB HOST
                         #ifdef _USB_HOST_
                         USBHost_Reinit();
                         #endif
@@ -635,7 +652,7 @@ uint32 USBStatusDetect(void)
                     SendMsg(MSG_CHARGE_ENABLE);
 
                     BatteryChargeInit();
-                    SendMsg(MSG_CHARGE_START);      //Ê¹ÄÜ³äµç
+                    SendMsg(MSG_CHARGE_START);      //Ê¹ï¿½Ü³ï¿½ï¿½
 
                     SendMsg(MSG_SYS_RESUME);
 
@@ -649,7 +666,7 @@ uint32 USBStatusDetect(void)
         }
         else
         {
-            //if ((SysTickCounter-USBDebounceCount) > 20) // 200ms ·À¶¶ ÓÐÒç³ö·çÏÕ
+            //if ((SysTickCounter-USBDebounceCount) > 20) // 200ms ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             {
                 if (CheckMsg(MSG_VBUS_INSERT))
                 {
@@ -680,8 +697,8 @@ uint32 USBStatusDetect(void)
 --------------------------------------------------------------------------------
   Function name : UINT32 SysService(void)
   Author        : ZHengYongzhi
-  Description   : ÏµÍ³·þÎñ³ÌÐò£¬¸Ã³ÌÐòµ÷ÓÃÏµÍ³ÏûÏ¢¡¢ÏµÍ³Ïß³Ì¡¢ÍâÉè¼ì²âµÈºóÌ¨ÐèÒª
-                  Íê³ÉµÄ¹¤×÷
+  Description   : ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ò£¬¸Ã³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½Ï¢ï¿½ï¿½ÏµÍ³ï¿½ß³Ì¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Èºï¿½Ì¨ï¿½ï¿½Òª
+                  ï¿½ï¿½ÉµÄ¹ï¿½ï¿½ï¿½
 
   Input         :
   Return        :
@@ -700,8 +717,8 @@ void SDCardEnable(void)
 --------------------------------------------------------------------------------
   Function name : UINT32 SysService(void)
   Author        : ZHengYongzhi
-  Description   : ÏµÍ³·þÎñ³ÌÐò£¬¸Ã³ÌÐòµ÷ÓÃÏµÍ³ÏûÏ¢¡¢ÏµÍ³Ïß³Ì¡¢ÍâÉè¼ì²âµÈºóÌ¨ÐèÒª
-                  Íê³ÉµÄ¹¤×÷
+  Description   : ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ò£¬¸Ã³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½Ï¢ï¿½ï¿½ÏµÍ³ï¿½ß³Ì¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Èºï¿½Ì¨ï¿½ï¿½Òª
+                  ï¿½ï¿½ÉµÄ¹ï¿½ï¿½ï¿½
 
   Input         :
   Return        :
@@ -720,8 +737,8 @@ void SDCardDisable(void)
 --------------------------------------------------------------------------------
   Function name : UINT32 SysService(void)
   Author        : ZHengYongzhi
-  Description   : ÏµÍ³·þÎñ³ÌÐò£¬¸Ã³ÌÐòµ÷ÓÃÏµÍ³ÏûÏ¢¡¢ÏµÍ³Ïß³Ì¡¢ÍâÉè¼ì²âµÈºóÌ¨ÐèÒª
-                  Íê³ÉµÄ¹¤×÷
+  Description   : ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ò£¬¸Ã³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½Ï¢ï¿½ï¿½ÏµÍ³ï¿½ß³Ì¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Èºï¿½Ì¨ï¿½ï¿½Òª
+                  ï¿½ï¿½ÉµÄ¹ï¿½ï¿½ï¿½
 
   Input         :
   Return        :
@@ -884,7 +901,7 @@ SYSTICK_LIST SetPowerDownTimer =
 --------------------------------------------------------------------------------
   Function name : void PowerOffDetec(void)
   Author        : ZHengYongzhi
-  Description   : ¹Ø»ú¼ì²â
+  Description   : ï¿½Ø»ï¿½ï¿½ï¿½ï¿½
 
   Input         :
   Return        :
@@ -904,7 +921,7 @@ void AutioPowerOffTimerRest(void)
 --------------------------------------------------------------------------------
   Function name : void PowerOffDetec(void)
   Author        : ZHengYongzhi
-  Description   : ¹Ø»ú¼ì²â
+  Description   : ï¿½Ø»ï¿½ï¿½ï¿½ï¿½
 
   Input         :
   Return        :
@@ -932,7 +949,7 @@ void AutoPowerOffEnable(void)
 --------------------------------------------------------------------------------
   Function name : void PowerOffDetec(void)
   Author        : ZHengYongzhi
-  Description   : ¹Ø»ú¼ì²â
+  Description   : ï¿½Ø»ï¿½ï¿½ï¿½ï¿½
 
   Input         :
   Return        :
@@ -957,7 +974,7 @@ void AutoPowerOffDisable(void)
 --------------------------------------------------------------------------------
   Function name : void PowerOffDetec(void)
   Author        : ZHengYongzhi
-  Description   : ¹Ø»ú¼ì²â
+  Description   : ï¿½Ø»ï¿½ï¿½ï¿½ï¿½
 
   Input         :
   Return        :
@@ -989,7 +1006,7 @@ void SetPowerOffTimerEnable(void)
 --------------------------------------------------------------------------------
   Function name : void PowerOffDetec(void)
   Author        : ZHengYongzhi
-  Description   : ¹Ø»ú¼ì²â
+  Description   : ï¿½Ø»ï¿½ï¿½ï¿½ï¿½
 
   Input         :
   Return        :
@@ -1013,7 +1030,7 @@ void SetPowerOffTimerDisable(void)
 --------------------------------------------------------------------------------
   Function name : void PowerOffDetec(void)
   Author        : ZHengYongzhi
-  Description   : ¹Ø»ú¼ì²â
+  Description   : ï¿½Ø»ï¿½ï¿½ï¿½ï¿½
 
   Input         :
   Return        :
@@ -1101,7 +1118,7 @@ uint32 PowerOffDetec(void)
 --------------------------------------------------------------------------------
   Function name : void PowerOffDetec(void)
   Author        : ZHengYongzhi
-  Description   : ¹Ø»ú¼ì²â
+  Description   : ï¿½Ø»ï¿½ï¿½ï¿½ï¿½
 
   Input         :
   Return        :
@@ -1285,8 +1302,8 @@ void SysReboot(uint32 addr, uint8 flag)
 --------------------------------------------------------------------------------
   Function name : UINT32 SysService(void)
   Author        : ZHengYongzhi
-  Description   : ÏµÍ³·þÎñ³ÌÐò£¬¸Ã³ÌÐòµ÷ÓÃÏµÍ³ÏûÏ¢¡¢ÏµÍ³Ïß³Ì¡¢ÍâÉè¼ì²âµÈºóÌ¨ÐèÒª
-                  Íê³ÉµÄ¹¤×÷
+  Description   : ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ò£¬¸Ã³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½Ï¢ï¿½ï¿½ÏµÍ³ï¿½ß³Ì¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Èºï¿½Ì¨ï¿½ï¿½Òª
+                  ï¿½ï¿½ÉµÄ¹ï¿½ï¿½ï¿½
 
   Input         :
   Return        :

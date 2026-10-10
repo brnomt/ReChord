@@ -37,9 +37,32 @@ BB_LINKER    := firmware/firmware.ld
 include firmware/rockchip/manifests/bb.mk
 include firmware/rockchip/manifests/ap.mk
 
+# ReChord module fragments (docs/rewrite/architecture.md §2): one subsystem,
+# one folder, one .mk. Fragments only define *_SRCS/*_INCLUDE_DIRS variables;
+# build targets stay in this file so the graph lives in one place.
+-include $(shell find build/bb build/ap -name "*.d" 2>/dev/null)
+
+include firmware/libc/libc.mk
+include firmware/startup/startup.mk
+include firmware/app/app.mk
+include firmware/drivers/drivers.mk
+include firmware/services/services.mk
+include firmware/ui/ui.mk
+include firmware/theme/theme.mk
+include firmware/dsp/dsp.mk
+include firmware/modules/modules.mk
+include firmware/player/player.mk
+
 ARCH_FLAGS   := -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
+# SDK-era leniency (same policy as tools/compile_check.py): the vendor SDK is
+# armcc-era C90 and relies on implicit declarations; GCC 14 makes those hard
+# errors. Our own code passes -Wall cleanly regardless.
 COMMON_FLAGS := $(ARCH_FLAGS) -Os -Wall -Wno-unused-parameter \
-                -Wno-unused-variable -ffunction-sections -fdata-sections \
+                -Wno-unused-variable -Wno-implicit-function-declaration \
+                -Wno-implicit-int -Wno-builtin-declaration-mismatch \
+                -Wno-incompatible-pointer-types -Wno-return-mismatch \
+                -Wno-int-conversion -Wno-return-type \
+                -ffunction-sections -fdata-sections -MMD -MP -fcommon \
                 -include firmware/rockchip/include/armcc_compat.h
 BB_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_BB_BUILD -D_RK_EQ_ -Ifirmware $(addprefix -I,$(BB_INCLUDE_DIRS))
 AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
@@ -66,6 +89,21 @@ AP_BIN := $(AP_BUILD_DIR)/fw1_custom.bin
 
 # Prebuilt codec .lib binaries the Keil RkNano project links (ARM AR archives).
 SDK_LIB := community/sdks/RKNanoD_MP3_V1.3_20161102/Common/Codec
+# The BB milestone links the bring-up codec set; the heavy formats (DSF,
+# DSDIFF, Ogg, AAC) and the image decoders return later as overlay modules -
+# their .bss alone blows past FW_RAM when everything is resident.
+BB_CODEC_LIBS := \
+  $(SDK_LIB)/BlueTooth/RKNanoD_LwBT_20161014.lib \
+  $(SDK_LIB)/Audio/HIFI/flac/RkNanoD_BHFLAC_20160807.lib \
+  $(SDK_LIB)/Audio/Library/RkNano_EQ_24BIT_20150630.lib \
+  $(SDK_LIB)/Audio/Library/RkNano_FADE_24BIT_20150611.lib \
+  $(SDK_LIB)/Audio/Library/RkNano_Spectrum_V09_0420.lib \
+  $(SDK_LIB)/Audio/Mp3/RkNanoD_BMP3_20161031.lib \
+  $(SDK_LIB)/Audio/sbc/RKNanoD_SBCEnc_20160718.lib \
+  $(SDK_LIB)/Audio/ShuffleAll/RKNANO_MyRandom_20150927.lib \
+  $(SDK_LIB)/Audio/SSRC/RKNanoD_SSRC_20160718.lib \
+  $(SDK_LIB)/Audio/Wav/RkNanoD_BWAV_20151223.lib
+
 AP_CODEC_LIBS := \
   $(SDK_LIB)/Image/Jpg/RkNanoD_JPG_DEC_V150906.lib \
   $(SDK_LIB)/Image/Bmp/RkNano_BMP_DEC_V20150511.lib \
@@ -73,15 +111,12 @@ AP_CODEC_LIBS := \
   $(SDK_LIB)/Audio/AAC/RkNanoD_BAAC_20151223.lib \
   $(SDK_LIB)/Audio/DSDIFF/RkNanoD_BDSDIFF_20160929.lib \
   $(SDK_LIB)/Audio/DSF/RkNanoD_BDSF_20160929.lib \
-  $(SDK_LIB)/Audio/HIFI/alac/RkNanoD_BHALAC_20160926.lib \
-  $(SDK_LIB)/Audio/HIFI/ape/RkNanoD_BHAPE_20160806.lib \
   $(SDK_LIB)/Audio/HIFI/flac/RkNanoD_BHFLAC_20160807.lib \
   $(SDK_LIB)/Audio/Library/RkNano_EQ_24BIT_20150630.lib \
   $(SDK_LIB)/Audio/Library/RkNano_FADE_24BIT_20150611.lib \
   $(SDK_LIB)/Audio/Library/RkNano_Spectrum_V09_0420.lib \
   $(SDK_LIB)/Audio/Mp3/RkNanoD_BMP3_20161031.lib \
   $(SDK_LIB)/Audio/Ogg/RkNanoD_BOGG_20160901.lib \
-  $(SDK_LIB)/Audio/RecordControl/NS/RkNanoD_BNS_20151223.lib \
   $(SDK_LIB)/Audio/sbc/RKNanoD_SBCEnc_20160718.lib \
   $(SDK_LIB)/Audio/ShuffleAll/RKNANO_MyRandom_20150927.lib \
   $(SDK_LIB)/Audio/SSRC/RKNanoD_SSRC_20160718.lib \
@@ -93,8 +128,11 @@ AP_CODEC_LIBS := \
 
 # Host unit test for the freestanding DSP core (runs on the build machine, no
 # hardware). Verifies the biquad math before it ever touches the device.
+# Links with the HOST compiler: $(CC) is the bare-metal cross toolchain and has
+# no host libc (crt0/-lc/-lm), so it cannot build a runnable host binary.
+HOSTCC ?= cc
 test-dsp: firmware/rechord_dsp_core.c firmware/rechord_dsp_core.h firmware/test_dsp_core.c
-	$(CC) -O2 -o $(BUILD_DIR)/test_dsp_core firmware/test_dsp_core.c firmware/rechord_dsp_core.c -lm
+	$(HOSTCC) -O2 -o $(BUILD_DIR)/test_dsp_core firmware/test_dsp_core.c firmware/rechord_dsp_core.c -lm
 	$(BUILD_DIR)/test_dsp_core
 
 # Single-command SAFE product build: custom BB (audio/DSP) + STOCK AP (UI),
@@ -192,8 +230,13 @@ $(BB_BUILD_DIR)/entry_stubs.o: firmware/entry_stubs.S
 	$(CC) $(ARCH_FLAGS) -c $< -o $@
 
 link-bb: $(BB_RECHORD_OBJS) $(BB_OBJS)
-	$(CC) $(ARCH_FLAGS) -T $(BB_LINKER) -nostartfiles -ffreestanding \
-		$(BB_RECHORD_OBJS) $(BB_OBJS) -lm -o $(BB_ELF)
+	# -nostdlib: this host has no arm-none-eabi newlib (no crt0/-lc/-lm).
+	# Libc is our own freestanding module (firmware/libc, build-from-source);
+	# -lgcc supplies the compiler runtime (__aeabi_d* soft-float doubles).
+	# Objects are grouped so vendor .lib archives resolve regardless of order.
+	$(CC) $(ARCH_FLAGS) -T $(BB_LINKER) -nostartfiles -nostdlib -ffreestanding \
+		$(BB_RECHORD_OBJS) $(LIBC_SRCS) \
+		-Wl,--allow-multiple-definition -Wl,--start-group $(BB_OBJS) $(BB_CODEC_LIBS) -Wl,--end-group -lgcc -o $(BB_ELF)
 	$(OBJCOPY) -O binary -j .fw_header -j .text $(BB_ELF) $(BB_BIN)
 	@echo "Built: $(BB_BIN)"
 
@@ -211,8 +254,11 @@ $(BB_BUILD_DIR)/bb_stub.o: firmware/bb_stub/bb_stub.c firmware/rechord_version.h
 	@$(MKDIR_P) $(dir $@)
 	$(CC) $(ARCH_FLAGS) -Os -Wall -Ifirmware -c $< -o $@
 
+# Link uses -nostdlib: the stub references no libc, so it builds on hosts
+# without libnewlib-arm-none-eabi ("cannot find -lc"). The full SDK link
+# (link-bb) still needs newlib for memcpy/printf etc.
 bb-stub: $(BB_STUB_OBJS)
-	$(CC) $(ARCH_FLAGS) -T $(BB_LINKER) -nostartfiles -ffreestanding \
+	$(CC) $(ARCH_FLAGS) -T $(BB_LINKER) -nostdlib -ffreestanding \
 		$(BB_STUB_OBJS) -o $(BB_STUB_ELF)
 	$(OBJCOPY) -O binary -j .fw_header -j .text $(BB_STUB_ELF) $(BB_STUB_BIN)
 	@$(SIZE) $(BB_STUB_ELF)

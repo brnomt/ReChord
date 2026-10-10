@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   LcdImage.c
+* File Nameï¿½ï¿½   LcdImage.c
 *
 * Description:
 *
@@ -13,7 +13,7 @@
 ********************************************************************************
 */
 #define _IN_LCDIMAGE_
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "LcdInclude.h"
 #include "ModuleOverlay.h"
 
@@ -24,8 +24,8 @@
   Author        : ZHengYongzhi
   Description   : fill rectangle
 
-  Input         : x0,y0 ¡ª¡ª the upper left coordinate
-                  x1,y1 ¡ª¡ª the lower riht coordinate
+  Input         : x0,y0 ï¿½ï¿½ï¿½ï¿½ the upper left coordinate
+                  x1,y1 ï¿½ï¿½ï¿½ï¿½ the lower riht coordinate
   Return        :
 
   History:     <author>         <time>         <version>
@@ -111,13 +111,13 @@ void GetPictureInfoWithIDNum(UINT16 pictureIDNum, PICTURE_INFO_STRUCT *psPicture
     UINT32 flashAddr;
     int8  hMainFile;
 
-    //32ÊÇ¹Ì¼þÖÐÍ¼Æ¬×ÊÔ´Í·ÐÅÏ¢µÄ³¤¶È IMAGE_RESOURCE_INFO_SIZE ÊÇÃ¿¸öÍ¼Æ¬ÐÅÏ¢½á¹¹ÌåËùÕ¼ÓÃµÄ×Ö½ÚÊý(16)
+    //32ï¿½Ç¹Ì¼ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½Ô´Í·ï¿½ï¿½Ï¢ï¿½Ä³ï¿½ï¿½ï¿½ IMAGE_RESOURCE_INFO_SIZE ï¿½ï¿½Ã¿ï¿½ï¿½Í¼Æ¬ï¿½ï¿½Ï¢ï¿½á¹¹ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½Ãµï¿½ï¿½Ö½ï¿½ï¿½ï¿½(16)
     flashAddr = ImageLogicAddress + 32 + ((UINT32)pictureIDNum * IMAGE_RESOURCE_INFO_SIZE);
 #if (RES_IN_DEV == 1)
     LcdGetResourceInfo(flashAddr, (UINT8*)psPictureInfo, 16);
 #else
     //for SPI Flash Test
-    if ((hMainFile = FileOpenW(NULL,L"\\",L"RkNanoImage.uis", "R")) == -1)//´ò¿ªÎÄ¼þ³É¹¦£¬¼ÓÔØ´ÅÅÌ
+    if ((hMainFile = FileOpenW(NULL,L"\\",L"RkNanoImage.uis", "R")) == -1)//ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø´ï¿½ï¿½ï¿½
     {
         DEBUG("Open File ERROR");
     }
@@ -253,11 +253,11 @@ void DisplayPicture(INT16 x, INT16 y, INT16 xsize, INT16 ysize, unsigned long Fl
     if ((xsize == 0) || (ysize == 0))
         return;
 
-    /*  ¼ÆËãÍ¼Æ¬ÔÚ¡¡NAND¡¡Flash¡¡ÖÐµÄµØÖ·   */
-    //if (((unsigned long)(xsize)*ysize) <= DISP_PIC_BUF_SIZE)//Êý¾Ýbuf¿ÉÒÔ´æ·ÅÒ»ÕÅÍêÕûµÄÍ¼Æ¬
-    if (((unsigned long)(xsize)*ysize) <= (LCD_DISPLAY_BUF>>1))//Êý¾Ýbuf¿ÉÒÔ´æ·ÅÒ»ÕÅÍêÕûµÄÍ¼Æ¬
+    /*  ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½Ú¡ï¿½NANDï¿½ï¿½Flashï¿½ï¿½ï¿½ÐµÄµï¿½Ö·   */
+    //if (((unsigned long)(xsize)*ysize) <= DISP_PIC_BUF_SIZE)//ï¿½ï¿½ï¿½ï¿½bufï¿½ï¿½ï¿½Ô´ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Æ¬
+    if (((unsigned long)(xsize)*ysize) <= (LCD_DISPLAY_BUF>>1))//ï¿½ï¿½ï¿½ï¿½bufï¿½ï¿½ï¿½Ô´ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Æ¬
     {
-        /*  ÔÚ¡¡NAND¡¡Flash¡¡ÖÐ¶ÁÈ¡Í¼Æ¬Êý¾Ý     */
+        /*  ï¿½Ú¡ï¿½NANDï¿½ï¿½Flashï¿½ï¿½ï¿½Ð¶ï¿½È¡Í¼Æ¬ï¿½ï¿½ï¿½ï¿½     */
         DispPicLen   = xsize * ysize;
         //LcdGetResourceData(Flash_Addr + ImageLogicAddress,(UINT8*) DispPicBuf, DispPicLen<<1);
         LcdGetResourceData(Flash_Addr + ImageLogicAddress,(UINT8*) DispPicBuf, LCD_DISPLAY_BUF);
@@ -265,35 +265,35 @@ void DisplayPicture(INT16 x, INT16 y, INT16 xsize, INT16 ysize, unsigned long Fl
         return;
     }
 
-    //Í¼Æ¬Êý¾Ý²»ÄÜÒ»´Î¶Á³öÊ±£¬ÐèÒª·Ö´Î¶ÁÈ¡£¬Ã¿´Î¶ÁÈ¡µÄ³¤¶ÈÒÔÍ¼Æ¬x·½ÏòµÄ³¤¶ÈÎªµ¥Î»£¬
-    //¼´Ò»´Î¿ÉÒÔ¶ÁÈ¡¼¸ÐÐÊý¾Ý£¬Õâ¸öÊý¾ÝµÄ´óÐ¡²»´óÓÚÏÔÊ¾buf DISP_PIC_BUF_SIZEµÄ´óÐ¡
-    //ysize_Seg    = DISP_PIC_BUF_SIZE / xsize;//¼ÆËã¶ÁÈ¡µÄÊý¾ÝÒ»´Î¿ÉÒÔÏÔÊ¾¼¸ÐÐ
-    ysize_Seg    = (LCD_DISPLAY_BUF>>1) / xsize;//¼ÆËã¶ÁÈ¡µÄÊý¾ÝÒ»´Î¿ÉÒÔÏÔÊ¾¼¸ÐÐ
+    //Í¼Æ¬ï¿½ï¿½ï¿½Ý²ï¿½ï¿½ï¿½Ò»ï¿½Î¶ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Òªï¿½Ö´Î¶ï¿½È¡ï¿½ï¿½Ã¿ï¿½Î¶ï¿½È¡ï¿½Ä³ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Æ¬xï¿½ï¿½ï¿½ï¿½Ä³ï¿½ï¿½ï¿½Îªï¿½ï¿½Î»ï¿½ï¿½
+    //ï¿½ï¿½Ò»ï¿½Î¿ï¿½ï¿½Ô¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÝµÄ´ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾buf DISP_PIC_BUF_SIZEï¿½Ä´ï¿½Ð¡
+    //ysize_Seg    = DISP_PIC_BUF_SIZE / xsize;//ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î¿ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
+    ysize_Seg    = (LCD_DISPLAY_BUF>>1) / xsize;//ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î¿ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
     if (ysize_Seg == 0)
         return;
 
     //printf("\nyszie_seg = %d", ysize_Seg);
 
-    Disp_Counter = ysize / ysize_Seg;//¼ÆËãÍ¼Æ¬ÐèÒª¼¸´Î¶ÁÈ¡(Êµ¼ÊµÄ´ÎÊýÊÇÕâ¸öÖµ+1£¬ÒòÎª¿ÉÄÜ»¹ÓÐÊ£ÓàµÄÍ¼Æ¬Êý¾Ý)
-    ysize_Spare  = ysize % ysize_Seg;//¶ÁÈ¡ºó»¹Ê£ÓàµÄÊý¾Ý²»×ãÒ»¸öbuffer
+    Disp_Counter = ysize / ysize_Seg;//ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½Òªï¿½ï¿½ï¿½Î¶ï¿½È¡(Êµï¿½ÊµÄ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ+1ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ü»ï¿½ï¿½ï¿½Ê£ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½ï¿½ï¿½)
+    ysize_Spare  = ysize % ysize_Seg;//ï¿½ï¿½È¡ï¿½ï¿½Ê£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý²ï¿½ï¿½ï¿½Ò»ï¿½ï¿½buffer
 
-    DispPicLen   = ysize_Seg * xsize;//Ò»´Î¶ÁÈ¡µÄÊý¾ÝµÄ³¤¶È
+    DispPicLen   = ysize_Seg * xsize;//Ò»ï¿½Î¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ÝµÄ³ï¿½ï¿½ï¿½
 
     for (; Disp_Counter > 0; Disp_Counter--)
     {
-        /*  ¼ÆËãÍ¼Æ¬µ±Ç°ÏÔÊÓ²¿·ÝÔÚNAND¡¡FLASHÖÐµÄµØÖ·               */
-        /*  ´ÓNAND¡¡FLASHÖÐ¶ÁÈ¡²¿·ÝÍ¼Æ¬Êý¾Ý£¨Êý¾Ý³¤¶ÈÎªDispPicLen£© */
+        /*  ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½Ç°ï¿½ï¿½ï¿½Ó²ï¿½ï¿½ï¿½ï¿½ï¿½NANDï¿½ï¿½FLASHï¿½ÐµÄµï¿½Ö·               */
+        /*  ï¿½ï¿½NANDï¿½ï¿½FLASHï¿½Ð¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½Ý³ï¿½ï¿½ï¿½ÎªDispPicLenï¿½ï¿½ */
         //LcdGetResourceData(Flash_Addr + ImageLogicAddress, (UINT8*)DispPicBuf, DispPicLen<<1);
         LcdGetResourceData(Flash_Addr + ImageLogicAddress, (UINT8*)DispPicBuf, DispPicLen*2);
         DisplayPictureFromBuffer(x, y, xsize, ysize_Seg, DispPicBuf);
         y += ysize_Seg;
         Flash_Addr += DispPicLen*2;
     }
-    if (ysize_Spare)//¶ÁÈ¡Ê£ÓàµÄÍ¼Æ¬Êý¾Ý£¨Õâ²¿·ÝÊý¾Ý£©
+    if (ysize_Spare)//ï¿½ï¿½È¡Ê£ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½ï¿½Ý£ï¿½ï¿½â²¿ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½
     {
         DispPicLen = ysize_Spare*xsize;
-        /*¼ÆËãÍ¼Æ¬Ê£Óà²¿·ÝÔÚNAND¡¡FLASHÖÐµÄµØÖ·*/
-        /*´ÓNAND¡¡FLASHÖÐ¶ÁÈ¡Ê£Óà²¿·ÝÍ¼Æ¬Êý¾Ý£¨Êý¾Ý³¤¶ÈÎªDispPicLen£©*/
+        /*ï¿½ï¿½ï¿½ï¿½Í¼Æ¬Ê£ï¿½à²¿ï¿½ï¿½ï¿½ï¿½NANDï¿½ï¿½FLASHï¿½ÐµÄµï¿½Ö·*/
+        /*ï¿½ï¿½NANDï¿½ï¿½FLASHï¿½Ð¶ï¿½È¡Ê£ï¿½à²¿ï¿½ï¿½Í¼Æ¬ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½Ý³ï¿½ï¿½ï¿½ÎªDispPicLenï¿½ï¿½*/
         //LcdGetResourceData(Flash_Addr + ImageLogicAddress, (UINT8*)DispPicBuf, DispPicLen<<1);
         LcdGetResourceData(Flash_Addr + ImageLogicAddress, (UINT8*)DispPicBuf, DispPicLen*2);
         DisplayPictureFromBuffer(x, y, xsize, ysize_Spare, DispPicBuf);
@@ -308,7 +308,7 @@ void DisplayPicture(INT16 x, INT16 y, INT16 xsize, INT16 ysize, unsigned long Fl
 *  Description:     draw picture with id and x,y offset.the origin is derived by tool,
 *
 *  Input:           pictureIDNum     :  id
-*                   xOffset, yOffset £º corodinate offset of picture display.
+*                   xOffset, yOffset ï¿½ï¿½ corodinate offset of picture display.
 *  Output:          null
 *  Return:          null
 *  Calls:           FlashReadLogicRaw(): get picture from flash by 16 bits.
@@ -334,7 +334,7 @@ void DispPictureWithIDNumAndXYoffset(UINT16 pictureIDNum, UINT16 xOffset, UINT16
 *  Description:     display picture with id and coordinate x y them will mask the value that are derived by tool.
 *
 *  Input:           pictureIDNum     : id
-*                   x, y £º            coordinate.
+*                   x, y ï¿½ï¿½            coordinate.
 *  Output:          null
 *  Return:          null
 *

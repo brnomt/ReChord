@@ -17,23 +17,23 @@ $Log: $
 #include "SDConfig.h"
 #if defined(EMMC_DRIVER)
 
-#include "Gpio.h"
+#include "gpio.h"
 #include "Hw_cru.h"
-#include "Hw_grf.h"
+#include "hw_grf.h"
 #include "eMMC.h"
 
 /*------------------------------------ Defines -------------------------------*/
 
 #define EMMC_IDB_NUM    5
 
-#define  EMMC_BOOT_OFFSET       (64)                //IDB ´Ó32KÆ«ÒÆ¿ªÊ¼
+#define  EMMC_BOOT_OFFSET       (64)                //IDB ï¿½ï¿½32KÆ«ï¿½Æ¿ï¿½Ê¼
 
-#define EMMC_IDB_SIZE          (3*1024*1024/512)       //´Ó0µØÖ·¿ªÊ¼,°üº¬0µØÖ·±£ÁôµÄ32KB+IDB Size(512KB*5)
-#define EMMC_BOOT_SIZE         EMMC_IDB_SIZE           //BOOT·ÖÇø´óÐ¡
+#define EMMC_IDB_SIZE          (3*1024*1024/512)       //ï¿½ï¿½0ï¿½ï¿½Ö·ï¿½ï¿½Ê¼,ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½32KB+IDB Size(512KB*5)
+#define EMMC_BOOT_SIZE         EMMC_IDB_SIZE           //BOOTï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡
 
-#define EMMC_OTP_OFFSET         EMMC_IDB_SIZE       // 3MB~4MB ¿Õ¼äÔ¤Áô¸øOTP Ê¹ÓÃ
+#define EMMC_OTP_OFFSET         EMMC_IDB_SIZE       // 3MB~4MB ï¿½Õ¼ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½OTP Ê¹ï¿½ï¿½
 
-#define  EMMC_SYS_OFFSET        (4*1024*1024/512)      //¹Ì¼þ´Ó4MÆ«ÒÆ¿ªÊ¼
+#define  EMMC_SYS_OFFSET        (4*1024*1024/512)      //ï¿½Ì¼ï¿½ï¿½ï¿½4MÆ«ï¿½Æ¿ï¿½Ê¼
 
 
 #define EmmcCtl                  ((SDC_REG_T *)(EMMC_BASE)
@@ -125,7 +125,7 @@ uint32 EmmcGetCapacity(uint8 lun)
 
 /*
 Name:       EmmcSysProtSet
-Desc:       ÏµÍ³ÇøÐ´±£»¤¹Ø
+Desc:       ÏµÍ³ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 Param:
 Return:
 Global:
@@ -157,8 +157,8 @@ uint32 EmmcProtStatusGet(void)
 
 /*
 Name:       NandSysProtChk
-Desc:       Èë¿Ú²ÎÊý:½«Òª²ÁÐ´µÄÉÈÇøµØÖ·
-            ³ö¿Ú²ÎÊý:0=·ÇÏµÍ³±£»¤Çø, 1=ÏµÍ³±£»¤Çø
+Desc:       ï¿½ï¿½Ú²ï¿½ï¿½ï¿½:ï¿½ï¿½Òªï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·
+            ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½:0=ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, 1=ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 Param:
 Return:
 Global:
@@ -174,7 +174,7 @@ uint32 EmmcSysProtChk(uint32 SecAddr)
     #ifdef SYS_PROTECT
     if (EmmcProtStatusGet() != FLASH_PROT_MAGIC)
     {
-        if (SecAddr < EmmcGetCapacity(0))    //ÏµÍ³±£ÁôÇø
+        if (SecAddr < EmmcGetCapacity(0))    //ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             protect=1;
     }
     #endif
@@ -195,7 +195,7 @@ _ATTR_SD_CODE_
 uint32 EmmcGetInfo(uint8 lun, pMEMDEV_INFO pDevInfo)
 {
     //pDevInfo->Manufacturer = 0;
-    pDevInfo->BlockSize = SDM_BLOCK_SIZE;  //¹Ì¶¨³É512K
+    pDevInfo->BlockSize = SDM_BLOCK_SIZE;  //ï¿½Ì¶ï¿½ï¿½ï¿½512K
     pDevInfo->PageSize = 16;
     pDevInfo->capacity= EmmcGetCapacity(lun);
 
@@ -350,7 +350,7 @@ uint32 EmmcInit(void)
         pIDSEC0 IdSec0;
         pIDSEC1 IdSec1;
 
-        for (i=0; i<EMMC_IDB_NUM; i++)  //ÔÚ2¸öBLOCKÀï²éÕÒID PAGE
+        for (i=0; i<EMMC_IDB_NUM; i++)  //ï¿½ï¿½2ï¿½ï¿½BLOCKï¿½ï¿½ï¿½ï¿½ï¿½ID PAGE
         {
             if (SDM_SUCCESS != EmmcReadIDB((i*SDM_BLOCK_SIZE), 2, DataBuf))
             {
@@ -553,7 +553,7 @@ int32 EmmcGetProductSn(void *pSn)
     //ScuClockGateCtr(CLK_EMMC_GATE, 1);
     ScuClockGateCtr(HCLK_EMMC_GATE, 1);
 
-    if (SDM_SUCCESS != EmmcReadIDB(3, 1, DataBuf))//´æÔÚIDBµÚ3¸öÉÈÇø.
+    if (SDM_SUCCESS != EmmcReadIDB(3, 1, DataBuf))//ï¿½ï¿½ï¿½ï¿½IDBï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.
     {
         goto eMMCGetSNEND;
     }
@@ -593,7 +593,7 @@ int32 EmmcGetBluetoothMac(void *pBTMac)
     //ScuClockGateCtr(CLK_EMMC_GATE, 1);
     ScuClockGateCtr(HCLK_EMMC_GATE, 1);
 
-    if (SDM_SUCCESS != EmmcReadIDB(3, 1, DataBuf))//´æÔÚIDBµÚ3¸öÉÈÇø.
+    if (SDM_SUCCESS != EmmcReadIDB(3, 1, DataBuf))//ï¿½ï¿½ï¿½ï¿½IDBï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.
     {
         goto eMMCGetSNEND;
     }
@@ -614,8 +614,8 @@ eMMCGetSNEND:
 
 
 #if 0
-/*extern*/ uint32 ProbeReadBuf[PAGE_SIZE];   //FLASHÌ½²âÊ±ÓÃµÄPAGE BUF
-/*extern*/ uint32 ProbeWriteBuf[PAGE_SIZE];  //FLASHÌ½²âÊ±ÓÃµÄPAGE BUF
+/*extern*/ uint32 ProbeReadBuf[PAGE_SIZE];   //FLASHÌ½ï¿½ï¿½Ê±ï¿½Ãµï¿½PAGE BUF
+/*extern*/ uint32 ProbeWriteBuf[PAGE_SIZE];  //FLASHÌ½ï¿½ï¿½Ê±ï¿½Ãµï¿½PAGE BUF
 //uint8 TestEmmcRet;
 /*
 Name:       EmmcTest

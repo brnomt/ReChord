@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  Task.c
+* File Nameï¿½ï¿½  Task.c
 *
 * Description:
 *
@@ -15,6 +15,7 @@
 #define _IN_TASK_
 
 #include "SysInclude.h"
+#include "ui/USB/FunUSB.h"   /* FunUSBWin window struct */
 #include "mainmenu.h"
 #include "setmenu.h"
 #include "RecordWin.h"
@@ -22,7 +23,7 @@
 #include "RadioWin.h"
 #include "PicWin.h"
 #include "VideoWin.h"
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "FunUSB.h"
 #include "TextWin.h"
 #include "BrowserUI.h"
@@ -38,7 +39,7 @@
   Author        : ZHengYongzhi
   Description   : system stucture initial value
 
-  Input         : pWin ¡ª¡ª function return window pointer.·µ»ØµÄ´°¿ÚÖ¸Õë
+  Input         : pWin ï¿½ï¿½ï¿½ï¿½ function return window pointer.ï¿½ï¿½ï¿½ØµÄ´ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
   Return        :
 
   History:     <author>         <time>         <version>
@@ -220,7 +221,7 @@ uint8* TaskID2Str(TASK_ID taskID)
   Author        : ZHengYongzhi
   Description   : task initial,tasts switch code,get task main window pointer.
 
-  Input         : pWin ¡ª¡ª window pointer.
+  Input         : pWin ï¿½ï¿½ï¿½ï¿½ window pointer.
   Return        :
 
   History:     <author>         <time>         <version>
@@ -300,8 +301,8 @@ WIN* TaskInit(void **pArg)
   Author        : ZHengYongzhi
   Description   : task switch,call by application.
 
-  Input         : TaskId   ¡ª¡ª new task id.
-                  pTaskArg ¡ª¡ª task parameters.
+  Input         : TaskId   ï¿½ï¿½ï¿½ï¿½ new task id.
+                  pTaskArg ï¿½ï¿½ï¿½ï¿½ task parameters.
   Return        :
 
   History:     <author>         <time>         <version>

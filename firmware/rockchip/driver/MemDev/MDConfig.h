@@ -18,17 +18,17 @@ Revision:       1.00
 #include    "SysConfig.h"
 
 #include    "typedef.h"
-#include    "Macro.h"
+#include    "macro.h"
 
 #include    "hw_memap.h"
-#include    "hook.h"
+#include    "Hook.h"
 #include    "MemDev.h"
 #include    "USBConfig.h"
 
 
-#include    "SPIFlash\SPIFlash.h"
+#include    "SPIFlash/SPIFlash.h"
 
-#include    "sd_mmc\SDConfig.h"
+#include    "SD_MMC/SDConfig.h"
 
 
 #define UNUSED(x)           ( void )(x)
@@ -61,34 +61,34 @@ Revision:       1.00
 
 
 
-//SD¿¨³õÊ¼»¯´úÂë¡¢Êý¾Ý¶Î
-#define     _ATTR_SD_INIT_CODE_         __attribute__((section("SDInitCode")))
-#define     _ATTR_SD_INIT_DATA_         __attribute__((section("SDInitData")))
-#define     _ATTR_SD_INIT_BSS_          __attribute__((section("SDInitBss"),zero_init))
+//SDï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ë¡¢ï¿½ï¿½ï¿½Ý¶ï¿½
+#define     _ATTR_SD_INIT_CODE_         
+#define     _ATTR_SD_INIT_DATA_         
+#define     _ATTR_SD_INIT_BSS_          
 
-//SD¿¨»ù±¾²Ù×÷¼°¶ÁÈ¡²Ù×÷´úÂë¡¢Êý¾Ý¶Î
-#define     _ATTR_SD_CODE_              __attribute__((section("SDCode")))
-#define     _ATTR_SD_DATA_              __attribute__((section("SDData")))
-#define     _ATTR_SD_BSS_               __attribute__((section("SDBss"),zero_init))
+//SDï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë¡¢ï¿½ï¿½ï¿½Ý¶ï¿½
+#define     _ATTR_SD_CODE_              
+#define     _ATTR_SD_DATA_              
+#define     _ATTR_SD_BSS_               
 #define     IRAM_SD                     _ATTR_SD_CODE_
 
-//SD¿¨Ð´²Ù×÷´úÂë¡¢Êý¾Ý¶Î
-#define     _ATTR_SD_WRITE_CODE_        __attribute__((section("SDWriteCode")))
-#define     _ATTR_SD_WRITE_DATA_        __attribute__((section("SDWriteData")))
-#define     _ATTR_SD_WRITE_BSS_         __attribute__((section("SDWriteBss"),zero_init))
+//SDï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë¡¢ï¿½ï¿½ï¿½Ý¶ï¿½
+#define     _ATTR_SD_WRITE_CODE_        
+#define     _ATTR_SD_WRITE_DATA_        
+#define     _ATTR_SD_WRITE_BSS_         
 
 
-#define     _ATTR_FLASH_INIT_CODE_      __attribute__((section("FlashCode")))//__attribute__((section("FlashInitCode")))
-#define     _ATTR_FLASH_INIT_DATA_      __attribute__((section("FlashData")))//__attribute__((section("FlashInitData")))
-#define     _ATTR_FLASH_INIT_BSS_       __attribute__((section("FlashBss"),zero_init))//__attribute__((section("FlashInitBss"),zero_init))
+#define     _ATTR_FLASH_INIT_CODE_      //
+#define     _ATTR_FLASH_INIT_DATA_      //
+#define     _ATTR_FLASH_INIT_BSS_       //
 
-#define     _ATTR_FLASH_CODE_           __attribute__((section("FlashCode")))
-#define     _ATTR_FLASH_DATA_           __attribute__((section("FlashData")))
-#define     _ATTR_FLASH_BSS_            __attribute__((section("FlashBss"),zero_init))
+#define     _ATTR_FLASH_CODE_           
+#define     _ATTR_FLASH_DATA_           
+#define     _ATTR_FLASH_BSS_            
 
-#define     _ATTR_FLASH_WRITE_CODE_      __attribute__((section("FlashCode")))//__attribute__((section("FlashWriteCode")))
-#define     _ATTR_FLASH_WRITE_DATA_      __attribute__((section("FlashData")))//__attribute__((section("FlashWriteData")))
-#define     _ATTR_FLASH_WRITE_BSS_       __attribute__((section("FlashBss"),zero_init))//__attribute__((section("FlashWriteBss"),zero_init))
+#define     _ATTR_FLASH_WRITE_CODE_      //
+#define     _ATTR_FLASH_WRITE_DATA_      //
+#define     _ATTR_FLASH_WRITE_BSS_       //
 
 #define     IRAM_FLASH_INIT             _ATTR_FLASH_INIT_CODE_
 

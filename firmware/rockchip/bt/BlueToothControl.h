@@ -32,22 +32,22 @@
 /*                                                                                                                                         */
 /******************************************************************************/
 //section define
-#define _ATTR_BLUETOOTHCONTROL_CODE_     __attribute__((section("BlueToothControlCode")))
-#define _ATTR_BLUETOOTHCONTROL_DATA_     __attribute__((section("BlueToothControlData")))
-#define _ATTR_BLUETOOTHCONTROL_BSS_      __attribute__((section("BlueToothControlBss"),zero_init))
+#define _ATTR_BLUETOOTHCONTROL_CODE_     
+#define _ATTR_BLUETOOTHCONTROL_DATA_     
+#define _ATTR_BLUETOOTHCONTROL_BSS_      
 
-#define _ATTR_BLUETOOTHAUDIO_CODE_     __attribute__((section("BlueToothAudioCode")))
-#define _ATTR_BLUETOOTHAUDIO_DATA_     __attribute__((section("BlueToothAudioData")))
-#define _ATTR_BLUETOOTHAUDIO_BSS_      __attribute__((section("BlueToothAudioBss"),zero_init))
+#define _ATTR_BLUETOOTHAUDIO_CODE_     
+#define _ATTR_BLUETOOTHAUDIO_DATA_     
+#define _ATTR_BLUETOOTHAUDIO_BSS_      
 
-#define _ATTR_BLUETOOTHPHONE_CODE_     __attribute__((section("BlueToothPhoneCode")))
-#define _ATTR_BLUETOOTHPHONE_DATA_     __attribute__((section("BlueToothPhoneData")))
-#define _ATTR_BLUETOOTHPHONE_BSS_      __attribute__((section("BlueToothPhoneBss"),zero_init))
+#define _ATTR_BLUETOOTHPHONE_CODE_     
+#define _ATTR_BLUETOOTHPHONE_DATA_     
+#define _ATTR_BLUETOOTHPHONE_BSS_      
 
 
-#define _ATTR_BLUETOOTHVOICENOTIFY_CODE_     __attribute__((section("BlueToothVoiceNotifyCode")))
-#define _ATTR_BLUETOOTHVOICENOTIFY_DATA_     __attribute__((section("BlueToothVoiceNotifyData")))
-#define _ATTR_BLUETOOTHVOICENOTIFY_BSS_      __attribute__((section("BlueToothVoiceNotifyBss"),zero_init))
+#define _ATTR_BLUETOOTHVOICENOTIFY_CODE_     
+#define _ATTR_BLUETOOTHVOICENOTIFY_DATA_     
+#define _ATTR_BLUETOOTHVOICENOTIFY_BSS_      
 
 
 #define BT_A2DP_PLAY        ((uint32)0)

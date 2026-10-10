@@ -30,9 +30,9 @@
 *
 *-------------------------------------------------------------------------------
 */
-#define _ATTR_RADIOSUBFUNCWIN_CODE_         __attribute__((section("RadioSubWinCode")))
-#define _ATTR_RADIOSUBFUNCWIN_DATA_         __attribute__((section("RadioSubWinData")))
-#define _ATTR_RADIOSUBFUNCWIN_BSS_          __attribute__((section("RadioSubWinBss"),zero_init))
+#define _ATTR_RADIOSUBFUNCWIN_CODE_         
+#define _ATTR_RADIOSUBFUNCWIN_DATA_         
+#define _ATTR_RADIOSUBFUNCWIN_BSS_          
 
 //#define     RADIO_STATE_MANUAL              0
 //#define     RADIO_STATE_PRESET              1

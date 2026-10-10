@@ -1,6 +1,8 @@
 #ifdef _USB_HOST_
 #ifndef USB_DWCHOST_H
 #define USB_DWCHOST_H
+#include "driver/USB/chap9.h"
+#include "driver/USB/USBComm.h"   /* USB_CTRL_REQ type */   /* USB_*_DESCRIPTOR types */
 
 #define     HOST_OK                     0
 #define     HOST_ERR                    1
@@ -140,7 +142,7 @@ typedef    struct tagUSB_REQ
     uint8               valid;
     HOST_DEV            *pDev;
     HOST_PIPE           pipe;
-    USB_CTRL_REQUEST    *SetupPkt;
+    USB_CTRL_REQ    *SetupPkt;
     uint8               CtrlPhase;
     void                *TransBuf;
     uint32              BufLen;

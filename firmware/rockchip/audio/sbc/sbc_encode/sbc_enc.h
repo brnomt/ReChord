@@ -14,13 +14,13 @@ extern "C" {
 
 
 
-#define _ATTR_AUDIO_SBC_ENCODE_TEXT_     __attribute__((section("SbcEnCodeCode")))
-#define _ATTR_AUDIO_SBC_ENCODE_DATA_     __attribute__((section("SbcEnCodeData")))
-#define _ATTR_AUDIO_SBC_ENCODE_BSS_      __attribute__((section("SbcEnCodeBss"),zero_init))
+#define _ATTR_AUDIO_SBC_ENCODE_TEXT_     
+#define _ATTR_AUDIO_SBC_ENCODE_DATA_     
+#define _ATTR_AUDIO_SBC_ENCODE_BSS_      
 
-#define _ATTR_AUDIO_TEXT_     __attribute__((section("AudioCode")))
-#define _ATTR_AUDIO_DATA_     __attribute__((section("AudioData")))
-#define _ATTR_AUDIO_BSS_      __attribute__((section("AudioBss"),zero_init))
+#define _ATTR_AUDIO_TEXT_     
+#define _ATTR_AUDIO_DATA_     
+#define _ATTR_AUDIO_BSS_      
 
 /* sampling frequency */
 #define SBC_FREQ_16000      0x00

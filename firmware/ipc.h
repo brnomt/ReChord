@@ -10,13 +10,13 @@
  *
  * Command-value ownership:
  *   - MAILBOX channel/ID/INT assignment   -> here.
- *   - MSGBOX_CMD_SYSTEM_* (channel 0)      -> here (sequential, matches
+ *   - IPC_CMD_SYSTEM_* (channel 0)      -> here (sequential, matches
  *                                             driver/BB/BBSystem.h enum).
- *   - MEDIA_MSGBOX_CMD_DECODE_* (channel 1) -> SDK enum
+ *   - MEDIA_IPC_CMD_DECODE_* (channel 1) -> SDK enum
  *                                             audio/Include/audio_main.h.
- *   - MEDIA_MSGBOX_CMD_FILE_*   (channel 2) -> SDK enum filesys/file.h
+ *   - MEDIA_IPC_CMD_FILE_*   (channel 2) -> SDK enum filesys/file.h
  *                                             (also mirrored in include/fsinclude.h).
- *   - MEDIA_MSGBOX_CMD_ENCODE_* (channel 1) -> SDK enum
+ *   - MEDIA_IPC_CMD_ENCODE_* (channel 1) -> SDK enum
  *                                             audio/RecordControl/RecordControl.h.
  * The media command IDs are SDK ENUMS (not macros) and are intentionally NOT
  * redefined here — duplicating them as macros would collide with the enum
@@ -57,12 +57,15 @@
  *   0 NULL, 1 SYSTEM_START_OK, 2 BB_HOLD, 3 BB_HOLD_ACK,
  *   4 BB_HOLD_EXIT, 5 PRINT_LOG, 6 PRINT_LOG_OK
  */
-#define MSGBOX_CMD_SYSTEM_START_OK       1u
-#define MSGBOX_CMD_BB_HOLD               2u
-#define MSGBOX_CMD_BB_HOLD_ACK           3u
-#define MSGBOX_CMD_BB_HOLD_EXIT          4u
-#define MSGBOX_CMD_SYSTEM_PRINT_LOG      5u
-#define MSGBOX_CMD_SYSTEM_PRINT_LOG_OK   6u
+/* Note (2026-10-10): renamed to IPC_* because the vendor BBSystem.h declares
+ * IPC_CMD_SYSTEM_* as ENUM members and a #define of the same name breaks
+ * that enum. Values are identical to the vendor enum. */
+#define IPC_CMD_SYSTEM_START_OK       1u
+#define IPC_CMD_BB_HOLD               2u
+#define IPC_CMD_BB_HOLD_ACK           3u
+#define IPC_CMD_BB_HOLD_EXIT          4u
+#define IPC_CMD_SYSTEM_PRINT_LOG      5u
+#define IPC_CMD_SYSTEM_PRINT_LOG_OK   6u
 
 /*
  * Channel 1 — decode (audio/Include/audio_main.h MEDIA_MSGBOX_DECODE_CMD,

@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2016, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  BluetoothScanWin.c
+* File Nameï¿½ï¿½  BluetoothScanWin.c
 *
 * Description:
 *
@@ -29,7 +29,7 @@
 #include "BluetoothPinCodeWin.h"
 #endif
 
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "Hold.h"
 
 #include "RadioWinInterface.h"
@@ -610,7 +610,7 @@ UINT32 BluetoothScanWinService(void)
         {
             //hci_pin_code_request_neg_reply((struct bd_addr *)BtWinBtScanConnctMac);
             //BT_DEBUG("bt_disconnect@BluetoothScanWinService\n");
-            bt_disconnect((struct bd_addr *)BtWinBtScanConnctMac);//Ö±½Ó¶Ï¿ªÁ¬½Ó
+            bt_disconnect((struct bd_addr *)BtWinBtScanConnctMac);//Ö±ï¿½Ó¶Ï¿ï¿½ï¿½ï¿½ï¿½ï¿½
         }
         BtWinSubStatus == BT_WIN_SUB_STATUS_IDLE;
 #endif
@@ -788,12 +788,12 @@ UINT32 BluetoothScanWinKeyProc(void)
                 WinCreat(&BlueToothScanWin, &MessageBoxWin, &TaskArg);
                 break;
                 {
-                    //bt_clean_scan_result(); //¿ÉÇå³ýÉÏ´ÎÉ¨Ãè½á¹û
+                    //bt_clean_scan_result(); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½É¨ï¿½ï¿½ï¿½ï¿½
                     //BtScanRes = NULL;
                     //BTScanStationTreeInf.DispTotalItem = 0;
                     //ScanStationUpProc();
                 }
-                //BtWinStatus = BT_WIN_STATUS_IDLE; ?//ÔÚÉ¨Ãè¹ý³ÌÖÐÁ¬½Ó¿ÉÒÔÈ¡ÏûÉ¨Ãèºó½øÐÐÁ¬½Ó
+                //BtWinStatus = BT_WIN_STATUS_IDLE; ?//ï¿½ï¿½É¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½È¡ï¿½ï¿½É¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             }
             else if (BtWinStatus == BT_WIN_STATUS_CONNECTING)
             {
@@ -887,7 +887,7 @@ UINT32 BluetoothScanWinKeyProc(void)
             }
 
             {
-                bt_clean_scan_result(); //¿ÉÇå³ýÉÏ´ÎÉ¨Ãè½á¹û
+                bt_clean_scan_result(); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½É¨ï¿½ï¿½ï¿½ï¿½
                 BtScanRes = NULL;
                 BTScanStationTreeInf.DispTotalItem = 0;
                 BTScanStationTreeInf.CurId = 0;

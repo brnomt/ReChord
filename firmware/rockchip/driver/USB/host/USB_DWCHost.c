@@ -11,6 +11,10 @@ $Log: $
  *
  *
 */
+#include "driver/CRU/Hw_cru.h"  /* USB*_SRST, FREQ_* gate IDs */
+#include "driver/GRF/grf.h"    /* Grf instance */
+#include "driver/GRF/hw_grf.h" /* GRF registers */
+#include "freq_enums.h"       /* FREQ_USB */
 #include "SysInclude.h"
 #include "OsInclude.h"
 

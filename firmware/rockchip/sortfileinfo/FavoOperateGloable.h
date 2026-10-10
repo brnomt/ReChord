@@ -32,9 +32,9 @@
 //EXT  _ATTR_MEDIABROWIN_BSS_ UINT8 gBroFavoSaveBuffer[500];
 //EXT  _ATTR_MEDIABROWIN_BSS_ UINT8 gBroFavoSaveBuffer1[400];
 
-#define   _FAVORESET_CODE_    __attribute__((section("FavoResetCode")))
-#define   _FAVORESET_DATA_    __attribute__((section("FavoResetData")))
-#define   _FAVORESET_BSS_    __attribute__((section("FavoResetBss"),zero_init))
+#define   _FAVORESET_CODE_    
+#define   _FAVORESET_DATA_    
+#define   _FAVORESET_BSS_    
 
 #ifdef _IN_FAVORESET
 _FAVORESET_BSS_ UINT8 gFavoResetBuffer[MEDIAINFO_PAGE_SIZE];

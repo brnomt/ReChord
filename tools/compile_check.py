@@ -47,16 +47,29 @@ CFLAGS = [
     "-MP",
     "-nostdlib",
     "-nostartfiles",
+    # The SDK is Keil/armcc-era C90: implicit declarations and armcc keywords
+    # are everywhere. We only need compilable objects for symbol extraction,
+    # so: inject the armcc keyword compat shim and keep old-C leniency.
+    "-include", str(ROOT / "firmware" / "rockchip" / "include" / "armcc_compat.h"),
+    "-std=gnu89",
+    "-Wno-implicit-function-declaration",
+    "-Wno-implicit-int",
+    "-Wno-builtin-declaration-mismatch",
     "-I", str(ROOT / "firmware"),
     "-I", str(ROOT / "firmware" / "rockchip"),
 ]
 
-# Include paths from SDK
-SDK_INCLUDES = [
-    "-I", str(ROOT / "firmware" / "rockchip" / "include"),
-    "-I", str(ROOT / "firmware" / "rockchip" / "audio" / "Common"),
-    "-I", str(ROOT / "firmware" / "rockchip" / "system" / "os"),
-]
+# Include paths from SDK: every directory holding a header. SDK headers include
+# each other by bare name across subsystem dirs (e.g. "MemDev.h"), so each header
+# directory must be on the include path. Collected dynamically — no hardcoded
+# list to rot when the tree changes.
+def collect_include_dirs():
+    dirs = {str(ROOT / "firmware"), str(ROOT / "firmware" / "rockchip")}
+    for f in (ROOT / "firmware").rglob("*.h"):
+        dirs.add(str(f.parent))
+    return [d for pair in (("-I", d) for d in sorted(dirs)) for d in pair]
+
+SDK_INCLUDES = collect_include_dirs()
 
 
 def find_c_files():

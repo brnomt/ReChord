@@ -32,9 +32,9 @@
 */
 //section define
 //brower window permanent code.
-#define _ATTR_BRO_UI_CODE_         __attribute__((section("BroUICode")))
-#define _ATTR_BRO_UI_DATA_         __attribute__((section("BroUIData")))
-#define _ATTR_BRO_UI_BSS_          __attribute__((section("BroUIBss"),zero_init))
+#define _ATTR_BRO_UI_CODE_         
+#define _ATTR_BRO_UI_DATA_         
+#define _ATTR_BRO_UI_BSS_          
 
 //------------------------------------------------------------------------------
 //related interface

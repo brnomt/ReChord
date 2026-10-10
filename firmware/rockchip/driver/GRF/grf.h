@@ -14,6 +14,7 @@
 */
 #ifndef _GRF_H
 #define _GRF_H
+#include "driver/GPIO/gpio.h"   /* eGPIO_CHANNEL, eGPIOPinNum_t, eGPIOPinIOMux_t */
 
 #undef EXT
 #ifdef _IN_GRF_

@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  SysSetConfig.c
+* File Nameï¿½ï¿½  SysSetConfig.c
 *
 * Description:  execute the setting menu configuration function
 *
@@ -20,24 +20,24 @@
 
 #ifdef _SYSSET_
 
-#include "setmenu.h"
+#include "SetMenu.h"
 
-#include "setcommon.h"
+#include "SetCommon.h"
 
-#include "setmenuinterface.h"
+#include "SetMenuInterface.h"
 
-#include "setbright.h"
-#include "setmusic.h"
-#include "setrecord.h"
-#include "settext.h"
-#include "systemset.h"
-#include "MainMenu.h"
+#include "SetBright.h"
+#include "SetMusic.h"
+#include "SetRecord.h"
+#include "SetText.h"
+#include "SystemSet.h"
+#include "mainmenu.h"
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 
 #include "AudioControl.h"
-#include "Pcm.h"
-#include "RecordControl.h"
+#include "pcm.h"
+#include "recordcontrol.h"
 
 #ifdef _BLUETOOTH_
 #include "SetBluetooth.h"

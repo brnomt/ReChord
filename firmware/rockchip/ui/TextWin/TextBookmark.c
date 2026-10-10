@@ -3,7 +3,7 @@
 *                   Copyright (c) 2008, Rock-Chips
 *                         All rights reserved.
 *
-* File Name£º  TextBookmark.c
+* File Nameï¿½ï¿½  TextBookmark.c
 *
 * Description:  ebook module
 *
@@ -18,13 +18,13 @@
 #include "SysInclude.h"
 
 #ifdef _EBOOK_
-#include "Textconfig.h"
+#include "TextConfig.h"
 //#include "config.h"
 #include "SysFindFile.h"
 #include "TextWin.h"
 #include "TextInterface.h"
 #include "TextBookmark.h"
-#include "hold.h"
+#include "Hold.h"
 /*
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -566,7 +566,7 @@ UINT16 TextBookmarkInit (void)
 {
     INT16                   i;
     UINT32                  uStartOffset;
-    HANDLE                  hTextFile;          // µç×ÓÊéÎÄ¼þ¾ä±ú.
+    HANDLE                  hTextFile;          // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½.
     TEXT_BOOKMARK_UNION     TextBookmark;
     TEXT_BOOKMARK_STRUCT    *pBookmark;
     INT8                    TextHandle;

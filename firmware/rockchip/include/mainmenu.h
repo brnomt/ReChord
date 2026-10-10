@@ -1,15 +1,11 @@
-/* mainmenu.h — main menu task types (Task.c). */
-#ifndef MAINMENU_H
-#define MAINMENU_H
-#include "typedef.h"
-#define MAIN_MENU_MAX_ITEM 32
-#endif
+/*
+ * mainmenu.h - compatibility wrapper (2026-10-10).
+ * The old synthesized MainMenuWin declaration clashed with the vendor
+ * ui/MainMenu/MainMenu.h. Re-export the vendor header instead.
+ */
+#ifndef RECHORD_MAINMENU_WRAPPER_H
+#define RECHORD_MAINMENU_WRAPPER_H
 
-/* Window externs used by Task.c */
-#ifndef MAINMENU_WINS
-#define MAINMENU_WINS
-extern void MainMenuWin;
-extern void ChargeWin;
-extern void MdbBuildWin;
-extern void BrowserWin;
-#endif
+#include "ui/MainMenu/MainMenu.h"
+
+#endif /* RECHORD_MAINMENU_WRAPPER_H */

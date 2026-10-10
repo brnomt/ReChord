@@ -12,7 +12,9 @@
 #include "service_globals.h"
 #include "ModuleInfoTab.h"
 
-extern uint32 DataDiskID;
+/* DataDiskID: single source of truth is the MemDev.h macro (FW_IN_DEV).
+ * The extern was removed 2026-10-09: it collided with the macro expansion.
+ * No code assigns DataDiskID (read-only). */
 
 #ifndef ATTR_DIRECTORY
 #define ATTR_DIRECTORY 0x10
@@ -21,26 +23,22 @@ extern uint32 DataDiskID;
 #define DMA_CTLL_M2M_WORD 0x00000010
 #define DMA_CFGL_M2M_WORD 0x00000001
 #define DMA_CFGH_M2M_WORD 0x00000000
-#define DMA_FALSE 0
 #endif
 #ifndef MEDIA_ID3_SAVE_CHAR_NUM
 #define MEDIA_ID3_SAVE_CHAR_NUM 128
 #endif
 #ifndef MEDIA_FILE_TYPE_DELETED
-#define MEDIA_FILE_TYPE_DELETED 0xE5
-#define MEDIA_FILE_TYPE_FILE 0
+/* MEDIA_FILE_TYPE_*: owned by the dir.h enum (do not #define). */
+
 #endif
 #ifndef RECORD_NULL
 #define RECORD_NULL 0
 #endif
 #ifndef I2S_NORMAL_MODE
-#define I2S_NORMAL_MODE 0
-#define I2S_MODE 0
-#define I2S_FORMAT 0
 #endif
-#ifndef LogSecPerClus
-#define LogSecPerClus 0
-#endif
+/* LogSecPerClus: VENDOR fat.h declares it as a variable (DRAM_FAT EXT uint8).
+ * The old `#define LogSecPerClus 0` stub made assignments illegal. Removed
+ * 2026-10-10. */
 #ifndef FILE_NAME_SAVE_ADDR_OFFSET
 #define FILE_NAME_SAVE_ADDR_OFFSET 0
 #define DIR_CLUS_SAVE_ADDR_OFFSET 1

@@ -22,7 +22,7 @@ $Log    :
  */
 
 #include "../AudioConfig.h"
-#include "../include/audio_globals.h"
+#include "audio_globals.h"
 
 //global variables
 _ATTR_AUDIO_BSS_

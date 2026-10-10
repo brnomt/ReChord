@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  ImageControl.C
+* File Nameï¿½ï¿½  ImageControl.C
 *
 * Description:
 *
@@ -18,17 +18,17 @@
 #ifdef _PICTURE_
 #pragma arm section code = "ImageContrlCode", rodata = "ImageContrlCode", rwdata = "ImageContrlData", zidata = "ImageContrlBss"
 #define  _IN_IMAGE_CONTROL_
-#include "PMU.H"
-#include "..\ImageInclude\image_globals.h"
-#include "..\ImageInclude\image_file_access.h"
-#include "FsInclude.h"
+#include "pmu.h"
+#include "../ImageInclude/image_globals.h"
+#include "../ImageInclude/image_file_access.h"
+#include "fsinclude.h"
 
 #include "SysFindFile.h"
 
 #include "ImageControl.h"
 #include "PicInterface.h"
 #include "PicWin.h"
-#include "file.h"
+#include "File.h"
 extern int ImageCurrentCodec;
 
 static void ImageEnterPMU(CurCodec)
@@ -202,8 +202,8 @@ static void ImageStart(void)
         return;
     }
 
-    ret = ImageGetFileType(&PicSysFileInfo.Fdt.Name[8],(UINT8 *)PictureFileExtString); //ÒÔºó×ºÃû½âÎö
-    ret1 = ImageCheckStreamType(&PicSysFileInfo.Fdt.Name[8], pImageFileHandle); //ÒÔ±êÖ¾Î»½âÎö
+    ret = ImageGetFileType(&PicSysFileInfo.Fdt.Name[8],(UINT8 *)PictureFileExtString); //ï¿½Ôºï¿½×ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    ret1 = ImageCheckStreamType(&PicSysFileInfo.Fdt.Name[8], pImageFileHandle); //ï¿½Ô±ï¿½Ö¾Î»ï¿½ï¿½ï¿½ï¿½
     if (0xFF == ret && 0xFF == ret1)
     {
         SendMsg(MSG_IMAGE_OPENERROR);
@@ -248,7 +248,7 @@ static void ImageStart(void)
     ImageCodecGetResolution(&PicFileInfo.Width, &PicFileInfo.Height);
     if(PicFileInfo.Width > 1000 && PicFileInfo.Height > 1000)
     {
-        //ºóÐøÓÃ ÏÔÊ¾'ÕýÔÚ½âÂë'µÄÍ¼Æ¬ Ìæ»» ÇåÆÁ²Ù×÷
+        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ê¾'ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½'ï¿½ï¿½Í¼Æ¬ ï¿½æ»» ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         LCD_ClrSrc();//clear screen
 
         #ifdef IMAGE_DEC_ADVANCE
@@ -459,7 +459,7 @@ void AdvanceDecVariableInit(void)
     gCurImageSlideShowTick = SysTickCounter;
 }
 
-//ÉèÖÃÔ¤½âÂëµÄÍ¼Æ¬½âÂë×´Ì¬
+//ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½ï¿½ï¿½×´Ì¬
 static void SetAdvanceDecState(void)
 {
     if(CurImageIsDecoding() && ImageIsStop())
@@ -501,7 +501,7 @@ static BOOLEAN ImageGetTwoNextFile(UINT32 msg)
     return TRUE;
 }
 
-//Ô¤½âÂëÉÏÏÂÕÅÍ¼Æ¬
+//Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Æ¬
 static void ImageDecNext(void)
 {
     int PreFrameIndex, NextFrameIndex;
@@ -539,7 +539,7 @@ static void ImageDecNext(void)
             ImageGetNextFile(1);
         }
     }
-    else if(gCurKeyInfo == FFW_KEY) //°´¼üä¯ÀÀÉÏÒ»ÕÅ
+    else if(gCurKeyInfo == FFW_KEY) //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
     {
         if(CurImageIsStop() && PreImageIsWaiting())
         {
@@ -565,7 +565,7 @@ static void ImageDecNext(void)
             ImageGetNextFile(0);
         }
     }
-    else if(gCurKeyInfo == PLAY_KEY) //×Ô¶¯ä¯ÀÀÏÂÒ»ÕÅ
+    else if(gCurKeyInfo == PLAY_KEY) //ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
     {
         //decode next picture
         gIsContinueDecode = 0;
@@ -665,8 +665,8 @@ void PictureInit(void *pArg)
     AdvanceDecVariableInit();
 #endif
 
-    //²»Çø·ÖÍ¼Æ¬ÀàÐÍ£¬³õÊ¼»¯Ö±½ÓÌáÆµ£¬·´³õÊ¼»¯½µÆµ
-    //ÒÔÃâÆµ·±ÔÚImageStartÌáÆµ£¬ImageStop½µÆµ£¬Ôì³ÉÏµÍ³²»ÎÈ¶¨
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Æµ
+    //ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ImageStartï¿½ï¿½Æµï¿½ï¿½ImageStopï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½È¶ï¿½
     ImageEnterPMU(CODEC_JPG_DEC);
 
     SendMsg(MSG_IMAGE_DECSTART);
@@ -705,7 +705,7 @@ UINT32 PictureService(void)
         ImageDecodeProc(MSG_IMAGE_STOP,0);
 #ifdef _FRAME_BUFFER_
         #ifdef IMAGE_DEC_ADVANCE
-        //µ±Ç°ÏÔÊ¾Í¼Æ¬½âÂëÍê³É£¬Ë¢ÆÁ
+        //ï¿½ï¿½Ç°ï¿½ï¿½Ê¾Í¼Æ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É£ï¿½Ë¢ï¿½ï¿½
         if(CurImageIsDecoding() && ImageIsStop())
         {
             gCurImageSlideShowTick = ImageSlideShowTickBake;

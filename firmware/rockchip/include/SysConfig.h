@@ -22,14 +22,26 @@
 #define _MUSIC_         1
 #define _RADIO_         1
 #define _RECORD_        1
+#define ENCODE          1   /* WAV encoding for the recorder (FileWrite & co) */
 #define _PICTURE_       1
 #define _BLUETOOTH_     1
-#ifdef RECHORD_AP_BUILD
+/* BT UART wiring - values copied verbatim from the stock SDK config
+ * (community/sdks/RKNanoD_MP3_V1.3_20161102/SDK_160_128/SysConfig.h). */
+#define BT_UART_CH                  UART_CH1_PA
+#define BT_UART_INT_ID              INT_ID_UART1
+#define BT_HCI_SERVER_INT_ID        INT_ID_UART5
+#define BT_H5_TX_INT_ID             INT_ID_UART3
+/* BT/A2DP + SSRC: used by the BB build too (AudioControl.c calls the A2DP
+ * paths unconditionally) - moved out of the AP-only block 2026-10-10. */
 #define _A2DP_SOUCRE_   1
+#define _SBC_ENCODE_    1   /* top-level: the BT block copy is AP-only */
+#define _RK_ID3_        1   /* ID3 tag parser (audio/ID3/ID3.c) */
 #define SSRC            1
-#define _FRAME_BUFFER_  1
 #define BT_SBC_PROCESS_INT_ID   INT_ID_UART2
+#ifdef RECHORD_AP_BUILD
+#define _FRAME_BUFFER_  1
 #endif
+#define _USB_           1
 #define _USB_HOST_      1
 /* #define _VIDEO_         1   // not in Echo Mini */
 
@@ -82,6 +94,32 @@
 #define SYS_DRAM_SIZE   0x04000000   /* 64 MB (8G variant uses same DRAM size) */
 #define SYS_SRAM_BASE   0x03000000
 #define SYS_SRAM_SIZE   0x00939000
+
+/* ---- Main codec selection (Echo Mini = Rockchip integrated codec; the
+ * vendor rockcodec.h hardcodes the same choice in its #if). ---- */
+#define CODEC_ROCKC        1
+#define CODEC_CONFIG       CODEC_ROCKC
+
+/* ---- Storage device macros: BOTH builds (the BB compiles filesys/ and the
+ * AP queries its file services over the mailbox). ---- */
+#define FW_IN_DEV       3   /* firmware in: 1=nand 2=sipnor 3=emmc 4=sd */
+#define _EMMC_          1
+
+/* ---- Config values missing from the synthesized set. ----
+ * TODO(board): tune BL_PWM_RATE_* to the real backlight PWM range. */
+#ifndef LANGUAGE_MAX_COUNT
+#define LANGUAGE_MAX_COUNT   2
+#endif
+#ifndef BL_PWM_RATE_MAX
+#define BL_PWM_RATE_MAX      100
+#define BL_PWM_RATE_MIN      0
+#define BL_PWM_RATE_STEP     1
+#endif
+/* Max filename/string chars. Value documented by the SDK itself
+ * (AddrSaveMacro.h: "SYS_SUPPROT_STRING_MAX_LEN*2 (80)" and "//40"). */
+#ifndef SYS_SUPPROT_STRING_MAX_LEN
+#define SYS_SUPPROT_STRING_MAX_LEN   40
+#endif
 
 /* ---- Storage / device config (from SDK_160_128/SysConfig.h) — AP only ---- */
 #ifdef RECHORD_AP_BUILD
@@ -209,10 +247,10 @@
 #define CARD            1
 #define TOTAL_LANAUAGE_NUM  1
 
-/* AP: SysDiskID is #define'd by MemDev.h (FW_IN_DEV); BB keeps the extern. */
-#ifndef RECHORD_AP_BUILD
-extern uint32 SysDiskID;
-#endif
+/* SysDiskID: single source of truth is the MemDev.h macro (selected by
+ * FW_IN_DEV). The old BB-only extern was removed on 2026-10-10: the BB build
+ * now compiles MemDev.h too, and the macro turns `extern uint32 SysDiskID;`
+ * into an unparseable expansion. No code assigns SysDiskID (read-only). */
 extern uint32 SysProgRawDiskCapacity;
 
 /* The MODULE_ID enum, CODE_INFO_T / FIRMWARE_INFO_T / SYSTEM_DEFAULT_PARA_T,

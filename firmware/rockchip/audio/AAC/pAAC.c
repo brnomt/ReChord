@@ -15,7 +15,7 @@ $Log	:
 *
 */
 /****************************************************************/
-#include "sysinclude.h"
+#include "SysInclude.h"
 #include "audio_main.h"
 #include "pAAC.h"
 
@@ -34,8 +34,8 @@ $Log	:
 #define INREAD 2048
 #define OUTWRITE 2048
 
-#include "sysinclude.h"
-#include "driverinclude.h"
+#include "SysInclude.h"
+#include "DriverInclude.h"
 extern MediaBlock gpMediaBlock;
 extern unsigned int gDecDone;
 extern unsigned int gSeekDone;

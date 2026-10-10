@@ -14,8 +14,8 @@ $Log: $
 
 /*-------------------------------- Includes ----------------------------------*/
 
-#include "Sysconfig.h"
-#include "MDconfig.h"
+#include "SysConfig.h"
+#include "MDConfig.h"
 #ifdef SPINOR_DRIVER
 #include "SFC.h"
 #include "SPIFlash.h"
@@ -493,7 +493,7 @@ static int32 SNOR_SetDLines(SFC_DATA_LINES lines)
     pSFNOR_DEV      pDev = &SFNorDev;
     uint8           ReadCmd[] = {CMD_FAST_READ_X1, CMD_FAST_READ_X2, CMD_FAST_READ_X4/*CMD_FAST_READ_A4*/};
 
-    if (pDev->ReadMode != READ_MODE_FAST) //¶àÏßÄ£Ê½ÐèÊ¹ÓÃFast read mode
+    if (pDev->ReadMode != READ_MODE_FAST) //ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½Ê¹ï¿½ï¿½Fast read mode
         return SFC_ERROR;
 
     if (lines == DATA_LINES_X4)
@@ -510,7 +510,7 @@ static int32 SNOR_SetDLines(SFC_DATA_LINES lines)
         || pDev->Manufacturer == MID_MACRONIX)
     {
 
-        pDev->ProgLines = (lines != DATA_LINES_X2)? lines : DATA_LINES_X1;  //²»Ö§³ÖÁ½Ïß±à³Ì
+        pDev->ProgLines = (lines != DATA_LINES_X2)? lines : DATA_LINES_X1;  //ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½ï¿½ß±ï¿½ï¿½
         if (lines == DATA_LINES_X1)
             pDev->ProgCmd = CMD_PAGE_PROG;
         else
@@ -752,7 +752,7 @@ int32 SNOR_Init(uint8* pFlashID, SFLASH_DRIVER **pDrv)
     pDev->ReadCmd = CMD_READ_DATA;
     pDev->ProgCmd = CMD_PAGE_PROG;
 
-    pDev->WriteStatus = SNOR_WriteStatus2;      //²»Í¬µÄÆ÷¼þ, Ð´×´Ì¬¼Ä´æÆ÷µÄ·½Ê½¿ÉÄÜ²»Ò»Ñù
+    pDev->WriteStatus = SNOR_WriteStatus2;      //ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, Ð´×´Ì¬ï¿½Ä´ï¿½ï¿½ï¿½ï¿½Ä·ï¿½Ê½ï¿½ï¿½ï¿½Ü²ï¿½Ò»ï¿½ï¿½
 
     if (pDrv)
         *pDrv = (SFLASH_DRIVER *)&SFNorDrv;

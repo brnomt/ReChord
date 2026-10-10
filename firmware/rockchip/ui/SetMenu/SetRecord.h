@@ -29,9 +29,9 @@
 /******************************************************************************/
 
 // record permanent code.
-#define _ATTR_SYS_SET_RECORD_CODE_         __attribute__((section("SetMenuServiceCode")))
-#define _ATTR_SYS_SET_RECORD_DATA_         __attribute__((section("SetMenuServiceData")))
-#define _ATTR_SYS_SET_RECORD_BSS_          __attribute__((section("SetMenuServiceBss"),zero_init))
+#define _ATTR_SYS_SET_RECORD_CODE_         
+#define _ATTR_SYS_SET_RECORD_DATA_         
+#define _ATTR_SYS_SET_RECORD_BSS_          
 
 /*
 --------------------------------------------------------------------------------

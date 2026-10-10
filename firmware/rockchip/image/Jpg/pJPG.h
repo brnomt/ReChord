@@ -1,7 +1,7 @@
 #ifndef PJPEG_TYPEDEF_H
 #define PJPEG_TYPEDEF_H
 
-#include "..\ImageInclude\image_file_access.h"
+#include "../ImageInclude/image_file_access.h"
 
 #define jpg_rk_nano_bord
 

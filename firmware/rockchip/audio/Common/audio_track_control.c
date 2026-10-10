@@ -15,9 +15,9 @@ $Log    :
 
 #include "../AudioConfig.h"
 
-#include "../include/audio_file_access.h"
-#include "../include/audio_main.h"
-#include "../include/audio_globals.h"
+#include "audio_file_access.h"
+#include "audio_main.h"
+#include "audio_globals.h"
 
 #include "audio_track_control.h"
 

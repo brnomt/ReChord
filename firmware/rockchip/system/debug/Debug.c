@@ -17,7 +17,7 @@
 #include "DriverInclude.h"
 
 #include  "SysInclude.h"
-#include  "FsInclude.h"
+#include  "fsinclude.h"
 #include  "File.h"
 #include  "FDT.h"
 #include "device.h"
@@ -481,7 +481,7 @@ void DebugInit(void)
 #endif
         {
 #include "device.h"
-#include "uartdevice.h"
+#include "UartDevice.h"
             UART_DEV_ARG stUartArg;
             stUartArg.dwBitWidth = UART_DATA_8B;
 #ifdef UART_USE_921600

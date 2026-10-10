@@ -1,29 +1,13 @@
-/* FunUSBInterface.h — USB interface hooks (Service.c). */
+/* FunUSBInterface.h — USB interface hooks (Service.c).
+ *
+ * 2026-10-10: the old synthesized UHC_CHN_INFO here (duplicated twice, and
+ * missing the vendor's ConnectStatus member) is gone - the vendor
+ * driver/USB/host/USB_DWCHost.h owns UHC_CHN_INFO and this re-exports it.
+ */
 #ifndef FUNUSBINTERFACE_H
 #define FUNUSBINTERFACE_H
+
 #include "typedef.h"
-#endif
+#include "driver/USB/host/USB_DWCHost.h"   /* UHC_CHN_INFO (full vendor struct) */
 
-/* ---- USB host channel info (Service.c) ---- */
-#ifndef FUNUSB_CHN
-#define FUNUSB_CHN
-typedef struct {
-    uint32 chn_id;
-    uint32 ep_addr;
-    uint32 max_pkt;
-    uint32 xfer_len;
-    uint32 status;
-} UHC_CHN_INFO;
-#endif
-
-/* ---- USB host channel info (Service.c) ---- */
-#ifndef FUNUSB_CHN
-#define FUNUSB_CHN
-typedef struct {
-    uint32 chn_id;
-    uint32 ep_addr;
-    uint32 max_pkt;
-    uint32 xfer_len;
-    uint32 status;
-} UHC_CHN_INFO;
-#endif
+#endif /* FUNUSBINTERFACE_H */

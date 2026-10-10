@@ -13,8 +13,8 @@ $Log: $
 */
 
 /*-------------------------------- Includes ----------------------------------*/
-#include "MDconfig.h"
-#include "SDconfig.h"
+#include "MDConfig.h"
+#include "SDConfig.h"
 #include "USBConfig.h"
 
 
@@ -62,14 +62,14 @@ typedef struct tagMEM_DEVICE
 
 /*-------------------------- Forward Declarations ----------------------------*/
 /* ------------------------------- Globals ---------------------------------- */
-_ATTR_SYS_BSS_ uint32   SysProgDiskCapacity;            //系统程序盘容量
-_ATTR_SYS_BSS_ uint32   SysProgRawDiskCapacity;         //系统程序盘容量
-_ATTR_SYS_BSS_ uint32   SysDataDiskCapacity;            //系统程序盘容量
-_ATTR_SYS_BSS_ uint32   SysUserDisk2Capacity;           //系统程序盘容量
+_ATTR_SYS_BSS_ uint32   SysProgDiskCapacity;            //系统锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
+_ATTR_SYS_BSS_ uint32   SysProgRawDiskCapacity;         //系统锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
+_ATTR_SYS_BSS_ uint32   SysDataDiskCapacity;            //系统锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
+_ATTR_SYS_BSS_ uint32   SysUserDisk2Capacity;           //系统锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
 
 _ATTR_SYS_BSS_  uint16  UpgradeTimes;
 _ATTR_SYS_BSS_  uint16  LoaderVer;
-_ATTR_SYS_BSS_  uint8   NandIOMuxRef;         //Nand与LCD IO 切换计数
+_ATTR_SYS_BSS_  uint8   NandIOMuxRef;         //Nand锟斤拷LCD IO 锟叫伙拷锟斤拷锟斤拷
 _ATTR_SYS_BSS_  uint8   ValidSysDisk;
 
 
@@ -816,8 +816,8 @@ static uint32 MDNotifyClient(uint16 major, uint32 event, uint32 param)
 
 /*
 Name:
-Desc:       设置数据盘大小，在MemDevInit之后马上调用
-Param:      数据盘大小
+Desc:       锟斤拷锟斤拷锟斤拷锟斤拷锟教达拷小锟斤拷锟斤拷MemDevInit之锟斤拷锟斤拷锟较碉拷锟斤拷
+Param:      锟斤拷锟斤拷锟教达拷小
 Return:
 Global:
 Note:
@@ -833,8 +833,8 @@ void SetDataDiskSize(int nMB)
 
 /*
 Name:
-Desc:       设置第二个用户盘大小，在MemDevInit之后马上调用
-Param:      数据盘大小
+Desc:       锟斤拷锟矫第讹拷锟斤拷锟矫伙拷锟教达拷小锟斤拷锟斤拷MemDevInit之锟斤拷锟斤拷锟较碉拷锟斤拷
+Param:      锟斤拷锟斤拷锟教达拷小
 Return:
 Global:
 Note:

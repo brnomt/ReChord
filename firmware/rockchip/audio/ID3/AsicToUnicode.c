@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   ASICTOUNICODE.c
+* File Nameï¿½ï¿½   ASICTOUNICODE.c
 *
 * Description:
 *
@@ -14,7 +14,7 @@
 */
 //******************************************************************************
 #define   _IN_ASICTOUNICODE_
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "LcdInclude.h"
 #include "ModuleOverlay.h"
 #include "audio_main.h"
@@ -46,8 +46,8 @@ _ATTR_SYS_BSS_ uint32 CP949Tab1LogicAddress;
 //_ATTR_ID3_TEXT_
 UINT8 LcdCharCodePage[LANGUAGE_MAX_COUNT] =
 {
-    FONT_CODEPAGE_CP936,    //LANGUAGE_CHINESE_S               0      //Simplified Chinese ¼òÌåÖÐÎÄ
-    FONT_CODEPAGE_CP950,    //LANGUAGE_CHINESE_T               1      //traditional chinese ·±ÌåÖÐÎÄ
+    FONT_CODEPAGE_CP936,    //LANGUAGE_CHINESE_S               0      //Simplified Chinese ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    FONT_CODEPAGE_CP950,    //LANGUAGE_CHINESE_T               1      //traditional chinese ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     FONT_CODEPAGE_CP936,    //LANGUAGE_ENGLISH                 2      //english
     FONT_CODEPAGE_CP949,    //LANGUAGE_KOREAN                  3      //korean
     FONT_CODEPAGE_CP936,    //LANGUAGE_JAPANESE                4      //japanese

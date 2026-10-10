@@ -15,6 +15,7 @@
 #define _IN_SYSTICK_HANDLER_
 
 #include "SysInclude.h"
+#include "driver/NVIC/hw_nvic.h"   /* nvic instance, NVIC_SYSTICKCTRL_* */
 
 uint32 SysTickCounter2;
 

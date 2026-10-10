@@ -31,13 +31,13 @@
 *-------------------------------------------------------------------------------
 */
 //section define
-#define _ATTR_OVERLAY_CODE_         __attribute__((section("SysCode")))
-#define _ATTR_OVERLAY_DATA_         __attribute__((section("SysData")))
-#define _ATTR_OVERLAY_BSS_          __attribute__((section("SysBss"),zero_init))
+#define _ATTR_OVERLAY_CODE_         
+#define _ATTR_OVERLAY_DATA_         
+#define _ATTR_OVERLAY_BSS_          
 
-#define _ATTR_OVERLAY_INIT_CODE_    __attribute__((section("SysCode")))
-#define _ATTR_OVERLAY_INIT_DATA_    __attribute__((section("SysData")))
-#define _ATTR_OVERLAY_INIT_BSS_     __attribute__((section("SysBss"),zero_init))
+#define _ATTR_OVERLAY_INIT_CODE_    
+#define _ATTR_OVERLAY_INIT_DATA_    
+#define _ATTR_OVERLAY_INIT_BSS_     
 
 //ModuleLoad Type define
 #define MODULE_OVERLAY_CODE         0x01

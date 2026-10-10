@@ -30,24 +30,24 @@
 /******************************************************************************/
 
 //setting menu permanent code.
-#define _ATTR_SYS_SET_CODE_         __attribute__((section("SetMenuCode")))
-#define _ATTR_SYS_SET_DATA_         __attribute__((section("SetMenuData")))
-#define _ATTR_SYS_SET_BSS_          __attribute__((section("SetMenuBss"),zero_init))
+#define _ATTR_SYS_SET_CODE_         
+#define _ATTR_SYS_SET_DATA_         
+#define _ATTR_SYS_SET_BSS_          
 
 //setting menu initial code
-#define _ATTR_SYS_SET_INIT_CODE_    __attribute__((section("SetMenuInitCode")))
-#define _ATTR_SYS_SET_INIT_DATA_    __attribute__((section("SetMenuInitData")))
-#define _ATTR_SYS_SET_INIT_BSS_     __attribute__((section("SetMenuInitBss"),zero_init))
+#define _ATTR_SYS_SET_INIT_CODE_    
+#define _ATTR_SYS_SET_INIT_DATA_    
+#define _ATTR_SYS_SET_INIT_BSS_     
 
 //setting menu auti-initial code
-#define _ATTR_SYS_SET_DEINIT_CODE_  __attribute__((section("SetMenuDeInitCode")))
-#define _ATTR_SYS_SET_DEINIT_DATA_  __attribute__((section("SetMenuDeInitData")))
-#define _ATTR_SYS_SET_DEINIT_BSS_   __attribute__((section("SetMenuDeInitBss"),zero_init))
+#define _ATTR_SYS_SET_DEINIT_CODE_  
+#define _ATTR_SYS_SET_DEINIT_DATA_  
+#define _ATTR_SYS_SET_DEINIT_BSS_   
 
 //setting menu dispatch code
-#define _ATTR_SYS_SET_SERVICE_CODE_ __attribute__((section("SetMenuServiceCode")))
-#define _ATTR_SYS_SET_SERVICE_DATA_ __attribute__((section("SetMenuServiceData")))
-#define _ATTR_SYS_SET_SERVICE_BSS_  __attribute__((section("SetMenuServiceBss"),zero_init))
+#define _ATTR_SYS_SET_SERVICE_CODE_ 
+#define _ATTR_SYS_SET_SERVICE_DATA_ 
+#define _ATTR_SYS_SET_SERVICE_BSS_  
 
 //SysSetup Text Info define
 #define 	SETMENU_TITLE_TXT_X 			0	 //title info

@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  SysSetConfig.c
+* File Nameï¿½ï¿½  SysSetConfig.c
 * 
 * Description:  set menu execution function configuration
 *
@@ -20,8 +20,8 @@
 
 #ifdef _SYSSET_
 
-#include "setcommon.h"
-#include "settext.h"
+#include "SetCommon.h"
+#include "SetText.h"
 #include "SetMenuInterface.h"
 
 #ifdef _EBOOK_  

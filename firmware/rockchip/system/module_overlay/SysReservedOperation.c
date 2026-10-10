@@ -3,7 +3,7 @@
 *                   Copyright (c) 2008,Rockchips
 *                         All rights reserved.
 *
-* File Name£º  SysReservedOperation.c
+* File Nameï¿½ï¿½  SysReservedOperation.c
 *
 * Description:
 *
@@ -15,7 +15,7 @@
 #define _IN_SYSRESERVED_OP_
 
 #include "SysInclude.h"
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "SysReservedOperation.h"
 
 #ifdef _MUSIC_
@@ -28,7 +28,7 @@
 #endif
 
 #include "medialibwin.h"
-#include "setmenu.h"
+#include "SetMenu.h"   /* DIS_EQ_* mode enum */
 
 /*
 --------------------------------------------------------------------------------
@@ -82,7 +82,7 @@ static  char crc_table[256] =
 };
 
 _ATTR_SYSRESERVED_OP_CODE_
-static char sbc_crc8(const char *data, size_t len)  // lenµ¥Î»Îªbit
+static char sbc_crc8(const char *data, size_t len)  // lenï¿½ï¿½Î»Îªbit
 {
     char crc = 0x0f;
     size_t i;
@@ -191,7 +191,7 @@ void LoadSysInformation(void)
     // Check "SAVE INFO"
     {
         uint32 crcval;
-        //crc³¤¶ÈÒÔbitÎªµ¥Î»£¬×îºóËÄ¸ö×Ö½Ú±£´æcrcÖµ£¬²»²ÎÓëcrcÐ£Ñé
+        //crcï¿½ï¿½ï¿½ï¿½ï¿½ï¿½bitÎªï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½Ö½Ú±ï¿½ï¿½ï¿½crcÖµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½crcÐ£ï¿½ï¿½
         crcval = sbc_crc8((const char *)pSysConfig, (sizeof(SYSCONFIG) - 4) * 8);
         DEBUG("crcval = %d, pconfig->crc = %d", crcval, pSysConfig->crc);
 
@@ -432,7 +432,7 @@ void LoadSysInformation(void)
 
 
 #ifdef _MUSIC_
-    //7.30 azg ÐÞ¸ÄÁ¬ÐøÁ½´Î¹Ø»úºó£¬¶Ïµã²»ÄÜÕý³£²¥·ÅµÄbug£¬ÒÔ¼°ÓÉ¶ÏµãÒôÀÖÍË»ØÃ½Ìå¿â½çÃæÊ±£¬¹â±ê¶¨Î»²»×¼µÄbug
+    //7.30 azg ï¿½Þ¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î¹Ø»ï¿½ï¿½ó£¬¶Ïµã²»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åµï¿½bugï¿½ï¿½ï¿½Ô¼ï¿½ï¿½É¶Ïµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë»ï¿½Ã½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ê¶¨Î»ï¿½ï¿½×¼ï¿½ï¿½bug
     gSysConfig.MusicConfig.HoldMusicFullInfoSectorAddr = pSysConfig->MusicConfig.HoldMusicFullInfoSectorAddr;
     gSysConfig.MusicConfig.HoldMusicSortInfoSectorAddr =  pSysConfig->MusicConfig.HoldMusicSortInfoSectorAddr ;
     gSysConfig.MusicConfig.HoldMusicPlayType           = pSysConfig->MusicConfig.HoldMusicPlayType;
@@ -633,7 +633,7 @@ void LoadSysInformation(void)
 
 #endif
 
-#ifdef _MEDIA_MODULE_ //Ã½Ìå¿â
+#ifdef _MEDIA_MODULE_ //Ã½ï¿½ï¿½ï¿½
     gSysConfig.MedialibPara.gID3AlbumFileNum     = pSysConfig->MedialibPara.gID3AlbumFileNum;
 
     if (gSysConfig.MedialibPara.gID3AlbumFileNum == 0xffff)
@@ -699,7 +699,7 @@ void LoadSysInformation(void)
     {
         uint32 crcval;
 
-        //crc³¤¶ÈÒÔbitÎªµ¥Î»£¬×îºóËÄ¸ö×Ö½Ú±£´æcrcÖµ£¬²»²ÎÓëcrcÐ£Ñé
+        //crcï¿½ï¿½ï¿½ï¿½ï¿½ï¿½bitÎªï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½Ö½Ú±ï¿½ï¿½ï¿½crcÖµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½crcÐ£ï¿½ï¿½
         gSysConfig.crc = sbc_crc8((const char *)&gSysConfig, (sizeof(SYSCONFIG) - 4) * 8);
         DEBUG("gSysConfig.crc = %d", gSysConfig.crc);
     }
@@ -736,7 +736,7 @@ void SaveSysInformation(int flag)
     {
         uint32 crcval;
 
-        //crc³¤¶ÈÒÔbitÎªµ¥Î»£¬×îºóËÄ¸ö×Ö½Ú±£´æcrcÖµ£¬²»²ÎÓëcrcÐ£Ñé
+        //crcï¿½ï¿½ï¿½ï¿½ï¿½ï¿½bitÎªï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½Ö½Ú±ï¿½ï¿½ï¿½crcÖµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½crcÐ£ï¿½ï¿½
         gSysConfig.crc = sbc_crc8((const char *)&gSysConfig, (sizeof(SYSCONFIG) - 4) * 8);
         DEBUG("gSysConfig.crc = %d", gSysConfig.crc);
     }

@@ -14,10 +14,11 @@
 */
 
 #include "audio_main.h"
+#include "filesys/file.h"   /* OpenFileInfo, FileWrite, FileRead */
 #include "audio_file_access.h"
 #include <stdio.h>
 #include <string.h>
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "File.h"
 
 /*
@@ -30,14 +31,14 @@
 typedef unsigned int size_t;
 
 
-size_t   (*RKFIO_FOpen)();
-size_t   (*RKFIO_FRead)(void * /*buffer*/, size_t /*length*/,FILE *) ;
-int      (*RKFIO_FSeek)(long int /*offset*/, int /*whence*/ , FILE * /*stream*/);
+extern size_t   (*RKFIO_FOpen)();   /* defined in bbsystem/audio_file_access2.c */
+extern size_t   (*RKFIO_FRead)(void * /*buffer*/, size_t /*length*/,FILE *);   /* defined in bbsystem/audio_file_access2.c */
+extern int      (*RKFIO_FSeek)(long int /*offset*/, int /*whence*/ , FILE * /*stream*/);   /* defined in bbsystem/audio_file_access2.c */
 long int (*RKFIO_FTell)(FILE * /*stream*/);
-size_t   (*RKFIO_FWrite)(void * /*buffer*/, size_t /*length*/,FILE * /*stream*/);
+extern size_t   (*RKFIO_FWrite)(void * /*buffer*/, size_t /*length*/,FILE * /*stream*/);   /* defined in bbsystem/audio_file_access2.c */
 unsigned long (*RKFIO_FLength)(FILE *in /*stream*/);
-int      (*RKFIO_FClose)(FILE * /*stream*/);
-int (*RKFIO_FEof)(FILE *);
+extern int      (*RKFIO_FClose)(FILE * /*stream*/);   /* defined in bbsystem/audio_file_access2.c */
+extern int (*RKFIO_FEof)(FILE *);   /* defined in bbsystem/audio_file_access2.c */
 
 FILE *pRawFileCache, *pFlacFileHandleBake, *pAacFileHandleSize, *pAacFileHandleOffset;
 
@@ -64,13 +65,13 @@ FILE *pRawFileCache, *pFlacFileHandleBake, *pAacFileHandleSize, *pAacFileHandleO
 */
 unsigned long RKFLength(FILE *in)
 {
-    return (FileInfo[(int)in].FileSize); // modified by huweiguo, 09/04/11
+    return (OpenFileInfo[(int)in].FileSize); // modified by huweiguo, 09/04/11
 
 }
 
 unsigned long RKFTell(FILE *in)
 {
-    return (FileInfo[(int)in].Offset);
+    return (OpenFileInfo[(int)in].Offset);
 }
 
 void RKFileFuncInit(void)
@@ -88,16 +89,16 @@ void RKFileFuncInit(void)
  _ATTR_FLACDEC_TEXT_
 int FLAC_FileSeekFast(int offset, int clus, FILE *in)
 {
-    FileInfo[(int)in].Offset = offset;
-    FileInfo[(int)in].Clus   = clus;
+    OpenFileInfo[(int)in].Offset = offset;
+    OpenFileInfo[(int)in].Clus   = clus;
     return 0;
 }
 
 _ATTR_FLACDEC_TEXT_
 int FLAC_FileGetSeekInfo(int *pOffset, int *pClus, FILE *in)
 {
-    *pOffset = FileInfo[(int)in].Offset;
-    *pClus   = FileInfo[(int)in].Clus;
+    *pOffset = OpenFileInfo[(int)in].Offset;
+    *pClus   = OpenFileInfo[(int)in].Clus;
     return 0;
 }
 

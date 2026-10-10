@@ -24,8 +24,6 @@ typedef enum {
     CHARGE_ENABLE
 } eChargeState;
 
-#define CHARGE_CURRENT_HIGH    1
-#define CHARGE_CURRENT_LOW     0
 #define CHARGE_CHECKFULL_COUNT 10
 #define CHARGE_FULL_DELAY      2000
 #define CHARGE_SAMPLE_TIME     100

@@ -22,7 +22,7 @@
 
 #include "RadioSubFreqWin.h"
 #include "RadioSubWinInterface.h"
-#include "hold.h"
+#include "Hold.h"
 
 extern FM_GLOBAL* gpRadioplayerRegKey;
 
@@ -199,7 +199,7 @@ void RadioFreq2Ascii(UINT16 chl, UINT16 freq, UINT16 *pDispBuf)
 
     if (freq != 0)
     {
-        pDispBuf[5]  = freq /10000;              //ÀýÈç:105.8MHZ
+        pDispBuf[5]  = freq /10000;              //ï¿½ï¿½ï¿½ï¿½:105.8MHZ
         pDispBuf[5] += (pDispBuf[5]?'0':' ');
         pDispBuf[6]  = (freq%10000)/1000 + '0';
         pDispBuf[7]  = (freq%1000)/100 + '0';
@@ -278,9 +278,9 @@ UINT32 RadioSubFreqWinKey(void)
 */
     switch (KeyValTemp)
     {
-        case KEY_VAL_ESC_SHORT_UP: //±£´æ»òÕßÉ¾³ýÏàÓ¦µÄÆµÂÊºóÍË³ö
+        case KEY_VAL_ESC_SHORT_UP: //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½Æµï¿½Êºï¿½ï¿½Ë³ï¿½
         {
-            RadioRefreshFreq();  //ÏÈ¸üÐÂÆµÂÊÁÐ±í
+            RadioRefreshFreq();  //ï¿½È¸ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½Ð±ï¿½
             WinDestroy(&RadioSubFreqWin);
             KeyReset();
             SendMsg(MSG_RADIOSUBWIN_DISPLAY_FM_MENU);
@@ -306,7 +306,7 @@ UINT32 RadioSubFreqWinKey(void)
             ClearMsg(MSG_RADIOSUBWIN_DISPLAY_FLAG);
             SendMsg(MSG_RADIOSUBWIN_DIALOG);
 
-            RetVal = 1;   //´ò²»¶Ï¸¸´°Ìå
+            RetVal = 1;   //ï¿½ò²»¶Ï¸ï¿½ï¿½ï¿½ï¿½ï¿½
             break;
         }
 
@@ -411,7 +411,7 @@ void RadioSubFreqWinDisplay(void)
             }
 
             LCD_NFDispStringAt(RADIO_SUB_LIST_TXT_X,
-                               (RADIO_SUB_LIST_TXT_Y + i * RADIO_SUB_LIST_TXT_YSTEP), FmDispBuf); //ÏÔÊ¾ÆµÂÊ×Ö·û´®
+                               (RADIO_SUB_LIST_TXT_Y + i * RADIO_SUB_LIST_TXT_YSTEP), FmDispBuf); //ï¿½ï¿½Ê¾Æµï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½
             LCD_SetColor(COLOR_BLACK);
         }
     }

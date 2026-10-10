@@ -13,6 +13,7 @@ $Log: api_uart.h,v $
 
 #ifndef _UART_H_
 #define _UART_H_
+#include "driver/DMA/Dma.h"   /* eDMA_CHN */
 
 #undef  EXT
 #ifdef  _IN_UART_

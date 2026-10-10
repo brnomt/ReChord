@@ -3,7 +3,7 @@
 *                   Copyright (c) 2008, Rock-Chips
 *                         All rights reserved.
 *
-* File Name£º  PicWin.c
+* File Nameï¿½ï¿½  PicWin.c
 *
 * Description:  picture module
 *
@@ -17,13 +17,13 @@
 
 #ifdef _PICTURE_
 #pragma arm section code = "PicWinCode", rodata = "PicWinCode", rwdata = "PicWinData", zidata = "PicWinBss"
-#include "FsInclude.h"
+#include "fsinclude.h"
 
 #include "SysFindFile.h"
 
 #include "PicWin.h"
 #include "PicInterface.h"
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "ImageControl.h"
 
 #include "BrowserUI.h"
@@ -126,14 +126,14 @@ static void HorizontalDisplay(void)
 -----------------------------------------
 */
 #ifdef IMAGE_DEC_ADVANCE
-//×Ô¶¯ä¯ÀÀÄ£Ê½: ²¥·ÅÁ½ÕÅÍ¼Æ¬Ö®¼äµÄÊ±¼ä¼ä¸ô
+//ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½Ä£Ê½: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Æ¬Ö®ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
 static BOOLEAN  isTimeToDecNext(void)
 {
     return (SysTickCounter - gCurImageSlideShowTick >= (gPicAutoBrowserTime + 1)*2*100);
 }
 
-//×Ô¶¯ä¯ÀÀÄ£Ê½: °´ÏÂplay¼ü£¬µÚÒ»´Î²¥·ÅÏÂÒ»ÕÅÍ¼Æ¬µÄÊ±¼ä¼ä¸ô
-//        ×÷ÓÃ: ÒÔ·ÀÒÑ¾­Ô¤½âÂëÏÂÒ»ÕÅÍ¼Æ¬£¬play°´ÏÂ£¬ÂíÉÏÏÔÊ¾ÏÂÒ»ÕÅ
+//ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½Ä£Ê½: ï¿½ï¿½ï¿½ï¿½playï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î²ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Í¼Æ¬ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
+//        ï¿½ï¿½ï¿½ï¿½: ï¿½Ô·ï¿½ï¿½Ñ¾ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Í¼Æ¬ï¿½ï¿½playï¿½ï¿½ï¿½Â£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ò»ï¿½ï¿½
 static BOOLEAN  isTimeToDisNext(void)
 {
     return (SysTickCounter - gMarkSysTickCounter >= (gPicAutoBrowserTime + 1)*100);
@@ -149,7 +149,7 @@ static BOOLEAN  isDisPreImage(void)
     return(1 == gIsDisPreImage);
 }
 
-//Ë¢ÐÂÖ¸¶¨IndexµÄFramebuffer
+//Ë¢ï¿½ï¿½Ö¸ï¿½ï¿½Indexï¿½ï¿½Framebuffer
 static void DisplaySpecificImage(int FrameBufferIndex)
 {
     LCD_Set_Current_BufferFrame_Index(FrameBufferIndex);
@@ -167,7 +167,7 @@ static void DisplaySpecificImage(int FrameBufferIndex)
     gClearLCD = 0;
 }
 
-//ÉèÖÃÎÄ¼þ¸ñÊ½²»Ö§³ÖµÄÍ¼Æ¬×´Ì¬
+//ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ê½ï¿½ï¿½Ö§ï¿½Öµï¿½Í¼Æ¬×´Ì¬
 static void SetUnsupportedDecState(void)
 {
     if(CurImageIsDecoding())
@@ -430,7 +430,7 @@ UINT32 PIcWinService(void)
         {
             if(gClearLCD)
             {
-                //ºóÐøÓÃ ÏÔÊ¾'ÕýÔÚ½âÂë'µÄÍ¼Æ¬ Ìæ»» ÇåÆÁ²Ù×÷
+                //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ê¾'ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½'ï¿½ï¿½Í¼Æ¬ ï¿½æ»» ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 gClearLCD = 0;
                 SystemLcdPara.pLcd_ClrSrc();
             }
@@ -457,7 +457,7 @@ UINT32 PIcWinService(void)
         {
             if(gClearLCD)
             {
-                //ºóÐøÓÃ ÏÔÊ¾'ÕýÔÚ½âÂë'µÄÍ¼Æ¬ Ìæ»» ÇåÆÁ²Ù×÷
+                //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ê¾'ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½'ï¿½ï¿½Í¼Æ¬ ï¿½æ»» ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 gClearLCD = 0;
                 SystemLcdPara.pLcd_ClrSrc();
             }
@@ -666,7 +666,7 @@ UINT32 PicWinKey(void)
                 int CurKeyInfo = gCurKeyInfo;
                 PicDirection = 0;
 
-                //°´¼üÏÔÊ¾ÏÂÒ»ÕÅÇ°£¬ÕýÔÚµÈ´ýÏÔÊ¾ÉÏÒ»ÕÅ
+                //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ò»ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ÚµÈ´ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ò»ï¿½ï¿½
                 if(CurKeyInfo == FFW_KEY && gIsDisPreImage == 1 && PreImageIsDecoding())
                 {
                     ImageDecodeProc(MSG_IMAGE_STOP,0);
@@ -693,7 +693,7 @@ UINT32 PicWinKey(void)
                     break;
                 }
 
-                if(NextImageIsWaiting())  //ÏÂÒ»ÕÅÍ¼Æ¬»¹Î´¿ªÊ¼½âÂë
+                if(NextImageIsWaiting())  //ï¿½ï¿½Ò»ï¿½ï¿½Í¼Æ¬ï¿½ï¿½Î´ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
                 {
                     gIsDisNextImage = 1;
                 }
@@ -703,7 +703,7 @@ UINT32 PicWinKey(void)
                     gIsDisNextImage = 1;
                     gClearLCD = 1;
                 }
-                else    //ÕýÔÚµÈ´ýÏÔÊ¾ÏÂÒ»ÕÅ£¬ÓÖ°´¼üÏÔÊ¾ÏÂÏÂÕÅ
+                else    //ï¿½ï¿½ï¿½ÚµÈ´ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ò»ï¿½Å£ï¿½ï¿½Ö°ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 {
                     ClearMsg(MSG_IMAGE_DECNEXT);
                     ImageDecodeProc(MSG_IMAGE_STOP,0);
@@ -721,7 +721,7 @@ UINT32 PicWinKey(void)
                     if(CurKeyInfo == FFW_KEY && PreImageIsDecoding())
                     {
                     }
-                    else    //Çåµ±Ç°ÏÔÊ¾buffer£¬·ÀÖ¹ÉÏÏÂÕÅÍ¼Æ¬ÎÄ¼þ¸ñÊ½²»Ö§³Ö£¬±³¾°bufferÖ»½âÒ»²¿·Ö
+                    else    //ï¿½åµ±Ç°ï¿½ï¿½Ê¾bufferï¿½ï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½Ä¼ï¿½ï¿½ï¿½Ê½ï¿½ï¿½Ö§ï¿½Ö£ï¿½ï¿½ï¿½ï¿½ï¿½bufferÖ»ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½
                     {
                         LCD_ClrSrc();
                     }
@@ -752,7 +752,7 @@ UINT32 PicWinKey(void)
                 int CurKeyInfo = gCurKeyInfo;
                 PicDirection = 1;
 
-                //°´¼üÏÔÊ¾ÉÏÒ»ÕÅÇ°£¬ÕýÔÚµÈ´ýÏÔÊ¾ÏÂÒ»ÕÅ
+                //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ò»ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ÚµÈ´ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ò»ï¿½ï¿½
                 if(CurKeyInfo == FFD_KEY && gIsDisNextImage == 1 && NextImageIsDecoding())
                 {
                     ImageDecodeProc(MSG_IMAGE_STOP,0);
@@ -770,7 +770,7 @@ UINT32 PicWinKey(void)
                 gIsDisNextImage = 0;
                 gCurKeyInfo = FFW_KEY;
 
-                if(PreImageIsUnSupported()) //ÎÄ¼þ¸ñÊ½²»Ö§³Ö
+                if(PreImageIsUnSupported()) //ï¿½Ä¼ï¿½ï¿½ï¿½Ê½ï¿½ï¿½Ö§ï¿½ï¿½
                 {
                     ImageErrorNum++;
                     ImageDecodeProc(MSG_IMAGE_GET_NEXT_FILE,0);
@@ -779,7 +779,7 @@ UINT32 PicWinKey(void)
                     break;
                 }
 
-                if(PreImageIsWaiting())  //ÉÏÒ»ÕÅÍ¼Æ¬»¹Î´¿ªÊ¼½âÂë
+                if(PreImageIsWaiting())  //ï¿½ï¿½Ò»ï¿½ï¿½Í¼Æ¬ï¿½ï¿½Î´ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
                 {
                     gIsDisPreImage = 1;
                 }
@@ -789,7 +789,7 @@ UINT32 PicWinKey(void)
                     gIsDisPreImage = 1;
                     gClearLCD = 1;
                 }
-                else    //ÕýÔÚµÈ´ýÏÔÊ¾ÉÏÒ»ÕÅ£¬ÓÖ°´¼üÏÔÊ¾ÉÏÉÏÕÅ
+                else    //ï¿½ï¿½ï¿½ÚµÈ´ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ò»ï¿½Å£ï¿½ï¿½Ö°ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 {
                     ClearMsg(MSG_IMAGE_DECNEXT);
                     ImageDecodeProc(MSG_IMAGE_STOP,0);
@@ -807,7 +807,7 @@ UINT32 PicWinKey(void)
                     if((CurKeyInfo == FFD_KEY || CurKeyInfo == MENU_KEY) && NextImageIsDecoding())
                     {
                     }
-                    else    //Çåµ±Ç°ÏÔÊ¾buffer£¬·ÀÖ¹ÉÏÏÂÕÅÍ¼Æ¬ÎÄ¼þ¸ñÊ½²»Ö§³Ö£¬±³¾°bufferÖ»½âÒ»²¿·Ö
+                    else    //ï¿½åµ±Ç°ï¿½ï¿½Ê¾bufferï¿½ï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½Ä¼ï¿½ï¿½ï¿½Ê½ï¿½ï¿½Ö§ï¿½Ö£ï¿½ï¿½ï¿½ï¿½ï¿½bufferÖ»ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½
                     {
                         LCD_ClrSrc();
                     }
@@ -897,12 +897,12 @@ void PicWinPaint(void)
         DispPictureWithIDNum(IMG_ID_UNSPORTTEDPIC);
         SendMsg(MSG_IMAGE_STOP);
     }
-    else if (GetMsg(MSG_IMAGE_DEC_SUCESS))//½âÂë³É¹¦£¬Ë¢Ò»ÐÐ,²¢·¢ÏûÏ¢½âÂëÏÂÒ»ÐÐ
+    else if (GetMsg(MSG_IMAGE_DEC_SUCESS))//ï¿½ï¿½ï¿½ï¿½É¹ï¿½ï¿½ï¿½Ë¢Ò»ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
     {
         LCD_DrawBmp(0, PicFileInfo.dispOffset , PicFileInfo.Len, PicFileInfo.dispOffset, 16, (UINT16*)(PicFileInfo.pPicBuf));
         SendMsg(MSG_IMAGE_DEC);
     }
-    else if (GetMsg(MSG_IMAGE_DEC_END))//½âÂë½áÊø£¬Ë¢×îºóÒ»ÐÐ
+    else if (GetMsg(MSG_IMAGE_DEC_END))//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
     {
         LCD_DrawBmp(0, PicFileInfo.dispOffset , PicFileInfo.Len, PicFileInfo.dispOffset, 16, (UINT16*)(PicFileInfo.pPicBuf));
         SendMsg(MSG_IMAGE_STOP);

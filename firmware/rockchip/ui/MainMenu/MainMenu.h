@@ -32,24 +32,24 @@
 */
 //section define
 //main menu permanent code
-#define _ATTR_MAIN_MENU_CODE_         __attribute__((section("MainMenuCode")))
-#define _ATTR_MAIN_MENU_DATA_         __attribute__((section("MainMenuData")))
-#define _ATTR_MAIN_MENU_BSS_          __attribute__((section("MainMenuBss"),zero_init))
+#define _ATTR_MAIN_MENU_CODE_         
+#define _ATTR_MAIN_MENU_DATA_         
+#define _ATTR_MAIN_MENU_BSS_          
 
 //main menu initial code
-#define _ATTR_MAIN_MENU_INIT_CODE_    __attribute__((section("MainMenuInitCode")))
-#define _ATTR_MAIN_MENU_INIT_DATA_    __attribute__((section("MainMenuInitData")))
-#define _ATTR_MAIN_MENU_INIT_BSS_     __attribute__((section("MainMenuInitBss"),zero_init))
+#define _ATTR_MAIN_MENU_INIT_CODE_    
+#define _ATTR_MAIN_MENU_INIT_DATA_    
+#define _ATTR_MAIN_MENU_INIT_BSS_     
 
 //main menu auti-initial code
-#define _ATTR_MAIN_MENU_DEINIT_CODE_  __attribute__((section("MainMenuDeInitCode")))
-#define _ATTR_MAIN_MENU_DEINIT_DATA_  __attribute__((section("MainMenuDeInitData")))
-#define _ATTR_MAIN_MENU_DEINIT_BSS_   __attribute__((section("MainMenuDeInitBss"),zero_init))
+#define _ATTR_MAIN_MENU_DEINIT_CODE_  
+#define _ATTR_MAIN_MENU_DEINIT_DATA_  
+#define _ATTR_MAIN_MENU_DEINIT_BSS_   
 
 //main menu content switch code
-#define _ATTR_MAIN_MENU_SERVICE_CODE_ __attribute__((section("MainMenuServiceCode")))
-#define _ATTR_MAIN_MENU_SERVICE_DATA_ __attribute__((section("MainMenuServiceData")))
-#define _ATTR_MAIN_MENU_SERVICE_BSS_  __attribute__((section("MainMenuServiceBss"),zero_init))
+#define _ATTR_MAIN_MENU_SERVICE_CODE_ 
+#define _ATTR_MAIN_MENU_SERVICE_DATA_ 
+#define _ATTR_MAIN_MENU_SERVICE_BSS_  
 
 /*
 *-------------------------------------------------------------------------------

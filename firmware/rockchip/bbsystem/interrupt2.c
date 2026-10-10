@@ -19,7 +19,7 @@
 #include <DriverInclude.h>
 
 typedef void(*ExecFunPtr)(void) __irq;
-#define _ATTR_VECTTAB_BB_             __attribute__((section("bb_vect")))
+#define _ATTR_VECTTAB_BB_             
 
 typedef UINT32       (*p__MRS_MSP)(void);
 
@@ -28,7 +28,7 @@ extern int PowerOn_Reset2(void);
 extern UINT32 Image$$BB_MAIN_STACK$$ZI$$Limit;
 
 __attribute__((interrupt("IRQ"), naked)) void IntDefaultHandler2(void);
-__attribute__((section("BBMainStack"))) __align(4) uint32 MainStack2[2012]= {0x55aa55aa,0x55aa55aa,0x55aa55aa};
+ __align(4) uint32 MainStack2[2012]= {0x55aa55aa,0x55aa55aa,0x55aa55aa};
 ;
 /*
 --------------------------------------------------------------------------------

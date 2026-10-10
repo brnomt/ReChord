@@ -22,7 +22,7 @@
 
 #include "RadioSubFuncWin.h"
 #include "RadioSubWinInterface.h"
-#include "hold.h"
+#include "Hold.h"
 #include "AudioControl.h"
 
 #ifdef _BLUETOOTH_
@@ -253,10 +253,10 @@ void RadioFunctionProc(void)
 
             FmStandbyFlag = FALSE;
             SendMsg(MSG_RADIOSUBWIN_DISPLAY_OFF); //HJ
-            gpRadioplayerRegKey->PreFmSaveNum = 0xff; //fjp µÚÒ»´Î½øÈëÒªÏÔÊ¾ÆµµÀch
+            gpRadioplayerRegKey->PreFmSaveNum = 0xff; //fjp ï¿½ï¿½Ò»ï¿½Î½ï¿½ï¿½ï¿½Òªï¿½ï¿½Ê¾Æµï¿½ï¿½ch
             WinDestroy(&RadioSubFuncWin);
             SendMsg(MSG_RADIOWIN_DISPLAY_ALL);
-            SendMsg(MSG_RADIOWIN_DISPLAY_CH);  //ÏÔÊ¾ CH
+            SendMsg(MSG_RADIOWIN_DISPLAY_CH);  //ï¿½ï¿½Ê¾ CH
 
             if (RadioPlayerSeekingState() == FM_State_AutoSearch)
             {
@@ -267,7 +267,7 @@ void RadioFunctionProc(void)
                 gpRadioplayerRegKey->FmState = FM_State_AutoSearch;
                 gpRadioplayerRegKey->FmState = FM_State_AutoSearch;
                 gpRadioplayerRegKey->FmSearchMode = FM_SearchModeState_Auto;
-                gpRadioplayerRegKey->FmSaveNum = 0;    // ´ÓÍ·¿ªÊ¼´æ´¢µçÌ¨
+                gpRadioplayerRegKey->FmSaveNum = 0;    // ï¿½ï¿½Í·ï¿½ï¿½Ê¼ï¿½æ´¢ï¿½ï¿½Ì¨
                 gpRadioplayerRegKey->FmFreq = FmFreqMinVal;
 
                 for (i = 0; i < FREQMAXNUMBLE; i++)
@@ -644,7 +644,7 @@ UINT32 RadioSubFuncWinKey(void)
 
     switch (RadioSubMenKeyVal)
     {
-        case KEY_VAL_MENU_SHORT_UP: //MENU¼üµÄ´¦Àí£¬¼´Ñ¡ÔñÏàÓ¦µÄ¹¦ÄÜ
+        case KEY_VAL_MENU_SHORT_UP: //MENUï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½Ä¹ï¿½ï¿½ï¿½
         {
             RadioFunctionProc();
             break;

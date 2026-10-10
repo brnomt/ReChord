@@ -47,10 +47,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_AlAC_PALAC_READ_  __attribute__((section("bbsystem_codecs_audio_decode_alac_palac_read")))
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_AlAC_PALAC_WRITE_ __attribute__((section("bbsystem_codecs_audio_decode_alac_palac_write")))
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_AlAC_PALAC_INIT_  __attribute__((section("bbsystem_codecs_audio_decode_alac_palac_init")))
-#define _BBSYSTEM_CODECS_AUDIO_DECODE_AlAC_PALAC_SHELL_  __attribute__((section("bbsystem_codecs_audio_decode_alac_palac_shell")))
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_AlAC_PALAC_READ_  
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_AlAC_PALAC_WRITE_ 
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_AlAC_PALAC_INIT_  
+#define _BBSYSTEM_CODECS_AUDIO_DECODE_AlAC_PALAC_SHELL_  
 
 
 /*
@@ -60,8 +60,8 @@
 *
 *---------------------------------------------------------------------------------------------------------------------
 */
-#include "sysinclude.h"
-#include "driverinclude.h"
+#include "SysInclude.h"
+#include "DriverInclude.h"
 #include "audio_file_access.h"
 extern MediaBlock  gpMediaBlock;
 extern unsigned int gDecDone;

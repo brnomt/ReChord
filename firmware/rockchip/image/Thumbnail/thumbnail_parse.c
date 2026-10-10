@@ -7,16 +7,16 @@
  * Author:
  *      CTF
 ************************************************************************/
-#include "..\ImageInclude\image_main.h"
-#include "..\ImageInclude\image_globals.h"
+#include "../ImageInclude/image_main.h"
+#include "../ImageInclude/image_globals.h"
 
 #ifdef THUMB_DEC_INCLUDE
 
 #pragma arm section code = "ImageContrlCode", rodata = "ImageContrlCode", rwdata = "ImageContrlData", zidata = "ImageContrlBss"
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "SysFindFile.h"
-#include "file.h"
+#include "File.h"
 #include "ID3.h"
 #include "PowerManager.h"
 #include "LcdInterface.h"
@@ -141,7 +141,7 @@ static int ID3V23GetPicInfo(FILE* hFile, int* picType, int ID3Length)
 
     RemainSize -= ReadSize;
 
-    //²éÕÒÍ¼Æ¬±êÇ©ËùÔÚÎ»ÖÃ
+    //ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½Ç©ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½
     while (RemainSize > 0)
     {
         if (strncmp(FrameBuf.mFrameID, "APIC", 4) == 0)
@@ -270,7 +270,7 @@ static int ID3V23GetPicInfo(FILE* hFile, int* picType, int ID3Length)
         return 0;
     }
 
-    //¼ÆËã³öÍ¼Æ¬±êÇ©µÄ´óÐ¡
+    //ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½Ç©ï¿½Ä´ï¿½Ð¡
     FrameSize = FrameBuf.mSize[0] * 0x1000000
                 + FrameBuf.mSize[1] * 0x10000
                 + FrameBuf.mSize[2] * 0x100
@@ -293,7 +293,7 @@ static int ID3V23GetPicInfo(FILE* hFile, int* picType, int ID3Length)
 
     while (1)
     {
-        //Ã»ÓÐÕÒµ½±êÊ¶Í¼ÏñÀàÐÍµÄ±êÇ©
+        //Ã»ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½Ê¶Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ÍµÄ±ï¿½Ç©
         if (i > ImageOffset)
         {
             DEBUG("=====Could not find the image identification=====\n");
@@ -443,11 +443,11 @@ static int APEGetPicInfo(HANDLE fHandle, int* picType)
 
     if (FileRead((uint8*)&version, 4, fHandle) < 4) return 0;
 
-    if (FileRead((uint8*)&size, 4, fHandle) < 4) return 0; //ËùÓÐ±êÇ©Ö¡ºÍ±êÇ©Î²µÄ×Ü³¤¶È, ²»°üº¬APE Tags HeaderµÄ³¤¶È
+    if (FileRead((uint8*)&size, 4, fHandle) < 4) return 0; //ï¿½ï¿½ï¿½Ð±ï¿½Ç©Ö¡ï¿½Í±ï¿½Ç©Î²ï¿½ï¿½ï¿½Ü³ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½APE Tags Headerï¿½Ä³ï¿½ï¿½ï¿½
 
-    if (FileRead((uint8*)&fields, 4, fHandle) < 4) return 0; //±êÇ©Ö¡¸öÊý
+    if (FileRead((uint8*)&fields, 4, fHandle) < 4) return 0; //ï¿½ï¿½Ç©Ö¡ï¿½ï¿½ï¿½ï¿½
 
-    if (FileRead((uint8*)&flag, 4, fHandle) < 4) return 0; //Ìî³ä±ê¼Ç
+    if (FileRead((uint8*)&flag, 4, fHandle) < 4) return 0; //ï¿½ï¿½ï¿½ï¿½ï¿½
 
     //if(version > APE_TAG_VERSION) return -1;
     //if(size - APE_TAG_FOOTER_BYTES > (1024 * 1024 * 16)) return 0;
@@ -527,12 +527,12 @@ static int APEGetPicInfo(HANDLE fHandle, int* picType)
 static int FLACGetPicInfo(HANDLE fHandle, int* picType)
 {
     int i;
-    unsigned char tag, type;     //¿éÐÅÏ¢ÀàÐÍ
-    unsigned int metadata_block_size;   //ÐÅÏ¢¿é´óÐ¡£¬²»°üº¬Í·´óÐ¡
+    unsigned char tag, type;     //ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½
+    unsigned int metadata_block_size;   //ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·ï¿½ï¿½Ð¡
     unsigned int FileSize, ReadSize = 0;
 
     unsigned char ID[4];
-    unsigned char metadata_block_header[4]; //ÐÅÏ¢¿éÍ·Êý¾Ý£¬°üº¬¿éÀàÐÍºÍ¿é´óÐ¡ÐÅÏ¢
+    unsigned char metadata_block_header[4]; //ï¿½ï¿½Ï¢ï¿½ï¿½Í·ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÍºÍ¿ï¿½ï¿½Ð¡ï¿½ï¿½Ï¢
     unsigned char tempbuf[BUFFER_SIZE];
 
     FileSize = RKFLength((FILE*)fHandle);
@@ -548,13 +548,13 @@ static int FLACGetPicInfo(HANDLE fHandle, int* picType)
 
     while (ReadSize < FileSize)
     {
-        //¶ÁÈ¡metadata Í·ÐÅÏ¢
+        //ï¿½ï¿½È¡metadata Í·ï¿½ï¿½Ï¢
         if (FileRead(metadata_block_header, 4, fHandle) < 4) return 0;
 
         ReadSize += 4;
 
         tag = (metadata_block_header[0] & 0x80) >> 7;
-        type = metadata_block_header[0] & 0x7f; //»ñÈ¡metadataÀàÐÍ
+        type = metadata_block_header[0] & 0x7f; //ï¿½ï¿½È¡metadataï¿½ï¿½ï¿½ï¿½
         metadata_block_size = ((int)metadata_block_header[3]) | (((int)metadata_block_header[2]) << 8) | (((int)metadata_block_header[1]) << 16);
 
         if (type == METADATA_TYPE_PICTURE)
@@ -587,7 +587,7 @@ static int FLACGetPicInfo(HANDLE fHandle, int* picType)
             ReadSize += metadata_block_size;
         }
 
-        if (tag == 1) break; //×îºóÒ»¸ömetadataÎª 1,ÆäËûÎª 0
+        if (tag == 1) break; //ï¿½ï¿½ï¿½Ò»ï¿½ï¿½metadataÎª 1,ï¿½ï¿½ï¿½ï¿½Îª 0
     }
 
     return 0;
@@ -679,7 +679,7 @@ static int base64_decode( unsigned char *dst, size_t dlen, size_t *olen,
     return 0;
 }
 
-//OGG×¨¼­Í¼Æ¬Ö»ÓÐJPGºÍPNGÁ½ÖÖ, Ò»¸öOGG×¢ÊÍ°üpage¿ÉÄÜ°üº¬¶à¸öpage
+//OGG×¨ï¿½ï¿½Í¼Æ¬Ö»ï¿½ï¿½JPGï¿½ï¿½PNGï¿½ï¿½ï¿½ï¿½, Ò»ï¿½ï¿½OGG×¢ï¿½Í°ï¿½pageï¿½ï¿½ï¿½Ü°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½page
 static int metadata_block_picture_dec(HANDLE fHandle, int* picType, unsigned int metadata_size,
                                       unsigned int comments_size, int granule_position)
 {
@@ -687,11 +687,11 @@ static int metadata_block_picture_dec(HANDLE fHandle, int* picType, unsigned int
     unsigned char buf[8];
 
     //page header info
-    unsigned char version;              //OggÎÄ¼þ¸ñÊ½µÄ°æ±¾, Ä¿Ç°Îª0
+    unsigned char version;              //Oggï¿½Ä¼ï¿½ï¿½ï¿½Ê½ï¿½Ä°æ±¾, Ä¿Ç°Îª0
     unsigned char header_type_flag;
-    unsigned char number_page_segments; //±¾Ò³ÔÚsegment_tableÓòÖÐsegementµÄ¸öÊý
-    unsigned char segment_table[MAX_NUM_PAGE_SEGMENTS]; //Çø¶Î³¤¶È±í, ±íÊ¾Ã¿¸ösegmentµÄ³¤¶È
-    //unsigned int total_segments_size;                   //ËùÓÐsegment×Ü³¤¶È
+    unsigned char number_page_segments; //ï¿½ï¿½Ò³ï¿½ï¿½segment_tableï¿½ï¿½ï¿½ï¿½segementï¿½Ä¸ï¿½ï¿½ï¿½
+    unsigned char segment_table[MAX_NUM_PAGE_SEGMENTS]; //ï¿½ï¿½ï¿½Î³ï¿½ï¿½È±ï¿½, ï¿½ï¿½Ê¾Ã¿ï¿½ï¿½segmentï¿½Ä³ï¿½ï¿½ï¿½
+    //unsigned int total_segments_size;                   //ï¿½ï¿½ï¿½ï¿½segmentï¿½Ü³ï¿½ï¿½ï¿½
 
     unsigned int picture_size = 0;
     unsigned int srclen, dstlen, copylen;
@@ -766,8 +766,8 @@ dec_one_page:
             comments_size -= srclen;
         }
 
-        //µ½µ±Ç°pageÎªÖ¹,packet»¹Î´½áÊø,²¢ÇÒ¶ÁÈ¡µÄÊý¾Ý²»×ã512,ÔòÏÈ²»½âÃÜ;
-        //µÈ´ý¶¨Î»µ½ÏÂÒ»¸öpage,´Õ×ã512×Ö½ÚÔÙ½âÃÜ
+        //ï¿½ï¿½ï¿½ï¿½Ç°pageÎªÖ¹,packetï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½Ò¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ý²ï¿½ï¿½ï¿½512,ï¿½ï¿½ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½;
+        //ï¿½È´ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½page,ï¿½ï¿½ï¿½ï¿½512ï¿½Ö½ï¿½ï¿½Ù½ï¿½ï¿½ï¿½
         if (srclen != BUFFER_SIZE && granule_position == STREAM_PACKET_NOT_END && metadata_size > 0)
         {
             src_offset = srclen;
@@ -784,11 +784,11 @@ dec_one_page:
         else
             copylen = BUFFER_SIZE - tempbuf_offset;
 
-        //½âÃÜºóÊý¾Ý¿½±´µ½tempbufÏàÓ¦Î»ÖÃ
+        //ï¿½ï¿½ï¿½Üºï¿½ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½ï¿½ï¿½ï¿½tempbufï¿½ï¿½Ó¦Î»ï¿½ï¿½
         memcpy(tempbuf + tempbuf_offset, dst, copylen);
         tempbuf_offset += copylen;
 
-        //Ã¿´Î±ØÐëÐ´512µÄ±¶Êý¸ö×Ö½Ú
+        //Ã¿ï¿½Î±ï¿½ï¿½ï¿½Ð´512ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö½ï¿½
         if (tempbuf_offset == BUFFER_SIZE)
         {
             if (FileWrite(tempbuf, picture_size, tempbuf_offset, MetaBlockPicHandle) < tempbuf_offset)
@@ -799,13 +799,13 @@ dec_one_page:
 
             picture_size += tempbuf_offset;
 
-            //copy dstÖÐÊ£ÓàµÄÊý¾Ý
+            //copy dstï¿½ï¿½Ê£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             memcpy(tempbuf, dst + copylen, dstlen - copylen);
             tempbuf_offset = dstlen - copylen;
         }
     }
 
-    //µ½Õâ¸öpageÎªÖ¹, ×¢ÊÍpacketÒÑ¾­½áÊø, ½«Ê£Óà²»×ã512µÄÊý¾ÝÐ´ÈëÎÄ¼þ
+    //ï¿½ï¿½ï¿½ï¿½ï¿½pageÎªÖ¹, ×¢ï¿½ï¿½packetï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½Ê£ï¿½à²»ï¿½ï¿½512ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½Ä¼ï¿½
     if ((granule_position != STREAM_PACKET_NOT_END) || (metadata_size <= 0))
     {
         if (tempbuf_offset)
@@ -827,7 +827,7 @@ dec_one_page:
             return 0;
         }
 
-        //ÅÐ¶ÏÍ¼Æ¬ÀàÐÍjpg or png
+        //ï¿½Ð¶ï¿½Í¼Æ¬ï¿½ï¿½ï¿½ï¿½jpg or png
         for (i = 0; i < BUFFER_SIZE; i++)
         {
             if (0 == strncmp(&tempbuf[i], "image/", 6))
@@ -851,7 +851,7 @@ dec_one_page:
     else
     {
         //read next page info
-        if (FileRead(buf, 4, fHandle) < 4) return 0; //¶ÁÈ¡Ò³±êÊ¶
+        if (FileRead(buf, 4, fHandle) < 4) return 0; //ï¿½ï¿½È¡Ò³ï¿½ï¿½Ê¶
 
         if (memcmp(buf, "OggS", 4)) return 0;
 
@@ -866,14 +866,14 @@ dec_one_page:
         granule_position = ((int)buf[0]) | (((int)buf[1]) << 8) | (((int)buf[2]) << 16) | (((int)buf[3]) << 24)
                            | (((int)buf[4]) << 32) | (((int)buf[5]) << 40) | (((int)buf[6]) << 48) | (((int)buf[7]) << 56);
 
-        FileSeek(12, FSEEK_CUR, fHandle);    //seek 4×Ö½ÚµÄÁ÷ÐòÁÐºÅ, 4×Ö½Ú¸ÃÒ³ÔÚÂß¼­Á÷ÖÐµÄÐòÁÐºÅ, 4×Ö½ÚµÄCRCÐ£ÑéÂë
+        FileSeek(12, FSEEK_CUR, fHandle);    //seek 4ï¿½Ö½Úµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðºï¿½, 4ï¿½Ö½Ú¸ï¿½Ò³ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½Ðºï¿½, 4ï¿½Ö½Úµï¿½CRCÐ£ï¿½ï¿½ï¿½ï¿½
 
-        //¶ÁÈ¡±¾Ò³µÄÇø¶ÎÊýÁ¿
+        //ï¿½ï¿½È¡ï¿½ï¿½Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         if (FileRead((uint8*)&number_page_segments, 1, fHandle) < 1) return 0;
 
         if (number_page_segments > MAX_NUM_PAGE_SEGMENTS) return 0;
 
-        //¶ÁÈ¡Çø¶Î³¤¶È±í
+        //ï¿½ï¿½È¡ï¿½ï¿½ï¿½Î³ï¿½ï¿½È±ï¿½
         if (FileRead(segment_table, number_page_segments, fHandle) < number_page_segments) return 0;
 
         if (granule_position == STREAM_PACKET_NOT_END)
@@ -908,11 +908,11 @@ static int metadata_block_picture_parse(HANDLE fHandle, int* picType, unsigned i
     int i;
     unsigned char buf[4];
 
-    unsigned int vendorlen;         //ÖÆ×÷Èí¼þÐÅÏ¢ËùÕ¼ÓÃµÄ×Ö½ÚÊý
-    unsigned int commentslen;       //µ±Ç°pageËùÓÐ×¢ÊÍµÄ×Ü³¤¶È
-    int          tagfieldlen;       //µ¥¸ö×¢ÊÍ×Ö·û´®ËùÕ¼ÓÃµÄ×Ö½ÚÊý
-    int          taginfolen = 0;    //µ¥¸ö×¢ÊÍÄÚÈÝµÄ³¤¶È
-    unsigned int readsize = 0;      //µ±Ç°pageÒÑ¶ÁÈ¡µÄ×¢ÊÍ³¤¶È
+    unsigned int vendorlen;         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Õ¼ï¿½Ãµï¿½ï¿½Ö½ï¿½ï¿½ï¿½
+    unsigned int commentslen;       //ï¿½ï¿½Ç°pageï¿½ï¿½ï¿½ï¿½×¢ï¿½Íµï¿½ï¿½Ü³ï¿½ï¿½ï¿½
+    int          tagfieldlen;       //ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½Ãµï¿½ï¿½Ö½ï¿½ï¿½ï¿½
+    int          taginfolen = 0;    //ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½ï¿½ï¿½ï¿½ÝµÄ³ï¿½ï¿½ï¿½
+    unsigned int readsize = 0;      //ï¿½ï¿½Ç°pageï¿½Ñ¶ï¿½È¡ï¿½ï¿½×¢ï¿½Í³ï¿½ï¿½ï¿½
 
     unsigned char tempbuf[50];
 
@@ -926,15 +926,15 @@ static int metadata_block_picture_parse(HANDLE fHandle, int* picType, unsigned i
     if (vendorlen < 0 || vendorlen > packet_size)
         return 0;
 
-    FileSeek(vendorlen + 4, FSEEK_CUR, fHandle);    //skip, ÖÆ×÷Èí¼þÐÅÏ¢ + 4byte±£Áô×Ö½Ú
+    FileSeek(vendorlen + 4, FSEEK_CUR, fHandle);    //skip, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ + 4byteï¿½ï¿½ï¿½ï¿½ï¿½Ö½ï¿½
 
     commentslen = packet_size - (vendorlen + 8);
 
     if (commentslen <= 0) return 0;
 
-    while (1)   //ÔÚ×¢ÊÍ°üµÄµÚÒ»¸öpage, Ã»ÓÐ¶ÁÈ¡µ½METADATA_BLOCK_PICTURE±êÖ¾£¬ÔòÈÏÎª²»´æÔÚ×¨¼­Í¼Æ¬
+    while (1)   //ï¿½ï¿½×¢ï¿½Í°ï¿½ï¿½Äµï¿½Ò»ï¿½ï¿½page, Ã»ï¿½Ð¶ï¿½È¡ï¿½ï¿½METADATA_BLOCK_PICTUREï¿½ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¨ï¿½ï¿½Í¼Æ¬
     {
-        //¶ÁÈ¡±êÇ©×Ö·û´®ËùÕ¼ÓÃµÄ×Ö½ÚÊý
+        //ï¿½ï¿½È¡ï¿½ï¿½Ç©ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½Ãµï¿½ï¿½Ö½ï¿½ï¿½ï¿½
         if (FileRead((uint8*)buf, 4, fHandle) < 4) return 0;
 
         readsize += 4;
@@ -953,7 +953,7 @@ static int metadata_block_picture_parse(HANDLE fHandle, int* picType, unsigned i
 
             if (readsize > commentslen) break;
 
-            if (tempbuf[i] == '=') break; //Ö¡±êÊ¶µÄ½áÊø×Ö·û£¬ºãÎª0
+            if (tempbuf[i] == '=') break; //Ö¡ï¿½ï¿½Ê¶ï¿½Ä½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Îª0
         }
 
         //tagfield is too long
@@ -984,15 +984,15 @@ static int OGGGetPicInfo(HANDLE fHandle, int* picType)
     unsigned char buf[8];
 
     //page header info
-    unsigned char version;              //OggÎÄ¼þ¸ñÊ½µÄ°æ±¾, Ä¿Ç°Îª0
-    unsigned char header_type_flag;     //Ò³Í·²¿ÀàÐÍ±êÊ¶, ±êÊ¶µ±Ç°Ò³¾ßÌåÀàÐÍ
-    int granule_position;               //Ã½Ìå±àÂëÏà¹Ø²ÎÊýÐÅÏ¢
-    unsigned char number_page_segments; //±¾Ò³ÔÚsegment_tableÓòÖÐsegementµÄ¸öÊý
-    unsigned char segment_table[MAX_NUM_PAGE_SEGMENTS]; //Çø¶Î³¤¶È±í, ±íÊ¾Ã¿¸ösegmentµÄ³¤¶È
-    unsigned int total_segments_size;                   //ËùÓÐsegment×Ü³¤¶È
+    unsigned char version;              //Oggï¿½Ä¼ï¿½ï¿½ï¿½Ê½ï¿½Ä°æ±¾, Ä¿Ç°Îª0
+    unsigned char header_type_flag;     //Ò³Í·ï¿½ï¿½ï¿½ï¿½ï¿½Í±ï¿½Ê¶, ï¿½ï¿½Ê¶ï¿½ï¿½Ç°Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    int granule_position;               //Ã½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
+    unsigned char number_page_segments; //ï¿½ï¿½Ò³ï¿½ï¿½segment_tableï¿½ï¿½ï¿½ï¿½segementï¿½Ä¸ï¿½ï¿½ï¿½
+    unsigned char segment_table[MAX_NUM_PAGE_SEGMENTS]; //ï¿½ï¿½ï¿½Î³ï¿½ï¿½È±ï¿½, ï¿½ï¿½Ê¾Ã¿ï¿½ï¿½segmentï¿½Ä³ï¿½ï¿½ï¿½
+    unsigned int total_segments_size;                   //ï¿½ï¿½ï¿½ï¿½segmentï¿½Ü³ï¿½ï¿½ï¿½
 
     //packet header info
-    unsigned char packet_header_type;   //packetÀàÐÍ
+    unsigned char packet_header_type;   //packetï¿½ï¿½ï¿½ï¿½
     unsigned int packet_size, picture_size;
     unsigned char header_flag[6];
 
@@ -1002,7 +1002,7 @@ static int OGGGetPicInfo(HANDLE fHandle, int* picType)
         WatchDogReload();
 #endif
 
-        if (FileRead(buf, 4, fHandle) < 4) return 0; //¶ÁÈ¡Ò³±êÊ¶
+        if (FileRead(buf, 4, fHandle) < 4) return 0; //ï¿½ï¿½È¡Ò³ï¿½ï¿½Ê¶
 
         if (memcmp(buf, "OggS", 4)) return 0;
 
@@ -1017,24 +1017,24 @@ static int OGGGetPicInfo(HANDLE fHandle, int* picType)
         granule_position = ((int)buf[0]) | (((int)buf[1]) << 8) | (((int)buf[2]) << 16) | (((int)buf[3]) << 24)
                            | (((int)buf[4]) << 32) | (((int)buf[5]) << 40) | (((int)buf[6]) << 48) | (((int)buf[7]) << 56);
 
-        FileSeek(12, FSEEK_CUR, fHandle);    //seek 4×Ö½ÚµÄÁ÷ÐòÁÐºÅ, 4×Ö½Ú¸ÃÒ³ÔÚÂß¼­Á÷ÖÐµÄÐòÁÐºÅ, 4×Ö½ÚµÄCRCÐ£ÑéÂë
+        FileSeek(12, FSEEK_CUR, fHandle);    //seek 4ï¿½Ö½Úµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðºï¿½, 4ï¿½Ö½Ú¸ï¿½Ò³ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½Ðºï¿½, 4ï¿½Ö½Úµï¿½CRCÐ£ï¿½ï¿½ï¿½ï¿½
 
-        //¶ÁÈ¡±¾Ò³µÄÇø¶ÎÊýÁ¿
+        //ï¿½ï¿½È¡ï¿½ï¿½Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         if (FileRead((uint8*)&number_page_segments, 1, fHandle) < 1) return 0;
 
         if (number_page_segments > MAX_NUM_PAGE_SEGMENTS) return 0;
 
-        //¶ÁÈ¡Çø¶Î³¤¶È±í
+        //ï¿½ï¿½È¡ï¿½ï¿½ï¿½Î³ï¿½ï¿½È±ï¿½
         if (FileRead(segment_table, number_page_segments, fHandle) < number_page_segments) return 0;
 
         if (header_type_flag != STREAM_CONTINUS_PAGE)
         {
-            //¶ÁÈ¡°üÍ·ÀàÐÍµÄ±êÊ¶
+            //ï¿½ï¿½È¡ï¿½ï¿½Í·ï¿½ï¿½ï¿½ÍµÄ±ï¿½Ê¶
             if (FileRead((uint8*)&packet_header_type, 1, fHandle) < 1) return 0;
 
             if (FileRead(header_flag, 6, fHandle) < 6) return 0;
 
-            //ÅÐ¶Ï¸Ã°üÊÇ·ñÎª×¢ÊÍ°ü
+            //ï¿½Ð¶Ï¸Ã°ï¿½ï¿½Ç·ï¿½Îª×¢ï¿½Í°ï¿½
             if (packet_header_type == 3 && strncmp(header_flag, "vorbis", 6) == 0)
             {
                 packet_size = 0;
@@ -1082,7 +1082,7 @@ static int OGGGetPicInfo(HANDLE fHandle, int* picType)
     return 0;
 }
 
-//WAV±¾Éí²»´øID3ÐÅÏ¢, µ«ÊÇ¿ÉÒÔÍ¨¹ýÈí¼þ²åÈëID3ÐÅÏ¢
+//WAVï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ID3ï¿½ï¿½Ï¢, ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ID3ï¿½ï¿½Ï¢
 static int WAVGetPicInfo(HANDLE fHandle, int* picType)
 {
     int FileSize, ChunkSize;
@@ -1407,12 +1407,12 @@ int ThumbParse(FILE* hFile)
 
     if (gPicFileType == AUDIO_PIC)
     {
-        //´øID3×¨¼­·âÃæµÄÒôÆµ½âÎö
+        //ï¿½ï¿½ID3×¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½
         ret = AudioGetPicInfo(hFile, &picType);
     }
     else if (gPicFileType == IMAGE_PIC)
     {
-        //´øEXIFµÄÍ¼Æ¬½âÎö
+        //ï¿½ï¿½EXIFï¿½ï¿½Í¼Æ¬ï¿½ï¿½ï¿½ï¿½
         ret = ImageGetExifInfo(hFile, &picType);
     }
     else

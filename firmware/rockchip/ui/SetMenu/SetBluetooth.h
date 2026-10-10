@@ -28,9 +28,9 @@
 /******************************************************************************/
 
 // bt permanent code.
-#define _ATTR_SYS_SET_BT_CODE_         __attribute__((section("SetMenuServiceCode")))
-#define _ATTR_SYS_SET_BT_DATA_         __attribute__((section("SetMenuServiceData")))
-#define _ATTR_SYS_SET_BT_BSS_          __attribute__((section("SetMenuServiceBss"),zero_init))
+#define _ATTR_SYS_SET_BT_CODE_         
+#define _ATTR_SYS_SET_BT_DATA_         
+#define _ATTR_SYS_SET_BT_BSS_          
 
 /*
 --------------------------------------------------------------------------------

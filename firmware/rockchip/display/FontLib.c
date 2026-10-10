@@ -16,7 +16,7 @@
 #include "stdint.h"
 #include <string.h>
 
-#include "sysconfig.h"
+#include "SysConfig.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -179,7 +179,7 @@ void exchageUniICDSpec(Ucs2* pUni) {
             //usCode = 0x00A5;
         //}
         if(gLangSel == SetMenuLanguageInfo[LANGUAGE_JAPANESE])
-        {//if lang is JAPANESE  "?¨º?¨¨"
+        {//if lang is JAPANESE  "?ï¿½ï¿½?ï¿½ï¿½"
             usCode = 0x00A5;
         }
 //        else if(gLangSel == SetMenuLanguageInfo[LANGUAGE_KOREAN])

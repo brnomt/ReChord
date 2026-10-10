@@ -38,10 +38,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _CPU_NANOD_LIB_HIFI_MAC_READ_  __attribute__((section("cpu_nanod_lib_hifi_mac _read")))
-#define _CPU_NANOD_LIB_HIFI_MAC_WRITE_ __attribute__((section("cpu_nanod_lib_hifi_mac _write")))
-#define _CPU_NANOD_LIB_HIFI_MAC_INIT_  __attribute__((section("cpu_nanod_lib_hifi_mac _init")))
-#define _CPU_NANOD_LIB_HIFI_MAC_SHELL_  __attribute__((section("cpu_nanod_lib_hifi_mac _shell")))
+#define _CPU_NANOD_LIB_HIFI_MAC_READ_  
+#define _CPU_NANOD_LIB_HIFI_MAC_WRITE_ 
+#define _CPU_NANOD_LIB_HIFI_MAC_INIT_  
+#define _CPU_NANOD_LIB_HIFI_MAC_SHELL_  
 
 
 /*

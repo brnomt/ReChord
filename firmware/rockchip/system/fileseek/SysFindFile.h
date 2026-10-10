@@ -2,7 +2,8 @@
 #ifndef _SYS_FINDFILE_H
 #define _SYS_FINDFILE_H
 
-#include "FsInclude.h"
+#include "filesys/FDT.h"   /* FIND_DATA (search cursor) - explicit path: include/ has a shadow FDT.h */
+#include "fsinclude.h"
 
 #undef  EXT
 #ifdef  IN_SYS_FINDFILE
@@ -17,9 +18,9 @@
 /*                                                                            */
 /******************************************************************************/
 //Service Section define
-#define     _ATTR_SYS_FINDFILE_TEXT_        __attribute__((section("FindFileCode")))
-#define     _ATTR_SYS_FINDFILE_DATA_        __attribute__((section("FindFileData")))
-#define     _ATTR_SYS_FINDFILE_BSS_         __attribute__((section("FindFileBss"),zero_init))
+#define     _ATTR_SYS_FINDFILE_TEXT_        
+#define     _ATTR_SYS_FINDFILE_DATA_        
+#define     _ATTR_SYS_FINDFILE_BSS_         
 
 //------------------------------------------------------------------------------
 
@@ -29,7 +30,7 @@
 /*                          Struct Define                                     */
 /*                                                                            */
 /******************************************************************************/
-//²¥·ÅË³Ðò¶¨Òå
+//ï¿½ï¿½ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½
 typedef enum
 {
     AUDIO_INTURN,

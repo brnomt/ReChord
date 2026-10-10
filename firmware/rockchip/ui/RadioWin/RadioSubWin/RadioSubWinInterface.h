@@ -3,7 +3,7 @@
 *                      Copyright (c) 2009,WangBo
 *                         All rights reserved.
 *
-* File Name£º   RadioSubWinInterface.h
+* File Nameï¿½ï¿½   RadioSubWinInterface.h
 * 
 * Description:  FM second level menu external interface quote.
 *
@@ -25,7 +25,7 @@
 
 //------------------------------------------------------------------------------
 #include "RadioWin.h" 
-#include "FmControl.h"   //record backgroud service interface
+#include "FMControl.h"   //record backgroud service interface
 #include "DialogBox.h"
 
 //------------------------------------------------------------------------------

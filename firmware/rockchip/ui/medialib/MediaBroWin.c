@@ -17,19 +17,19 @@
 #include "SysInclude.h"
 
 #ifdef _MEDIA_MODULE_
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "FileInfo.h"
 #include "SortInfoGetMacro.h"
 #include "AddrSaveMacro.h"
 
 #include "MediaBroWin.h"
-#include "MediaLibWin.h"
+#include "medialibwin.h"
 #include "SysFindFile.h"
 
 #include "BrowserUI.h"
 
 #include "MessageBox.h"
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "AudioControl.h"
 #include "Hold.h"
 #include "myRandom.h"
@@ -165,30 +165,30 @@ void SortInfoAddrInit(void)
             break;
 
         case SORT_TYPE_SEL_ID3SINGER:
-            SortInfoAddr.uiSortInfoAddrOffset[0] = ID3_SINGLE_SAVE_ADDR_OFFSET;//¸èÊÖÆ«ÒÆµØÖ·
-            SortInfoAddr.uiSortInfoAddrOffset[1] = ID3_ALBUM_SAVE_ADDR_OFFSET; //×¨¼­Æ«ÒÆµØÖ·
-            SortInfoAddr.uiSortInfoAddrOffset[2] = ID3_TITLE_SAVE_ADDR_OFFSET;//carl FILE_NAME_SAVE_ADDR_OFFSET; //³¤ÎÄ¼þÃûÆ«ÒÆµØÖ·
+            SortInfoAddr.uiSortInfoAddrOffset[0] = ID3_SINGLE_SAVE_ADDR_OFFSET;//ï¿½ï¿½ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·
+            SortInfoAddr.uiSortInfoAddrOffset[1] = ID3_ALBUM_SAVE_ADDR_OFFSET; //×¨ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·
+            SortInfoAddr.uiSortInfoAddrOffset[2] = ID3_TITLE_SAVE_ADDR_OFFSET;//carl FILE_NAME_SAVE_ADDR_OFFSET; //ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·
             SortInfoAddr.ulFileSortInfoSectorAddr = MediaInfoAddr + ID3ARTIST_SORT_INFO_SECTOR_START;
             SortInfoAddr.ulSortSubInfoSectorAddr[0] = MediaInfoAddr + ID3ARTIST_SORT_SUB_SECTOR_START;
             SortInfoAddr.ulSortSubInfoSectorAddr[1] = MediaInfoAddr + ID3ARTIST_ALBUM_SORT_SUB_SECTOR_START;
             break;
 
         case SORT_TYPE_SEL_ID3ALBUM:
-            SortInfoAddr.uiSortInfoAddrOffset[0] = ID3_ALBUM_SAVE_ADDR_OFFSET;//×¨¼­Æ«ÒÆµØÖ·
-            SortInfoAddr.uiSortInfoAddrOffset[1] = ID3_TITLE_SAVE_ADDR_OFFSET;//carl FILE_NAME_SAVE_ADDR_OFFSET;//³¤ÎÄ¼þÃûÆ«ÒÆµØÖ·
+            SortInfoAddr.uiSortInfoAddrOffset[0] = ID3_ALBUM_SAVE_ADDR_OFFSET;//×¨ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·
+            SortInfoAddr.uiSortInfoAddrOffset[1] = ID3_TITLE_SAVE_ADDR_OFFSET;//carl FILE_NAME_SAVE_ADDR_OFFSET;//ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·
             SortInfoAddr.ulFileSortInfoSectorAddr = MediaInfoAddr + ID3ALBUM_SORT_INFO_SECTOR_START;
             SortInfoAddr.ulSortSubInfoSectorAddr[0] = MediaInfoAddr + ID3ALBUM_SORT_SUB_SECTOR_START;
             break;
 
         case SORT_TYPE_SEL_GENRE:
-            SortInfoAddr.uiSortInfoAddrOffset[0] = ID3_GENRE_SAVE_ADDR_OFFSET; //Á÷ÅÉÆ«ÒÆµØÖ·
-            SortInfoAddr.uiSortInfoAddrOffset[1] = ID3_SINGLE_SAVE_ADDR_OFFSET;//¸èÊÖÆ«ÒÆµØÖ·
-            SortInfoAddr.uiSortInfoAddrOffset[2] = ID3_ALBUM_SAVE_ADDR_OFFSET; //×¨¼­Æ«ÒÆµØÖ·
-            SortInfoAddr.uiSortInfoAddrOffset[3] = ID3_TITLE_SAVE_ADDR_OFFSET; //×¨¼­Æ«ÒÆµØÖ·
-            SortInfoAddr.ulFileSortInfoSectorAddr = MediaInfoAddr +  ID3GENRE_SORT_INFO_SECTOR_START; //ÅÅÐòºóµÄÎÄ¼þË³ÐòÁÐ±í
-            SortInfoAddr.ulSortSubInfoSectorAddr[0] = MediaInfoAddr + ID3GENRE_SORT_SUB_SECTOR_START; //Á÷ÅÉ·ÖÀàÐÅÏ¢´æ·ÅµØÖ·
-            SortInfoAddr.ulSortSubInfoSectorAddr[1] = MediaInfoAddr + ID3GENRE_ARTIST_SORT_SUB_SECTOR_START;//Á÷ÅÉ-¸èÊÖ·ÖÀàÐÅÏ¢´æ·ÅµØÖ·
-            SortInfoAddr.ulSortSubInfoSectorAddr[2] = MediaInfoAddr + ID3GENRE_ALBUM_SORT_SUB_SECTOR_START;//Á÷ÅÉ-¸èÊÖ-×¨¼­·ÖÀàÐÅÏ¢´æ·ÅµØÖ·
+            SortInfoAddr.uiSortInfoAddrOffset[0] = ID3_GENRE_SAVE_ADDR_OFFSET; //ï¿½ï¿½ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·
+            SortInfoAddr.uiSortInfoAddrOffset[1] = ID3_SINGLE_SAVE_ADDR_OFFSET;//ï¿½ï¿½ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·
+            SortInfoAddr.uiSortInfoAddrOffset[2] = ID3_ALBUM_SAVE_ADDR_OFFSET; //×¨ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·
+            SortInfoAddr.uiSortInfoAddrOffset[3] = ID3_TITLE_SAVE_ADDR_OFFSET; //×¨ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·
+            SortInfoAddr.ulFileSortInfoSectorAddr = MediaInfoAddr +  ID3GENRE_SORT_INFO_SECTOR_START; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½Ë³ï¿½ï¿½ï¿½Ð±ï¿½
+            SortInfoAddr.ulSortSubInfoSectorAddr[0] = MediaInfoAddr + ID3GENRE_SORT_SUB_SECTOR_START; //ï¿½ï¿½ï¿½É·ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Åµï¿½Ö·
+            SortInfoAddr.ulSortSubInfoSectorAddr[1] = MediaInfoAddr + ID3GENRE_ARTIST_SORT_SUB_SECTOR_START;//ï¿½ï¿½ï¿½ï¿½-ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Åµï¿½Ö·
+            SortInfoAddr.ulSortSubInfoSectorAddr[2] = MediaInfoAddr + ID3GENRE_ALBUM_SORT_SUB_SECTOR_START;//ï¿½ï¿½ï¿½ï¿½-ï¿½ï¿½ï¿½ï¿½-×¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Åµï¿½Ö·
             break;
 
         case MUSIC_TYPE_SEL_MYFAVORITE:
@@ -205,7 +205,7 @@ void SortInfoAddrInit(void)
 --------------------------------------------------------------------------------
   Function name : UINT16 GetCurItemNum()
   Author        : anzhiguo
-  Description   : »ñÈ¡Ã½Ìå¿âÖÐµ±Ç°ÓµÓÐµÄÌõÄ¿Êý
+  Description   : ï¿½ï¿½È¡Ã½ï¿½ï¿½ï¿½ï¿½Ðµï¿½Ç°Óµï¿½Ðµï¿½ï¿½ï¿½Ä¿ï¿½ï¿½
 
   Input         :
 
@@ -249,7 +249,7 @@ UINT16 GetCurItemNum()
                 uiTotalItemNum = gSysConfig.MedialibPara.gID3GenreFileNum;
                 break;
 
-            case MUSIC_TYPE_SEL_MYFAVORITE://ÊÕ²Ø¼Ð
+            case MUSIC_TYPE_SEL_MYFAVORITE://ï¿½Õ²Ø¼ï¿½
                 uiTotalItemNum = gSysConfig.MedialibPara.gMyFavoriteFileNum;// = GetFavoriteFileNume();
                 break;
 #ifdef _RECORD_
@@ -280,12 +280,12 @@ UINT16 GetCurItemNum()
         }
     }
     /* sch120416
-    else if ((MusicDirTreeInfo.MusicDirDeep == 2)&&(gMusicTypeSelID == SORT_TYPE_SEL_ID3SINGER))//»ñÈ¡×¨¼­»òÒÕÊõ¼ÒÏÂµÄÎÄ¼þÊý
+    else if ((MusicDirTreeInfo.MusicDirDeep == 2)&&(gMusicTypeSelID == SORT_TYPE_SEL_ID3SINGER))//ï¿½ï¿½È¡×¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Âµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½
     {
         uiTotalItemNum = GetSummaryInfo(SortInfoAddr.ulSortSubInfoSectorAddr[MusicDirTreeInfo.MusicDirDeep-1], MusicDirTreeInfo.CurId[MusicDirTreeInfo.MusicDirDeep-1]+MusicDirTreeInfo.MusicDirBaseSortId[MusicDirTreeInfo.MusicDirDeep-1]-1, FIND_SUM_ITEMNUM);
     }
     */
-    else //if(MusicDirTreeInfo.MusicDirDeep == 1)//»ñÈ¡×¨¼­»òÒÕÊõ¼ÒÏÂµÄÎÄ¼þÊý
+    else //if(MusicDirTreeInfo.MusicDirDeep == 1)//ï¿½ï¿½È¡×¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Âµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½
     {
         if ((SortInfoAddr.uiSortInfoAddrOffset[MusicDirTreeInfo.MusicDirDeep] == ID3_TITLE_SAVE_ADDR_OFFSET) && ((gMusicTypeSelID == SORT_TYPE_SEL_ID3SINGER) || (gMusicTypeSelID == SORT_TYPE_SEL_GENRE)))
         {
@@ -305,7 +305,7 @@ UINT16 GetCurItemNum()
 --------------------------------------------------------------------------------
   Function name : void SortInfoAddrInit(void)
   Author        : anzhiguo
-  Description   : Ã½Ìå¿âÖÐ¸÷ÖÖÐÅÏ¢´æ·ÅµØÖ·±äÁ¿µÄ³õÊ¼»¯
+  Description   : Ã½ï¿½ï¿½ï¿½ï¿½Ð¸ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Åµï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Ä³ï¿½Ê¼ï¿½ï¿½
 
   Input         :
 
@@ -313,7 +313,7 @@ UINT16 GetCurItemNum()
 
   History:     <author>         <time>         <version>
                 anzhiguo     2009/06/02         Ver1.0
-  desc:         Ö¸µ½¶ÔÓ¦ÐÅÏ¢ÔÚflashÖÐµÄsecµØÖ·
+  desc:         Ö¸ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½Ï¢ï¿½ï¿½flashï¿½Ðµï¿½secï¿½ï¿½Ö·
 --------------------------------------------------------------------------------
 */
 
@@ -1011,8 +1011,8 @@ void MediaBroUpProcWithConstantHead(UINT16 uiUpdateType)
 _ATTR_MEDIABROWIN_CODE_
 void MusicBroMusicDirInit(void)
 {
-    MusicDirTreeInfo.MusicDirTotalItem = GetCurItemNum();//µ±Ç°ÏÔÊ¾Ä¿Â¼ÏÂµÄÎÄ¼þ¸öÊý
-    MusicDirTreeInfo.MusicDirBaseSortId[MusicDirTreeInfo.MusicDirDeep] = GetBaseId();//Õâ¸ö±äÁ¿ÊÇÊ²Ã´ ?????? ÊÇµ±Ç°ÏÔÊ¾ÆðÊ¼ÎÄ¼þµÄÐòºÅ?
+    MusicDirTreeInfo.MusicDirTotalItem = GetCurItemNum();//ï¿½ï¿½Ç°ï¿½ï¿½Ê¾Ä¿Â¼ï¿½Âµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
+    MusicDirTreeInfo.MusicDirBaseSortId[MusicDirTreeInfo.MusicDirDeep] = GetBaseId();//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê²Ã´ ?????? ï¿½Çµï¿½Ç°ï¿½ï¿½Ê¾ï¿½ï¿½Ê¼ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½?
 
     if (MusicDirTreeInfo.MusicDirTotalItem > MAX_ITEM_NUM_MEDIABRO_DISP)
     {
@@ -1664,14 +1664,14 @@ UINT32 SaveAndPostMusicPlayInfo(void)
     {
         if (TRUE == ThreadCheck(pMainThread, &MusicThread))
         {
-            if ((gMusicTypeSelID != AudioFileInfo.ucSelPlayType) || (MusicDirTreeInfo.CurId[MusicDirTreeInfo.MusicDirDeep] != AudioFileInfo.CurrentFileNum))//²»Í¬×¨¼­Ö®¼äµÄÇÐ»»
+            if ((gMusicTypeSelID != AudioFileInfo.ucSelPlayType) || (MusicDirTreeInfo.CurId[MusicDirTreeInfo.MusicDirDeep] != AudioFileInfo.CurrentFileNum))//ï¿½ï¿½Í¬×¨ï¿½ï¿½Ö®ï¿½ï¿½ï¿½ï¿½Ð»ï¿½
             {
                 ThreadDelete(&pMainThread, &MusicThread);
 #ifdef _BLUETOOTH_  //chad.ma add
             BluetoothThreadDelete(gbBTConnected);
 #endif
 
-#ifdef AUDIOHOLDONPLAY  //4.23 zs ×ÊÔ´¹ÜÀíÆ÷²»ÄÜÇÐ»»¸èÇúµÄbug
+#ifdef AUDIOHOLDONPLAY  //4.23 zs ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½bug
                 gSysConfig.MusicConfig.HoldOnPlaySaveFlag = 0;
 #endif
             }
@@ -1694,14 +1694,14 @@ UINT32 SaveAndPostMusicPlayInfo(void)
     {
         if (TRUE == ThreadCheck(pMainThread, &MusicThread))
         {
-            if ((gMusicTypeSelID != AudioFileInfo.ucSelPlayType) || (MusicDirTreeInfo.CurId[MusicDirTreeInfo.MusicDirDeep] != AudioFileInfo.CurrentFileNum - 1) || (MusicDirTreeInfo.MusicDirBaseSortId[MusicDirTreeInfo.MusicDirDeep] != AudioFileInfo.uiBaseSortId[MusicDirTreeInfo.MusicDirDeep]) || (MusicDirTreeInfo.MusicDirDeep != gSysConfig.MediaDirTreeInfo.MusicDirDeep))//²»Í¬×¨¼­Ö®¼äµÄÇÐ»»
+            if ((gMusicTypeSelID != AudioFileInfo.ucSelPlayType) || (MusicDirTreeInfo.CurId[MusicDirTreeInfo.MusicDirDeep] != AudioFileInfo.CurrentFileNum - 1) || (MusicDirTreeInfo.MusicDirBaseSortId[MusicDirTreeInfo.MusicDirDeep] != AudioFileInfo.uiBaseSortId[MusicDirTreeInfo.MusicDirDeep]) || (MusicDirTreeInfo.MusicDirDeep != gSysConfig.MediaDirTreeInfo.MusicDirDeep))//ï¿½ï¿½Í¬×¨ï¿½ï¿½Ö®ï¿½ï¿½ï¿½ï¿½Ð»ï¿½
             {
                 ThreadDelete(&pMainThread, &MusicThread);
 #ifdef _BLUETOOTH_  //chad.ma add
                 BluetoothThreadDelete(gbBTConnected);
 #endif
 
-#ifdef AUDIOHOLDONPLAY  //4.23 zs ×ÊÔ´¹ÜÀíÆ÷²»ÄÜÇÐ»»¸èÇúµÄbug
+#ifdef AUDIOHOLDONPLAY  //4.23 zs ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½bug
                 gSysConfig.MusicConfig.HoldOnPlaySaveFlag = 0;
 #endif
             }
@@ -2024,19 +2024,19 @@ UINT16 GetListItem(UINT16 *pListName, UINT16 uiListNO)
         {
             switch (gMusicTypeSelID)
             {
-                case SORT_TYPE_SEL_FILENAME:  //»ñÈ¡³¤ÎÄ¼þÃû
+                case SORT_TYPE_SEL_FILENAME:  //ï¿½ï¿½È¡ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½
                     GetMediaItemInfo(pListName, SortInfoAddr, uiListNO, MAX_FILENAME_LEN, MusicDirTreeInfo.MusicDirDeep, 1);
                     // GetSavedMusicFileName(pListName, SortInfoAddr, uiListNO, SYS_SUPPROT_STRING_MAX_LEN, MusicDirTreeInfo.MusicDirDeep);
                     break;
 
-                case SORT_TYPE_SEL_ID3TITLE://»ñÈ¡ID3TitleÐÅÏ¢
+                case SORT_TYPE_SEL_ID3TITLE://ï¿½ï¿½È¡ID3Titleï¿½ï¿½Ï¢
                     GetMediaItemInfo(pListName, SortInfoAddr, uiListNO, MAX_FILENAME_LEN, MusicDirTreeInfo.MusicDirDeep, 1);
                     //  GetSavedMusicFileName(pListName, SortInfoAddr, uiListNO, MEDIA_ID3_SAVE_CHAR_NUM, MusicDirTreeInfo.MusicDirDeep,1);
                     break;
 
-                case SORT_TYPE_SEL_ID3ALBUM:    //»ñÈ¡×îÍâ²ãµÄ×¨¼­ÐÅÏ¢
-                case SORT_TYPE_SEL_ID3SINGER:   //»ñÈ¡×îÍâ²ãµÄ¸èÊÖÐÅÏ¢
-                case SORT_TYPE_SEL_GENRE:       //»ñÈ¡×îÍâ²ãµÄÁ÷ÅÉÐÅÏ¢
+                case SORT_TYPE_SEL_ID3ALBUM:    //ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¨ï¿½ï¿½ï¿½ï¿½Ï¢
+                case SORT_TYPE_SEL_ID3SINGER:   //ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
+                case SORT_TYPE_SEL_GENRE:       //ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
                     uiListNO += MusicDirTreeInfo.MusicDirBaseSortId[MusicDirTreeInfo.MusicDirDeep];
                     GetMediaItemInfo(pListName, SortInfoAddr, uiListNO, MAX_FILENAME_LEN, MusicDirTreeInfo.MusicDirDeep, 0);
                     // GetSummaryFileName(pListName, SortInfoAddr, uiListNO,MusicDirTreeInfo.MusicDirDeep);
@@ -2104,17 +2104,17 @@ UINT16 GetListItem(UINT16 *pListName, UINT16 uiListNO)
             break;
         }
 
-        case 1://´ÎÍâ²ã(Á÷ÅÉ-¸èÊÖ£¬,¸èÊÖ-×¨¼­£¬×¨¼­-³¤ÎÄ¼þÃû£¬)
+        case 1://ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½-ï¿½ï¿½ï¿½Ö£ï¿½,ï¿½ï¿½ï¿½ï¿½-×¨ï¿½ï¿½ï¿½ï¿½×¨ï¿½ï¿½-ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½)
         {
             switch (gMusicTypeSelID)
             {
-                case SORT_TYPE_SEL_ID3ALBUM:    //»ñÈ¡×îÍâ²ãµÄ×¨¼­ÐÅÏ¢
+                case SORT_TYPE_SEL_ID3ALBUM:    //ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¨ï¿½ï¿½ï¿½ï¿½Ï¢
                     uiListNO += MusicDirTreeInfo.MusicDirBaseSortId[MusicDirTreeInfo.MusicDirDeep];
                     GetMediaItemInfo(pListName, SortInfoAddr, uiListNO, MAX_FILENAME_LEN, MusicDirTreeInfo.MusicDirDeep, 1);
                     break;
 
-                case SORT_TYPE_SEL_ID3SINGER:   //»ñÈ¡×îÍâ²ãµÄ¸èÊÖÐÅÏ¢
-                case SORT_TYPE_SEL_GENRE:       //»ñÈ¡×îÍâ²ãµÄÁ÷ÅÉÐÅÏ¢
+                case SORT_TYPE_SEL_ID3SINGER:   //ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
+                case SORT_TYPE_SEL_GENRE:       //ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
                     uiListNO += MusicDirTreeInfo.MusicDirBaseSortId[MusicDirTreeInfo.MusicDirDeep];
                     GetMediaItemInfo(pListName, SortInfoAddr, uiListNO, MAX_FILENAME_LEN, MusicDirTreeInfo.MusicDirDeep, 0);
                     break;
@@ -2131,16 +2131,16 @@ UINT16 GetListItem(UINT16 *pListName, UINT16 uiListNO)
             break;
         }
 
-        case 2://ÄÚ²ã(Á÷ÅÉ-¸èÊÖ-×¨¼­£¬,¸èÊÖ-×¨¼­-³¤ÎÄ¼þÃû£¬)
+        case 2://ï¿½Ú²ï¿½(ï¿½ï¿½ï¿½ï¿½-ï¿½ï¿½ï¿½ï¿½-×¨ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½-×¨ï¿½ï¿½-ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½)
         {
             switch (gMusicTypeSelID)
             {
-                case SORT_TYPE_SEL_ID3SINGER:    //»ñÈ¡×îÍâ²ãµÄ×¨¼­ÐÅÏ¢
+                case SORT_TYPE_SEL_ID3SINGER:    //ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¨ï¿½ï¿½ï¿½ï¿½Ï¢
                     uiListNO += MusicDirTreeInfo.MusicDirBaseSortId[MusicDirTreeInfo.MusicDirDeep];
                     GetMediaItemInfo(pListName, SortInfoAddr, uiListNO, MAX_FILENAME_LEN, MusicDirTreeInfo.MusicDirDeep, 1);
                     break;
 
-                case SORT_TYPE_SEL_GENRE:       //»ñÈ¡×îÍâ²ãµÄÁ÷ÅÉÐÅÏ¢
+                case SORT_TYPE_SEL_GENRE:       //ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
                     uiListNO += MusicDirTreeInfo.MusicDirBaseSortId[MusicDirTreeInfo.MusicDirDeep];
                     GetMediaItemInfo(pListName, SortInfoAddr, uiListNO, MAX_FILENAME_LEN, MusicDirTreeInfo.MusicDirDeep, 0);
                     // GetSummaryFileName(pListName, SortInfoAddr, uiListNO,MusicDirTreeInfo.MusicDirDeep);
@@ -2153,11 +2153,11 @@ UINT16 GetListItem(UINT16 *pListName, UINT16 uiListNO)
             break;
         }
 
-        case 3://ÄÚ²ã(Á÷ÅÉ-¸èÊÖ-×¨¼­-³¤ÎÄ¼þÃû£¬)
+        case 3://ï¿½Ú²ï¿½(ï¿½ï¿½ï¿½ï¿½-ï¿½ï¿½ï¿½ï¿½-×¨ï¿½ï¿½-ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½)
         {
             switch (gMusicTypeSelID)
             {
-                case SORT_TYPE_SEL_GENRE:       //»ñÈ¡×îÍâ²ãµÄÁ÷ÅÉÐÅÏ¢
+                case SORT_TYPE_SEL_GENRE:       //ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
                     uiListNO += MusicDirTreeInfo.MusicDirBaseSortId[MusicDirTreeInfo.MusicDirDeep];
                     GetMediaItemInfo(pListName, SortInfoAddr, uiListNO, MAX_FILENAME_LEN, MusicDirTreeInfo.MusicDirDeep, 1);
                     //GetSummaryFileName(pListName, SortInfoAddr, uiListNO,MusicDirTreeInfo.MusicDirDeep);
@@ -2304,7 +2304,7 @@ UINT32 GetListItemIconId()
 
 
   Author        : anzhiguo
-  Description   : Ã½Ìå¿âÄ£¿éÏÔÊ¾Ä£¿é
+  Description   : Ã½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½ï¿½Ê¾Ä£ï¿½ï¿½
 
   Input         :
 
@@ -2355,7 +2355,7 @@ UINT32 MediaBroService(void)
         {
 #ifdef _MUSIC_
 
-            if ((FALSE == ThreadCheck(pMainThread, &MusicThread)))//&& (HoldOnPlayInfo.HoldMusicGetSign == 0))//Ã»ÓÐºóÌ¨ÒôÀÖ
+            if ((FALSE == ThreadCheck(pMainThread, &MusicThread)))//&& (HoldOnPlayInfo.HoldMusicGetSign == 0))//Ã»ï¿½Ðºï¿½Ì¨ï¿½ï¿½ï¿½ï¿½
             {
                 TaskArg.Medialib.CurId = gMusicTypeSelID - 1;
             }
@@ -2507,7 +2507,7 @@ void   MediaBroDisplay(void)
     StartItem = MusicDirTreeInfo.CurId[MusicDirTreeInfo.MusicDirDeep] - MusicDirTreeInfo.KeyCounter;
 #endif
 
-    //if(CheckMsg(MSG_NEED_PAINT_ALL)&& (MediaBroWin.Son != NULL ))  //Õâ¸öÒªÓÐ£¬·ñÔòÓÐ×Ó´°¿ÚÊ±»á³öÏÖÉÁÆÁ 5.20 anzhiguo
+    //if(CheckMsg(MSG_NEED_PAINT_ALL)&& (MediaBroWin.Son != NULL ))  //ï¿½ï¿½ï¿½Òªï¿½Ð£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó´ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 5.20 anzhiguo
     //    return;
 #ifdef THUMB_DEC_INCLUDE
     if(GetMsg(MSG_MEDIABRO_FRESH_THUMBNAIL_DOWN))
@@ -2644,7 +2644,7 @@ void   MediaBroDisplay(void)
         {
             gIsImproveFreq = TRUE;
             gTickCounter = SysTickCounter;
-            FREQ_EnterModule(FREQ_JPG); //±ÜÃâËõÂÔÍ¼½âÂë·´¸´ÌáÆµ¡¢½µÆµ
+            FREQ_EnterModule(FREQ_JPG); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ë·´ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½Æµ
         }
 
         if(gThumbDecodeMode == 1)
@@ -2765,7 +2765,7 @@ void   MediaBroDisplay(void)
         {
             gIsImproveFreq = TRUE;
             gTickCounter = SysTickCounter;
-            FREQ_EnterModule(FREQ_JPG); //±ÜÃâËõÂÔÍ¼½âÂë·´¸´ÌáÆµ¡¢½µÆµ
+            FREQ_EnterModule(FREQ_JPG); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ë·´ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½Æµ
         }
 #endif
 
@@ -2838,7 +2838,7 @@ void   MediaBroDisplay(void)
             //DEBUG("FREQ_EnterModule(FREQ_JPG)");
             gIsImproveFreq = TRUE;
             gTickCounter = SysTickCounter;
-            FREQ_EnterModule(FREQ_JPG); //±ÜÃâËõÂÔÍ¼½âÂë·´¸´ÌáÆµ¡¢½µÆµ
+            FREQ_EnterModule(FREQ_JPG); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ë·´ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½Æµ
         }
 
         if(0 == gThumbDecodeMode)
@@ -3234,7 +3234,7 @@ void   MediaBroDisplay(void)
     LCD_SetCharSize(TempCharSize);
 #ifdef THUMB_DEC_INCLUDE
 
-    if (SysTickCounter - gTickCounter > 500) //³¬¹ý5sÃ»ÓÐËõÂÔÍ¼½âÂë²Ù×÷£¬Ôò½«Æµ
+    if (SysTickCounter - gTickCounter > 500) //ï¿½ï¿½ï¿½ï¿½5sÃ»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµ
     {
         if (gIsImproveFreq)
         {
@@ -3515,7 +3515,7 @@ void MediaBroSubDisplay(void)
 
     if (CheckMsg(MSG_NEED_PAINT_ALL) || (GetMsg(MSG_MEDIABROSUB_DISPLAY_ALL)))
     {
-        //·¢ËÍÆäËûÏÔÊ¾ÏûÏ¢
+        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ï¢
         SendMsg(MSG_MEDIABROSUB_ALL_ITEM);
     }
 

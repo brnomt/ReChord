@@ -19,7 +19,7 @@
 
 #ifdef  _BROWSER_
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 
 #include "BrowserUI.h"
 #include "BroCore.h"
@@ -31,14 +31,14 @@
 #ifdef _MUSIC_
 #include "audio_globals.h"
 #include "audio_file_access.h"
-#include "Effect.h"
+#include "effect.h"
 #include "AudioControl.h"
 #endif
 
 #include "SysFindFile.h"
 
-#include "MainMenu.h"
-#include "FmControl.h"
+#include "mainmenu.h"
+#include "FMControl.h"
 
 #include "MediaBroWin.h"
 #include "medialibwin.h"
@@ -277,7 +277,7 @@ uint32 BrowserWinService(void)
             UINT16 TextMode;
             TextMode = LCD_SetTextMode(LCD_DRAWMODE_TRANS);
             ClearMsg(BROWSER_DISPFLAG_SCROLL_FILENAME);
-            DispPictureWithIDNum(IMG_ID_BROWSER_BACKGROUND);  //Ã»ÓÐÏàÓ¦¸ñÊ½µÄÎÄ¼þ, Ò²Ã»ÓÐÄ¿Â¼, Ö»ÏÔÊ¾±³¾°Í¼
+            DispPictureWithIDNum(IMG_ID_BROWSER_BACKGROUND);  //Ã»ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½Ê½ï¿½ï¿½ï¿½Ä¼ï¿½, Ò²Ã»ï¿½ï¿½Ä¿Â¼, Ö»ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Í¼
             DisplayMenuStrWithIDNum(BROWSER_TITLE_TXT_X, BROWSER_TITLE_TXT_Y,
                                     BROWSER_TITLE_TXT_XSIZE, BROWSER_TITLE_TXT_YSIZE,
                                     LCD_TEXTALIGN_CENTER, BrowserData.BrowserTitleId);
@@ -657,7 +657,7 @@ void BrowserWinPaint(void)
                         if (!gIsImproveFreq)
                         {
                             gIsImproveFreq = TRUE;
-                            FREQ_EnterModule(FREQ_JPG); //±ÜÃâËõÂÔÍ¼½âÂë·´¸´ÌáÆµ¡¢½µÆµ
+                            FREQ_EnterModule(FREQ_JPG); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ë·´ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½Æµ
                         }
 
                         FileHandle = (FILE*)FileOpen(NULL, pBro->FileLocInfo.Clus, pBro->FileLocInfo.Index, gBrowSerFsType, FileOpenStringR);
@@ -785,7 +785,7 @@ void BrowserWinPaint(void)
                 if (!gIsImproveFreq)
                 {
                     gIsImproveFreq = TRUE;
-                    FREQ_EnterModule(FREQ_JPG); //±ÜÃâËõÂÔÍ¼½âÂë·´¸´ÌáÆµ¡¢½µÆµ
+                    FREQ_EnterModule(FREQ_JPG); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ë·´ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½Æµ
                 }
 
                 FileHandle = (FILE*)FileOpen(NULL, pBro->FileLocInfo.Clus, pBro->FileLocInfo.Index, gBrowSerFsType, FileOpenStringR);
@@ -905,7 +905,7 @@ void BrowserWinPaint(void)
     LCD_SetCharSize(TempCharSize);
 
 #ifdef THUMB_DEC_INCLUDE
-    if (SysTickCounter - gTickCounter > 500) //³¬¹ý5sÃ»ÓÐËõÂÔÍ¼½âÂë²Ù×÷£¬Ôò½«Æµ
+    if (SysTickCounter - gTickCounter > 500) //ï¿½ï¿½ï¿½ï¿½5sÃ»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµ
     {
         if (gIsImproveFreq)
         {
@@ -1972,7 +1972,7 @@ uint32 BroUSBHostDetect()
         {
             bro_usbcon++;
             DelayMs(30);
-            //µ¥´ÎÁ¬½Ó³É¹¦
+            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó³É¹ï¿½
             return FALSE;
         }
         else
@@ -2003,13 +2003,13 @@ uint32 BroUSBHostDetect()
         }
         else
         {
-            //usb hostÁ¬½Ó³¬Ê±£¬Î´½øÐÐÃ¶¾Ù
+            //usb hostï¿½ï¿½ï¿½Ó³ï¿½Ê±ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½Ã¶ï¿½ï¿½
             DEBUG ("usb host deteted timeout");
             bro_usbdis = 0;
             return 2;
         }
 
-        //µ¥´ÎÁ¬½ÓÊ§°Ü
+        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½
         return FALSE;
     }
 }
@@ -2060,14 +2060,14 @@ int16 BroKeyExitPro(void)
         {
             if (gBrowserFindFileType == FileTypeAudio)
             {
-                //ÎÞ´ÅÅÌÑ¡ÔñÌøÈëÃ½Ìå¿â
+                //ï¿½Þ´ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½
                 if ( BroswerFlag == FALSE)
                 {
                     TaskArg.Medialib.CurId = gMusicTypeSelID;
                     TaskSwitch(TASK_ID_MEDIALIB, &TaskArg); //exit to media
                     return (MSG_MODULE_EXIT);
                 }
-                //ÓÐ´ÅÅÌÑ¡ÔñÌøÈë´ÅÅÌÑ¡Ôñ
+                //ï¿½Ð´ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½
                 else
                 {
                     BrowserMemSelEn = 1;
@@ -2251,7 +2251,7 @@ void BroLoadMemSelStr(void)
 
 #else
 #endif
-//´ÅÅÌ¹â±êÑ¡Ôñ
+//ï¿½ï¿½ï¿½Ì¹ï¿½ï¿½Ñ¡ï¿½ï¿½
 #if(defined (_SDCARD_) && defined (_USB_HOST_))
     //DEBUG("MemorySelect=%d  BrowserMemSel=%d",MemorySelect,BrowserMemSel);
     if (BrowserMemSel == CARD)
@@ -2286,7 +2286,7 @@ void BroLoadMemSelStr(void)
     }
 #endif
 
-    //µÚÒ»´ÎMainMenu½øÈëä¯ÀÀÆ÷¹Ø±êÔÚCÅÌÉÏ
+    //ï¿½ï¿½Ò»ï¿½ï¿½MainMenuï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø±ï¿½ï¿½ï¿½Cï¿½ï¿½ï¿½ï¿½
     if (gSysConfig.FindFileType == FileTypeNull)
     {
         BrowserData.CurPointer = 0;
@@ -2478,10 +2478,10 @@ void BroMemSelKeyMenu(void)
         if ((MemorySelect == USBHOST_FLASH) && (gSysConfig.UsbHost == 0))
         {
             DEBUG("BroMenu: UsbHost == 0");
-            //´´½¨USBHSOT
+            //ï¿½ï¿½ï¿½ï¿½USBHSOT
             USBHostSetParams(HOST_FORBID_INIT, 0);
             USBHostStart();
-            //µÈ´ýUSB Ã¶¾Ù³É¹¦£¬·ñÔò³¬Ê±ÍË³ö
+            //ï¿½È´ï¿½USB Ã¶ï¿½Ù³É¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ë³ï¿½
             while (1)
             {
                 ret = BroUSBHostDetect();
@@ -2492,7 +2492,7 @@ void BroMemSelKeyMenu(void)
                     BrowserMemSel = USBHOST_FLASH;
                     break;
                 }
-                else if (ret == 2) //Á¬½Ó³¬Ê±
+                else if (ret == 2) //ï¿½ï¿½ï¿½Ó³ï¿½Ê±
                 {
                     USBHost_Reinit();
                     break;
@@ -2545,7 +2545,7 @@ void BroMemSelKeyMenu(void)
         FileSysSetupRet =  FileSysSetup(MemorySelect);
 
 #if(defined (_SDCARD_) || defined (_USB_HOST_))
-        if (FileSysSetupRet != OK)  //ÎÄ¼þÏµÍ³½¨Á¢Ê§°Ü£¬ÎÞ·¨¼ÌÐø
+        if (FileSysSetupRet != OK)  //ï¿½Ä¼ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½Ê§ï¿½Ü£ï¿½ï¿½Þ·ï¿½ï¿½ï¿½ï¿½ï¿½
         {
             TASK_ARG TaskArg;
             TaskArg.Message.TitleID   = SID_WARNING;
@@ -2560,7 +2560,7 @@ void BroMemSelKeyMenu(void)
         }
 #endif
     }
-    //²»ÇÐ»»´ÅÅÌ
+    //ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½
     else
     {
         #ifdef _USB_HOST_
@@ -2675,7 +2675,7 @@ int16 BroMemSelKeyExit(void)
     {
         case FileTypeAudio:
 #ifdef _MUSIC_
-            //ÍË³öä¯ÀÀÆ÷½øÈëÃ½Ìå¿â¹â±êÉèÖÃ
+            //ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             TaskArg.Medialib.CurId = gMusicTypeSelID;
             TaskSwitch(TASK_ID_MEDIALIB, &TaskArg);
             if(BroswerFlag)

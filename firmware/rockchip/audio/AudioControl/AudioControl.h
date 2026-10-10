@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   AudioControl.h
+* File Nameï¿½ï¿½   AudioControl.h
 *
 * Description:
 *
@@ -16,7 +16,7 @@
 #ifndef _AUDIO_CONTROL_H_
 #define _AUDIO_CONTROL_H_
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "audio_globals.h"
 #include "HoldonPlay.h"
 
@@ -39,10 +39,10 @@
 */
 
 //section define
-#define _ATTR_AUDIO_TEXT_     __attribute__((section("AudioCode")))
-#define _ATTR_AUDIO_DATA_     __attribute__((section("AudioData")))
-#define _ATTR_AUDIO_BSS_      __attribute__((section("AudioBss"),zero_init))
-#define _ATTR_AUDIO_INIT_TEXT_  __attribute__((section("AudioInitCode")))
+#define _ATTR_AUDIO_TEXT_     
+#define _ATTR_AUDIO_DATA_     
+#define _ATTR_AUDIO_BSS_      
+#define _ATTR_AUDIO_INIT_TEXT_  
 //
 #define AUDIO_DMACHANNEL_IIS    (DMA_CHN_MAX - 1)
 
@@ -177,7 +177,7 @@ long b[2][4];
 *-------------------------------------------------------------------------------
 */
 
-//Íâ²¿±äÁ¿½Ó¿Ú
+//ï¿½â²¿ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿ï¿½
 #define     MusicOutputVol                  gSysConfig.OutputVolume
 extern int              CurrentCodec;
 extern int              gisaacorm4a;
@@ -210,9 +210,9 @@ _ATTR_AUDIO_BSS_    EXT uint32              audio_dec_album_save;
 _ATTR_AUDIO_BSS_    EXT FILE                *AudioAlbumHandle;
 
 #ifdef _RK_SPECTRUM_
-#define SPECTRUM_LINE_M      10     // 10¸úÆµÆ×Ïß
+#define SPECTRUM_LINE_M      10     // 10ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½
 #define SpectrumLoopTime     3
-_ATTR_AUDIO_BSS_    EXT char               SpectrumOut[SPECTRUM_LINE_M];//´æ·Å×ª»»¹ýºóµÄM¸ùÆ×ÏßµÄÄÜÁ¿
+_ATTR_AUDIO_BSS_    EXT char               SpectrumOut[SPECTRUM_LINE_M];//ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Mï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½
 _ATTR_AUDIO_BSS_    EXT int                SpectrumLoop;
 _ATTR_AUDIO_BSS_    EXT int                SpectrumCnt;
 #endif
@@ -238,7 +238,7 @@ _ATTR_AUDIO_DATA_ EXT track_info gRegAudioConfig =
 		#ifdef _RK_EQ_
         {EQ_0DB, EQ_0DB, EQ_0DB, EQ_0DB, EQ_0DB}
 		#endif
-    },//tEffect       UserEQ; ÓÃ»§EQ
+    },//tEffect       UserEQ; ï¿½Ã»ï¿½EQ
 
     0,                          //artist
     0,                          //title

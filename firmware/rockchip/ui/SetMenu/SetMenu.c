@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  SetMenu.c
+* File Nameï¿½ï¿½  SetMenu.c
 *
 * Description:
 *
@@ -18,12 +18,12 @@
 
 #ifdef _SYSSET_
 
-#include "setcommon.h"
-#include "setMenu.h"
-#include "setMenuInterface.h"
+#include "SetCommon.h"
+#include "SetMenu.h"
+#include "SetMenuInterface.h"
 #include "SystemSet.h"
 #include "AudioControl.h"
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "DialogBox.h"
 #include "MessageBox.h"
 #include "Hold.h"
@@ -997,10 +997,10 @@ void SetMenuPaint(void)
 
     if (GetMsg(MSG_SYS_SET_DISP_REFRESH_CUR_PREV_ITEM))
     {
-        if (menuitem->SelItemInID == 0xff)//Ã»ÓÐÑ¡ÖÐÌõÄ¿
+        if (menuitem->SelItemInID == 0xff)//Ã»ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½Ä¿
         {
             DisplayPicture_part(IMG_ID_BROWSER_BACKGROUND, 0, 0, SETMENU_PIC_Y + 17 * menuitem->CurDispItem, 17);
-            DispPictureWithIDNumAndXY(IMG_ID_ICON_SEL, SETMENU_PIC_X, SETMENU_PIC_Y + 17 * menuitem->CurDispItem); //¹â±êÖ¸Ê¾Í¼±ê
+            DispPictureWithIDNumAndXY(IMG_ID_ICON_SEL, SETMENU_PIC_X, SETMENU_PIC_Y + 17 * menuitem->CurDispItem); //ï¿½ï¿½ï¿½Ö¸Ê¾Í¼ï¿½ï¿½
             DisplayPicture_part(IMG_ID_BROWSER_BACKGROUND, 0, 0, SETMENU_PIC_Y + 17 * menuitem->PrevItem, 17);
             DispPictureWithIDNumAndXY(IMG_ID_PONIT_NOSEL, SETMENU_PIC_X, SETMENU_PIC_Y + 17 * menuitem->PrevItem);
         }
@@ -1011,7 +1011,7 @@ void SetMenuPaint(void)
 
             if (menuitem->SelItemInID == menuitem->CurDispItemFirst + menuitem->CurDispItem)
             {
-                DispPictureWithIDNumAndXY(IMG_ID_ICON_SEL, SETMENU_PIC_X, SETMENU_PIC_Y + 17 * menuitem->CurDispItem); //¹â±êÖ¸Ê¾Í¼±ê
+                DispPictureWithIDNumAndXY(IMG_ID_ICON_SEL, SETMENU_PIC_X, SETMENU_PIC_Y + 17 * menuitem->CurDispItem); //ï¿½ï¿½ï¿½Ö¸Ê¾Í¼ï¿½ï¿½
                 DispPictureWithIDNumAndXY(IMG_ID_PONIT_NOSEL, SETMENU_PIC_X, SETMENU_PIC_Y + 17 * menuitem->PrevItem);
             }
             else if (menuitem->SelItemInID == menuitem->CurDispItemFirst + menuitem->PrevItem)

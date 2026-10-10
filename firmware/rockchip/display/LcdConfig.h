@@ -24,10 +24,10 @@
 *-------------------------------------------------------------------------------
 */
 
-#define _ATTR_LCD_CODE_          __attribute__((section("SysCode")))
-#define _ATTR_LCD_DATA_          __attribute__((section("SysData")))
-#define _ATTR_LCD_BSS_           __attribute__((section("SysBss"), zero_init))
-#define _ATTR_LCD_BUF_           __attribute__((section("FrameBuffer"), zero_init))
+#define _ATTR_LCD_CODE_          
+#define _ATTR_LCD_DATA_          
+#define _ATTR_LCD_BSS_           
+#define _ATTR_LCD_BUF_           
 
 /*
 ********************************************************************************

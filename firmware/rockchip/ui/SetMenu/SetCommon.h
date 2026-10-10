@@ -29,9 +29,9 @@
 /******************************************************************************/
 
 //setting menu permanent code.
-#define _ATTR_SYS_SET_COMMON_CODE_         __attribute__((section("SetMenuServiceCode")))
-#define _ATTR_SYS_SET_COMMON_DATA_         __attribute__((section("SetMenuServiceData")))
-#define _ATTR_SYS_SET_COMMON_BSS_          __attribute__((section("SetMenuServiceBss"),zero_init))
+#define _ATTR_SYS_SET_COMMON_CODE_         
+#define _ATTR_SYS_SET_COMMON_DATA_         
+#define _ATTR_SYS_SET_COMMON_BSS_          
 
 /*
 --------------------------------------------------------------------------------

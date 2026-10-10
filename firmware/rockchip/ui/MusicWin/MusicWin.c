@@ -21,14 +21,14 @@
 #include "MusicWinInterface.h"
 #include "MusicLrc.h"
 #include "MusicWin.h"
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "MessageBox.h"
 #include "Hold.h"
-#include "Id3.h"
+#include "ID3.h"
 #include "AddrSaveMacro.h"
 #include "MediaBroWin.h"
 #include "medialibwin.h"
-#include "RockCodec.h"
+#include "rockcodec.h"
 #include "LcdInterface.h"
 
 #include "image_main.h"
@@ -94,7 +94,7 @@ void MusicWinIntDeInit(void)
 --------------------------------------------------------------------------------
   Function name : void MusicWinMsgInit(void)
   Author        : ZHengYongzhi
-  Description   : main menu message initial£¬initial the message parameters that main menu will use
+  Description   : main menu message initialï¿½ï¿½initial the message parameters that main menu will use
 
   Input         :
   Return        :
@@ -1573,11 +1573,11 @@ UINT32 MusicWinKeyProc(void)
                     }
                     else
                     {
-                        //±íÊ¾ä¯ÀÀÆ÷ÏÔÊ¾ËùÓÐÎÄ¼þÀàÐÍ;
+                        //ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½;
                         TaskArg.Browser.FileType = FileTypeALL;
                         TaskArg.Browser.FromWhere = 0;
                         fsType = FS_FAT;
-                        //±íÊ¾²éÕÒÎÄ¼þ°´ËùÓÐÎÄ¼þÀàÐÍ²éÕÒ
+                        //ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Í²ï¿½ï¿½ï¿½
                         fileEx = (UINT8*)ALLFileExtString;
                         TaskArg.Browser.FileNum = GlobalFilenum;
                     }
@@ -1590,7 +1590,7 @@ UINT32 MusicWinKeyProc(void)
 
             break;
 
-        case KEY_VAL_ESC_PRESS_START:                          //ÍË³öÒôÀÖ½çÃæ
+        case KEY_VAL_ESC_PRESS_START:                          //ï¿½Ë³ï¿½ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½
             BroswerFlag = FALSE;
             TaskArg.MainMenu.MenuID = MAINMENU_ID_MUSIC;
             TaskSwitch(TASK_ID_MAINMENU, &TaskArg);
@@ -1650,7 +1650,7 @@ UINT32 MusicWinKeyProc(void)
             SendMsg(MSG_MUSIC_DISPFLAG_STATUS_FF);
             break;
 
-        case KEY_VAL_FFD_PRESS:                                 //¿ì½ø
+        case KEY_VAL_FFD_PRESS:                                 //ï¿½ï¿½ï¿½
             if (MusicPlayStateFF == AUDIO_STATE_PAUSE_FFD)
             {
                 AudioErrorFileCount = 0;//sen #20090803#1 all audio file is not support
@@ -1727,7 +1727,7 @@ UINT32 MusicWinKeyProc(void)
             SendMsg(MSG_MUSIC_DISPFLAG_STATUS_FF);
             break;
 
-        case KEY_VAL_FFW_PRESS:                                  //¿ìÍË
+        case KEY_VAL_FFW_PRESS:                                  //ï¿½ï¿½ï¿½ï¿½
 
             if (MusicPlayStateFF == AUDIO_STATE_PAUSE_FFW)
             {

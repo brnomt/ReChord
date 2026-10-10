@@ -3,7 +3,7 @@
 *                   Copyright (c) 2009,Anzhiguo
 *                         All rights reserved.
 *
-* File Name£º  SetMenuInterface.c
+* File Nameï¿½ï¿½  SetMenuInterface.c
 *
 * Description:
 *
@@ -19,10 +19,10 @@
 
 #ifdef _SYSSET_
 
-#include "setcommon.h"
-#include "setmenuinterface.h"
+#include "SetCommon.h"
+#include "SetMenuInterface.h"
 #ifdef _RADIO_
-#include "FmControl.h"
+#include "FMControl.h"
 #endif
 /*
 --------------------------------------------------------------------------------

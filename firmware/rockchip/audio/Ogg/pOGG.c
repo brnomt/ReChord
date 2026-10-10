@@ -13,9 +13,9 @@ $Log    :
 */
 /****************************************************************/
 
-#include "../include/audio_main.h"
-#include "../include/audio_globals.h"
-#include "../include/audio_file_access.h"
+#include "audio_main.h"
+#include "audio_globals.h"
+#include "audio_file_access.h"
 
 #ifdef OGG_DEC_INCLUDE
 #include "audio_globals.h"
@@ -25,7 +25,7 @@ $Log    :
 #include "typedef.h"
 #include "mailbox.h"
 //*************************************************************************************************************//
-//the achievement of functions.£º
+//the achievement of functions.ï¿½ï¿½
 //SUBFN_CODEC_GETNAME  :   get decoder name
 //SUBFN_CODEC_GETARTIST:   get artist name.
 //SUBFN_CODEC_GETTITLE :   get song title.
@@ -57,8 +57,8 @@ Log:
 ******************************************************/
 #pragma arm section code = "OggDecCode", rodata = "OggDecCode", rwdata = "OggDecData", zidata = "OggDecBss"
 
-#include "sysinclude.h"
-#include "driverinclude.h"
+#include "SysInclude.h"
+#include "DriverInclude.h"
 extern MediaBlock  gpMediaBlock;
 extern unsigned int gDecDone;
 extern unsigned int gSeekDone;

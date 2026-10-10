@@ -15,7 +15,7 @@
 ********************************************************************************************
 */
 
-#include "Typedef.h"
+#include "typedef.h"
 #include "DriverInclude.h"
 #include "ST7735Driver.h"
 
@@ -37,9 +37,9 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _GUI_ST7735DRIVER_READ_  __attribute__((section("gui_st7735driver_read")))
-#define _GUI_ST7735DRIVER_WRITE_ __attribute__((section("gui_st7735driver_write")))
-#define _GUI_ST7735DRIVER_INIT_  __attribute__((section("gui_st7735driver_init")))
+#define _GUI_ST7735DRIVER_READ_  
+#define _GUI_ST7735DRIVER_WRITE_ 
+#define _GUI_ST7735DRIVER_INIT_  
 
 
 
@@ -275,12 +275,12 @@ void ST7735_SetWindow(uint16 x0,uint16 y0,uint16 x1,int16 y1)
 
   Input         : x0,y0: the start coordinate of display pictrue.
                   x1,y1: the end coordinate of display pictrue.
-                  pSrc£º the source address.
+                  pSrcï¿½ï¿½ the source address.
 
   Return        : null
 
   History:     <author>         <time>         <version>
-             yangwenjie     2008-1¡ª15         Ver1.0
+             yangwenjie     2008-1ï¿½ï¿½15         Ver1.0
   desc:         ORG
   Note:
 --------------------------------------------------------------------------------

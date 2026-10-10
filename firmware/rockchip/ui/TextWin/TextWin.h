@@ -30,21 +30,21 @@
 *-------------------------------------------------------------------------------
 */
 
-#define _ATTR_TEXT_CODE_                    __attribute__((section("TextWinCode")))
-#define _ATTR_TEXT_DATA_                    __attribute__((section("TextWinData")))
-#define _ATTR_TEXT_BSS_                     __attribute__((section("TextWinBss"),zero_init))
+#define _ATTR_TEXT_CODE_                    
+#define _ATTR_TEXT_DATA_                    
+#define _ATTR_TEXT_BSS_                     
 
-#define _ATTR_TEXT_INIT_CODE_               __attribute__((section("TextWinInitCode")))
-#define _ATTR_TEXT_INIT_DATA_               __attribute__((section("TextWinInitData")))
-#define _ATTR_TEXT_INIT_TBSS_               __attribute__((section("TextWinInitBss"),zero_init))
+#define _ATTR_TEXT_INIT_CODE_               
+#define _ATTR_TEXT_INIT_DATA_               
+#define _ATTR_TEXT_INIT_TBSS_               
 
-#define _ATTR_TEXT_DEINIT_CODE_             __attribute__((section("TextWinDeInitCode")))
-#define _ATTR_TEXT_DEINIT_DATA_             __attribute__((section("TextWinDeInitData")))
-#define _ATTR_TEXT_DEINIT_BSS_              __attribute__((section("TextWinDeInitBss"),zero_init))
+#define _ATTR_TEXT_DEINIT_CODE_             
+#define _ATTR_TEXT_DEINIT_DATA_             
+#define _ATTR_TEXT_DEINIT_BSS_              
 
-#define _ATTR_TEXT_SERVICE_CODE_            __attribute__((section("TextWinServiceCode")))
-#define _ATTR_TEXT_SERVICE_DATA_            __attribute__((section("TextWinServiceData")))
-#define _ATTR_TEXT_SERVICE_BSS_             __attribute__((section("TextWinServiceBss"),zero_init))
+#define _ATTR_TEXT_SERVICE_CODE_            
+#define _ATTR_TEXT_SERVICE_DATA_            
+#define _ATTR_TEXT_SERVICE_BSS_             
 
 /*
 *-------------------------------------------------------------------------------

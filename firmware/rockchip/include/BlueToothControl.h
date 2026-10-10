@@ -9,8 +9,8 @@
 
 extern THREAD BlueToothThread;
 
-#define _ATTR_BLUETOOTHCONTROL_CODE_  __attribute__((section("BlueToothControlCode")))
-#define _ATTR_BLUETOOTHCONTROL_DATA_  __attribute__((section("BlueToothControlData")))
-#define _ATTR_BLUETOOTHCONTROL_BSS_   __attribute__((section("BlueToothControlBss")))
+#define _ATTR_BLUETOOTHCONTROL_CODE_  
+#define _ATTR_BLUETOOTHCONTROL_DATA_  
+#define _ATTR_BLUETOOTHCONTROL_BSS_   
 
 #endif /* BLUETOOTHCONTROL_H */

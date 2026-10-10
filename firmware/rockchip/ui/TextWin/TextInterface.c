@@ -3,7 +3,7 @@
 *                   Copyright (c) 2008, Rock-Chips
 *                         All rights reserved.
 *
-* File Name£º  TextInterface.c
+* File Nameï¿½ï¿½  TextInterface.c
 * 
 * Description:  ebook module
 *
@@ -17,7 +17,7 @@
 #include "SysInclude.h"
 #ifdef _EBOOK_
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 #include "SysFindFile.h"
 #include "TextWin.h"
 #include "TextInterface.h"
@@ -30,8 +30,8 @@
   Author        : yangwenjie
   Description   : exchange the high 8 bits and low 8 bits
                   
-  Input         : pSrc      £ºbuffer that will be turn,
-                  len       £ºbuffer length
+  Input         : pSrc      ï¿½ï¿½buffer that will be turn,
+                  len       ï¿½ï¿½buffer length
 
   Return        : null 
 
@@ -84,9 +84,9 @@ UINT16 TextCat(UINT16*pSrc,UINT16 *pDes,UINT16 pStrNum)
   Author        : yangwenjie
   Description   : get text resource data.
                   
-  Input         : Addr      £ºFlash resource address
-                  Buffer    £ºcharater Buffer
-				  Length    £ºget data lenght
+  Input         : Addr      ï¿½ï¿½Flash resource address
+                  Buffer    ï¿½ï¿½charater Buffer
+				  Length    ï¿½ï¿½get data lenght
   Return        : null 
 
   History:     <author>         <time>         <version>       

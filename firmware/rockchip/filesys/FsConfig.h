@@ -77,29 +77,29 @@
 *-------------------------------------------------------------------------------
 */
 //Fat initailization's code and data segment.
-#define     _ATTR_FAT_INIT_CODE_        __attribute__((section("FatInitCode")))
-#define     _ATTR_FAT_INIT_DATA_        __attribute__((section("FatInitData")))
-#define     _ATTR_FAT_INIT_BSS_         __attribute__((section("FatInitBss"),zero_init))
+#define     _ATTR_FAT_INIT_CODE_        
+#define     _ATTR_FAT_INIT_DATA_        
+#define     _ATTR_FAT_INIT_BSS_         
 
 //fat basic operation and r/w operation code and data segment,(must be fixed in memory)
-#define     _ATTR_FAT_CODE_             __attribute__((section("FatCode")))
-#define     _ATTR_FAT_DATA_             __attribute__((section("FatData")))
-#define     _ATTR_FAT_BSS_              __attribute__((section("FatBss"),zero_init))
+#define     _ATTR_FAT_CODE_             
+#define     _ATTR_FAT_DATA_             
+#define     _ATTR_FAT_BSS_              
 
 //Fat find file code,date segment.
-#define     _ATTR_FAT_FIND_CODE_        __attribute__((section("FatFindCode")))
-#define     _ATTR_FAT_FIND_DATA_        __attribute__((section("FatFindData")))
-#define     _ATTR_FAT_FIND_BSS_         __attribute__((section("FatFindBss"),zero_init))
+#define     _ATTR_FAT_FIND_CODE_        
+#define     _ATTR_FAT_FIND_DATA_        
+#define     _ATTR_FAT_FIND_BSS_         
 
 //Fat write operation code,data segment.
-#define     _ATTR_FAT_WRITE_CODE_       __attribute__((section("FatWriteCode")))
-#define     _ATTR_FAT_WRITE_DATA_       __attribute__((section("FatWriteData")))
-#define     _ATTR_FAT_WRITE_BSS_        __attribute__((section("FatWriteBss"),zero_init))
+#define     _ATTR_FAT_WRITE_CODE_       
+#define     _ATTR_FAT_WRITE_DATA_       
+#define     _ATTR_FAT_WRITE_BSS_        
 
 //
-#define     _ATTR_FS_GET_MEM_CODE_       __attribute__((section("FsMemGetCode")))
-#define     _ATTR_FS_GET_MEM_DATA_       __attribute__((section("FsMemGetData")))
-#define     _ATTR_FS_GET_MEM_BSS_        __attribute__((section("FsMemGetBss"),zero_init))
+#define     _ATTR_FS_GET_MEM_CODE_       
+#define     _ATTR_FS_GET_MEM_DATA_       
+#define     _ATTR_FS_GET_MEM_BSS_        
 
 
 #define     IRAM_ENCODE_INIT            _ATTR_FAT_INIT_CODE_

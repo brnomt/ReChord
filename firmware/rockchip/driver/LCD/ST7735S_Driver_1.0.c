@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   ST7735.c
+* File Nameï¿½ï¿½   ST7735.c
 *
 * Description:
 *
@@ -14,7 +14,7 @@
 */
 #define _IN_Lcd_
 
-#include "Typedef.h"
+#include "typedef.h"
 #include "DriverInclude.h"
 #include "ST7735S_Driver_1.0.h"
 
@@ -64,7 +64,7 @@ void ST7735S_WakeUp(void)
   Return        : null
 
   History:     <author>         <time>         <version>
-             yangwenjie     2008-1¡ª15         Ver1.0
+             yangwenjie     2008-1ï¿½ï¿½15         Ver1.0
   desc:         ORG
   Note:
 --------------------------------------------------------------------------------
@@ -83,12 +83,12 @@ _ATTR_LCDDRIVER_ST7735S_CODE_
 
   Input         : x0,y0: the start coordinate of display pictrue.
                   x1,y1: the end coordinate of display pictrue.
-                  pSrc£º the source address.
+                  pSrcï¿½ï¿½ the source address.
 
   Return        : null
 
   History:     <author>         <time>         <version>
-             yangwenjie     2008-1¡ª15         Ver1.0
+             yangwenjie     2008-1ï¿½ï¿½15         Ver1.0
   desc:         ORG
   Note:
 --------------------------------------------------------------------------------
@@ -126,12 +126,12 @@ _ATTR_LCDDRIVER_ST7735S_CODE_
   Author        : yangwenjie
   Description   : clear the screen
 
-  Input         : color£ºclear lcd to the color.
+  Input         : colorï¿½ï¿½clear lcd to the color.
 
   Return        : null
 
   History:     <author>         <time>         <version>
-             yangwenjie     2008-1¡ª15         Ver1.0
+             yangwenjie     2008-1ï¿½ï¿½15         Ver1.0
   desc:         ORG
   Note:
 --------------------------------------------------------------------------------
@@ -164,7 +164,7 @@ _ATTR_LCDDRIVER_ST7735S_CODE_
   Return        : null
 
   History:     <author>         <time>         <version>
-             yangwenjie     2008-1¡ª15         Ver1.0
+             yangwenjie     2008-1ï¿½ï¿½15         Ver1.0
   desc:         ORG
   Note:
 --------------------------------------------------------------------------------
@@ -220,12 +220,12 @@ _ATTR_LCDDRIVER_ST7735S_CODE_
 
   Input         : x0,y0: the start coordinate of display pictrue.
                   x1,y1: the end coordinate of display pictrue.
-                  pSrc£º the source address.
+                  pSrcï¿½ï¿½ the source address.
 
   Return        : null
 
   History:     <author>         <time>         <version>
-             yangwenjie     2008-1¡ª15         Ver1.0
+             yangwenjie     2008-1ï¿½ï¿½15         Ver1.0
   desc:         ORG
   Note:
 --------------------------------------------------------------------------------
@@ -269,7 +269,7 @@ _ATTR_LCDDRIVER_ST7735S_CODE_
   Return        : null
 
   History:     <author>         <time>         <version>
-             yangwenjie     2008-1¡ª15         Ver1.0
+             yangwenjie     2008-1ï¿½ï¿½15         Ver1.0
   desc:         ORG
   Note:
 --------------------------------------------------------------------------------
@@ -290,7 +290,7 @@ void ST7735S_SendData(UINT16 data)
   Return        : null
 
   History:     <author>         <time>         <version>
-             yangwenjie     2008-1¡ª15         Ver1.0
+             yangwenjie     2008-1ï¿½ï¿½15         Ver1.0
   desc:         ORG
   Note:
 --------------------------------------------------------------------------------
@@ -313,7 +313,7 @@ _ATTR_LCDDRIVER_ST7735S_CODE_
   Return        : null
 
   History:     <author>         <time>         <version>
-             yangwenjie     2008-1¡ª15         Ver1.0
+             yangwenjie     2008-1ï¿½ï¿½15         Ver1.0
   desc:         ORG
   Note:
 --------------------------------------------------------------------------------
@@ -463,7 +463,7 @@ void ST7735S_MP4_Init(void)//[
 
     VopSetSplit(0, LCD_SPLIT1);
     VopSendCmd(0, 0x36); //Set Scanning Direction
-    VopSendData(0, 0xa8);   //2 //×¢ÒâÕâÀïÊÇµ÷½ÚµçÓ°ÏÔÊ¾·½ÏòµÄ PING ADD     //0x68
+    VopSendData(0, 0xa8);   //2 //×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½ï¿½Úµï¿½Ó°ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ PING ADD     //0x68
     //VopSendData(0, 0x68);
     VopSetSplit(0, LCD_SPLIT2);
 

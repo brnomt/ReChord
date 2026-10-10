@@ -23,19 +23,15 @@
 #include <stdint.h>
 #include <string.h>
 
-typedef unsigned int   uint32;
 typedef unsigned long  ulong;
-typedef unsigned short uint16;
-
 /* ---- globals (zero-init) — DATA ONLY, never called with () ----
  * BB-only: the real SDK (compiled by the AP build) defines these globals,
  * so they must not be redefined for RECHORD_AP_BUILD. ---- */
 #ifndef RECHORD_AP_BUILD
-uint32_t AdcSamplingCh __attribute__((used));
 uint32_t AudioCodecOpenErr __attribute__((used));
 uint32_t AudioDecodeCnt __attribute__((used));
 uint32_t AudioDecodeing __attribute__((used));
-uint32_t AudioFileExtString __attribute__((used));
+__attribute__((weak)) uint32_t AudioFileExtString __attribute__((used));
 uint32_t AudioLen __attribute__((used));
 uint32_t AudioNeedDecode __attribute__((used));
 uint32_t AudioPlayState __attribute__((used));
@@ -47,48 +43,51 @@ uint32_t BatteryCounter __attribute__((used));
 uint32_t BatteryCounter1 __attribute__((used));
 uint32_t BatterySystickCounterBack __attribute__((used));
 uint32_t BlueToothThread __attribute__((used));
-uint32_t BtWinStatus __attribute__((used));
+uint8 BtWinStatus __attribute__((used));   /* SDK externs declare uint8 */
 uint32_t ChargeFullFlag __attribute__((used));
 uint32_t ChargeWin __attribute__((used));
-uint32_t CodeLogicAddress __attribute__((used));
+__attribute__((weak)) uint32_t CodeLogicAddress __attribute__((used));
 uint32_t CurrentCodec2 __attribute__((used));
 uint32_t DataDiskID __attribute__((used));
-uint32_t DefaultLanguage __attribute__((used));
-uint32_t DefaultLanguageID __attribute__((used));
+__attribute__((weak)) uint32_t DefaultLanguage __attribute__((used));
+__attribute__((weak)) uint32_t DefaultLanguageID __attribute__((used));
 uint32_t DmaTransting __attribute__((used));
 uint32_t FMThread __attribute__((used));
 uint32_t FM_State_StepStation __attribute__((used));
 uint32_t FileInfo __attribute__((used));
-uint32_t FileOpenStringR __attribute__((used));
-uint32_t FmStandbyFlag __attribute__((used));
-uint32_t GBKLogicAddress __attribute__((used));
-uint32_t IsBTOpened __attribute__((used));
-uint32_t LanguageNum __attribute__((used));
+__attribute__((weak)) uint32_t FileOpenStringR __attribute__((used));
+__attribute__((weak)) uint32_t FmStandbyFlag __attribute__((used));
+__attribute__((weak)) uint32_t GBKLogicAddress __attribute__((used));
+__attribute__((weak)) uint32_t IsBTOpened __attribute__((used));
+__attribute__((weak)) uint32_t LanguageNum __attribute__((used));
 uint32_t LowPowerWin __attribute__((used));
-uint32_t MaxShuffleAllCount __attribute__((used));
+__attribute__((weak)) uint32_t MaxShuffleAllCount __attribute__((used));
 uint32_t MdbBuildWin __attribute__((used));
-uint32_t MenuLogicAddress __attribute__((used));
-uint32_t MusicFileExtString __attribute__((used));
+__attribute__((weak)) uint32_t MenuLogicAddress __attribute__((used));
+__attribute__((weak)) uint32_t MusicFileExtString __attribute__((used));
 uint32_t MusicWin __attribute__((used));
-uint32_t OutputVolOffset __attribute__((used));
+__attribute__((weak)) uint32_t OutputVolOffset __attribute__((used));
 uint32_t PicWin __attribute__((used));
 uint32_t RadioWin __attribute__((used));
-uint32_t RebootTag __attribute__((used));
-uint32_t RecordFileExtString __attribute__((used));
+__attribute__((weak)) uint32_t RebootTag __attribute__((used));
+__attribute__((weak)) uint32_t RecordFileExtString __attribute__((used));
 uint32_t RecordThread __attribute__((used));
 uint32_t RecordWin __attribute__((used));
-uint32_t SetMenuLanguageInfo __attribute__((used));
+__attribute__((weak)) uint32_t SetMenuLanguageInfo __attribute__((used));
 uint32_t SetPowerOffFlag __attribute__((used));
 uint32_t SysDiskID __attribute__((used));
-uint32_t SysProgRawDiskCapacity __attribute__((used));
-uint32_t ValidSysDisk __attribute__((used));
-uint32_t SysTickCounter __attribute__((used));
+__attribute__((weak)) uint32_t SysProgRawDiskCapacity __attribute__((used));
+__attribute__((weak)) uint32_t ValidSysDisk __attribute__((used));
+__attribute__((weak)) uint32_t SysTickCounter __attribute__((used));
 uint32_t gBattery __attribute__((used));
-uint32_t gLangSel __attribute__((used));
-uint32_t gSysConfig __attribute__((used));
+__attribute__((weak)) uint32_t gLangSel __attribute__((used));
+__attribute__((weak)) uint32_t gSysConfig __attribute__((used));
 uint32_t gpRadioplayerRegKey __attribute__((used));
-uint32_t chip_freq __attribute__((used));
+__attribute__((weak)) uint32_t chip_freq __attribute__((used));
 #endif /* !RECHORD_AP_BUILD */
+
+/* BT_DEBUG: BT log printf (call form, like USBDEBUG). */
+__attribute__((weak)) void BT_DEBUG(const char *fmt, ...) { (void)fmt; }
 
 /* ---- AP-only FiiO-layer globals/functions (weak; the FiiO app layer is the
  *      ~10% we replace, so these hold the link together until then). ---- */
@@ -103,7 +102,6 @@ uint32_t BtWinBtA2dpDisconnectTick __attribute__((weak));
 uint32_t BtWinBtA2dpDisconnectTickEnable __attribute__((weak));
 uint32_t BtWinBtConncetTick __attribute__((weak));
 uint32_t BtWinBtScanConnctMac __attribute__((weak));
-uint32_t BtWinStatus __attribute__((weak));
 uint32_t BtWinSubStatus __attribute__((weak));
 uint32_t ChargeFullFlag __attribute__((weak));
 uint32_t Batt_Level __attribute__((weak));
@@ -113,7 +111,6 @@ uint32_t BatterySystickCounterBack __attribute__((weak));
 uint32_t gBattery __attribute__((weak));
 uint32_t PCM_s __attribute__((weak));
 
-__attribute__((weak)) int BT_DEBUG(void) { return 0; }
 __attribute__((weak)) int BluetoothConnectResult(int r) { (void)r; return 0; }
 __attribute__((weak)) int BluetoothMsgInit(void) { return 0; }
 __attribute__((weak)) int BluetoothThreadDelete(void) { return 0; }
@@ -311,10 +308,6 @@ __attribute__((weak)) int DmaStart(void) { return 0; }
 __attribute__((weak)) int FREQ_EnterModule(void) { return 0; }
 __attribute__((weak)) int FREQ_ExitModule(void) { return 0; }
 __attribute__((weak)) int FadeIsFinished(void) { return 0; }
-__attribute__((weak)) int FileClose(void) { return 0; }
-__attribute__((weak)) int FileOpen(void) { return 0; }
-__attribute__((weak)) int FileRead(void) { return 0; }
-__attribute__((weak)) int FileSeek(void) { return 0; }
 __attribute__((weak)) int FileWrite(void) { return 0; }
 __attribute__((weak)) int GPIOIsrUnRegister(void) { return 0; }
 __attribute__((weak)) int GPIO_Suspend(void) { return 0; }
@@ -401,8 +394,26 @@ __attribute__((naked)) void __SETFAULTMASK2(void)   { __asm__ volatile("cpsid f;
 __attribute__((naked)) void __RESETFAULTMASK2(void) { __asm__ volatile("cpsie f; bx lr"); }
 __attribute__((naked)) void __WFI2(void)            { __asm__ volatile("wfi; bx lr"); }
 
+/* Base integer typedefs were removed 2026-10-10: include/typedef.h is
+ * force-included via armcc_compat.h in every TU (SDK-wide fix). */
+
 /* Non-"2" variants — the A_CORE (AP) build calls these names. */
 __attribute__((naked)) void __SETPRIMASK(void)     { __asm__ volatile("cpsie i; bx lr"); }
 __attribute__((naked)) void __RESETPRIMASK(void)   { __asm__ volatile("cpsid i; bx lr"); }
 __attribute__((naked)) void __SETFAULTMASK(void)   { __asm__ volatile("cpsid f; bx lr"); }
 __attribute__((naked)) void __RESETFAULTMASK(void) { __asm__ volatile("cpsie f; bx lr"); }
+
+/* PowerOn_Reset: the reset slot of the SDK's vector table
+ * (system/os/interrupt.c). core1's real reset path is firmware_entry
+ * (entry_stubs.S); this weak handler forwards to our main so the table links
+ * and, if ever invoked, boots ReChord instead of jumping nowhere. */
+__attribute__((weak)) void PowerOn_Reset(void)
+{
+    rechord_main();
+}
+
+
+/* USBDEBUG: USB log printf (the SDK calls it like `USBDEBUG("msg")`, so this
+ * must be a FUNCTION, not a variable - a variable stub makes the linker emit
+ * a branch to data ("Unknown destination type")). */
+__attribute__((weak)) void USBDEBUG(const char *fmt, ...) { (void)fmt; }

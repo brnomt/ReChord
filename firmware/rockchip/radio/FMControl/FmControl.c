@@ -1,7 +1,7 @@
 
 #define _IN_FM_CONTROL_
 #include "SysInclude.h"
-#include "FsInclude.h"
+#include "fsinclude.h"
 
 #ifdef _RADIO_
 #include "FmControl.h"
@@ -276,12 +276,12 @@ void GetNextStation(void)
 #endif
 }
 /**************************************************************************************
-*   function name£ºGetPrevStation
+*   function nameï¿½ï¿½GetPrevStation
 *   function     :get prevous fm station
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 void GetPrevStation(void)
@@ -347,12 +347,12 @@ void GetPrevStation(void)
 }
 
 /**************************************************************************************
-*   function name£ºFmStepChangeFreq
+*   function nameï¿½ï¿½FmStepChangeFreq
 *   function     :
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 void FmStepChangeFreq(UINT16 updownflag, UINT16 step)
@@ -375,12 +375,12 @@ void FmStepChangeFreq(UINT16 updownflag, UINT16 step)
 
 
 /**************************************************************************************
-*   function name£ºRadioPlayerGetFreqArray
+*   function nameï¿½ï¿½RadioPlayerGetFreqArray
 *   function     :
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 void RadioPlayerGetFreqArray(void)
@@ -414,12 +414,12 @@ void RadioPlayerGetFreqArray(void)
 }
 
 /**************************************************************************************
-*   function name£ºRadioPlayerFreqInit
+*   function nameï¿½ï¿½RadioPlayerFreqInit
 *   function     : initial the max and min frequency of 5767 or 5807 FM module.
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 void RadioPlayerFreqInit(void)
@@ -460,12 +460,12 @@ void FMVol_Resume(void)
 }
 
 /**************************************************************************************
-*   function name£ºFmModuleInitial
+*   function nameï¿½ï¿½FmModuleInitial
 *   function     :
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 void FmModuleInitial(void)
@@ -475,12 +475,12 @@ void FmModuleInitial(void)
 }
 
 /**************************************************************************************
-*   function name£ºRadioStartSeekByHand
+*   function nameï¿½ï¿½RadioStartSeekByHand
 *   function     :
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 void RadioStartSeekByHand(FM_DIRECT dir)
@@ -498,12 +498,12 @@ void RadioStartSeekByHand(FM_DIRECT dir)
     }
 }
 /**************************************************************************************
-*   function name£ºRadioQuickSeekStation
+*   function nameï¿½ï¿½RadioQuickSeekStation
 *   function     : quikly step to next freqency point,but this frequncy value do not write to FM chip.
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 void RadioQuickSeekStation(FM_DIRECT dir)
@@ -517,17 +517,17 @@ void RadioQuickSeekStation(FM_DIRECT dir)
 }
 
 /**************************************************************************************
-*   function name£ºRadioSetStepStation
+*   function nameï¿½ï¿½RadioSetStepStation
 *   function     : skip to next station.
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 void RadioSetStepStation(FM_DIRECT dir)
 {
-    if ((gpRadioplayerRegKey->FmState == FM_State_StepStation) && (gpRadioplayerRegKey->FmSaveNum < FREQMAXNUMBLE)) // Ô¤ÉèÄ£Ê½
+    if ((gpRadioplayerRegKey->FmState == FM_State_StepStation) && (gpRadioplayerRegKey->FmSaveNum < FREQMAXNUMBLE)) // Ô¤ï¿½ï¿½Ä£Ê½
     {
         gpRadioplayerRegKey->FmSearchDirect = dir;
         FM_Process(MSG_FM_STEPSTATION, NULL);
@@ -535,10 +535,10 @@ void RadioSetStepStation(FM_DIRECT dir)
 }
 /**************************************************************************************
 *   function     : receive the FM staticon by step..
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 void RadioSetStepFreq(FM_DIRECT dir)
@@ -547,16 +547,16 @@ void RadioSetStepFreq(FM_DIRECT dir)
 
     if (gpRadioplayerRegKey->FmState == FM_State_HandStepFreq || (gpRadioplayerRegKey->FmState == FM_State_HandSearch && !gpRadioplayerRegKey->FmHandSearchSt))
     {
-        gpRadioplayerRegKey->FmSearchDirect = dir; // 1 -- µÝÔöµ÷½Ú
+        gpRadioplayerRegKey->FmSearchDirect = dir; // 1 -- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         FM_Process(MSG_FM_STEPFREQ, NULL);
     }
 }
 /**************************************************************************************
 *   function     : get FM status.
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 FM_STATE RadioPlayerSeekingState(void)
@@ -575,10 +575,10 @@ FM_STATE RadioPlayerSeekingState(void)
 *   function     : stop the processing of search station.
                    if now is in auto-search mode,stop in default mode
                    if now is in hand_search mode,stop in signal step mode.
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 BOOL RadioStopSeeking(void)
@@ -611,10 +611,10 @@ BOOL RadioStopSeeking(void)
 
 /**************************************************************************************
 *   function     : FMSearchByHand
-*   input        £ºdirect -- 1(inc), 0(dec)
-*   output       £º
+*   input        ï¿½ï¿½direct -- 1(inc), 0(dec)
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 FM_SEARCH_RESULT FMSearchByHand(UINT16 direct, void *msg)
@@ -637,10 +637,10 @@ FM_SEARCH_RESULT FMSearchByHand(UINT16 direct, void *msg)
 
 /**************************************************************************************
 *   function     : FMSearchAuto
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       : TRUE -- search finish. FALSE -- do not obtain any station.
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 BOOLEAN FMSearchAuto(void *msg)
@@ -727,10 +727,10 @@ BOOLEAN FMSearchAuto(void *msg)
 
 /**************************************************************************************
 *   function     : FMHandSearchProcess
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       : TRUE -- search finish. FALSE -- do not obtain any station.
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 BOOL FMHandSearchProcess(void *msg)
@@ -787,10 +787,10 @@ BOOL FMHandSearchProcess(void *msg)
 }
 /**************************************************************************************
 *   function     : FMAutoSearchProcess
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       : TRUE -- search finish. FALSE -- continue.
-*   description  £º
+*   description  ï¿½ï¿½
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 BOOL FMAutoSearchProcess(void *msg)
@@ -830,10 +830,10 @@ BOOL FMAutoSearchProcess(void *msg)
 }
 /**************************************************************************************
 *   function     : FMStepFreqProcess
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       :
-*   description  £ºinc or dec one frequency unit.
+*   description  ï¿½ï¿½inc or dec one frequency unit.
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 void FMStepFreqProcess(void)
@@ -844,10 +844,10 @@ void FMStepFreqProcess(void)
 }
 /**************************************************************************************
 *   function     : FMStepFreqProcess
-*   input        £º
-*   output       £º
+*   input        ï¿½ï¿½
+*   output       ï¿½ï¿½
 *   return       : true:success false:failure
-*   description  £ºfunction switch.
+*   description  ï¿½ï¿½function switch.
 **************************************************************************************/
 _ATTR_FMCONTROL_TEXT_
 BOOLEAN FM_Process(MSG_ID id, void *msg)

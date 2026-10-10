@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  SetRe.c
+* File Nameï¿½ï¿½  SetRe.c
 *
 * Description:  set menu execution function configuration of FM
 *
@@ -20,8 +20,8 @@
 
 #ifdef _SYSSET_
 #ifdef _RADIO_
-#include "setcommon.h"
-#include "setradio.h"
+#include "SetCommon.h"
+#include "SetRadio.h"
 #include "SetMenuInterface.h"
 
 /*

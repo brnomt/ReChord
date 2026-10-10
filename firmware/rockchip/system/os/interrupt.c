@@ -23,7 +23,7 @@ extern UINT32 Image$$AP_MAIN_STACK$$ZI$$Limit;
 
 #define ENABLE_USB_INT          *((volatile unsigned long*)(0xE000E100)) = 0x00000020
 #define DISABLE_USB_INT         *((volatile unsigned long*)(0xE000E180)) = 0x00000020
-__attribute__((section("APMainStack"))) __align(4) uint32 MainStack1[4096];
+ __align(4) uint32 MainStack1[4096];
 /*
 --------------------------------------------------------------------------------
   Function name :

@@ -4,9 +4,9 @@
 //------------------------------------------------------------------------------
 //Music Section define
 
-#define     _ATTR_SPECTRUM_TEXT_          __attribute__((section("AudioCode")))//__attribute__((section("SpectrumCode")))
-#define     _ATTR_SPECTRUM_DATA_          __attribute__((section("AudioData")))//__attribute__((section("SpectrumData")))
-#define     _ATTR_SPECTRUM_BSS_           __attribute__((section("AudioBss"),zero_init))//__attribute__((section("SpectrumBss"),zero_init))
+#define     _ATTR_SPECTRUM_TEXT_          //
+#define     _ATTR_SPECTRUM_DATA_          //
+#define     _ATTR_SPECTRUM_BSS_           //
 
 #define FFT_BUFFER_SIZE      64     //perform fft pcm size(16bits/sample)
 

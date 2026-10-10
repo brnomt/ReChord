@@ -30,9 +30,9 @@
 ********************************************************************************
 */
 //section define
-#define _ATTR_VIDEOWIN_CODE_         __attribute__((section("VideoWinCode")))
-#define _ATTR_VIDEOWIN_DATA_         __attribute__((section("VideoWinData")))
-#define _ATTR_VIDEOWIN_BSS_          __attribute__((section("VideoWinBss"),zero_init))
+#define _ATTR_VIDEOWIN_CODE_         
+#define _ATTR_VIDEOWIN_DATA_         
+#define _ATTR_VIDEOWIN_BSS_          
 
 EXT UINT8               VideoWinDialogType;
 #define             VIDEOWIN_DIALOG_NOFILE              1

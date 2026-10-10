@@ -3,7 +3,7 @@
 *                   Copyright (c) 2009,WangBo
 *                         All rights reserved.
 *
-* File Name£º   pWAVEnc.c
+* File Nameï¿½ï¿½   pWAVEnc.c
 *
 * Description:  WAV coding processing control.
 *
@@ -18,14 +18,14 @@
 
 #ifdef ADPCM_ENC_INCLUDE
 
-#include  "FsInclude.h"
+#include  "fsinclude.h"
 #include  "File.h"
 #include  "FDT.h"
 
-#include  "pcm.h"
+#include  "PCM.H"
 
 #include  "audio_globals.h"
-#include  "RecordControl.h"
+#include  "recordcontrol.h"
 extern RecordBlock  gRecordBlock;
 
 extern UINT32 gEncodeDone;

@@ -1,6 +1,6 @@
 # Imported sources enabled by the Keil RkNano A_CORE target.
 AP_SRCS := \
-  firmware/rockchip/driver/PMU/PMU.C \
+  firmware/rockchip/driver/PMU/PMU.c \
   firmware/rockchip/driver/ADC/Adc.c \
   firmware/rockchip/driver/DMA/Dma.c \
   firmware/rockchip/driver/I2C/i2c.c \

@@ -32,24 +32,24 @@
 */
 //section define
 //常驻代码
-#define _ATTR_MEDIALIBWIN_CODE_         __attribute__((section("MediaWinCode")))
-#define _ATTR_MEDIALIBWIN_DATA_         __attribute__((section("MediaWinData")))
-#define _ATTR_MEDIALIBWIN_BSS_          __attribute__((section("MediaWinBss"),zero_init))
+#define _ATTR_MEDIALIBWIN_CODE_         
+#define _ATTR_MEDIALIBWIN_DATA_         
+#define _ATTR_MEDIALIBWIN_BSS_          
 
 //初始化代码
-#define _ATTR_MEDIALIBWIN_INIT_CODE_    __attribute__((section("MediaWinInitCode")))
-#define _ATTR_MEDIALIBWIN_INIT_DATA_    __attribute__((section("MediaWinInitData")))
-#define _ATTR_MEDIALIBWIN_INIT_BSS_     __attribute__((section("MediaWinInitBss"),zero_init))
+#define _ATTR_MEDIALIBWIN_INIT_CODE_    
+#define _ATTR_MEDIALIBWIN_INIT_DATA_    
+#define _ATTR_MEDIALIBWIN_INIT_BSS_     
 
 //反初始化代码
-#define _ATTR_MEDIALIBWIN_DEINIT_CODE_  __attribute__((section("MediaWinDeInitCode")))
-#define _ATTR_MEDIALIBWIN_DEINIT_DATA_  __attribute__((section("MediaWinDeInitData")))
-#define _ATTR_MEDIALIBWIN_DEINIT_BSS_   __attribute__((section("MediaWinDeInitBss"),zero_init))
+#define _ATTR_MEDIALIBWIN_DEINIT_CODE_  
+#define _ATTR_MEDIALIBWIN_DEINIT_DATA_  
+#define _ATTR_MEDIALIBWIN_DEINIT_BSS_   
 
 //可调度代码
-#define _ATTR_MEDIALIBWIN_SERVICE_CODE_  __attribute__((section("MediaWinServiceCode")))
-#define _ATTR_MEDIALIBWIN_SERVICE_DATA_ __attribute__((section("MediaWinServiceData")))
-#define _ATTR_MEDIALIBWIN_SERVICE_BSS_   __attribute__((section("MediaWinServiceBss"),zero_init))
+#define _ATTR_MEDIALIBWIN_SERVICE_CODE_  
+#define _ATTR_MEDIALIBWIN_SERVICE_DATA_ 
+#define _ATTR_MEDIALIBWIN_SERVICE_BSS_   
 
 #define     MEDIALIB_TITLE_TXT_X            34
 #define     MEDIALIB_TITLE_TXT_Y            146

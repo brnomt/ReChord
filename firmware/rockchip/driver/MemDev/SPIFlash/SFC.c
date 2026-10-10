@@ -14,8 +14,8 @@ $Log: $
 
 /*-------------------------------- Includes ----------------------------------*/
 
-#include "Sysconfig.h"
-#include "MDconfig.h"
+#include "SysConfig.h"
+#include "MDConfig.h"
 #ifdef SPIFLASH_DRIVER
 #include "DriverInclude.h"
 #include "SFC.h"
@@ -43,7 +43,7 @@ $Log: $
 #define SFC_RESET                   (1 << 0)     //controller reset
 
 /* SFC_SR Register */
-#define SFC_BUSY                    (1 << 0)     //sfc busy flag. When busy , don¡¯t try to set the control register
+#define SFC_BUSY                    (1 << 0)     //sfc busy flag. When busy , donï¿½ï¿½t try to set the control register
 
 /* SFC_DMA_TRIGGER Register */
 #define SFC_DMA_START               (1 << 0)     //Dma start trigger signal. Auto cleared after write
@@ -58,11 +58,11 @@ typedef union tagSFCFTLR_DATA
     struct
     {
         /*Tx fifo threshold level
-        µ±TX FIFOÖÐµÄÊý¾Ý¸öÊýÐ¡µÈÓÚ¸ÃË®ÏßµÄÊ±ºò£¬»á´¥·¢
+        ï¿½ï¿½TX FIFOï¿½Ðµï¿½ï¿½ï¿½ï¿½Ý¸ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½Ú¸ï¿½Ë®ï¿½ßµï¿½Ê±ï¿½ò£¬»á´¥ï¿½ï¿½
         tx fifo empty interrupt*/
         unsigned txthresholdlevel : 8;
         /*Rx fifo threshold level
-        µ±RX FIFOÖÐµÄÊý¾ÝÊý´óµÈÓÚ¸ÃË®ÏßµÄÊ±ºò£¬»á´¥·¢rx
+        ï¿½ï¿½RX FIFOï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¸ï¿½Ë®ï¿½ßµï¿½Ê±ï¿½ò£¬»á´¥ï¿½ï¿½rx
         fifo full interrupt*/
         unsigned rxthresholdlevel : 8;
 
@@ -90,7 +90,7 @@ typedef union tagSFCFSR_DATA
         /*tx fifo waterlevel:
         0x0: fifo is full
         0x1:left 1 entry
-        ¡­
+        ï¿½ï¿½
         0x10: left 16 entry,fifo is empty*/
         unsigned txlevel : 5;
 
@@ -98,7 +98,7 @@ typedef union tagSFCFSR_DATA
         /*rx fifo waterlevel:
         0x0: fifo is empty
         0x1: one entry is taken
-        ¡­
+        ï¿½ï¿½
         0x10: 16 entry is taken fifo is full*/
         unsigned rxlevel : 5;
 
@@ -203,7 +203,7 @@ static __inline void SFC_SetClk(void)
 {
     //pCRU_REG cruReg=(pCRU_REG)CRU_BASE;
 
-    /*sclk = 12M, from 24Mhz. sfc_div_con=0,ÒòÎªÄÚ²¿ÓÐ2·ÖÆµ. */
+    /*sclk = 12M, from 24Mhz. sfc_div_con=0,ï¿½ï¿½Îªï¿½Ú²ï¿½ï¿½ï¿½2ï¿½ï¿½Æµ. */
     SetSFCFreq(XIN12M,24*1000*1000);
     //cruReg->CRU_CLKSEL_CON[10] = (((0x1<<15)|(0x1F<<8))<<16)|(0x1<<15)|(0<<8);
 }
@@ -349,7 +349,7 @@ int32 SFC_Request(uint32 sfcmd, uint32 sfctrl, uint32 addr, void *data)
         ctrl.d32 = sfctrl;
         if (!ctrl.b.addrbits)
             return SFC_PARAM_ERR;
-        pReg->SFC_ABIT = ctrl.b.addrbits-1;         //¿ØÖÆÆ÷ÄÚ²¿»á×Ô¶¯¼Ó1
+        pReg->SFC_ABIT = ctrl.b.addrbits-1;         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½1
     }
 
     pReg->SFC_CTRL = sfctrl;
@@ -392,7 +392,8 @@ int32 SFC_Request(uint32 sfcmd, uint32 sfctrl, uint32 addr, void *data)
             {
                 words  = (cmd.b.datasize+3)>>2;
                 while (words)
-                {
+                {
+
                     fifostat.d32 = pReg->SFC_FSR;
                     if (fifostat.b.txlevel > 0)
                     {
@@ -424,7 +425,8 @@ int32 SFC_Request(uint32 sfcmd, uint32 sfctrl, uint32 addr, void *data)
 
                 words = cmd.b.datasize>>2;
                 while (words)
-                {
+                {
+
                     fifostat.d32 = pReg->SFC_FSR;
                     if (fifostat.b.rxlevel > 0)
                     {

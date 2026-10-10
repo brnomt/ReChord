@@ -30,9 +30,9 @@
 *
 *-------------------------------------------------------------------------------
 */
-#define _ATTR_MESSAGEBOX_CODE_         __attribute__((section("MessageBoxCode")))
-#define _ATTR_MESSAGEBOX_DATA_         __attribute__((section("MessageBoxData")))
-#define _ATTR_MESSAGEBOX_BSS_          __attribute__((section("MessageBoxBss"),zero_init))
+#define _ATTR_MESSAGEBOX_CODE_         
+#define _ATTR_MESSAGEBOX_DATA_         
+#define _ATTR_MESSAGEBOX_BSS_          
 
 //message box text display position
 #define     MESSAGE_TEXT_TITLE_X             29

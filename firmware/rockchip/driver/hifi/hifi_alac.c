@@ -39,10 +39,10 @@
 *---------------------------------------------------------------------------------------------------------------------
 */
 
-#define _CPU_NANOD_LIB_HIFI_ALAC_READ_  __attribute__((section("cpu_nanod_lib_hifi_alac_read")))
-#define _CPU_NANOD_LIB_HIFI_ALAC_WRITE_ __attribute__((section("cpu_nanod_lib_hifi_alac_write")))
-#define _CPU_NANOD_LIB_HIFI_ALAC_INIT_  __attribute__((section("cpu_nanod_lib_hifi_alac_init")))
-#define _CPU_NANOD_LIB_HIFI_ALAC_SHELL_  __attribute__((section("cpu_nanod_lib_hifi_alac_shell")))
+#define _CPU_NANOD_LIB_HIFI_ALAC_READ_  
+#define _CPU_NANOD_LIB_HIFI_ALAC_WRITE_ 
+#define _CPU_NANOD_LIB_HIFI_ALAC_INIT_  
+#define _CPU_NANOD_LIB_HIFI_ALAC_SHELL_  
 
 
 /*

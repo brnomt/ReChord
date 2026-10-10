@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name¡êo  SystemSet.c
+* File Nameï¿½ï¿½o  SystemSet.c
 *
 * Description:  set menu execution function configuration
 *
@@ -23,23 +23,23 @@
 
 #include "DialogBox.h"
 #include "MessageBox.h"
-#include "setcommon.h"
+#include "SetCommon.h"
 #include "SystemSet.h"
 #include "SetMenuInterface.h"
-#include "setmenu.h"
-#include "hold.h"
+#include "SetMenu.h"
+#include "Hold.h"
 
-#include "FsInclude.h"
+#include "fsinclude.h"
 #ifdef _MUSIC_
 #include "AudioControl.h"
 #endif
 
 #ifdef _RECORD_
-#include "RecordControl.h"
+#include "recordcontrol.h"
 #endif
 
 #ifdef _RADIO_
-#include "FmControl.h"
+#include "FMControl.h"
 #endif
 
 extern SYSTICK_LIST SetPowerDownTimer;
@@ -881,7 +881,7 @@ UINT32 SysSetFormat(UINT32 itemNum)
         else
         {
             TaskArg.Message.TitleID   = SID_WARNING;
-            TaskArg.Message.ContentID = SID_WARNING;   //SD¿¨Î´²åÈë£¬ÇëÖØÊÔ¡£
+            TaskArg.Message.ContentID = SID_WARNING;   //SDï¿½ï¿½Î´ï¿½ï¿½ï¿½ë£¬ï¿½ï¿½ï¿½ï¿½ï¿½Ô¡ï¿½
             TaskArg.Message.HoldTime = 1;
             TaskArg.Message.CurDisFrameIndex = 0;
             TaskArg.Message.UnsupportFrameIndex = 1;

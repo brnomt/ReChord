@@ -14,7 +14,7 @@ $Log: $
 
 /*-------------------------------- Includes ----------------------------------*/
 
-#include "Sysconfig.h"
+#include "SysConfig.h"
 
 
 #ifdef SPINAND_DRIVER
@@ -503,7 +503,7 @@ int32 SNAND_ReadID(uint8* data)
 
     sfcmd.d32 = 0; 
     sfcmd.b.cmd = CMD_READ_JEDECID;
-    sfcmd.b.datasize = 3;               //ID ×Ö½ÚÊýÊÇ2-3B, ²»Í¬³§ÉÌ²»Ò»Ñù
+    sfcmd.b.datasize = 3;               //ID ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½2-3B, ï¿½ï¿½Í¬ï¿½ï¿½ï¿½Ì²ï¿½Ò»ï¿½ï¿½
     sfcmd.b.addrbits = SFC_ADDR_XBITS;
     //sfcmd.b.dummybits = 8;
     sfctrl.d32 = 0;
@@ -532,7 +532,7 @@ int32 SNAND_SetDLines(SFC_DATA_LINES lines)
     pSFNAND_DEV pDev = &SFNandDev;
     uint8           ReadCmd[] = {CMD_FAST_READ_X1, CMD_FAST_READ_X2, CMD_FAST_READ_X4/*CMD_FAST_READ_A4*/};
 
-    //if (pDev->ReadMode != READ_MODE_FAST) //¶àÏßÄ£Ê½ÐèÊ¹ÓÃFast read mode
+    //if (pDev->ReadMode != READ_MODE_FAST) //ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½Ê¹ï¿½ï¿½Fast read mode
     //    return SFC_ERROR;
 
     if (lines == DATA_LINES_X4)
@@ -547,7 +547,7 @@ int32 SNAND_SetDLines(SFC_DATA_LINES lines)
 
     if (pDev->Manufacturer == MID_GIGADEV || pDev->Manufacturer == MID_WINBOND)
     {
-        pDev->ProgLines = (lines != DATA_LINES_X2)? lines : DATA_LINES_X1;  //²»Ö§³ÖÁ½Ïß±à³Ì
+        pDev->ProgLines = (lines != DATA_LINES_X2)? lines : DATA_LINES_X1;  //ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½ï¿½ß±ï¿½ï¿½
         if (lines == DATA_LINES_X1)
             pDev->ProgCmd = CMD_PAGE_PROG;
         else
@@ -625,12 +625,13 @@ int32 SNAND_Init(uint8* pFlashID, SFLASH_DRIVER **pDrv)
     memset(pDev, 0, sizeof(pSFNAND_DEV));
     //SFC_Init();
     if (pFlashID)
-    {
+    {
+
         data = pFlashID;
     }
     else
     {
-        SNAND_Reset();          //Ä¿Ç°Ö»ÒªMICROM µÄSPI NAND ±ØÐëÒªReset
+        SNAND_Reset();          //Ä¿Ç°Ö»ÒªMICROM ï¿½ï¿½SPI NAND ï¿½ï¿½ï¿½ï¿½ÒªReset
         data = IDByte;
         SNAND_ReadID(data);
     }

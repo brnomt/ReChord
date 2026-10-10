@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2016, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º  BluetoothDevInfoWin.c
+* File Nameï¿½ï¿½  BluetoothDevInfoWin.c
 *
 * Description:
 *
@@ -23,10 +23,10 @@
 #include "BluetoothScanWin.h"
 #include "BlueToothControl.h"
 
-#include "MainMenu.h"
+#include "mainmenu.h"
 #include "Hold.h"
 
-#include "setcommon.h"
+#include "SetCommon.h"
 #include "SystemSet.h"
 
 #include "MessageBox.h"
