@@ -24,4 +24,13 @@ int emmc_layout(uint32_t *user_start);
 uint32_t emmc_fw_sectors(void);
 int emmc_fw_write(uint32_t rel, uint32_t count, const void *buf);
 
+/* microSD slot (second DW-MMC instance), read-only. sd_init(): 0 = ready,
+ * -1 = no card, other negative = failing step. */
+int sd_present(void);
+int sd_init(void);
+uint32_t sd_sectors(void);           /* 0 = not initialized */
+int sd_is_hc(void);
+int sd_bus_width(void);
+int sd_read(uint32_t lba, uint32_t count, void *buf);
+
 #endif

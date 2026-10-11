@@ -1279,7 +1279,46 @@ Open:
   Host check asserts fsck clean with 1 cluster in use. Hardware: m4d -> m4e
   showed "cleanup 0".
 
+## VERDICT #26 (2026-10-11): microSD READ WORKS (m5a)
+
+Root menu "SD" row on hardware: size, SDHC, 4-bit, file system of the first
+partition all correct; "no card" without one; re-probes on insert/remove.
+Driver: second DW-MMC instance at 0x60020000 sharing emmc_rknanoc.c's
+command/clock/FIFO code (select_mmc()). Facts (reference 0x03062d84 init,
+0x03062a2c read, 0x03062c34 detect):
+- Card detect GPIO0.11 input, GRF+0x14 = 0x80008 pull-up, 0 = card in.
+- Gates 0x18 (bus) + 0x6B (card clock, on only around transfers), reset
+  0x12; CRU+0x30 low half = 0x9F0080 | (prediv-1) (eMMC uses the high half).
+- Pinmux GRF+0x20 = 0xFC005400, GRF+0x24 = 0x3F0015 (GPIO1.5..10).
+- CMD0, CMD8 0x1AA, CMD55+ACMD41 (0x40FF8000 / 0x00FF8000 for 1.x),
+  CMD2, CMD3 (RCA from card), CMD9 CSD (v1/v2 capacity), 24 MHz, CMD7,
+  CMD16 for SDSC, ACMD42 0, ACMD6 2 -> CTYPE 1. SDSC = byte addressing.
+- Read-only, like the reference.
+
+## VERDICT #27 (2026-10-11): SD AS USB LUN 1 + FILE BROWSER (m5b)
+
+Hardware (m5a -> m5b via self-update): Files shows "Internal" and "SD" and
+browses both; on the PC the SD card shows up as a second, read-only disk.
+- USB: usb_msc_run() takes a LUN table {read, write (NULL = write
+  protected), base, count (0 = no medium)}. GET MAX LUN = nluns-1, CBW LUN
+  checked, sense per LUN. LUN 0 = eMMC user volume (r/w), LUN 1 = SD (r/o:
+  MODE SENSE WP bit, writes -> 7/0x27; no card -> 2/0x3A). The card state
+  is fixed for the session (insert before plugging in). The main loop now
+  probes SD before starting the USB session.
+- fs_target.c: read-only FAT16 / FAT32 (LFN with checksum, NT lower-case
+  bits) / exFAT (FAT chain + NoFatChain), superfloppy or MBR partition 0,
+  FAT12 refused. Paths "/<volume>/...", "/" lists the mounted volumes
+  (fs_target_mount(): "Internal" after emmc_probe, "SD" after sd_probe,
+  Internal remounted after every USB session). One-sector cache (ponytail),
+  4 read handles, writes FS_ERR_UNSUPPORTED. Settings-style paths
+  ("\RECHORD.CFG") do not resolve on target yet.
+- Host check: `python3 tools/test_fs_target.py` builds FAT16, FAT32 (behind
+  an MBR) and exFAT images through a udisks loop mount (no root; long and
+  Unicode names, 300-entry dir, fragmented files, empty file/dir) and
+  compares every listing + content hash with os.walk.
+
 Next session:
-1. Pick the real product work (audio path / file browser over FAT32 -
-   fw_update.c already has a minimal FAT32 reader to grow from).
-2. Warm reboot, suspend exit (m3d "USB diag"), high-speed USB: polish.
+1. Audio path: decode from fs_open_read() (multi-sector reads in
+   fs_target.c once throughput matters).
+2. Settings on target (needs a volume path convention or fs writes).
+3. Warm reboot, suspend exit (m3d "USB diag"), high-speed USB: polish.

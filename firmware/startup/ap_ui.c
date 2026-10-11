@@ -4,11 +4,13 @@
  * are debounced by input_scan() and dispatched to the screen stack.
  */
 #include <stdio.h>
+#include <string.h>
 
 #include "drivers/display.h"
 #include "drivers/emmc.h"
 #include "drivers/panel_io.h"
 #include "drivers/usb_msc.h"
+#include "services/fs_target.h"
 #include "services/fw_update.h"
 #include "services/input.h"
 #include "ui/ui.h"
@@ -17,7 +19,8 @@
 static int s_adc = 1023, s_power, s_cable;
 static unsigned s_power_held;
 static uint32_t s_user;              /* user volume start, 0 = unknown */
-static char s_emmc[32], s_usb[32] = "plug in";
+static char s_emmc[32], s_usb[32] = "plug in", s_sd[32];
+static int s_sd_in = -1;
 
 /* Read-only eMMC probe for the root menu: size and user volume start. */
 static void emmc_probe(void)
@@ -35,9 +38,33 @@ static void emmc_probe(void)
     else
         snprintf(s_emmc, sizeof s_emmc, "%uM u%x", (unsigned)(emmc_sectors() >> 11),
                  (unsigned)(s_user = user));
+    if (s_user)
+        fs_target_mount(0, "Internal", emmc_read, s_user);
 }
 
 static const char *emmc_text(void) { return s_emmc; }
+
+/* SD row: size, type, bus width and the first volume's file system. */
+static void sd_probe(void)
+{
+    int r = sd_init();
+
+    fs_target_unmount(1);
+    if (r == -1) {
+        snprintf(s_sd, sizeof s_sd, "no card");
+        return;
+    }
+    if (r) {
+        snprintf(s_sd, sizeof s_sd, "init %d", r);
+        return;
+    }
+    r = fs_target_mount(1, "SD", sd_read, 0);
+    snprintf(s_sd, sizeof s_sd, "%uM %s %db %s", (unsigned)(sd_sectors() >> 11),
+             sd_is_hc() ? "HC" : "SC", sd_bus_width(),
+             r ? (r == -3 ? "rd err" : "no fs") : fs_target_type(1));
+}
+
+static const char *sd_text(void) { return s_sd; }
 static const char *usb_text(void)  { return s_usb; }
 
 static const char *usbd_text(void)
@@ -160,16 +187,22 @@ static void power_off(void)
     board_power_off();
 }
 
-/* Cable plugged in: expose the user volume until eject/unplug/power key. */
+/* Cable plugged in: expose the user volume (LUN 0) and the SD card (LUN 1,
+ * read-only) until eject/unplug/power key. */
 static void usb_session(void)
 {
+    const usb_lun_t luns[2] = {
+        { emmc_read, emmc_write, s_user, emmc_sectors() - s_user },
+        { sd_read, NULL, 0, sd_sectors() },
+    };
     uint32_t rd, wr;
     int r;
 
     screen("USB mass storage");
     line(1, "eject on the PC or press power");
     display_flush_rows(0, DISPLAY_H - 1);
-    r = usb_msc_run(s_user, emmc_sectors() - s_user, keys_power, &rd, &wr);
+    r = usb_msc_run(luns, 2, keys_power, &rd, &wr);
+    fs_target_mount(0, "Internal", emmc_read, s_user);   /* host may have written */
     snprintf(s_usb, sizeof s_usb, "x%d r%uM w%uM", r, (unsigned)(rd >> 11), (unsigned)(wr >> 11));
     while (keys_power())                 /* don't leak the exit press */
         panel_io_delay_ms(1);
@@ -195,11 +228,12 @@ static const menu_item_t k_root_items[] = {
     { "Settings",    NULL,      open_settings },
     { "Keys",        keys_text, NULL },
     { "eMMC",        emmc_text, NULL },
+    { "SD",          sd_text,   NULL },
     { "USB",         usb_text,  NULL },
     { "USB diag",    usbd_text, NULL },
 };
-#define RC_BUILD "m4e"
-static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 7 };
+#define RC_BUILD "m5b"
+static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 8 };
 
 void ap_ui_loop(void)
 {
@@ -212,7 +246,15 @@ void ap_ui_loop(void)
     for (;;) {
         int adc = keys_adc(), power = keys_power(), cable = usb_cable();
 
-        if (cable && !s_cable && s_user)
+        if (sd_present() != s_sd_in) {   /* card inserted / removed */
+            s_sd_in = sd_present();
+            if (s_sd_in)
+                panel_io_delay_ms(300);  /* let the contacts settle */
+            sd_probe();
+            ui_invalidate_all();
+        }
+
+        if (cable && !s_cable && s_user)  /* after the SD probe: LUN 1 */
             usb_session();
         s_cable = cable;
 

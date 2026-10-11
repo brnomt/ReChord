@@ -1,6 +1,6 @@
 /*
  * usb_msc.h -- polled USB mass storage (DWC2 OTG device at 0x60080000)
- * exposing one eMMC window [base, base+count) as LUN 0.
+ * exposing up to USB_MAX_LUNS block windows as LUNs.
  */
 #ifndef RECHORD_USB_MSC_H
 #define RECHORD_USB_MSC_H
@@ -22,9 +22,19 @@ int usb_cable(void);         /* 1 = VBUS present */
  * [19:16] GINTSTS bits 10..13 ever seen (early suspend, suspend, reset, enum). */
 extern uint32_t usb_msc_diag;
 
+#define USB_MAX_LUNS 2
+
+/* [base, base+count) of a block device; count 0 = no medium (fixed for the
+ * session), write NULL = write protected. */
+typedef struct {
+    int (*read)(uint32_t lba, uint32_t count, void *buf);
+    int (*write)(uint32_t lba, uint32_t count, const void *buf);
+    uint32_t base, count;
+} usb_lun_t;
+
 /* Runs the session until one of USB_EXIT_*; user_exit (may be NULL) is
- * polled continuously. */
-int usb_msc_run(uint32_t base, uint32_t count, int (*user_exit)(void),
+ * polled continuously. nluns: 1..USB_MAX_LUNS. */
+int usb_msc_run(const usb_lun_t *luns, unsigned nluns, int (*user_exit)(void),
                 uint32_t *rd_sectors, uint32_t *wr_sectors);
 
 #endif

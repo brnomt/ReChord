@@ -49,7 +49,8 @@ static struct {
     uint8_t *out_buf;
     uint32_t out_len, out_got, mps, max_xfer;
     int setup_pending, out_done, in_halt, out_halt, configured, exit, dedicated;
-    uint8_t sense_key, sense_asc;
+    uint8_t sense_key[USB_MAX_LUNS], sense_asc[USB_MAX_LUNS], lun;
+    unsigned nluns;
     int (*user_exit)(void);
 } s;
 
@@ -231,7 +232,7 @@ static void handle_setup(void)
 
     if ((type & 0x60u) == 0x20u) {                   /* class: Bulk-Only */
         if (req == 0xFE && (type & 0x80u)) {         /* GET MAX LUN */
-            b[0] = 0;
+            b[0] = (uint8_t)(s.nluns - 1u);
             n = 1;
             goto send;
         }
@@ -419,8 +420,8 @@ static void csw(uint32_t tag, uint32_t residue, uint8_t status)
 /* Command failed: latch sense, stall the data endpoint, CSW status 1. */
 static void fail(uint32_t tag, uint32_t dtl, uint8_t flags, uint8_t key, uint8_t asc)
 {
-    s.sense_key = key;
-    s.sense_asc = asc;
+    s.sense_key[s.lun] = key;
+    s.sense_asc[s.lun] = asc;
     if (dtl) {
         if (flags & 0x80u) {
             DIEPCTL(1) |= EP_STALL;
@@ -441,17 +442,20 @@ static void put_be32(uint8_t *p, uint32_t v)
     p[3] = (uint8_t)v;
 }
 
-static void scsi(const uint32_t *cbw, uint32_t base, uint32_t count,
-                 uint32_t *rd, uint32_t *wr)
+static void scsi(const uint32_t *cbw, const usb_lun_t *u, uint32_t *rd, uint32_t *wr)
 {
     static uint32_t buf[CHUNK_SECTORS * 128u];
     static uint32_t resp[9];
     const uint8_t *cb = (const uint8_t *)cbw + 15;
     uint8_t *r = (uint8_t *)resp, flags = ((const uint8_t *)cbw)[12];
-    uint32_t tag = cbw[1], dtl = cbw[2], n;
+    uint32_t tag = cbw[1], dtl = cbw[2], n, count = u->count;
     const void *data = r;
 
     usb_msc_diag = (usb_msc_diag & ~0xFFu) | cb[0];
+    if (!count && cb[0] != 0x03 && cb[0] != 0x12 && cb[0] != 0x1B && cb[0] != 0x1E) {
+        fail(tag, dtl, flags, 2, 0x3A);              /* medium not present */
+        return;
+    }
     switch (cb[0]) {
     case 0x00:                                       /* TEST UNIT READY */
     case 0x1E:                                       /* PREVENT ALLOW REMOVAL */
@@ -462,10 +466,10 @@ static void scsi(const uint32_t *cbw, uint32_t base, uint32_t count,
     case 0x03:                                       /* REQUEST SENSE */
         memset(r, 0, 18);
         r[0] = 0x70;
-        r[2] = s.sense_key;
+        r[2] = s.sense_key[s.lun];
         r[7] = 10;
-        r[12] = s.sense_asc;
-        s.sense_key = s.sense_asc = 0;
+        r[12] = s.sense_asc[s.lun];
+        s.sense_key[s.lun] = s.sense_asc[s.lun] = 0;
         n = 18;
         break;
     case 0x12:                                       /* INQUIRY */
@@ -477,11 +481,13 @@ static void scsi(const uint32_t *cbw, uint32_t base, uint32_t count,
         n = sizeof k_inquiry;
         break;
     case 0x1A:                                       /* MODE SENSE(6) */
-        data = k_mode6;
+        memcpy(r, k_mode6, sizeof k_mode6);
+        r[2] = u->write ? 0 : 0x80;                  /* WP */
         n = sizeof k_mode6;
         break;
     case 0x5A:                                       /* MODE SENSE(10) */
-        data = k_mode10;
+        memcpy(r, k_mode10, sizeof k_mode10);
+        r[3] = u->write ? 0 : 0x80;
         n = sizeof k_mode10;
         break;
     case 0x1B:                                       /* START STOP UNIT */
@@ -514,11 +520,15 @@ static void scsi(const uint32_t *cbw, uint32_t base, uint32_t count,
             fail(tag, dtl, flags, 5, 0x21);
             return;
         }
+        if (write && !u->write) {
+            fail(tag, dtl, flags, 7, 0x27);          /* write protected */
+            return;
+        }
         while (cnt) {
             uint32_t k = cnt < CHUNK_SECTORS ? cnt : CHUNK_SECTORS, bytes = k << 9;
             uint8_t *p = (uint8_t *)buf;
 
-            if (!write && emmc_read(base + lba, k, buf)) {
+            if (!write && u->read(u->base + lba, k, buf)) {
                 fail(tag, dtl, flags, 3, 0x11);
                 return;
             }
@@ -532,7 +542,7 @@ static void scsi(const uint32_t *cbw, uint32_t base, uint32_t count,
                 }
                 off += piece;
             }
-            if (write && emmc_write(base + lba, k, buf)) {
+            if (write && u->write(u->base + lba, k, buf)) {
                 fail(tag, dtl, flags, 3, 0x03);
                 return;
             }
@@ -651,7 +661,7 @@ static void core_init(void)
     bus_reset();
 }
 
-int usb_msc_run(uint32_t base, uint32_t count, int (*user_exit)(void),
+int usb_msc_run(const usb_lun_t *luns, unsigned nluns, int (*user_exit)(void),
                 uint32_t *rd_sectors, uint32_t *wr_sectors)
 {
     static uint32_t cbw[8];
@@ -661,8 +671,11 @@ int usb_msc_run(uint32_t base, uint32_t count, int (*user_exit)(void),
     usb_msc_diag = 0;
     s.mps = s.max_xfer = 64u;
     s.user_exit = user_exit;
-    s.sense_key = 6;                                 /* UNIT ATTENTION, */
-    s.sense_asc = 0x28;                              /* medium changed */
+    s.nluns = nluns - 1u < USB_MAX_LUNS ? nluns : 1u;
+    for (unsigned i = 0; i < USB_MAX_LUNS; i++) {
+        s.sense_key[i] = 6;                          /* UNIT ATTENTION, */
+        s.sense_asc[i] = 0x28;                       /* medium changed */
+    }
     *rd_sectors = *wr_sectors = 0;
 
     hw_on();
@@ -693,14 +706,15 @@ int usb_msc_run(uint32_t base, uint32_t count, int (*user_exit)(void),
         n = ep_out(cbw, 31);
         if (n < 0)
             continue;
-        if (n != 31 || cbw[0] != 0x43425355u || b[13] != 0 ||   /* "USBC", LUN 0 */
+        if (n != 31 || cbw[0] != 0x43425355u || b[13] >= s.nluns ||   /* "USBC" */
             (b[12] & 0x7Fu) || b[14] - 1u > 15u) {
             DIEPCTL(1) |= EP_STALL;                  /* invalid CBW: wait for */
             DOEPCTL(1) |= EP_STALL;                  /* reset recovery */
             s.in_halt = s.out_halt = 1;
             continue;
         }
-        scsi(cbw, base, count, rd_sectors, wr_sectors);
+        s.lun = b[13];
+        scsi(cbw, &luns[s.lun], rd_sectors, wr_sectors);
     }
     ret = s.exit;
 out:

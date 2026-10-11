@@ -13,7 +13,12 @@
 #include "emmc.h"
 #include "rknanoc.h"
 
-#define MMC  ((volatile uint32_t *)0x60030000u)
+/* Two DW-MMC instances share the code below: eMMC 0x60030000, SD card
+ * 0x60020000 (reference sd init 0x03062d84, read 0x03062a2c). */
+static volatile uint32_t *s_mmc = (volatile uint32_t *)0x60030000u;
+static int s_on_sd;
+#define MMC  s_mmc
+#define CARD_GATE (s_on_sd ? 0x6Bu : 0x6Cu)
 #define CRU  RK_CRU
 #define GRF  RK_GRF
 #define delay_us  rk_delay_us
@@ -39,6 +44,12 @@ enum {                       /* DW-MMC word offsets */
 static uint32_t s_sectors, s_fifo_words = 16u;
 static uint32_t s_write_floor = 0xFFFFFFFFu;   /* set by emmc_layout() */
 static uint32_t s_fw_sectors;                   /* ditto, 0 = no fw writes */
+
+static void select_mmc(int sd)
+{
+    s_on_sd = sd;
+    s_mmc = (volatile uint32_t *)(sd ? 0x60020000u : 0x60030000u);
+}
 
 static int wait_clear(unsigned reg, uint32_t mask, uint32_t tries)
 {
@@ -73,7 +84,8 @@ static int set_clock(uint32_t khz)
     MMC[CLKENA] = 0;
     if (update_clock())
         return -1;
-    CRU[0x30 / 4] = 0x9F008000u | (div - 1u) << 8;
+    CRU[0x30 / 4] = s_on_sd ? 0x009F0080u | (div - 1u)        /* SD: low half */
+                            : 0x9F008000u | (div - 1u) << 8;
     MMC[CLKDIV] = cd >> 1;
     if (update_clock())
         return -1;
@@ -182,6 +194,7 @@ int emmc_init(void)
     static uint32_t ext_csd[128];
     uint32_t i;
 
+    select_mmc(0);
     clk_gate(0x19, 1);
     clk_gate(0x6C, 1);
     clk_reset(0x11, 0);
@@ -257,31 +270,39 @@ uint32_t emmc_sectors(void)
     return s_sectors;
 }
 
-int emmc_read(uint32_t lba, uint32_t count, void *buf)
+/* CMD17/CMD18 (+CMD12) on the selected instance; arg = card address. */
+static int block_read(uint32_t arg, uint32_t count, void *buf)
 {
     int ret, stop;
 
-    if (count == 0u)
-        return 0;
-    if (lba + count < lba || lba + count > s_sectors)
-        return -30;
-    clk_gate(0x6C, 1);
+    clk_gate(CARD_GATE, 1);
     if (count == 1u) {
-        ret = xfer_data(17, lba, buf, 512, 0);
+        ret = xfer_data(17, arg, buf, 512, 0);
     } else {
-        ret = xfer_data(18, lba, buf, count << 9, 0);
+        ret = xfer_data(18, arg, buf, count << 9, 0);
         stop = send_cmd(12, RCA_ARG, F_RESP | F_CRC | F_STOP, 1);
         if (!ret)
             ret = stop;
     }
-    clk_gate(0x6C, 0);
+    clk_gate(CARD_GATE, 0);
     return ret;
+}
+
+int emmc_read(uint32_t lba, uint32_t count, void *buf)
+{
+    if (count == 0u)
+        return 0;
+    if (lba + count < lba || lba + count > s_sectors)
+        return -30;
+    select_mmc(0);
+    return block_read(lba, count, buf);
 }
 
 static int raw_write(uint32_t lba, uint32_t count, const void *buf)
 {
     int ret, r;
 
+    select_mmc(0);
     clk_gate(0x6C, 1);
     if (count == 1u) {
         ret = xfer_data(24, lba, (uint32_t *)buf, 512, 1);
@@ -320,6 +341,163 @@ int emmc_fw_write(uint32_t rel, uint32_t count, const void *buf)
     if (count == 0u || rel + count < rel || rel + count > s_fw_sectors)
         return -30;
     return raw_write(EMMC_FW_BASE + rel, count, buf);
+}
+
+/* ---- SD card (read-only, like the reference) ---- */
+
+static uint32_t s_sd_sectors, s_sd_rca;
+static int s_sd_hc, s_sd_4bit, s_cd_ready;
+
+/* Card detect GPIO0.11, pulled up, 0 = card in (reference 0x03062c34). */
+int sd_present(void)
+{
+    volatile uint32_t *gpio0 = (volatile uint32_t *)0x40160000u;
+
+    if (!s_cd_ready) {
+        GRF[1] = 0x00C00000u;                   /* GPIO0.11 -> GPIO */
+        gpio0[1] &= ~(1u << 11);                /* input */
+        GRF[5] = 0x00080008u;                   /* pull-up */
+        delay_us(100);
+        s_cd_ready = 1;
+    }
+    return !((gpio0[0x50 / 4] >> 11) & 1u);
+}
+
+static int sd_cmd(uint32_t idx, uint32_t arg, uint32_t flags)
+{
+    return send_cmd(idx, arg, flags, 0);
+}
+
+static int sd_acmd(uint32_t idx, uint32_t arg, uint32_t flags)
+{
+    if (sd_cmd(55, s_sd_rca << 16, F_RESP | F_CRC))
+        return -1;
+    return sd_cmd(idx, arg, flags);
+}
+
+static int sd_try_init(void)
+{
+    int v2 = 1;
+    uint32_t i, r;
+
+    s_sd_sectors = s_sd_rca = 0;
+    s_sd_hc = s_sd_4bit = 0;
+    if (!sd_present())
+        return -1;
+    select_mmc(1);
+    clk_gate(0x18, 1);
+    clk_gate(0x6B, 1);
+    clk_reset(0x12, 0);
+    CRU[0x30 / 4] = 0x009F009Fu;
+    GRF[8] = 0xFC005400u;                       /* SD pinmux GPIO1.5..10 */
+    GRF[9] = 0x003F0015u;
+    delay_us(10);
+
+    MMC[CTRL] = 7u;
+    if (wait_clear(CTRL, 7u, 1000))
+        return -20;
+    MMC[FIFOTH] = 0x300F0010u;
+    MMC[CTYPE] = 0;
+    MMC[CLKSRC] = 0;
+    MMC[TMOUT] = 0xFFFFFF40u;
+    MMC[RINTSTS] = 0xFFFFFFFFu;
+    MMC[INTMASK] = 0;
+    MMC[PWREN] = 1;
+    if (set_clock(400))
+        return -2;
+    delay_us(1000);
+
+    sd_cmd(0, 0, F_INIT);
+    delay_us(100);
+    if (sd_cmd(8, 0x1AAu, F_RESP | F_CRC) == 0) {
+        if ((MMC[RESP0] & 0xFFFu) != 0x1AAu)
+            return -3;
+    } else {
+        v2 = 0;                                 /* SD 1.x */
+    }
+    for (i = 0; ; i++) {
+        if (!sd_present())
+            return -4;
+        if (sd_cmd(55, 0, F_RESP | F_CRC))
+            return -5;
+        if (sd_cmd(41, v2 ? 0x40FF8000u : 0x00FF8000u, F_RESP) == 0 &&
+            (MMC[RESP0] & 0x80000000u))
+            break;
+        if (i == 100u)
+            return -6;
+        delay_us(10000);
+    }
+    s_sd_hc = v2 && (MMC[RESP0] & 0x40000000u);
+    if (sd_cmd(2, 0, F_RESP | F_LONG | F_CRC))
+        return -7;
+    for (i = 0; i < 3u && !s_sd_rca; i++) {
+        if (sd_cmd(3, 0, F_RESP | F_CRC))
+            return -8;
+        s_sd_rca = MMC[RESP0] >> 16;
+    }
+    if (!s_sd_rca)
+        return -9;
+    if (sd_cmd(9, s_sd_rca << 16, F_RESP | F_LONG | F_CRC))
+        return -10;
+    if (MMC[RESP0 + 3] >> 30 == 0) {            /* CSD 1.0 (SDSC) */
+        uint32_t c_size = ((MMC[RESP0 + 2] & 0x3FFu) << 2 | MMC[RESP0 + 1] >> 30) + 1u;
+        uint32_t mult = (MMC[RESP0 + 1] >> 15) & 7u, bl = (MMC[RESP0 + 2] >> 16) & 15u;
+        s_sd_sectors = (uint32_t)(((uint64_t)c_size << (mult + 2u) << bl) >> 9);
+    } else {                                    /* CSD 2.0: (C_SIZE+1) * 512 KiB */
+        r = ((MMC[RESP0 + 2] & 0x3Fu) << 16 | MMC[RESP0 + 1] >> 16) + 1u;
+        s_sd_sectors = r >> 22 ? 0xFFFFFFFFu : r << 10;
+    }
+    if (s_sd_sectors == 0u)
+        return -11;
+    if (set_clock(24000))
+        return -12;
+    if (send_cmd(7, s_sd_rca << 16, F_RESP | F_CRC, 1))
+        return -13;
+    if (!s_sd_hc && sd_cmd(16, 512, F_RESP | F_CRC))
+        return -14;
+    sd_acmd(42, 0, F_RESP | F_CRC);             /* card-detect pull-up off */
+    if (sd_acmd(6, 2, F_RESP | F_CRC) == 0) {   /* 4-bit bus */
+        MMC[CTYPE] = 1;
+        s_sd_4bit = 1;
+    }
+    clk_gate(0x6B, 0);
+    return 0;
+}
+
+static void sd_off(void)
+{
+    select_mmc(1);
+    clk_gate(0x6B, 1);
+    MMC[CLKENA] = 0;
+    update_clock();
+    clk_gate(0x6B, 0);
+    clk_gate(0x18, 0);
+}
+
+int sd_init(void)
+{
+    int r = sd_try_init();
+
+    if (r) {
+        if (r != -1)
+            sd_off();
+        s_sd_sectors = 0;
+    }
+    return r;
+}
+
+uint32_t sd_sectors(void) { return s_sd_sectors; }
+int sd_is_hc(void)        { return s_sd_hc; }
+int sd_bus_width(void)    { return s_sd_4bit ? 4 : 1; }
+
+int sd_read(uint32_t lba, uint32_t count, void *buf)
+{
+    if (count == 0u)
+        return 0;
+    if (!s_sd_sectors || lba + count < lba || lba + count > s_sd_sectors)
+        return -30;
+    select_mmc(1);
+    return block_read(s_sd_hc ? lba : lba << 9, count, buf);
 }
 
 static uint32_t s_buf[256];
