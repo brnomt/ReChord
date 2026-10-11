@@ -1116,3 +1116,42 @@ our startup as well as our app.
 STANDALONE TODO: make the packer emit a VT copy (SP 0x03004000, reset =
 PowerOn_Reset|1) at row0.dest_end (IMG mapping above). A standalone fw1
 has no USB/updater yet -> leaving it needs maskrom (docs/DEBRICK-LINUX.md).
+
+## VERDICT #19 (2026-10-11 ~14:15): standalone fw1 -> BLACK (maskrom) - REAL BOOT CONTRACT
+
+Flashed build/ReChord_AP5M.IMG (md5 ee103862..., our startup + Main, VT
+appended after the row-0 block) -> updater accepted, black screen, no USB.
+DFIU incident 0968d8bb, rule R-fcc7ba7fc504.
+
+ROOT CAUSE (byte-verified on reference AND stock): the "entry VT at
+row0.dest_end" is really scatter ROW 1. The ROM copies row1
+{0x03004000, init_size, init_end, total} from the IMG bytes right after the
+row-0 block to RAM 0x03004000 and enters via the VT at its start.
+  ref: row1 {0x03004000, 0x1AFC, 0x03005AFC, 0x18C50}; ref[0x273D4:+0x1AFC]
+  == ref[0x258D8:+0x1AFC] (its .data image), starting SP 0x03004000,
+  reset 0x030500E5, handlers. Stock: same row1, same layout (0x53D34).
+  Ours (#12 and #19): .data empty -> row1 init_size 0 -> nothing copied.
+  (ENTRY3 worked because it patched the ref's .data VT reset word.)
+
+FIX (built, not flashed yet): ap_startup.c `ap_ram_vectors` {0x03004000,
+PowerOn_Reset} in .data.ram_vectors, first in .data (linker ASSERT ==
+0x03004000); pack_fw1.py emits ONE RW row1 {0x03004000, .data filesz,
+end, RW span} and asserts the .data image follows the row-0 block;
+make_fw1.py refuses an image whose row1 init_size < 8 or whose bytes after
+row 0 are not SP 0x03004000 + odd reset. New AP5M row1 =
+{0x03004000, 0x8, 0x03004008, 0x1D704}, IMG 0x5FCC = 0x03004000/0x03050145.
+
+## VERDICT #20 (2026-10-11 ~14:30): STANDALONE fw1 BOOTS - ReChord IS RUNNING
+
+build/ReChord_AP5M.IMG (md5 5e4477a85c40249436edf50b7e2c40a1, `make
+cfw-img`, copy kept as build/ReChord_FW1_v2.IMG) installed by the STOCK 3.7
+updater as HIFIEC90.IMG -> cold boot -> "ReChord AP alive" + theme name,
+stable. No reference code anywhere in the boot path: ROM -> row0 code copy
+-> row1 .data copy (VT) -> our PowerOn_Reset -> our Main.
+DFIU: incidents 0968d8bb + 5667c9c4 verified_resolved; R-fcc7ba7fc504 and
+R-70b34b8f2528 active.
+
+Device is now ON OUR fw1: no USB/updater -> to change firmware, maskrom +
+stock (docs/DEBRICK-LINUX.md), then copy the next HIFIEC90.IMG.
+NEXT: USB MSC (or a key combo that reboots into maskrom/loader) in our fw1
+so iteration stops needing the paperclip; then keys, menus, audio.

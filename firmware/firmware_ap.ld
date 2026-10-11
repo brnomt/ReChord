@@ -99,10 +99,12 @@ SECTIONS
     {
         . = ALIGN(4);
         _data_start = .;
+        KEEP(*(.data.ram_vectors))
         *(.data*)
         . = ALIGN(4);
         _data_end = .;
     } > FW_RAM AT> FW_CODE
+    ASSERT(ap_ram_vectors == 0x03004000, "ROM enters via the VT at the start of .data")
 
     /* ---- SYS_DATA: zero-initialized data (bounded, NOLOAD) ----------- */
     /* PowerOn_Reset zeroes exactly [_bss_start, _bss_end); keep this span

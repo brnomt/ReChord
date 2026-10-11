@@ -190,11 +190,22 @@ def build_scatter_table(elf: Elf32):
             # LMA; the loader must NOT pre-copy it (would write the VMA too
             # early). The Type A row below describes the region.
 
-    # Type A regions from every PT_LOAD with memsz > filesz (bss/data spans)
-    for seg in all_segs:
-        vaddr, filesz, memsz = seg["vaddr"], seg["filesz"], seg["memsz"]
-        if memsz > filesz:
-            regions.append((vaddr, filesz, vaddr + filesz, memsz))
+    # One Type A RW row {ram_start, init_size, init_end, total} like the
+    # reference/stock row 1: the ROM copies init_size bytes of .data from the
+    # payload right after the row-0 block to ram_start and enters via the VT
+    # at its start (verdict #19), so the .data image must follow the code.
+    rw = [s for s in all_segs if s["vaddr"] < VECTOR_RAM]
+    if rw:
+        lo = min(s["vaddr"] for s in rw)
+        hi = max(s["vaddr"] + s["memsz"] for s in rw)
+        data = [s for s in rw if s["filesz"]]
+        init = sum(s["filesz"] for s in data)
+        if data:
+            code_end = loads[0][1] + loads[0][2]
+            if data[0]["vaddr"] != lo or data[0]["paddr"] != code_end:
+                raise SystemExit("SAFETY: .data must start the RW region and "
+                                 "its image must follow the row-0 block")
+        regions.append((lo, init, lo + init, hi - lo))
     entries = loads + regions       # Type B first (even), Type A after (odd)
     # Structural clone of the proven images (option-2 test): append the
     # reference's third row verbatim (a 4-byte poke to free RAM at

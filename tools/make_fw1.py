@@ -215,7 +215,20 @@ def build_ref_shape_5m(img33: bytes, ref_path: Path, out_path: Path) -> Path:
         fw1_end = 0x7B8 + ((nz + 3) & ~3)
     out[0x1F8:0x7B8] = fw1
     out[0x7B8:fw1_end] = payload[:fw1_end - 0x7B8]
-    # patch the leading candidate fw1-extent field to our end (ref used its own)
+
+    # Boot entry contract (verdicts #18/#19, reference + stock agree): the ROM
+    # copies row 1 ({0x03004000, init_size, ...}) from the bytes right after
+    # the row-0 block (IMG row0.dest_end - 0x03050000 + 0x200) and enters via
+    # the VT at their start. Verdict #12 / #19: init_size 0 -> no VT -> black.
+    dest_end = struct.unpack_from("<I", out, 0x214)[0]
+    ram_start, init_size = struct.unpack_from("<II", out, 0x218)
+    entry_vt = dest_end - 0x03050000 + 0x200
+    sp, reset = struct.unpack_from("<II", out, entry_vt)
+    if not (ram_start == 0x03004000 and init_size >= 8
+            and sp == 0x03004000 and reset & 1):
+        raise SystemExit(f"entry VT: row1 {ram_start:#x}/{init_size:#x}, IMG "
+                         f"0x{entry_vt:X} = sp 0x{sp:08X} reset 0x{reset:08X}")
+    # leading part-chain field: #12 (updater-accepted) carried our fw1 end here
     struct.pack_into("<I", out, 0x80, fw1_end)
 
     # empty marker container (the reference's trailing RKnanoFW + zeros)
@@ -536,10 +549,9 @@ def main() -> int:
         print("RESULT: FAIL - see checks above", file=sys.stderr)
         return 1
     print()
-    print("  !!! WARNING: a custom fw1 memory-map table is NOT validated on")
-    print("  !!! hardware and a previous version BRICKED a device (2026-08-25).")
-    print("  !!! This output is for offline analysis / UART testing only.")
-    print("  !!! Safe fallback remains build/ReChord_BB.IMG (untouched here).")
+    print("  NOTE: flash ReChord_AP5M.IMG (boots on hardware, verdict #20). A")
+    print("  standalone fw1 has no USB/updater yet: leaving it needs maskrom")
+    print("  (docs/DEBRICK-LINUX.md).")
     return 0
 
 

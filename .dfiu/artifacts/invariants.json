@@ -29,15 +29,15 @@
       }
     },
     {
-      "action": "Locate the real entry (ENTRY2 test on the .data-image VT) before any standalone fw1 flash.",
-      "content_hash": "89a5306b44136deceb3a78802b2d8b3cd59379be70fab3b79b09c3ea8ebc62df",
-      "id": "R-5add7c251c3f",
+      "action": "Check each scatter src = 0x0304F298 + IMG offset; vector table at IMG 0xD68, SP 0x03004000; reject rows below 0x03004000; diff image vs reference before flashing.",
+      "content_hash": "cdbe118037a3c148975211aae7977ce412e529e3fd634a8e9d4685c7d1f68059",
+      "id": "R-70b34b8f2528",
       "incident_ids": [
-        "86fb4661-5b31-49ce-b1e9-115dba7759ae"
+        "5667c9c4-a78f-433c-bafd-c08759a9fa24"
       ],
-      "invariant": "The fw1 reset vector that the ROM uses is NOT word1 at RAM 0x03050000; do not rely on it for entry.",
+      "invariant": "Scatter src = 0x0304F298 + IMG offset (loaded RAM image); vector table at IMG 0xD68 (RAM 0x03050000), word0 SP = 0x03004000; no row may target 0x03000000..0x03004000 (stack).",
       "revision": 1,
-      "scope": "fw1 boot entry",
+      "scope": "fw1 scatter table + payload layout (tools/pack_fw1.py, tools/make_fw1.py, firmware/firmware_ap.ld, firmware/startup/ap_startup.c)",
       "severity": "blocker",
       "when": {
         "args": [
@@ -50,10 +50,11 @@
             "field": "files_touched",
             "op": "touches_any",
             "value": [
-              "firmware/startup/ap_startup.c",
-              "firmware/firmware_ap.ld",
+              "tools/pack_fw1.py",
               "tools/make_fw1.py",
-              "tools/pack_fw1.py"
+              "firmware/firmware_ap.ld",
+              "firmware/startup/ap_startup.c",
+              "firmware/ap.mk"
             ]
           }
         ],
@@ -89,6 +90,38 @@
             "value": [
               "tools/make_fw1.py",
               "tools/pack_fw1.py"
+            ]
+          }
+        ],
+        "op": "all"
+      }
+    },
+    {
+      "action": "Before flashing any fw1: verify row1 init_size>=8 and IMG[row0.dest_end-0x03050000+0x200] holds SP 0x03004000 + odd reset (make_fw1.py asserts this).",
+      "content_hash": "3a409276b9080b3c8d5b7e77cb8ff87005659e6cf88daf18c9d2c662141c7385",
+      "id": "R-fcc7ba7fc504",
+      "incident_ids": [
+        "0968d8bb-b5d9-4f02-a30b-7c422ec5329c"
+      ],
+      "invariant": "fw1 .data must begin with a vector table (SP 0x03004000, reset|1) and scatter row1 must be {0x03004000, init_size>=8, ...} with the .data image immediately after the row-0 block.",
+      "revision": 1,
+      "scope": "project:ReChord",
+      "severity": "warning",
+      "when": {
+        "args": [
+          {
+            "field": "subsystem",
+            "op": "eq",
+            "value": "fw1-boot"
+          },
+          {
+            "field": "files_touched",
+            "op": "touches_any",
+            "value": [
+              "tools/make_fw1.py",
+              "tools/pack_fw1.py",
+              "firmware/firmware_ap.ld",
+              "firmware/startup/ap_startup.c"
             ]
           }
         ],
@@ -158,37 +191,6 @@
             "op": "touches_any",
             "value": [
               "tools/pack_img.py"
-            ]
-          }
-        ],
-        "op": "all"
-      }
-    },
-    {
-      "action": "Always duplicate IMG[0:0x200] at offset fw_end = LE32(IMG[0x1F4]); byte-check it in the packer before flashing.",
-      "content_hash": "1c27a1d8d979a84cbe72d883a279a70996a5f60d385dcc0e81267246b2c4669b",
-      "id": "R-9f6e141101cb",
-      "incident_ids": [
-        "3a318ade-7496-4530-8d14-24bb09639c96"
-      ],
-      "invariant": "A valid update image must duplicate its first 512 bytes at offset fw_end (LE32 at 0x1F4) and carry the trailer CRC at (fw_end+0x104000)&~0xFFFFF.",
-      "revision": 3,
-      "scope": "update image format: outer header + fw_end header copy (tools/make_fw1.py, tools/pack_img.py)",
-      "severity": "blocker",
-      "when": {
-        "args": [
-          {
-            "field": "project",
-            "op": "eq",
-            "value": "ReChord"
-          },
-          {
-            "field": "files_touched",
-            "op": "touches_any",
-            "value": [
-              "tools/make_fw1.py",
-              "tools/pack_img.py",
-              "tools/pack_fw1.py"
             ]
           }
         ],

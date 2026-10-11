@@ -97,6 +97,15 @@ void ChainEntry(void)
 }
 #endif
 
+/* ROM boot contract (verdict #19, matches reference + stock): the ROM copies
+ * .data (scatter row 1, image right after row 0) to 0x03004000 and enters
+ * through the vector table at its start - so .data must begin with one. */
+const uint32_t ap_ram_vectors[2]
+    __attribute__((section(".data.ram_vectors"), used)) = {
+    AP_INITIAL_MSP,
+    (uint32_t)&PowerOn_Reset,
+};
+
 /* Cortex-M3 vector table (aligned 256 for VTOR). [0]=initial MSP, [1]=reset.
  * Byte-identical word 0/word 1 roles to the reference image's table at
  * IMG 0xD68: word 0 = 0x03004000 (the stack TOP; the stack is the 16 KiB
