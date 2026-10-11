@@ -5,12 +5,34 @@
  */
 #include <stdio.h>
 
+#include "drivers/emmc.h"
 #include "drivers/panel_io.h"
 #include "services/input.h"
 #include "ui/ui.h"
 #include "ui/screens/screens.h"
 
 static int s_adc = 1023, s_power;
+static char s_emmc[32];
+
+/* Read-only eMMC probe for the root menu: size and user volume start. */
+static void emmc_probe(void)
+{
+    uint32_t user;
+    int r = emmc_init();
+
+    if (r) {
+        snprintf(s_emmc, sizeof s_emmc, "init %d", r);
+        return;
+    }
+    r = emmc_layout(&user);
+    if (r)
+        snprintf(s_emmc, sizeof s_emmc, "%uM lay %d", (unsigned)(emmc_sectors() >> 11), r);
+    else
+        snprintf(s_emmc, sizeof s_emmc, "%uM u%x", (unsigned)(emmc_sectors() >> 11),
+                 (unsigned)user);
+}
+
+static const char *emmc_text(void) { return s_emmc; }
 
 static void open_files(void)    { browser_screen_set_root("/"); ui_push_screen(&browser_screen); }
 static void open_player(void)   { ui_push_screen(&player_screen); }
@@ -28,13 +50,15 @@ static const menu_item_t k_root_items[] = {
     { "Now Playing", NULL,      open_player },
     { "Settings",    NULL,      open_settings },
     { "Keys",        keys_text, NULL },
+    { "eMMC",        emmc_text, NULL },
 };
-static const menu_model_t k_root = { "ReChord", k_root_items, 4 };
+static const menu_model_t k_root = { "ReChord", k_root_items, 5 };
 
 void ap_ui_loop(void)
 {
     input_event_t ev;
 
+    emmc_probe();
     ui_init();
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);

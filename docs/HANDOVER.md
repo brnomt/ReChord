@@ -1177,3 +1177,31 @@ Also fixed: firmware/ui `make test` link (theme sources), 250 checks pass.
 
 NEXT candidates: SysTick timebase + key repeat; storage (eMMC/FAT) for
 the browser and settings; USB MSC so updates stop needing maskrom.
+
+## VERDICT #22 (2026-10-11): READ-ONLY eMMC DRIVER WORKS ON HARDWARE
+
+build/ReChord_FW1_m3a.IMG (md5 1c15eca4a355094f67efed246a525700) -> root
+menu "eMMC" row showed `7456M u24000 n[o bs]`: init (CMD0/1/2/3/9/7/16,
+EXT_CSD via CMD8, CMD6 8-bit bus, CMD13 tran), CMD17/CMD18 reads and the
+IDB parse all work. 7456 MiB = 15269888 sectors, IDB system size 0x22000
+sectors -- identical to the reference's own ECHOLOG on this unit.
+
+`no bs` is correct: on this unit LBA 0x24000 (stock position, right after
+the firmware area) holds a "SAVE" block; the user volume is at 0x88000.
+The reference finds it by scanning forward in 0x800-sector steps for an
+exFAT/FAT boot sector or MBR (0x03052a1c); ported into emmc_layout()
+(not yet flashed; expected row: `7456M u88000`).
+
+Driver: firmware/drivers/emmc_rknanoc.c (clean-room from reference init
+0x030527ac, cmd 0x0305257c, data 0x030523d4, clock 0x0305235c, read
+0x03052694, layout 0x03052a98). Facts worth keeping:
+- DW-MMC 0x60030000, polled FIFO at +0x200; 24 MHz source, CRU clksel
+  +0x30 = 0x9F008000 | (prediv-1)<<8, CLKDIV = cd>>1; update-clock CMD
+  0x80202000.
+- CRU gates: 0x19 (bus) on at init; 0x6C (card clock) on only around
+  each transfer. Reset 0x11 deasserted. GRF mux [0]=0xFFFF5555,
+  [1]=0x3F0015, [9]=0xC00040 (GPIO0.0-10 + GPIO1.11; no panel pins).
+- IDB copies at LBA 0x40 + n*0x400 (n<5): word0 0xFCDC8C3B, "NANO" at
+  +0x20A, u16 system size (MiB) at +0x202. Base device reads are raw LBA.
+- Writes (reference 0x0305271c): CMD24/CMD25 (+CMD12 0x4140), then CMD13
+  wait for tran; FIFO depth from FIFOTH reset value. Not ported yet.
