@@ -68,7 +68,8 @@ AP_DRIVER_SRCS := \
   firmware/drivers/font8x8.c \
   firmware/drivers/panel_init_rknanoc.c \
   firmware/drivers/panel_io_rknanoc.c \
-  firmware/drivers/emmc_rknanoc.c
+  firmware/drivers/emmc_rknanoc.c \
+  firmware/drivers/usb_msc_rknanoc.c
 
 # Services: settings/log/input + the target fs backend (same set as
 # $(SERVICES_TARGET_SRCS) in firmware/services/services.mk).

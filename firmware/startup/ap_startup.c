@@ -28,7 +28,7 @@ extern const uint32_t ap_vectors[16];   /* defined at the bottom of this file */
 
 extern uint32_t Main(void);
 extern uint32_t _bss_start, _bss_end;
-extern uint32_t _data_start, _data_end, _data_load_start;
+extern uint32_t _data_start, _data_end;
 
 /* Initial MSP: byte-verified word 0 of the reference vector table.  The
  * stack zone is 0x03000000..0x03004000 ONLY (firmware_ap.ld __stack_top). */
@@ -61,14 +61,9 @@ void PowerOn_Reset(void)
     *(volatile uint32_t *)0xE000E284u = 0xFFFFFFFFu;
     *(volatile uint32_t *)0xE000ED24u = 0;
     *(volatile uint32_t *)0xE000ED0Cu = 0x05FA0002u;
-    {
-        /* bounded .data copy (the reference recipe: copy bounded, then zero
-         * bounded). _data_load_start is the LMA inside the code image. */
-        uint32_t *d = &_data_start;
-        const uint32_t *s = &_data_load_start;
-        while (d < &_data_end)
-            *d++ = *s++;
-    }
+    /* No .data copy here: the ROM already copied it (scatter row 1). Our
+     * row 0 ends where the .data LMA begins, so that LMA is never loaded
+     * (verdict #23: copying from it clobbered every initialized global). */
     uint32_t *p = &_bss_start;
     while (p < &_bss_end)
         *p++ = 0;

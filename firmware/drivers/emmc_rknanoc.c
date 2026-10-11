@@ -1,21 +1,24 @@
 /*
  * emmc_rknanoc.c -- eMMC on the RKNanoC DW-MMC controller (0x60030000),
- * polled, read-only.
+ * polled.
  *
  * Clean-room implementation of FACTS extracted from the reference fw1
  * (init 0x030527ac, command 0x0305257c, data 0x030523d4, clock 0x0305235c,
- * block read 0x03052694, layout 0x03052a98; CRU gate 0x030513e0 / reset
- * 0x03051430). Writes (CMD24/25 + CMD13 wait, reference 0x0305271c) are
- * deliberately not ported yet.
+ * block read 0x03052694 / write 0x0305271c, layout 0x03052a98; CRU gate
+ * 0x030513e0 / reset 0x03051430).
  */
 #include <stdint.h>
 #include <string.h>
 
 #include "emmc.h"
+#include "rknanoc.h"
 
 #define MMC  ((volatile uint32_t *)0x60030000u)
-#define CRU  ((volatile uint32_t *)0x40180000u)
-#define GRF  ((volatile uint32_t *)0x50010000u)
+#define CRU  RK_CRU
+#define GRF  RK_GRF
+#define delay_us  rk_delay_us
+#define clk_gate  cru_gate
+#define clk_reset cru_reset
 
 enum {                       /* DW-MMC word offsets */
     CTRL = 0, PWREN = 1, CLKDIV = 2, CLKSRC = 3, CLKENA = 4, TMOUT = 5,
@@ -33,27 +36,8 @@ enum {                       /* DW-MMC word offsets */
 #define F_INIT       0x8000u
 #define RCA_ARG      0x20000u        /* RCA 2 */
 
-static uint32_t s_sectors;
-
-/* ponytail: uncalibrated busy loop (>= 1 us at the 24 MHz boot clock);
- * every caller uses it for timeouts/settling, where longer is safe. */
-static void delay_us(uint32_t us)
-{
-    volatile uint32_t n = us * 8u;
-    while (n--) { }
-}
-
-static void clk_gate(unsigned id, int on)
-{
-    unsigned bit = id & 15u;
-    CRU[0x20 + (id >> 4)] = (1u << (bit + 16)) | (on ? 0u : 1u << bit);
-}
-
-static void clk_reset(unsigned id, int assert)
-{
-    unsigned bit = id & 15u;
-    CRU[0x30 + (id >> 4)] = (1u << (bit + 16)) | ((assert ? 1u : 0u) << bit);
-}
+static uint32_t s_sectors, s_fifo_words = 16u;
+static uint32_t s_write_floor = 0xFFFFFFFFu;   /* set by emmc_layout() */
 
 static int wait_clear(unsigned reg, uint32_t mask, uint32_t tries)
 {
@@ -122,7 +106,7 @@ static int send_cmd(uint32_t idx, uint32_t arg, uint32_t flags, int wait_busy)
     return 0;
 }
 
-static int read_data(uint32_t idx, uint32_t arg, uint32_t *buf, uint32_t len)
+static int xfer_data(uint32_t idx, uint32_t arg, uint32_t *buf, uint32_t len, int write)
 {
     uint32_t words = len >> 2, fifo_tries = 5000000u, tries = 5000001u;
     int ret = 0;
@@ -137,7 +121,7 @@ static int read_data(uint32_t idx, uint32_t arg, uint32_t *buf, uint32_t len)
     MMC[BYTCNT] = len;
     MMC[RINTSTS] = 0xFFFFFFFFu;
     MMC[CMDARG] = arg;
-    MMC[CMD] = idx | 0xA0002340u;           /* data expected, CRC, resp */
+    MMC[CMD] = idx | (write ? 0x400u : 0u) | 0xA0002340u;  /* data, CRC, resp */
     if (wait_clear(CMD, CMD_START, 50000))
         return -3;
     while (words) {
@@ -145,7 +129,9 @@ static int read_data(uint32_t idx, uint32_t arg, uint32_t *buf, uint32_t len)
 
         if (MMC[RINTSTS] & 0xAF82u)
             return -12;
-        n = (MMC[STATUS] & 0x3FFFFFFFu) >> 17;
+        n = (MMC[STATUS] & 0x3FFFFFFFu) >> 17;  /* words in FIFO */
+        if (write)
+            n = n < s_fifo_words ? s_fifo_words - n : 0u;
         if (n == 0u) {
             if (--fifo_tries == 0u)
                 return -13;
@@ -155,8 +141,12 @@ static int read_data(uint32_t idx, uint32_t arg, uint32_t *buf, uint32_t len)
         if (n > words)
             n = words;
         words -= n;
-        while (n--)
-            *buf++ = MMC[FIFO];
+        if (write)
+            while (n--)
+                MMC[FIFO] = *buf++;
+        else
+            while (n--)
+                *buf++ = MMC[FIFO];
     }
     while (!(MMC[RINTSTS] & 0xAE88u)) {     /* data over or error */
         if (--tries == 0u) {
@@ -203,6 +193,8 @@ int emmc_init(void)
     MMC[CTRL] = 7u;                         /* controller/FIFO/DMA reset */
     if (wait_clear(CTRL, 7u, 1000))
         return -1;
+    i = (MMC[FIFOTH] & 0x0FFFFFFFu) >> 16;  /* reset RX watermark = depth-1 */
+    s_fifo_words = (i - 7u < 0x3F9u) ? i + 1u : 16u;
     MMC[FIFOTH] = 0x300F0010u;
     MMC[CTYPE] = 0;
     MMC[CLKSRC] = 0;
@@ -245,7 +237,7 @@ int emmc_init(void)
         return -9;
     if (send_cmd(16, 512, F_RESP | F_CRC, 0))
         return -10;
-    if (read_data(8, 0, ext_csd, 512))      /* EXT_CSD */
+    if (xfer_data(8, 0, ext_csd, 512, 0))   /* EXT_CSD */
         return -11;
     s_sectors = ext_csd[212 / 4];           /* SEC_COUNT */
     if (s_sectors < 0x100000u)
@@ -274,13 +266,39 @@ int emmc_read(uint32_t lba, uint32_t count, void *buf)
         return -30;
     clk_gate(0x6C, 1);
     if (count == 1u) {
-        ret = read_data(17, lba, buf, 512);
+        ret = xfer_data(17, lba, buf, 512, 0);
     } else {
-        ret = read_data(18, lba, buf, count << 9);
+        ret = xfer_data(18, lba, buf, count << 9, 0);
         stop = send_cmd(12, RCA_ARG, F_RESP | F_CRC | F_STOP, 1);
         if (!ret)
             ret = stop;
     }
+    clk_gate(0x6C, 0);
+    return ret;
+}
+
+/* Refuses anything below the user volume: IDB and firmware slots are
+ * never writable from here (also not before emmc_layout() succeeded). */
+int emmc_write(uint32_t lba, uint32_t count, const void *buf)
+{
+    int ret, r;
+
+    if (count == 0u)
+        return 0;
+    if (lba < s_write_floor || lba + count < lba || lba + count > s_sectors)
+        return -30;
+    clk_gate(0x6C, 1);
+    if (count == 1u) {
+        ret = xfer_data(24, lba, (uint32_t *)buf, 512, 1);
+    } else {
+        ret = xfer_data(25, lba, (uint32_t *)buf, count << 9, 1);
+        r = send_cmd(12, RCA_ARG, F_RESP | F_CRC | F_STOP, 1);
+        if (!ret)
+            ret = r;
+    }
+    r = wait_tran();                        /* programming done */
+    if (!ret && r)
+        ret = -31;
     clk_gate(0x6C, 0);
     return ret;
 }
@@ -323,7 +341,7 @@ int emmc_layout(uint32_t *user_start)
             continue;
         for (uint32_t off = fw; off < 0x100000u; off += 0x800u) {
             if (is_volume_start(0x2000u + off)) {
-                *user_start = 0x2000u + off;
+                *user_start = s_write_floor = 0x2000u + off;
                 return 0;
             }
         }

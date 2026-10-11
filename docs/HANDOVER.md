@@ -1205,3 +1205,39 @@ Driver: firmware/drivers/emmc_rknanoc.c (clean-room from reference init
   +0x20A, u16 system size (MiB) at +0x202. Base device reads are raw LBA.
 - Writes (reference 0x0305271c): CMD24/CMD25 (+CMD12 0x4140), then CMD13
   wait for tran; FIFO depth from FIFOTH reset value. Not ported yet.
+
+## VERDICT #23 (2026-10-11): USB MASS STORAGE IN OUR fw1 - READ/WRITE WORK
+
+build/ReChord_FW1_m3c.IMG (md5 617612d17b8777a8f57954a371eeab0e), flashed
+via stock updater as HIFIEC90.IMG (the name must be HIFIECnn.IMG; a plain
+HIFIEC.IMG is ignored). Plugging the cable into the PC opens our USB screen;
+the host enumerates 071b:3203 "ReChord ECHO MINI" (full speed, forced),
+14712832 sectors = stock MSC window (user volume at 0x88000). All baseline
+file md5s match; a 4 MiB random file written, remounted and re-read
+identically (~1 MB/s, full-speed ceiling). udisks Drive.Eject (SCSI START
+STOP with LoEj) ends the session by itself (row `x1`); power key ends it
+(`x6`).
+
+Root cause of m3b's "config descriptor too short / length 39": our startup
+re-copied .data from _data_load_start (0x03056AEC) = exactly row-0 end, a
+region the ROM never loads -> every initialized global was junk since #20.
+The ROM already copies .data via scatter row 1 (the reference copies from
+inside its row-0 span instead). Fix: no .data copy in ap_startup.c.
+
+Open:
+- `udisksctl power-off` (port disable, no LoEj) does NOT end the session:
+  suspend after configuration isn't detected. m3d (md5 2fabfbdf...) adds a
+  "USB diag" row: last opcode, last START STOP byte 4, GINTSTS bits 10..13
+  seen. Rows now report MiB (`x1 r12M w4M`).
+- Updates still need maskrom: nothing in our fw1 installs a copied image.
+- Drop forced full speed once the PLL is set up.
+
+Device state at end of session: m3c installed, stock HIFIEC.IMG leftover on
+the volume was overwritten by mistake (no copy; updater ignores that name).
+Volume files backed up to ~/echo_backup (ECHOLOG.TXT, RECHO.CFG).
+
+Next session, in order:
+1. fw1 updater: on USB eject, if HIFIECnn.IMG exists on the volume, install
+   it (study the reference/stock updater first; this is what removes the
+   maskrom step from every iteration). Highest value.
+2. Flash m3d only if the suspend/power-off exit matters; read "USB diag".
