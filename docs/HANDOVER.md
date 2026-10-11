@@ -1236,8 +1236,38 @@ Device state at end of session: m3c installed, stock HIFIEC.IMG leftover on
 the volume was overwritten by mistake (no copy; updater ignores that name).
 Volume files backed up to ~/echo_backup (ECHOLOG.TXT, RECHO.CFG).
 
-Next session, in order:
-1. fw1 updater: on USB eject, if HIFIECnn.IMG exists on the volume, install
-   it (study the reference/stock updater first; this is what removes the
-   maskrom step from every iteration). Highest value.
-2. Flash m3d only if the suspend/power-off exit matters; read "USB diag".
+## VERDICT #24 (2026-10-11): OUR fw1 UPDATES ITSELF - NO MORE MASKROM
+
+m4a (installed via stock) -> m4b and m4b -> m4c installed by OUR updater on
+hardware: copy HIFIEC90.IMG over our USB, eject (or unplug), screen shows
+"Firmware update detected", name, KiB, SHA-256 (= `sha256sum`), PLAY = yes.
+Both slots written and verified, image renamed to HIFIEC90.OLD, new build
+boots after a power-cycle (title shows RC_BUILD in ap_ui.c).
+
+Code: firmware/services/fw_update.c (clean-room from reference 0x03054474):
+- FAT32 only (MBR p0 or superfloppy), root dir, contiguous files only
+  (FWU_EFRAG otherwise: delete and copy again).
+- Checks: "RKnanoFW" @0x1F8, header copy at fw size (@0x1F4), CRC
+  0x04C10DB7 over [0, fw_end) == trailer @fw_end, fits one slot.
+- Firmware area = LBA 0x2000 + [0, IDB sysMiB*0x800); slot 2 at half.
+  Order: slot2 header := 0xFF, slot2 body, slot2 header, slot1 header :=
+  0xFF, slot1 body copied from slot2, slot1 header. 8 KiB blocks, each
+  read back. emmc_fw_write() is bounded to the firmware area.
+- Host check: `python3 tools/test_fw_update.py [IMG]` (mkfs.fat volume,
+  install, fsck, corrupted-image rejection).
+
+Open:
+- Warm reboot does NOT work: neither SYSRESETREQ nor a port of the
+  reference sequence (0x03051b40: "NanoCRebootFlag" at 0x0309FFF0, SysTick/
+  NVIC off, CRU gates 0x80..0xA4 = 0xFFFF0000 then 0xA0 = 0x80008000, resets
+  0xC0..0xCC = 0xFFFF0000, GRF+0xC4 = 0x01000000, VTOR 0, AIRCR 0x05FA0007).
+  The screen now says "power-cycle the player". Likely missing: what the
+  reference does before calling it (clock tree / PMU state).
+- Stock images (bigger than a slot, the reference's fw1-only path) are
+  refused with FWU_EFIT; going back to stock still needs maskrom.
+- exFAT / FAT16 / fragmented images unsupported.
+
+Next session:
+1. Pick the real product work (audio path / file browser over FAT32 -
+   fw_update.c already has a minimal FAT32 reader to grow from).
+2. Warm reboot, suspend exit (m3d "USB diag"), high-speed USB: polish.

@@ -38,6 +38,7 @@ enum {                       /* DW-MMC word offsets */
 
 static uint32_t s_sectors, s_fifo_words = 16u;
 static uint32_t s_write_floor = 0xFFFFFFFFu;   /* set by emmc_layout() */
+static uint32_t s_fw_sectors;                   /* ditto, 0 = no fw writes */
 
 static int wait_clear(unsigned reg, uint32_t mask, uint32_t tries)
 {
@@ -277,16 +278,10 @@ int emmc_read(uint32_t lba, uint32_t count, void *buf)
     return ret;
 }
 
-/* Refuses anything below the user volume: IDB and firmware slots are
- * never writable from here (also not before emmc_layout() succeeded). */
-int emmc_write(uint32_t lba, uint32_t count, const void *buf)
+static int raw_write(uint32_t lba, uint32_t count, const void *buf)
 {
     int ret, r;
 
-    if (count == 0u)
-        return 0;
-    if (lba < s_write_floor || lba + count < lba || lba + count > s_sectors)
-        return -30;
     clk_gate(0x6C, 1);
     if (count == 1u) {
         ret = xfer_data(24, lba, (uint32_t *)buf, 512, 1);
@@ -301,6 +296,30 @@ int emmc_write(uint32_t lba, uint32_t count, const void *buf)
         ret = -31;
     clk_gate(0x6C, 0);
     return ret;
+}
+
+/* Refuses anything below the user volume: IDB and firmware slots are
+ * never writable from here (also not before emmc_layout() succeeded). */
+int emmc_write(uint32_t lba, uint32_t count, const void *buf)
+{
+    if (count == 0u)
+        return 0;
+    if (lba < s_write_floor || lba + count < lba || lba + count > s_sectors)
+        return -30;
+    return raw_write(lba, count, buf);
+}
+
+uint32_t emmc_fw_sectors(void)
+{
+    return s_fw_sectors;
+}
+
+/* Firmware area only: [EMMC_FW_BASE, EMMC_FW_BASE + emmc_fw_sectors()). */
+int emmc_fw_write(uint32_t rel, uint32_t count, const void *buf)
+{
+    if (count == 0u || rel + count < rel || rel + count > s_fw_sectors)
+        return -30;
+    return raw_write(EMMC_FW_BASE + rel, count, buf);
 }
 
 static uint32_t s_buf[256];
@@ -342,6 +361,7 @@ int emmc_layout(uint32_t *user_start)
         for (uint32_t off = fw; off < 0x100000u; off += 0x800u) {
             if (is_volume_start(0x2000u + off)) {
                 *user_start = s_write_floor = 0x2000u + off;
+                s_fw_sectors = fw;
                 return 0;
             }
         }

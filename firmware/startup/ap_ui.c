@@ -9,6 +9,7 @@
 #include "drivers/emmc.h"
 #include "drivers/panel_io.h"
 #include "drivers/usb_msc.h"
+#include "services/fw_update.h"
 #include "services/input.h"
 #include "ui/ui.h"
 #include "ui/screens/screens.h"
@@ -46,20 +47,121 @@ static const char *usbd_text(void)
     return buf;
 }
 
+static void line(int row, const char *s)
+{
+    display_draw_text(8, 8 + row * 14, s, 0xFFFF, 0x0000);
+}
+
+static void screen(const char *title)
+{
+    display_fill_rect(0, 0, DISPLAY_W - 1, DISPLAY_H - 1, 0x0000);
+    line(0, title);
+    display_flush_rows(0, DISPLAY_H - 1);
+}
+
+static void update_progress(const char *what, uint32_t done, uint32_t total)
+{
+    static unsigned last = 101;
+    char buf[40];
+    unsigned pct = (unsigned)(done / (total / 100u + 1u));
+
+    if (pct == last)
+        return;
+    last = pct;
+    snprintf(buf, sizeof buf, "%-10s %3u%%", what, pct);
+    line(2, buf);
+    display_flush_rows(8 + 2 * 14, 8 + 2 * 14 + 7);
+}
+
+/* KEY_SELECT = yes; BACK / power = no; any = 1 with any_key. */
+static int ask(int any_key)
+{
+    input_event_t ev;
+
+    while (keys_power())
+        panel_io_delay_ms(1);
+    input_mock_clear();
+    for (;;) {
+        input_scan(keys_adc(), keys_power());
+        while (input_poll(&ev) > 0) {
+            if (any_key || ev.type == KEY_SELECT)
+                return 1;
+            if (ev.type == KEY_BACK || ev.type == KEY_POWER)
+                return 0;
+        }
+        panel_io_delay_ms(5);
+    }
+}
+
+/* After a USB session: offer HIFIECnn.IMG / ECHOMINI.IMG if present. */
+static void update_prompt(void)
+{
+    static fw_image_t img;
+    char buf[40];
+    int r;
+
+    screen("Looking for a firmware update");
+    r = fw_update_find(s_user, &img, update_progress);
+    if (r == FWU_NONE || (r && !img.name[0]))
+        return;
+    if (r) {
+        screen("Firmware update NOT usable");
+        snprintf(buf, sizeof buf, "%s: error %d", img.name, r);
+        line(2, buf);
+        line(4, "press any key");
+        display_flush_rows(0, DISPLAY_H - 1);
+        ask(1);
+        return;
+    }
+    screen("Firmware update detected");
+    snprintf(buf, sizeof buf, "%s  %u KiB", img.name, (unsigned)(img.size >> 10));
+    line(2, buf);
+    for (int half = 0; half < 2; half++) {
+        char *p = buf + snprintf(buf, sizeof buf, half ? "    " : "SHA ");
+        for (int i = 0; i < 16; i++)
+            p += snprintf(p, 3, "%02x", img.sha256[half * 16 + i]);
+        line(3 + half, buf);
+    }
+    line(6, "Update?  PLAY = yes   BACK = no");
+    display_flush_rows(0, DISPLAY_H - 1);
+    if (!ask(0))
+        return;
+
+    screen("Updating - do NOT power off");
+    r = fw_update_install(&img, update_progress);
+    if (r) {
+        snprintf(buf, sizeof buf, "Update FAILED: error %d", r);
+        line(4, buf);
+        line(5, "keep power on: unplug/replug USB");
+        line(6, "to retry, or debrick via maskrom");
+        display_flush_rows(0, DISPLAY_H - 1);
+        ask(1);
+        return;
+    }
+    r = fw_update_retire(&img);
+    snprintf(buf, sizeof buf, "Update done (rename %d)", r);
+    line(4, buf);
+    line(5, "power-cycle the player now");
+    display_flush_rows(0, DISPLAY_H - 1);
+    for (;;)                             /* no working warm reboot yet */
+        ;
+}
+
 /* Cable plugged in: expose the user volume until eject/unplug/power key. */
 static void usb_session(void)
 {
     uint32_t rd, wr;
     int r;
 
-    display_fill_rect(0, 0, DISPLAY_W - 1, DISPLAY_H - 1, 0x0000);
-    display_draw_text(8, 8, "USB mass storage", 0xFFFF, 0x0000);
-    display_draw_text(8, 24, "eject on the PC or press power", 0xFFFF, 0x0000);
+    screen("USB mass storage");
+    line(1, "eject on the PC or press power");
     display_flush_rows(0, DISPLAY_H - 1);
     r = usb_msc_run(s_user, emmc_sectors() - s_user, keys_power, &rd, &wr);
     snprintf(s_usb, sizeof s_usb, "x%d r%uM w%uM", r, (unsigned)(rd >> 11), (unsigned)(wr >> 11));
     while (keys_power())                 /* don't leak the exit press */
         panel_io_delay_ms(1);
+    if (r == USB_EXIT_EJECT || r == USB_EXIT_UNPLUG)
+        update_prompt();
     ui_invalidate_all();
 }
 
@@ -83,7 +185,8 @@ static const menu_item_t k_root_items[] = {
     { "USB",         usb_text,  NULL },
     { "USB diag",    usbd_text, NULL },
 };
-static const menu_model_t k_root = { "ReChord", k_root_items, 7 };
+#define RC_BUILD "m4c"
+static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 7 };
 
 void ap_ui_loop(void)
 {

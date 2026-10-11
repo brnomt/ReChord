@@ -18,4 +18,10 @@ int emmc_write(uint32_t lba, uint32_t count, const void *buf);
  * user volume = [user_start, emmc_sectors()). 0 on success. */
 int emmc_layout(uint32_t *user_start);
 
+/* Firmware area (IDB system size; 0 before emmc_layout() succeeded), two
+ * slots of emmc_fw_sectors()/2. Writes are bounded to the area; -30 else. */
+#define EMMC_FW_BASE 0x2000u
+uint32_t emmc_fw_sectors(void);
+int emmc_fw_write(uint32_t rel, uint32_t count, const void *buf);
+
 #endif
