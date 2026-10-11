@@ -35,4 +35,6 @@ void panel_io_send_pixel(uint16_t rgb565);
  * The sim backend counts but never sleeps. */
 void panel_io_delay_ms(uint16_t ms);
 
+void backlight_on(void);
+
 #endif /* RECHORD_PANEL_IO_H */

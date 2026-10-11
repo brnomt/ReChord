@@ -5,6 +5,13 @@
  * machine: window registers (CASET/RASET), an auto-incrementing RAMWR
  * cursor, pixel assembly from byte pairs (high byte first), and strict
  * bounds checking with a fault counter.
+ *
+ * Geometry: the wire carries PHYSICAL panel rows (the driver adds
+ * PANEL_ROW_OFFSET to every RASET parameter -- extracted hardware
+ * contract, see display.h). The simulated framebuffer models only the
+ * visible DISPLAY_H-row band (physical rows PANEL_ROW_OFFSET ..
+ * PANEL_ROW_OFFSET+DISPLAY_H-1); panel_io_sim_pixel() and the PPM dump
+ * take LOGICAL rows 0..DISPLAY_H-1, so tests stay geometry-agnostic.
  */
 
 #include <stdio.h>
@@ -26,6 +33,11 @@
 #define CMD_RAMWR 0x2C
 
 #define SIM_CMD_LOG_MAX 256
+#define SIM_CMD_MAX_ARGS 16
+
+/* Physical row range of the visible band (extracted contract). */
+#define SIM_BAND_Y0 PANEL_ROW_OFFSET
+#define SIM_BAND_Y1 (PANEL_ROW_OFFSET + PANEL_SIM_H - 1)
 
 static uint16_t sim_fb[PANEL_SIM_H][PANEL_SIM_W];
 
@@ -35,15 +47,20 @@ static int nparam;
 static uint8_t pixel_hi;     /* pending high byte of an RGB565 pixel      */
 static int have_hi;
 
-static int xs, ys, xe, ye;   /* window registers (set by CASET/RASET)     */
-static int cx, cy;           /* RAMWR cursor                              */
+static int xs, ys, xe, ye;   /* window registers (CASET/RASET; rows PHYSICAL) */
+static int cx, cy;           /* RAMWR cursor (cy physical)                */
 static int have_caset, have_raset;
 
 static unsigned overflow_count;
 static unsigned delay_total_ms;
 
-static uint8_t cmd_log[SIM_CMD_LOG_MAX];
+static struct {
+    uint8_t cmd;
+    uint8_t nargs;
+    uint8_t args[SIM_CMD_MAX_ARGS];
+} cmd_log[SIM_CMD_LOG_MAX];
 static int cmd_log_len;
+static int cur_entry;        /* index of the command being logged, or -1 */
 
 void panel_io_sim_reset(void)
 {
@@ -57,6 +74,7 @@ void panel_io_sim_reset(void)
     overflow_count = 0;
     delay_total_ms = 0;
     cmd_log_len = 0;
+    cur_entry = -1;
 }
 
 void panel_io_init(void)
@@ -67,6 +85,10 @@ void panel_io_init(void)
 void panel_io_delay_ms(uint16_t ms)
 {
     delay_total_ms += ms;
+}
+
+void backlight_on(void)
+{
 }
 
 unsigned panel_io_sim_delay_total_ms(void)
@@ -84,7 +106,12 @@ void panel_io_send_cmd(uint8_t cmd)
         cy = ys;
     }
     if (cmd_log_len < SIM_CMD_LOG_MAX) {
-        cmd_log[cmd_log_len++] = cmd;
+        cmd_log[cmd_log_len].cmd = cmd;
+        cmd_log[cmd_log_len].nargs = 0;
+        cur_entry = cmd_log_len;
+        cmd_log_len++;
+    } else {
+        cur_entry = -1;
     }
 }
 
@@ -98,7 +125,23 @@ uint8_t panel_io_sim_cmd_at(int i)
     if (i < 0 || i >= cmd_log_len) {
         return 0;
     }
-    return cmd_log[i];
+    return cmd_log[i].cmd;
+}
+
+int panel_io_sim_cmd_nargs(int i)
+{
+    if (i < 0 || i >= cmd_log_len) {
+        return 0;
+    }
+    return cmd_log[i].nargs;
+}
+
+uint8_t panel_io_sim_cmd_arg(int i, int k)
+{
+    if (i < 0 || i >= cmd_log_len || k < 0 || k >= cmd_log[i].nargs) {
+        return 0;
+    }
+    return cmd_log[i].args[k];
 }
 
 void panel_io_sim_last_window(int win[4])
@@ -113,10 +156,10 @@ static void sim_write_pixel(uint16_t rgb565)
 {
     int in_window = (cx >= xs && cx <= xe && cy >= ys && cy <= ye);
     int on_panel  = (cx >= 0 && cx < PANEL_SIM_W &&
-                     cy >= 0 && cy < PANEL_SIM_H);
+                     cy >= SIM_BAND_Y0 && cy <= SIM_BAND_Y1);
 
     if (in_window && on_panel) {
-        sim_fb[cy][cx] = rgb565;
+        sim_fb[cy - SIM_BAND_Y0][cx] = rgb565;
     } else {
         overflow_count++;
     }
@@ -131,6 +174,13 @@ static void sim_write_pixel(uint16_t rgb565)
 
 void panel_io_send_data(uint8_t data)
 {
+    /* Record the byte in the current command's argument log. */
+    if (cur_entry >= 0) {
+        if (cmd_log[cur_entry].nargs < SIM_CMD_MAX_ARGS) {
+            cmd_log[cur_entry].args[cmd_log[cur_entry].nargs++] = data;
+        }
+    }
+
     switch (cur_cmd) {
     case CMD_CASET:
     case CMD_RASET:

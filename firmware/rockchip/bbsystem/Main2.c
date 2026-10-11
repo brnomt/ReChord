@@ -606,6 +606,9 @@ void ScatterLoader2(void)
     }
 }
 
+/* bb_trace breadcrumbs (firmware/bb_trace.c) for the freeze hunt. */
+extern void bb_trace(const char *msg);
+
 int Main2(void)
 {
     uint outptr;
@@ -619,6 +622,7 @@ int Main2(void)
 #endif
 
     BSP_Init2();
+    bb_trace("C bsp\n");
 
     RegHifiDecodeServer();
 
@@ -629,6 +633,7 @@ int Main2(void)
     MailBoxWriteB2ACmd(MSGBOX_CMD_SYSTEM_START_OK, MAILBOX_ID_0, MAILBOX_CHANNEL_0);
     MailBoxWriteB2AData(0, MAILBOX_ID_0, MAILBOX_CHANNEL_0);
 
+    bb_trace("D ready\n");
     MemSet2(&gMediaBlockInfo,  0, sizeof(gMediaBlockInfo));
     MemSet2(&gRecordBlockInfo, 0, sizeof(gRecordBlockInfo));
 
@@ -751,6 +756,7 @@ int Main2(void)
                 break;
 
             case AUDIO_DECODE_OPEN:
+                bb_trace("E dec_open\n");
             {
                 pcb.audio_decode_status = AUDIO_DECODE_IDLE;
 
@@ -830,12 +836,14 @@ int Main2(void)
 
                 CodecGetCaptureBuffer2((short*)&gMediaBlockInfo.Outptr, &gMediaBlockInfo.OutLength);
 
+                bb_trace("H dec_open_cmpl\n");
                 MailBoxWriteB2ACmd(MEDIA_MSGBOX_CMD_DEC_OPEN_CMPL, MAILBOX_ID_0, MAILBOX_CHANNEL_1);
                 MailBoxWriteB2AData((UINT32)&gMediaBlockInfo, MAILBOX_ID_0, MAILBOX_CHANNEL_1);
             }
             break;
 
             case AUDIO_DECODE_DECODE:
+                bb_trace("I decode\n");
             {
                 //bb_printf1("AUDIO_DECODE_DECODE \n");
                 pcb.audio_decode_status = AUDIO_DECODE_IDLE;
@@ -1078,6 +1086,7 @@ int Main2(void)
                 break;
 
             case AUDIO_FILE_OPEN_CMPL:
+                bb_trace("F file_open_cmpl\n");
             {
                 gFileOpStatus = AUDIO_FILE_OPT_IDLE;
                 AudioIntAndDmaInit2();

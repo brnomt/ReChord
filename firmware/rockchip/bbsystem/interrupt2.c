@@ -3,7 +3,7 @@
 *                   Copyright (C),2004-2015, Fuzhou Rockchip Electronics Co.,Ltd.
 *                         All rights reserved.
 *
-* File Name£º   interrupt.c
+* File Nameï¿½ï¿½   interrupt.c
 *
 * Description:
 *
@@ -19,7 +19,8 @@
 #include <DriverInclude.h>
 
 typedef void(*ExecFunPtr)(void) __irq;
-#define _ATTR_VECTTAB_BB_             
+/* _ATTR_VECTTAB_BB_ comes from armcc_compat.h (section bb_vect, aligned 256)
+ * - a local empty define here broke VTOR alignment (2026-10-10). */
 
 typedef UINT32       (*p__MRS_MSP)(void);
 
@@ -797,12 +798,12 @@ void IsrEnable2(UINT32 ulInterrupt, uint32 IsEnable)
 --------------------------------------------------------------------------------
   Function name : void UserIsrEnable(uint32 data)
   Author        : ZhengYongzhi
-  Description   : PendSV×÷ÎªÈíÖÐ¶Ï£¬²»ÄÜ½øÐÐDisableºÍEnable£¬Ê¹ÓÃÐÅºÅÁ¿MSG_USER_ISR_ENABLE
-                  ½øÐÐPendSVµÄÊ¹ÄÜ±êÖ¾£¬ºÍUserIsrDisableÅäºÏÊ¹ÓÃ£¬´ò¿ªÊ±ÐèÒªÅÐ¶ÏFAULT_ID14_PENDSV
-                  µÄ×´Ì¬¡£Ê¹ÓÃÕâÁ½¸öº¯ÊýÖ®Ç°±ØÐë¶ÔÐÅºÅÁ¿MSG_USER_ISR_ENABLEºÍMSG_USER_ISR_STATUES
-                  ½øÐÐ³õÊ¼»¯
+  Description   : PendSVï¿½ï¿½Îªï¿½ï¿½ï¿½Ð¶Ï£ï¿½ï¿½ï¿½ï¿½Ü½ï¿½ï¿½ï¿½Disableï¿½ï¿½Enableï¿½ï¿½Ê¹ï¿½ï¿½ï¿½Åºï¿½ï¿½ï¿½MSG_USER_ISR_ENABLE
+                  ï¿½ï¿½ï¿½ï¿½PendSVï¿½ï¿½Ê¹ï¿½Ü±ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½UserIsrDisableï¿½ï¿½ï¿½Ê¹ï¿½Ã£ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Òªï¿½Ð¶ï¿½FAULT_ID14_PENDSV
+                  ï¿½ï¿½×´Ì¬ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö®Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½ï¿½ï¿½MSG_USER_ISR_ENABLEï¿½ï¿½MSG_USER_ISR_STATUES
+                  ï¿½ï¿½ï¿½Ð³ï¿½Ê¼ï¿½ï¿½
   Input         :
-  Return        : ÎÞ
+  Return        : ï¿½ï¿½
 
   History:     <author>         <time>         <version>
              ZhengYongzhi      2008-1-15          Ver1.0
@@ -874,7 +875,7 @@ uint32 IrqPriorityTab2[NUM_INTERRUPTS] =
     ((0x01 << 6) | (0x00 << 3)),        //40 dma2                 INT_ID56_DMA2,
 };
 
-void IrqPriorityInit2(void)              //ÖÐ¶ÏÓÅÏÈ¼¶³õÊ¼»¯, ÔÚIntPriorityGroupingSetÖ´ÐÐºóµ÷ÓÃ
+void IrqPriorityInit2(void)              //ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½, ï¿½ï¿½IntPriorityGroupingSetÖ´ï¿½Ðºï¿½ï¿½ï¿½ï¿½
 {
     uint32 i;
 

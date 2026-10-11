@@ -1,0 +1,200 @@
+{
+  "project": "ReChord",
+  "rules": [
+    {
+      "action": "Guarantee a reply for every mailbox command path, including error answers; treat any silent command as a deadlock.",
+      "content_hash": "f67536b5020acb05b28d54cf0553c9333f0d12e52d5e05bb78c7546191ca530f",
+      "id": "R-e9b5d8222673",
+      "incident_ids": [
+        "31fc0bea-3182-41e3-952d-80d5f5f2fe1f"
+      ],
+      "invariant": "Any mailbox reply (even DEC_OPEN_ERR) breaks the AP's wait; silence is the only deadlock.",
+      "revision": 1,
+      "scope": "AP<->BB mailbox reply paths",
+      "severity": "warning",
+      "when": {
+        "args": [
+          {
+            "field": "project",
+            "op": "eq",
+            "value": "ReChord"
+          },
+          {
+            "field": "subsystem",
+            "op": "eq",
+            "value": "mailbox"
+          }
+        ],
+        "op": "all"
+      }
+    },
+    {
+      "action": "Locate the real entry (ENTRY2 test on the .data-image VT) before any standalone fw1 flash.",
+      "content_hash": "89a5306b44136deceb3a78802b2d8b3cd59379be70fab3b79b09c3ea8ebc62df",
+      "id": "R-5add7c251c3f",
+      "incident_ids": [
+        "86fb4661-5b31-49ce-b1e9-115dba7759ae"
+      ],
+      "invariant": "The fw1 reset vector that the ROM uses is NOT word1 at RAM 0x03050000; do not rely on it for entry.",
+      "revision": 1,
+      "scope": "fw1 boot entry",
+      "severity": "blocker",
+      "when": {
+        "args": [
+          {
+            "field": "project",
+            "op": "eq",
+            "value": "ReChord"
+          },
+          {
+            "field": "files_touched",
+            "op": "touches_any",
+            "value": [
+              "firmware/startup/ap_startup.c",
+              "firmware/firmware_ap.ld",
+              "tools/make_fw1.py",
+              "tools/pack_fw1.py"
+            ]
+          }
+        ],
+        "op": "all"
+      }
+    },
+    {
+      "action": "Validate every scatter row against the reference fw1 boot model before any on-device flash.",
+      "content_hash": "c331e6647ca19294c4457ada9bd761d5042a983d5ad021e105de9565348cd236",
+      "id": "R-e9e18de6c692",
+      "incident_ids": [
+        "5d25951a-6147-4bdc-9b12-c7ff7182b5db"
+      ],
+      "invariant": "Scatter row src addresses live in the loaded RAM image, not XIP; verify byte-for-byte against the reference image before flashing.",
+      "revision": 1,
+      "scope": "fw1 scatter/loader model (tools/make_fw1.py)",
+      "severity": "blocker",
+      "when": {
+        "args": [
+          {
+            "field": "project",
+            "op": "eq",
+            "value": "ReChord"
+          },
+          {
+            "field": "subsystem",
+            "op": "eq",
+            "value": "firmware-packing"
+          },
+          {
+            "field": "files_touched",
+            "op": "touches_any",
+            "value": [
+              "tools/make_fw1.py",
+              "tools/pack_fw1.py"
+            ]
+          }
+        ],
+        "op": "all"
+      }
+    },
+    {
+      "action": "Keep the pack_fw1.py safety gate; require scatter-table review + reference-image diff before any fw1 write.",
+      "content_hash": "ce3822b6bd00a165e1427d9c6f324e70085721b5df56cda0df2929eb8c5964d0",
+      "id": "R-9461aeaecbe2",
+      "incident_ids": [
+        "0304a083-5b60-4ea4-a99c-9fc7853ebe1a"
+      ],
+      "invariant": "Never flash a custom fw1 until the scatter table is validated; no scatter row may target 0x03000000..0x03004000.",
+      "revision": 1,
+      "scope": "tools/pack_fw1.py fw1 scatter table",
+      "severity": "blocker",
+      "when": {
+        "args": [
+          {
+            "field": "project",
+            "op": "eq",
+            "value": "ReChord"
+          },
+          {
+            "field": "subsystem",
+            "op": "eq",
+            "value": "firmware-packing"
+          },
+          {
+            "field": "files_touched",
+            "op": "touches_any",
+            "value": [
+              "tools/pack_fw1.py",
+              "Makefile"
+            ]
+          }
+        ],
+        "op": "all"
+      }
+    },
+    {
+      "action": "Keep --keep-stock-tail as default; byte-diff the section_3 tail against stock after every repack.",
+      "content_hash": "f59ef432697cfe4c821a7752d09d3c663363a4856f0b5b6ca4e68ae0d510671d",
+      "id": "R-1f1c5d829375",
+      "incident_ids": [
+        "36cb62b3-9895-4edd-8931-568e871fef6a"
+      ],
+      "invariant": "Never zero-fill the stock section_3 tail; the AP reads string/pointer tables from inside that region.",
+      "revision": 1,
+      "scope": "tools/pack_img.py section_3 flash region",
+      "severity": "blocker",
+      "when": {
+        "args": [
+          {
+            "field": "project",
+            "op": "eq",
+            "value": "ReChord"
+          },
+          {
+            "field": "subsystem",
+            "op": "eq",
+            "value": "firmware-packing"
+          },
+          {
+            "field": "files_touched",
+            "op": "touches_any",
+            "value": [
+              "tools/pack_img.py"
+            ]
+          }
+        ],
+        "op": "all"
+      }
+    },
+    {
+      "action": "Always duplicate IMG[0:0x200] at offset fw_end = LE32(IMG[0x1F4]); byte-check it in the packer before flashing.",
+      "content_hash": "1c27a1d8d979a84cbe72d883a279a70996a5f60d385dcc0e81267246b2c4669b",
+      "id": "R-9f6e141101cb",
+      "incident_ids": [
+        "3a318ade-7496-4530-8d14-24bb09639c96"
+      ],
+      "invariant": "A valid update image must duplicate its first 512 bytes at offset fw_end (LE32 at 0x1F4) and carry the trailer CRC at (fw_end+0x104000)&~0xFFFFF.",
+      "revision": 3,
+      "scope": "update image format: outer header + fw_end header copy (tools/make_fw1.py, tools/pack_img.py)",
+      "severity": "blocker",
+      "when": {
+        "args": [
+          {
+            "field": "project",
+            "op": "eq",
+            "value": "ReChord"
+          },
+          {
+            "field": "files_touched",
+            "op": "touches_any",
+            "value": [
+              "tools/make_fw1.py",
+              "tools/pack_img.py",
+              "tools/pack_fw1.py"
+            ]
+          }
+        ],
+        "op": "all"
+      }
+    }
+  ],
+  "schema_version": 1
+}

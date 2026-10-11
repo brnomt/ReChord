@@ -36,8 +36,13 @@ __main_stack = 0x0301E794;
 
 /* Keil scatter-file symbols the SDK references */
 Image$$BB_MAIN_STACK$$ZI$$Limit = __main_stack + 0x4000;
-Image$$BB_SYS_DATA$$ZI$$Base = ORIGIN(FW_RAM);
-Image$$BB_SYS_DATA$$ZI$$Length = LENGTH(FW_RAM);
+/* 2026-10-10 fix: ScatterLoader2 (Main2.c) zeroes [ZI$$Base, +ZI$$Length).
+ * These must be the REAL .bss span - defining them as the whole FW_RAM wiped
+ * .data (initialized globals) at boot, which deadlocked every service. The
+ * reference CFW does exactly this: copy bounded .data, zero bounded .bss
+ * (0x03005AFC..0x03039128 in its map), set VTOR, call main. */
+Image$$BB_SYS_DATA$$ZI$$Base = _bss_start;
+Image$$BB_SYS_DATA$$ZI$$Length = _bss_end - _bss_start;
 
 SECTIONS
 {

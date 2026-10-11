@@ -144,3 +144,210 @@ Remaining before claiming a *verified* boot: the AP UI now has stubbed
 audio/BT/FM/image/record — it is the resident A_CORE, not the full player.
 Hardware-UART validation (`fw1valid = %d fw2valid = %d`) is the authoritative
 check that the scatter table + payload are accepted by the Mask ROM.
+
+## 8. make_fw1.py - one-command AP packing pipeline (milestone 1c, DONE)
+
+`tools/make_fw1.py` chains the whole AP path in one command:
+
+    ELF (or flat bin)
+      -> fw1 RKnanoFW slot image   (tools/pack_fw1.py conventions, imported)
+      -> splice into stock HIFIEC*.IMG (tools/pack_img.py pack_full, imported)
+      -> RECOMPUTE the 4-byte trailer CRC
+      -> verification report
+
+Neither `pack_fw1.py` nor `pack_img.py` was modified; `make_fw1.py` imports
+their readers/tables/constants and drives them.
+
+### 8.1 Exact invocations (run from the repo root)
+
+    # real AP ELF -> build/ReChord_AP.IMG  (the deliverable image)
+    python3 tools/make_fw1.py build/ap/rechord_ap.elf
+
+    # dry-run proof: tiny placeholder ELF (vector table + reset loop at the
+    # documented base 0x03050000), built with arm-none-eabi-gcc inline
+    python3 tools/make_fw1.py --placeholder -o build/ReChord_AP_dryrun.IMG
+
+    # flat binary input (placed at --load-addr, entry defaults to load-addr)
+    python3 tools/make_fw1.py code.bin --load-addr 0x03050000
+
+    # optional: also splice a custom section_3 (BB) instead of keeping stock
+    python3 tools/make_fw1.py build/ap/rechord_ap.elf --bb build/section3_custom.bin
+
+Outputs: `<output>` (default `build/ReChord_AP.IMG`) and `<output>.fw1` (the
+intermediate fw1 slot image, kept for inspection). The tool refuses to write
+anything named `ReChord_BB.IMG` (safe fallback) or over the stock IMG, and it
+never touches the mounted device.
+
+### 8.2 Verification steps (the report covers all of these)
+
+1. Slot limits: scatter rows <= 91, payload <= 356,456 B (0x57068).
+2. Scatter src XIP window: every load row's src must lie in
+   0x030007B8..0x03057820 (IMG offset = addr - 0x03000000).
+3. Entry contract: ELF e_entry must fall inside a loaded segment. NOTE the
+   RKnanoFW header has NO entry field: field 0 is the load base / initial SP
+   (stock 0x03050000 = vector-table base, word0 = SP, word1 = reset, per
+   docs/re/route-b-minimum.md section 2). The ELF entry is informational.
+4. IMG wrap round-trip: re-read the output and check the fw1 header @ 0x1F8,
+   the scatter rows @ 0x208 (zero-padded to 0x7B8), the payload @ 0x7B8
+   (zero-padded to 0x57820), the section_3 region @ 0x81A14, byte-for-byte.
+5. Trailer CRC: self-check the primitive against the stock image body (must
+   reproduce the stock trailer 0x1EA1C309), then report CRC before (carried
+   from stock) / CRC after (recomputed over IMG[:-4], stored LE at 0x2000000).
+   The device rejects wrong-trailer images pre-write with "bad CRC Image".
+
+Independent re-check of the trailer (bit-loop form of the same primitive):
+
+    python3 - <<'EOF'
+    import struct
+    data = open("build/ReChord_AP.IMG", "rb").read()
+    crc = 0
+    for b in data[:-4]:
+        crc ^= b << 24
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x04C10DB7) & 0xFFFFFFFF \
+                if crc & 0x80000000 else (crc << 1) & 0xFFFFFFFF
+    print(hex(crc), hex(struct.unpack_from("<I", data, len(data) - 4)[0]))
+    EOF
+
+### 8.3 Format limits and contracts (confirmed while building the pipeline)
+
+| item | limit / contract |
+|---|---|
+| scatter rows | max **91** (table region 0x208..0x7B8 = 91 x 16 B) |
+| fw1 payload | max **356,456 B** (0x57068: payload window 0x7B8..0x57820) |
+| fw1 slot total | 16 (header) + 16*rows + payload |
+| XIP mapping | flash addr = 0x03000000 + IMG offset; load-row src must be inside the fw1 payload window 0x030007B8..0x03057820 |
+| row types | Type B load `{dest, src, size, dest_end}` (w3 = w0 + w2); Type A zero-fill `{start, len, start+len, 0}` (w3 = 0) |
+| entry | no entry field in the container; load base 0x03050000 doubles as the vector-table address (SP at word 0, reset at word 1) |
+| IMG size | fixed 33,554,436 B (0x2000004); trailer CRC at 0x2000000, LE |
+| trailer CRC | CRC32 poly **0x04C10DB7** (NOT 0x04C11DB7), non-reflected, init 0, xorout 0, over IMG[:-4] |
+
+The packer concatenates PT_LOAD file images with NO padding, so segment
+alignment inside the payload is only what the ELF file offsets give; link
+segments 4-aligned (the scatter copy is word-oriented).
+
+### 8.4 Dry-run proof (2026-10-09, both chains PASS)
+
+Placeholder run (`--placeholder`): 1 scatter row, 20 B payload, entry
+0x03050011 (Thumb, reset at 0x03050010), fw1 payload landed at IMG 0x7B8,
+output 33,554,436 B, trailer recomputed 0x1EA1C309 -> 0xD58A726A.
+
+Real AP run (`build/ap/rechord_ap.elf`): entry 0x03060045 (Thumb); segments
+0x03000000 (filesz 0x194E4, memsz 0x60000) + 0x03060000 (0x295FC) - note the
+AP now links at stock SYS_DATA/SYS_CODE (section 4's 0x03200000 note is
+obsolete); 3 scatter rows (2 load + 1 zero-fill), payload 273,120 B
+(76.6% of 356,456), fw1 slot 273,184 B, payload landed at IMG
+0x7B8..0x43298, trailer recomputed 0x1EA1C309 -> 0x13379CAA. The emitted
+fw1 slot is byte-identical to `build/ap/fw1_custom.img`.
+
+### 8.5 Deviations from this doc's earlier plan
+
+1. **Output naming:** the pipeline emits `build/ReChord_AP.IMG` (custom fw1 +
+   STOCK section_3 preserved verbatim), not the "pack both halves"
+   `build/ReChord_APBB.IMG`. A custom BB is only spliced with explicit
+   `--bb`; `build/ReChord_BB.IMG` stays the untouched safe fallback.
+2. **pack_full section_3 semantics:** `pack_img.pack_full` zero-pads the
+   section_3 region past a shorter custom BB; to keep the stock BB intact
+   `make_fw1.py` passes the stock region bytes themselves (an identity
+   splice), so no stock tail is lost.
+3. **The trailer is RECOMPUTED, not preserved.** `pack_full` preserves the
+   stock trailer; `make_fw1.py` then rewrites it with the CRC of the new
+   body (required: any byte change invalidates it).
+4. Still unverified: the custom scatter table on hardware (2026-08-25 brick;
+   see pack_fw1.py header). Offline analysis only until the UART check
+   (`fw1valid = %d fw2valid = %d`) passes.
+
+
+## 9. CORRECTION (2026-10-11): the load model is CONTIGUOUS, not XIP
+
+Section 3's "XIP mapping (IMG offset N <-> 0x03000000+N)" is REFUTED by
+cross-audit against the stock tables and the reference image (incident
+5667c9c4, hard brick 2026-10-11):
+
+- Under XIP the entry address 0x03050000 reads IMG 0x50000 = all zeros (no
+  vector table anywhere); under contiguous (RAM = 0x0304F298 + IMG offset)
+  IMG 0xD68 holds a real vector table (SP 0x03004000, Reset 0x0306296F).
+- Under XIP 0/46 of the stock v2.5.0 Type-B rows source from fw1's own
+  payload window (0x7B8..0x57820); under contiguous 46/46 do.
+
+Correct model:
+1. The loader splices the fw1 payload at IMG 0x7B8 and loads it contiguously
+   into RAM at RAM = 0x0304F298 + IMG offset (payload[0] -> 0x0304FA50).
+2. Scatter rows copy from addresses IN THAT LOADED IMAGE (Type B w1 = src =
+   0x0304F298 + IMG offset of the source bytes) and zero/declare regions
+   (Type A).
+3. Entry = the vector table at RAM 0x03050000 = IMG 0xD68 (0x5B0 bytes into
+   the payload; the reference prefixes its payload with a 0x5B0-byte pointer
+   table, we pad the same computed span). word0 = initial SP (0x03004000),
+   word1 = reset.
+4. RAM 0x03000000..0x03004000 = the AP MAIN STACK (SP 0x03004000, grows
+   down). NEVER a row target and never data (the 2026-08-25 brick put .data
+   there).
+
+Our build (tools/pack_fw1.py) now emits: payload = [computed prefix][chunks
+placed at their LMA offsets (in-place load)], rows = [B identity for the code
+chunk][A for the RW region], and tools/make_fw1.py byte-checks the vector
+table at IMG 0xD68 on every pack. Residual uncertainties (hardware-unproven):
+the count field (we emit the real row count, stock/reference emit 91) and the
+reference's extra third row (purpose unknown).
+
+## 10. Outer header / IDB part-table map (2026-10-11)
+
+The first 0x1F8 bytes of the IMG are the RKnano firmware descriptor (family of
+the eMMC "SAVE"/IDB record the loader reads at boot - see the recovered boot
+log in docs/HANDOVER.md). Field 0x00 = build date (MM DD 20 YY), 0x10 =
+brand name, and a part table follows. Two images give simultaneous equations:
+
+| off | STOCK | REFERENCE | meaning |
+|-----|-------|-----------|---------|
+| 0x000 | 0x06222026 (Jun 22 2026) | 0x10072026 (Oct 7 2026) | build date |
+| 0x010 | "Rockchip" | (brand) | brand name |
+| 0x030 | "RKnano SDK 1.0" | "7e287ea" | build hash/string |
+| 0x1F4 | 0x01FC4000 | 0x0044C000 | trailing-marker container base (header at +0x1F8) |
+| 0x148-0x150 | (1, 0x009BAA0E, 0x016069E8) | 0,0,0 | optional part: sec3 end, resources size |
+| 0xC8-0xD0 | (1, 0x0059931C, 0x001CA34A) | 0,0,0 | optional part group 2 |
+| 0xF4-0xFC | (1, 0x00763666, 0x002573A8) | 0,0,0 | optional part group 3 |
+| 0x080 | 0x00387716 | 0x00239476 (= its fw1 end) | unidentified (bounds?) |
+
+Status: map INCOMPLETE - the fw1 extent fields are not yet pinned (0x80 is the
+leading candidate). The reference zeroed every optional group; its image is
+fw1 + marker only. Remaining decode targets: fields 0x40-0x6C and 0x70-0x84
+(tag values 0x00201C06 / 0x00211C06).
+
+Full non-zero field dump (stock vs reference):
+| off | STOCK | REFERENCE | meaning |
+|-----|-------|-----------|---------|
+| 0x000 | 0x06222026 | 0x10072026 |  |
+| 0x004 | 0x00000000 | 0x00090000 |  |
+| 0x008 | 0x00000000 | 0x00000002 |  |
+| 0x00C | 0x76543210 | 0x76543210 |  |
+| 0x010 | 0x6B636F52 | 0x48434552 |  |
+| 0x014 | 0x70696863 | 0x0000004F |  |
+| 0x030 | 0x616E4B52 | 0x38326537 |  |
+| 0x034 | 0x53206F6E | 0x00616537 |  |
+| 0x038 | 0x31204B44 | 0x00000000 |  |
+| 0x03C | 0x0000302E | 0x00000000 |  |
+| 0x050 | 0x00000004 | 0x00000004 |  |
+| 0x054 | 0x00000200 | 0x00000200 |  |
+| 0x05C | 0x00000200 | 0x00000200 |  |
+| 0x064 | 0x00000200 | 0x00000200 |  |
+| 0x06C | 0x00000200 | 0x00000200 |  |
+| 0x070 | 0x00185910 | 0x00037670 |  |
+| 0x074 | 0x00000002 | 0x00000003 |  |
+| 0x078 | 0x00185B10 | 0x00037870 |  |
+| 0x07C | 0x00201C06 | 0x00201C06 |  |
+| 0x080 | 0x00387716 | 0x00239476 |  |
+| 0x084 | 0x00211C06 | 0x00211C06 |  |
+| 0x088 | 0x00000000 | 0x0044B07C |  |
+| 0x08C | 0x00000000 | 0x0000039A |  |
+| 0x0C8 | 0x00000001 | 0x00000000 |  |
+| 0x0CC | 0x0059931C | 0x00000000 |  |
+| 0x0D0 | 0x001CA34A | 0x00000000 |  |
+| 0x0F4 | 0x00000001 | 0x00000000 |  |
+| 0x0F8 | 0x00763666 | 0x00000000 |  |
+| 0x0FC | 0x002573A8 | 0x00000000 |  |
+| 0x148 | 0x00000001 | 0x00000000 |  |
+| 0x14C | 0x009BAA0E | 0x00000000 |  |
+| 0x150 | 0x016069E8 | 0x00000000 |  |
+| 0x19C | 0x00000001 | 0x00000001 |  |
+| 0x1F4 | 0x01FC4000 | 0x0044C000 |  |

@@ -32,58 +32,13 @@ static void send_u16(uint16_t v)
 }
 
 /* ---------------------------------------------------------------------------
- * Panel power-on init -- OPEN ITEM, hook ready to fill (see display.h).
+ * Panel power-on init -- see panel_init_rknanoc.c.
  *
- * TODO(docs/rewrite/drivers.md "open items"): extract the panel's real
- * power-on DCS sequence from the reference firmware's panel_init
- * (route-b-minimum.md §3, panel_init @ 0x03051EA8). That extraction gives
- * us a hardware CONTRACT (a list of DCS commands + delays), which we then
- * encode as rows of panel_init_table[] below -- no reference code is ever
- * copied. Expected shape of the answer (typical DCS panels, UNVERIFIED for
- * this device): 0x11 sleep-out + ~120 ms, vendor power/gamma set, 0x3A
- * pixel format 0x55 (RGB565), 0x29 display-on.
- *
- * The table is executed by panel_init_sequence() below. A row with
- * cmd == PANEL_INIT_END (0x00, DCS NOP) terminates the table, so the
- * default table is a single harmless terminator = safe no-op.
+ * The DCS init sequence extracted from the reference firmware lives in
+ * panel_init_rknanoc.c (byte-exact tables for the two panel variants the
+ * reference supports, emitted through panel_io). This file only calls
+ * panel_init_sequence() from display_init() below.
  * ------------------------------------------------------------------------ */
-
-#define PANEL_INIT_MAX_DATA 8
-
-typedef struct {
-    uint8_t  cmd;                    /* DCS command byte                  */
-    uint8_t  nbytes;                 /* parameter bytes in data[] (0..8)  */
-    uint8_t  data[PANEL_INIT_MAX_DATA];
-    uint16_t delay_ms;               /* wait AFTER this step              */
-} panel_init_step_t;
-
-#define PANEL_INIT_END 0x00  /* terminator (DCS NOP is a safe no-op) */
-
-static const panel_init_step_t panel_init_table[] = {
-    /* FILL HERE when the panel_init extraction lands, e.g.:
-     *   { 0x11, 0, { 0 },          120 },   sleep out, then wait
-     *   { 0x3A, 1, { 0x55 },       0   },   RGB565 pixel format
-     *   { 0x29, 0, { 0 },          20  },   display on
-     */
-    { PANEL_INIT_END, 0, { 0 }, 0 }
-};
-
-void panel_init_sequence(void)
-{
-    const panel_init_step_t *step;
-
-    for (step = panel_init_table; step->cmd != PANEL_INIT_END; step++) {
-        int i;
-
-        panel_io_send_cmd(step->cmd);
-        for (i = 0; i < step->nbytes && i < PANEL_INIT_MAX_DATA; i++) {
-            panel_io_send_data(step->data[i]);
-        }
-        if (step->delay_ms > 0) {
-            panel_io_delay_ms(step->delay_ms);
-        }
-    }
-}
 
 /* ---------------------------------------------------------------------------
  * Public API
@@ -91,6 +46,7 @@ void panel_init_sequence(void)
 
 void display_init(void)
 {
+    backlight_on();
     panel_io_init();
     panel_init_sequence();
     /* Observed draw_init contract: panel_init + clear screen + flush. */
@@ -140,15 +96,17 @@ void display_flush_rows(int y0, int y1)
         return;   /* empty range */
     }
 
-    /* CASET: full row width. */
+    /* CASET: full row width (extracted contract: columns 0..0x013F). */
     panel_io_send_cmd(DCS_CASET);
     send_u16(0);
     send_u16((uint16_t)(DISPLAY_W - 1));
 
-    /* RASET: the inclusive row range y0..y1. */
+    /* RASET: the inclusive row range y0..y1, mapped to physical panel
+     * rows by PANEL_ROW_OFFSET (extracted contract: the reference's
+     * flush routine sends row + 35 -- see display.h). */
     panel_io_send_cmd(DCS_RASET);
-    send_u16((uint16_t)y0);
-    send_u16((uint16_t)y1);
+    send_u16((uint16_t)(y0 + PANEL_ROW_OFFSET));
+    send_u16((uint16_t)(y1 + PANEL_ROW_OFFSET));
 
     /* RAMWR: the pixels, row-major, high byte first (panel_io contract). */
     panel_io_send_cmd(DCS_RAMWR);

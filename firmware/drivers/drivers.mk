@@ -1,5 +1,5 @@
-# firmware/drivers/drivers.mk — build wiring for the drivers module
-# (fragment style per docs/rewrite/architecture.md §2; included by the root
+# firmware/drivers/drivers.mk - build wiring for the drivers module
+# (fragment style per docs/rewrite/architecture.md section 2; included by the root
 # Makefile).
 #
 # Exactly ONE panel I/O backend is linked per image:
@@ -10,6 +10,7 @@ DRIVERS_DIR := firmware/drivers
 
 DRIVERS_COMMON_SRCS := \
   $(DRIVERS_DIR)/display.c \
+  $(DRIVERS_DIR)/panel_init_rknanoc.c \
   $(DRIVERS_DIR)/font.c \
   $(DRIVERS_DIR)/font8x8.c
 

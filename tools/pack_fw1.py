@@ -42,11 +42,58 @@ from pathlib import Path
 MAGIC = b"RKnanoFW"
 PT_LOAD = 1
 
-# Echo Mini XIP mapping: IMG offset N <-> 0x03000000 + N. The scatter table's
-# "src" field is an XIP address; FLASH_BASE is the address the fw1 payload
-# occupies when spliced into the IMG (pack_img.py places it at IMG 0x7B8,
-# i.e. XIP 0x030007B8). Load-entry src values are FLASH_BASE + payload offset.
-FLASH_BASE = 0x030007B8
+# CONFIRMED boot model (audit 2026-10-11, incident 5667c9c4): the loader
+# splices the fw1 payload at IMG 0x7B8 and loads it CONTIGUOUSLY into RAM at
+# RAM = RAM_IMG_BASE + IMG offset. Scatter "src" fields are addresses in that
+# loaded image - NOT XIP. The XIP reading is refuted: under it the entry
+# address 0x03050000 reads zeros and 0/46 of the stock's load rows source
+# from fw1's own payload window; under contiguous 46/46 do.
+RAM_IMG_BASE = 0x0304F298
+FW1_PAYLOAD_IMG_OFF = 0x7B8      # where pack_img.py splices the fw1 payload
+VECTOR_RAM = 0x03050000          # entry contract: vector-table base (header w2)
+
+# HARD GATE (2026-10-11): rows must never target below this address.
+# 0x03000000..0x03004000 is ROM-owned AP fast mem / workspace; the
+# 2026-08-25 hard brick was caused by a load row over that zone.
+SAFE_MIN_RAM = 0x03004000
+
+# The reference image's 0x5B0-byte payload prefix (its "pointer table"):
+# sparse region descriptors pointing into HIGHRAM0. The loader may read it;
+# cloning it verbatim removes that variable (option-2 byte-clone test).
+REF_PREFIX_LEN = 0x5B0
+REF_PREFIX_WORDS = [
+    (0x008, bytes.fromhex('e8a80703')),
+    (0x00C, bytes.fromhex('00030000')),
+    (0x010, bytes.fromhex('60a10703')),
+    (0x014, bytes.fromhex('00a00703')),
+    (0x018, bytes.fromhex('2c0f0000')),
+    (0x028, bytes.fromhex('2caf0703')),
+    (0x02C, bytes.fromhex('14100000')),
+    (0x030, bytes.fromhex('8cb00703')),
+    (0x034, bytes.fromhex('00a00703')),
+    (0x038, bytes.fromhex('c4060000')),
+    (0x048, bytes.fromhex('c4a60703')),
+    (0x050, bytes.fromhex('50b70703')),
+    (0x054, bytes.fromhex('00a00703')),
+    (0x058, bytes.fromhex('f0080000')),
+    (0x068, bytes.fromhex('f0a80703')),
+    (0x06C, bytes.fromhex('04000000')),
+    (0x090, bytes.fromhex('40c00703')),
+    (0x094, bytes.fromhex('00a00703')),
+    (0x098, bytes.fromhex('44150000')),
+    (0x0A8, bytes.fromhex('44b50703')),
+    (0x0AC, bytes.fromhex('10000000')),
+    (0x410, bytes.fromhex('84d50703')),
+    (0x414, bytes.fromhex('00000001')),
+    (0x418, bytes.fromhex('eca00000'))
+]
+
+
+def reference_prefix() -> bytes:
+    pref = bytearray(REF_PREFIX_LEN)
+    for off, w in REF_PREFIX_WORDS:
+        pref[off:off + 4] = w
+    return bytes(pref)
 
 
 class Elf32:
@@ -75,35 +122,89 @@ class Elf32:
         for i in range(self.e_phnum):
             off = self.e_phoff + i * self.e_phentsize
             yield dict(type=self.u32(off), offset=self.u32(off + 4),
-                       vaddr=self.u32(off + 8), filesz=self.u32(off + 16),
+                       vaddr=self.u32(off + 8), paddr=self.u32(off + 12), filesz=self.u32(off + 16),
                        memsz=self.u32(off + 20), flags=self.u32(off + 24))
 
 
 def build_scatter_table(elf: Elf32):
-    """Emit (Type B load, Type A bss) pairs for each PT_LOAD segment.
+    """Build rows + payload for the contiguously loaded fw1 image.
 
-    Returns (entries, payload) where payload is the concatenated file image
-    of the loadable segments, and each load entry's src is FLASH_BASE + the
-    segment's offset within that payload (XIP view).
+    CONFIRMED model (audit 2026-10-11): the loader copies the payload into RAM
+    at RAM_IMG_BASE + IMG offset and then applies the rows. The payload must
+    therefore MIRROR the segments' LMA layout (in-place load): each chunk sits
+    at payload offset (LMA - load_base), so a chunk with LMA == VMA needs no
+    copy and the .data chunk (LMA inside the code, VMA at 0x03004000) is
+    copied by the startup from its LMA (=_data_load_start).
+
+    Payload layout: [prefix][chunks...] with prefix = first_LMA - load_base
+    (0x5B0 for our link: the vector table at LMA 0x03050000 must land at
+    IMG 0xD68 = RAM 0x03050000, the entry contract).
+
+    Row shapes (even = Type B, odd = Type A; strict alternation):
+      Type B load/copy:  {dest, src, size, dest_end}  src = loaded-image RAM
+      Type A rw region:  {ram_start, init_size, init_end, total_obj}
     """
-    entries = []
+    all_segs = [s for s in elf.program_headers()
+                if s["type"] == PT_LOAD and s["memsz"] > 0]
+    # payload placement only from chunks that carry bytes (filesz > 0);
+    # file-less segments are pure regions (bss) -> Type A rows only.
+    segs = sorted((s for s in all_segs if s["filesz"] > 0),
+                  key=lambda s: s["paddr"])
+    if not segs:
+        return [], b""
+
+    load_base = RAM_IMG_BASE + FW1_PAYLOAD_IMG_OFF   # RAM addr of payload[0]
+    prefix = segs[0]["paddr"] - load_base
+    assert prefix == REF_PREFIX_LEN, "prefix must be 0x5B0 for the clone"
+    if prefix < 0:
+        raise SystemExit(
+            f"SAFETY: first LMA 0x{segs[0]['paddr']:08X} lies below the loaded "
+            f"payload base 0x{load_base:08X}")
+
+    loads, regions = [], []
     payload = bytearray()
-    for seg in elf.program_headers():
-        if seg["type"] != PT_LOAD or seg["memsz"] == 0:
-            continue
-        vaddr = seg["vaddr"]
-        filesz = seg["filesz"]
-        memsz = seg["memsz"]
+    for seg in segs:
+        vaddr, paddr = seg["vaddr"], seg["paddr"]
+        filesz, memsz = seg["filesz"], seg["memsz"]
+        want = paddr - load_base          # payload offset this chunk needs
+        if want < len(payload):
+            raise SystemExit("SAFETY: overlapping LMA chunks in payload")
+        payload += bytes(want - len(payload))   # keep LMA spacing
         if filesz:
-            src = FLASH_BASE + len(payload)   # XIP address of this chunk
+            if vaddr < SAFE_MIN_RAM:
+                raise SystemExit(
+                    f"SAFETY: load row targets 0x{vaddr:08X} < 0x{SAFE_MIN_RAM:08X} "
+                    "(stack zone 0x03000000..0x03004000 - brick pattern)")
             payload += elf.data[seg["offset"]:seg["offset"] + filesz]
-            entries.append((vaddr, src, filesz, vaddr + filesz))
+            if paddr == vaddr:
+                # Byte-clone of the reference's row-0 geometry: it copies its
+                # linked block up by 0xB68 ({dest=vaddr+0xB68, src=vaddr,
+                # size, end}) and enters through the LINKED addresses (its
+                # word1 thunk sits at the linked address). The overlapping
+                # duplicate is harmless: the loader's copy has memmove
+                # semantics (the reference boots with this exact row).
+                REF_RELOC_DELTA = 0xB68
+                d0 = vaddr + REF_RELOC_DELTA
+                loads.append((d0, vaddr, filesz, d0 + filesz))
+            # else: LMA != VMA (.data image) - the startup copies it from its
+            # LMA; the loader must NOT pre-copy it (would write the VMA too
+            # early). The Type A row below describes the region.
+
+    # Type A regions from every PT_LOAD with memsz > filesz (bss/data spans)
+    for seg in all_segs:
+        vaddr, filesz, memsz = seg["vaddr"], seg["filesz"], seg["memsz"]
         if memsz > filesz:
-            # Type A (zero-fill): {ram_start, size, ram_end, total_size}
-            #   — matches the stock table shape {start, span, end, extra=0}.
-            zstart = vaddr + filesz
-            zero_len = memsz - filesz
-            entries.append((zstart, zero_len, zstart + zero_len, 0))
+            regions.append((vaddr, filesz, vaddr + filesz, memsz))
+    entries = loads + regions       # Type B first (even), Type A after (odd)
+    # Structural clone of the proven images (option-2 test): append the
+    # reference's third row verbatim (a 4-byte poke to free RAM at
+    # 0x03078CD0; both the reference and stock carry extra rows we do not
+    # fully understand - matching them is the point of this test).
+    entries.append((0x03078CD0, 0x03079DCC, 0x4, 0))
+    for vaddr, *_ in regions:
+        if vaddr < SAFE_MIN_RAM:
+            raise SystemExit(
+                f"SAFETY: region row targets 0x{vaddr:08X} < 0x{SAFE_MIN_RAM:08X}")
     return entries, bytes(payload)
 
 

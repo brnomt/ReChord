@@ -42,6 +42,88 @@ include firmware/rockchip/manifests/ap.mk
 # build targets stay in this file so the graph lives in one place.
 -include $(shell find build/bb build/ap -name "*.d" 2>/dev/null)
 
+include firmware/ap.mk
+
+# ---- CFW AP (fw1) clean-room image: milestone 1, boots to OUR screen ----
+# Distinct from the SDK A_CORE pipeline above (build-ap/link-ap/pack-fw1):
+# this links ONLY firmware/{startup,ui,drivers,services,theme,libc}/*.c.
+CFW_BUILD_DIR := build/cfw
+CFW_OBJS := $(patsubst %.c,$(CFW_BUILD_DIR)/objs/%.o,$(AP_SRCS))
+CFW_ELF := $(CFW_BUILD_DIR)/rechord_ap.elf
+
+cfw-ap: $(CFW_ELF)
+	@echo "CFW AP ELF: $(CFW_ELF)"
+
+$(CFW_BUILD_DIR)/objs/%.o: %.c
+	@$(MKDIR_P) $(dir $@)
+	$(CC) $(AP_CFLAGS) -c $< -o $@
+
+$(CFW_ELF): $(CFW_OBJS) $(AP_LDSCRIPT)
+	@$(MKDIR_P) $(dir $@)
+	$(CC) $(AP_LDFLAGS) $(CFW_OBJS) $(AP_LDLIBS) -o $@
+
+# Our fw1 + stock section_3 (until the BB module milestone), CRC recomputed.
+# HARD GATE in tools/pack_fw1.py: no scatter row below 0x03004000 (ROM-owned
+# RAM - the 2026-08-25 brick). Debrick: docs/DEBRICK-LINUX.md.
+cfw-img: $(CFW_ELF)
+	$(PYTHON) tools/make_fw1.py $(CFW_ELF) -o build/ReChord_AP.IMG
+
+# HOOK TEST: verbatim reference fw1 calling our panel driver (HANDOVER.md).
+HOOK_DIR := build/hook
+HOOK_SRCS := firmware/hook/ref_hook.c firmware/drivers/panel_io_rknanoc.c \
+             firmware/drivers/panel_init_rknanoc.c
+HOOK_CC = $(CC) -mcpu=cortex-m3 -mthumb -Os -ffreestanding -fno-builtin \
+    -nostdlib -ffunction-sections -Ifirmware/drivers -T firmware/hook/ref_hook.ld
+hook-img:
+	@$(MKDIR_P) $(HOOK_DIR)
+	$(HOOK_CC) $(HOOK_SRCS) -lgcc -o $(HOOK_DIR)/ref_hook.elf
+	$(OBJCOPY) -O binary $(HOOK_DIR)/ref_hook.elf $(HOOK_DIR)/ref_hook.bin
+	$(PYTHON) tools/make_hook_img.py $(HOOK_DIR)/ref_hook.bin \
+	    $(HOOK_DIR)/ref_hook.elf -o build/ReChord_HOOK.IMG
+
+# TRIAL: our whole fw1 Main() inside the reference image, then back to it.
+TRIAL_DIR := build/trial
+TRIAL_SRCS := firmware/hook/trial_entry.c \
+    $(filter-out firmware/startup/ap_startup.c firmware/startup/vectors.c,$(AP_SRCS))
+TRIAL_OBJS := $(patsubst %.c,$(TRIAL_DIR)/objs/%.o,$(TRIAL_SRCS))
+$(TRIAL_DIR)/objs/%.o: %.c
+	@$(MKDIR_P) $(dir $@)
+	$(CC) $(AP_CFLAGS) -DAP_TRIAL -c $< -o $@
+trial-img: $(TRIAL_OBJS)
+	$(CC) $(AP_ARCH_FLAGS) -T firmware/hook/trial.ld -nostartfiles -nostdlib \
+	    $(TRIAL_OBJS) -lgcc -o $(TRIAL_DIR)/trial.elf
+	$(OBJCOPY) -O binary $(TRIAL_DIR)/trial.elf $(TRIAL_DIR)/trial.bin
+	$(PYTHON) tools/make_hook_img.py --early $(TRIAL_DIR)/trial.bin \
+	    $(TRIAL_DIR)/trial.elf -o build/ReChord_TRIAL.IMG
+
+# ENTRY: ROM -> OUR reset/startup/Main via the patched reset vector, then
+# chain to the reference reset (standalone boot path with an escape hatch).
+ENTRY_DIR := build/entry
+ENTRY_SRCS := $(filter-out firmware/startup/vectors.c,$(AP_SRCS))
+ENTRY_OBJS := $(patsubst %.c,$(ENTRY_DIR)/objs/%.o,$(ENTRY_SRCS))
+$(ENTRY_DIR)/objs/%.o: %.c
+	@$(MKDIR_P) $(dir $@)
+	$(CC) $(AP_CFLAGS) -DAP_TRIAL -DAP_CHAIN_REF -c $< -o $@
+entry-img: $(ENTRY_OBJS)
+	$(CC) $(AP_ARCH_FLAGS) -T firmware/hook/entry.ld -nostartfiles -nostdlib \
+	    $(ENTRY_OBJS) -lgcc -o $(ENTRY_DIR)/entry.elf
+	$(OBJCOPY) -O binary $(ENTRY_DIR)/entry.elf $(ENTRY_DIR)/entry.bin
+	$(PYTHON) tools/make_hook_img.py --vector 0x03050004 $(ENTRY_DIR)/entry.bin \
+	    $(ENTRY_DIR)/entry.elf -o build/ReChord_ENTRY.IMG
+	$(PYTHON) tools/make_hook_img.py --vector 0x03074B74 $(ENTRY_DIR)/entry.bin \
+	    $(ENTRY_DIR)/entry.elf -o build/ReChord_ENTRY2.IMG
+	$(PYTHON) tools/make_hook_img.py --vector 0x03050004 --vector 0x03074B74 \
+	    --vector 0x03076670 $(ENTRY_DIR)/entry.bin $(ENTRY_DIR)/entry.elf \
+	    -o build/ReChord_ENTRY3.IMG
+
+# Early hook: our code at ref main entry (ROM handoff state, no ref init).
+hook-early-img:
+	@$(MKDIR_P) $(HOOK_DIR)
+	$(HOOK_CC) -DHOOK_EARLY $(HOOK_SRCS) -lgcc -o $(HOOK_DIR)/ref_hook_early.elf
+	$(OBJCOPY) -O binary $(HOOK_DIR)/ref_hook_early.elf $(HOOK_DIR)/ref_hook_early.bin
+	$(PYTHON) tools/make_hook_img.py --early $(HOOK_DIR)/ref_hook_early.bin \
+	    $(HOOK_DIR)/ref_hook_early.elf -o build/ReChord_HOOK_EARLY.IMG
+
 include firmware/libc/libc.mk
 include firmware/startup/startup.mk
 include firmware/app/app.mk
@@ -80,6 +162,7 @@ BB_RECHORD_OBJS := \
     $(BB_BUILD_DIR)/rechord_app.o \
     $(BB_BUILD_DIR)/rechord_dsp.o \
     $(BB_BUILD_DIR)/rechord_dsp_core.o \
+    $(BB_BUILD_DIR)/bb_trace.o \
     $(BB_BUILD_DIR)/entry_stubs.o
 
 BB_ELF := $(BB_BUILD_DIR)/rechord_bb.elf
@@ -183,6 +266,10 @@ $(BB_OBJ_DIR)/%.o: firmware/rockchip/%
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 
 $(BB_BUILD_DIR)/startup.o: firmware/startup/startup.c
+	@$(MKDIR_P) $(dir $@)
+	$(CC) $(BB_CFLAGS) -c $< -o $@
+
+$(BB_BUILD_DIR)/bb_trace.o: firmware/bb_trace.c firmware/bb_trace.h
 	@$(MKDIR_P) $(dir $@)
 	$(CC) $(BB_CFLAGS) -c $< -o $@
 

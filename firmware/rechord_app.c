@@ -30,6 +30,7 @@
  * top-bar rect is (0,3,320,16,2,0x58).
  */
 #include <stdint.h>
+#include "bb_trace.h"
 #include <stddef.h>
 
 /* ---- ROM display services (the loader's draw sequence) ---- */
@@ -338,7 +339,8 @@ void rechord_key_handler(void)
 
 void rechord_main(void)
 {
-    boot_log[0] = 0x53544F42u;   /* 'BOTS' — telemetry for a debugger */
+    boot_log[0] = 0x53544F42u;
+    bb_trace("A boot\n");   /* 'BOTS' — telemetry for a debugger */
 
     /* Run the SDK BB service loop. Main2() is what consumes the decode/file
      * mailbox flags set by MailBoxDecService / MailBoxFileService and replies

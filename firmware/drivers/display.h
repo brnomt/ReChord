@@ -1,7 +1,8 @@
 /*
  * display.h -- ReChord clean-room RGB565 display driver (public API).
  *
- * Hardware contract (docs/re/route-b-minimum.md §3, "Display contract"):
+ * Hardware contract (docs/re/route-b-minimum.md section 3,
+ * "Display contract"):
  *   - DCS-style panel driven over the MCU command/data interface
  *   - windowing by 0x2A CASET (column set), 0x2B RASET (row set),
  *     pixel stream by 0x2C RAMWR
@@ -30,13 +31,23 @@
  * Screen height in pixels.
  *
  * SINGLE CONFIG KNOB, documented: 170 rows is the height observed in the
- * boot area of the reference firmware (0..0xA8 inclusive; see
- * docs/re/route-b-minimum.md §3). The panel may be taller; the true
- * height only becomes observable once panel_init_sequence() is filled in
- * (open item) or the boot area is measured again on hardware. Raising
- * this define grows the framebuffer and everything follows automatically.
+ * boot area of the reference firmware (0..0xA9 inclusive; see
+ * docs/re/route-b-minimum.md section 3), and the extracted init windows
+ * (docs/rewrite/drivers.md) confirm a 170-row visible band on the panel.
+ * Raising this define grows the framebuffer and everything follows
+ * automatically -- but check PANEL_ROW_OFFSET first.
  */
 #define DISPLAY_H 170
+
+/*
+ * Physical panel row index of logical row 0 (hardware contract,
+ * extracted from the reference flush routine at 0x03051D40: every RASET
+ * parameter is the row index + 35). The visible 170-row band sits at
+ * panel rows 35..204 (0x23..0xCC); the extracted variant-B init window
+ * 0x2B = 00 23 00 CC corroborates exactly this band. Do not change
+ * without hardware evidence.
+ */
+#define PANEL_ROW_OFFSET 35
 
 /* Framebuffer row pitch in BYTES -- fixed by the hardware contract
  * ("640 bytes/row framebuffer layout"). Changing DISPLAY_W changes this;
@@ -70,6 +81,8 @@ void display_draw_text(int x, int y, const char *s, uint16_t fg, uint16_t bg);
  * Push framebuffer rows y0..y1 (INCLUSIVE) to the panel via
  * CASET/RASET/RAMWR. Row indexes are clamped to 0..DISPLAY_H-1; a
  * reversed or empty range is a no-op. Sends the full row width.
+ * Logical row y goes to physical panel row y + PANEL_ROW_OFFSET (the
+ * extracted hardware row mapping, see PANEL_ROW_OFFSET above).
  */
 void display_flush_rows(int y0, int y1);
 
@@ -80,17 +93,26 @@ void display_flush_rows(int y0, int y1);
 void display_clear(uint16_t rgb565);
 
 /*
- * Panel power-on init sequence (DCS 0x11 sleep-out, 0x3A pixel format,
- * 0x29 display-on, vendor-specific power/gamma commands, ...).
+ * Panel power-on init sequence: emits the DCS command stream extracted
+ * from the reference firmware's panel bring-up (sleep out + delay, vendor
+ * power/gamma commands, MADCTL 0x36, COLMOD 0x3A, INVON 0x21, DISPON
+ * 0x29). Implemented in panel_init_rknanoc.c (byte-exact tables plus
+ * per-command documentation; docs/rewrite/drivers.md has the full
+ * trace).
  *
- * >>> OPEN ITEM — SAFE NO-OP BY DEFAULT <<<
- * The exact sequence for the Echo Mini panel still needs to be extracted
- * from the reference firmware's panel_init (hardware CONTRACT data, not
- * code). Once known, fill in the panel_init_table[] steps in display.c
- * (the hook is already wired: commands, parameters, per-step delays).
- * Until then this function sends nothing, which is safe both against an
- * already-initialized panel (hybrid boot path) and the host simulator.
+ * The reference has TWO init variants selected by a probed panel ID;
+ * since panel_io has no bus-read primitive yet, the variant is chosen at
+ * compile time (PANEL_INIT_VARIANT, default 1 = variant B -- UNVERIFIED
+ * on hardware). display_init() calls this automatically.
  */
 void panel_init_sequence(void);
+
+/*
+ * Emit one specific extracted init variant (0 = variant A, 1 = variant
+ * B) regardless of the compile-time choice; returns 0 on success, -1 for
+ * an unknown variant number. Bring-up/test seam so both streams can be
+ * exercised (e.g. from a debug menu, or by the host tests).
+ */
+int panel_init_run_variant(int variant);
 
 #endif /* RECHORD_DISPLAY_H */

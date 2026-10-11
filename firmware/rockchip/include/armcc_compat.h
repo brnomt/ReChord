@@ -126,7 +126,9 @@
 #define _ATTR_FLACDEC_TEXT_  /* section placement dropped (2026-10-10): GCC section-type conflicts */
 #endif
 #ifndef _ATTR_VECTTAB_BB_
-#define _ATTR_VECTTAB_BB_    /* section placement dropped (2026-10-10): GCC section-type conflicts */
+/* EXCEPTION: the vector table NEEDS its section+alignment (VTOR masks low
+ * bits). Not dropped like the other _ATTR_ placements. */
+#define _ATTR_VECTTAB_BB_    __attribute__((section("bb_vect"), aligned(256)))
 #endif
 #ifndef _ATTR_VECTTAB_
 #define _ATTR_VECTTAB_       /* section placement dropped (2026-10-10): GCC section-type conflicts */

@@ -1,21 +1,38 @@
 /*
- * ReChord AP (fw1) startup — Cortex-M3 vector table + reset handler for the
+ * ReChord AP (fw1) startup -- Cortex-M3 vector table + reset handler for the
  * A_CORE build.
  *
- * The Mask ROM scatter-loads fw1 (RKnanoFW header + memory-map table) and
- * jumps to the reset entry at SYS_CODE (0x03060000). This file mirrors the
- * SDK's Common/BootLoader/Start.s: a vector table (START_VECT) with [0]=MSP
- * and [1]=reset, plus a reset handler (PowerOn_Reset) that clears BSS and
- * hands control to Main. BSS is also zero-filled by the scatter table's
- * Type A entry, so the explicit clear here is defensive (idempotent).
+ * VERIFIED BOOT MODEL (docs/HANDOVER.md "PHASE A AUDIT RESULT"): the loader
+ * scatter-loads the fw1 body into RAM contiguously (RAM = 0x0304F298 + IMG
+ * offset) so the vector table lands at RAM 0x03050000 = IMG 0xD68 (the
+ * RKnanoFW header base) and the image executes in place.  The ROM reads
+ * word 0 (initial MSP) and word 1 (reset) from that table and enters at the
+ * reset handler.  This file mirrors the reference image's recipe (its
+ * startup at RAM 0x030500E4): bounded .data copy, bounded .bss zero, VTOR =
+ * vector table, dsb/isb, Main.
+ *
+ * The stack is the 16 KiB BELOW 0x03004000 (the zone 0x03000000..0x03004000)
+ * and nothing else may live there.  BSS is also zero-fillable by scatter
+ * region rows, so the explicit clear here is defensive (idempotent).
  */
 #include <stdint.h>
 
-typedef unsigned int uint32;
+/* NOTE (milestone 1a compile fix): this file previously typedef'd uint32
+ * locally and used ap_vectors before declaring it.  The local typedef
+ * collided with the SDK typedef.h uint32 (unsigned long) that arrives via
+ * the force-included armcc_compat.h, and the use-before-declaration of
+ * ap_vectors is a hard error in every C mode.  Fixed by using stdint's
+ * uint32_t throughout and declaring ap_vectors up front. */
 
-extern uint32 __stack_top;   /* firmware_ap.ld absolute symbol = 0x03050000 */
-extern uint32 Main(void);
-extern uint32 _bss_start, _bss_end;
+extern const uint32_t ap_vectors[16];   /* defined at the bottom of this file */
+
+extern uint32_t Main(void);
+extern uint32_t _bss_start, _bss_end;
+extern uint32_t _data_start, _data_end, _data_load_start;
+
+/* Initial MSP: byte-verified word 0 of the reference vector table.  The
+ * stack zone is 0x03000000..0x03004000 ONLY (firmware_ap.ld __stack_top). */
+#define AP_INITIAL_MSP 0x03004000u
 
 void Default_Handler(void) __attribute__((naked));
 void Default_Handler(void)
@@ -24,23 +41,70 @@ void Default_Handler(void)
         __asm volatile("");
 }
 
-/* Reset handler: clear BSS, then jump to Main (never returns). */
-void PowerOn_Reset(void) __attribute__((noreturn));
+/* Reset handler per the verified boot recipe (extracted from the reference
+ * image's startup at 0x030500E4): zero ONLY the real .bss span, set VTOR to
+ * our 256-aligned vector table, barriers, then main. The ROM does not set
+ * VTOR - the reference writes it explicitly and so do we. */
+#define SCB_VTOR (*(volatile uint32_t *)0xE000ED08u)
+void PowerOn_Reset(void) __attribute__((noreturn, used));
 void PowerOn_Reset(void)
 {
-    uint32 *p = &_bss_start;
+    /* Reference startup 0x030500E4: quiesce whatever the ROM left running
+     * before VTOR moves to our table (any live IRQ would land in
+     * Default_Handler). SysTick off, all NVIC IRQs disabled + unpended,
+     * SHCSR cleared, AIRCR VECTCLRACTIVE. */
+    __asm__ volatile("cpsid i");
+    *(volatile uint32_t *)0xE000E010u = 0;
+    *(volatile uint32_t *)0xE000E180u = 0xFFFFFFFFu;
+    *(volatile uint32_t *)0xE000E184u = 0xFFFFFFFFu;
+    *(volatile uint32_t *)0xE000E280u = 0xFFFFFFFFu;
+    *(volatile uint32_t *)0xE000E284u = 0xFFFFFFFFu;
+    *(volatile uint32_t *)0xE000ED24u = 0;
+    *(volatile uint32_t *)0xE000ED0Cu = 0x05FA0002u;
+    {
+        /* bounded .data copy (the reference recipe: copy bounded, then zero
+         * bounded). _data_load_start is the LMA inside the code image. */
+        uint32_t *d = &_data_start;
+        const uint32_t *s = &_data_load_start;
+        while (d < &_data_end)
+            *d++ = *s++;
+    }
+    uint32_t *p = &_bss_start;
     while (p < &_bss_end)
         *p++ = 0;
+    SCB_VTOR = (uint32_t)&ap_vectors;   /* our table, 256-aligned */
+    __asm__ volatile("dsb; isb" ::: "memory");
     Main();
+#ifdef AP_CHAIN_REF
+    /* ENTRY test (make entry-img): hand the ROM's r0-r3 to the reference's
+     * reset (veneer -> its startup 0x030500E4, which redoes SP/IRQ/data/bss/
+     * VTOR) so the device always ends in a firmware with USB + updater. */
+    __asm__ volatile("ldr r4, =0x03003FF0\n ldm r4, {r0-r3}\n"
+                     "ldr r4, =0x0306296F\n bx r4");
+#endif
     for (;;)
         __asm volatile("");
 }
 
-/* Cortex-M3 vector table (aligned 256 for VTOR). [0]=initial MSP, [1]=reset. */
+#ifdef AP_CHAIN_REF
+/* ROM entry: park r0-r3 (boot params; the ref startup saves them) at the
+ * top of the stack zone, run below them. */
+void ChainEntry(void) __attribute__((naked));
+void ChainEntry(void)
+{
+    __asm__ volatile("ldr r4, =0x03003FF0\n stm r4, {r0-r3}\n mov sp, r4\n"
+                     "b PowerOn_Reset");
+}
+#endif
+
+/* Cortex-M3 vector table (aligned 256 for VTOR). [0]=initial MSP, [1]=reset.
+ * Byte-identical word 0/word 1 roles to the reference image's table at
+ * IMG 0xD68: word 0 = 0x03004000 (the stack TOP; the stack is the 16 KiB
+ * below it), word 1 = the reset entry. */
 const uint32_t ap_vectors[16]
     __attribute__((section(".vectors"), used, aligned(256))) = {
-    (uint32_t)&__stack_top,             /* 0x00 initial MSP = 0x03050000 */
-    (uint32_t)&PowerOn_Reset,           /* 0x04 Reset_Handler             */
+    AP_INITIAL_MSP,                         /* 0x00 initial MSP = 0x03004000 */
+    (uint32_t)&PowerOn_Reset,               /* 0x04 Reset_Handler             */
     (uint32_t)&Default_Handler,         /* 0x08 NMI                      */
     (uint32_t)&Default_Handler,         /* 0x0C HardFault                */
     (uint32_t)&Default_Handler,         /* 0x10 MemManage                */

@@ -237,3 +237,27 @@ shrink FW_RAM back to `0x5A504`.
 **Next:** flash `build/ReChord_BB.IMG` and verify the menu-freeze is gone
 (the AP's file calls now reach a real BB filesys), then wire the clean-room UI
 and the module system.
+
+
+## Strategy pivot (2026-10-10): from stock-AP hybrid to full clean-room CFW
+
+The Route-B hybrid (our BB + the stock AP) reached its ceiling: the stock AP
+is a black box (private mailbox handshake, no log drain, no UI control), each
+step needs another reverse-engineered handshake, and even the BB-side
+breadcrumb channel dies in context. Decision: **pivot to the reference-CFW
+architecture** - which was always the end goal (no FiiO code):
+
+- our own fw1 (AP + UI + services) with the verified boot recipe (bounded
+  .data copy, bounded .bss zero, VTOR=table, main) extracted from the
+  reference image startup at 0x030500E4
+- our BB (the SDK-built baseband) delivered as the core-B module, loaded to
+  HIGHRAM0 and started at 400 MHz (the reference ships its core-B as module
+  "m78" the same way)
+- our own AP<->B protocol (firmware/player/ipc_b.h contract, host-tested)
+- our own image packing (tools/pack_fw1.py + pack_img.py) and CRC trailer
+
+Pieces already in place: clean-room UI (host-tested), display/font/panel
+drivers, services (settings/input/fs/log), player, DSP chain, module system
+(RMF1 + loader), libc, BB from source. Milestone 1: fw1 image that boots to
+OUR screen (status screen is enough). The stock-AP BB build stays as the
+safe fallback image.
