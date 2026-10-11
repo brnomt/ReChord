@@ -46,7 +46,8 @@ AP_LDSCRIPT := firmware/firmware_ap.ld
 AP_STARTUP_SRCS := \
   firmware/startup/ap_startup.c \
   firmware/startup/vectors.c \
-  firmware/startup/ap_main.c
+  firmware/startup/ap_main.c \
+  firmware/startup/ap_ui.c
 
 # UI layer (same set as $(UI_SRCS) in firmware/ui/ui.mk).
 AP_UI_SRCS := \

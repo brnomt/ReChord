@@ -106,6 +106,27 @@ void backlight_on(void)
     GPIO2->ddr |= 1u << 4;
 }
 
+/* Keys (reference key scan 0x03057eb0): SAR-ADC at 0x400D0000 [0] data,
+ * [1] status, [2] ctrl = ch | 0x08 power | 0x10 start, 0x40 irq status.
+ * Returns the previous conversion and starts the next one on channel 1. */
+#define ADC ((volatile uint32_t *)0x400D0000u)
+int keys_adc(void)
+{
+    int v = (int)(ADC[0] & 0x3FFu);
+
+    ADC[2] &= ~0x10u;
+    ADC[2] = (ADC[2] & ~0x47u) | 1u | 0x18u;
+    return v;
+}
+
+/* Power key: GPIO2.5 input, 1 = pressed (reference 0x03051b2c). */
+int keys_power(void)
+{
+    iomux_gpio(2, 5);
+    GPIO2->ddr &= ~(1u << 5);
+    return (int)((GPIO2->ext_porta >> 5) & 1u);
+}
+
 void panel_io_init(void)
 {
     /* Mux every panel pin to GPIO first, as the reference does (0x03051ce8:

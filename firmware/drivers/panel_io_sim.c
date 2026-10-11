@@ -91,6 +91,16 @@ void backlight_on(void)
 {
 }
 
+int keys_adc(void)
+{
+    return 1023;   /* idle ladder */
+}
+
+int keys_power(void)
+{
+    return 0;
+}
+
 unsigned panel_io_sim_delay_total_ms(void)
 {
     return delay_total_ms;

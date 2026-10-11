@@ -37,4 +37,9 @@ void panel_io_delay_ms(uint16_t ms);
 
 void backlight_on(void);
 
+/* Keys: last ADC ladder reading 0..1023 (also starts the next conversion)
+ * and the power key level (1 = pressed). Feed both to input_scan(). */
+int keys_adc(void);
+int keys_power(void);
+
 #endif /* RECHORD_PANEL_IO_H */

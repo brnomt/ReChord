@@ -32,7 +32,7 @@ static void test_queue_fifo(void)
 
     /* Invalid event types are rejected. */
     CHECK(input_push(KEY_NONE, 0) == INPUT_ERR_ARG);
-    CHECK(input_push(KEY_POWER + 1, 0) == INPUT_ERR_ARG);
+    CHECK(input_push(KEY_MENU + 1, 0) == INPUT_ERR_ARG);
     CHECK(input_push(-1, 0) == INPUT_ERR_ARG);
 
     CHECK(input_push(KEY_UP, 100) == INPUT_OK);
@@ -78,23 +78,45 @@ static void test_overflow(void)
 
 static void test_adc_map(void)
 {
-    /* Provisional band table boundaries (input.c). */
-    CHECK(input_map_adc(0) == KEY_UP);
-    CHECK(input_map_adc(200) == KEY_UP);
-    CHECK(input_map_adc(201) == KEY_DOWN);
-    CHECK(input_map_adc(400) == KEY_DOWN);
-    CHECK(input_map_adc(401) == KEY_SELECT);
-    CHECK(input_map_adc(406) == KEY_SELECT);
-    CHECK(input_map_adc(600) == KEY_SELECT);
-    CHECK(input_map_adc(601) == KEY_BACK);
-    CHECK(input_map_adc(800) == KEY_BACK);
-    CHECK(input_map_adc(801) == KEY_POWER);
-    CHECK(input_map_adc(1022) == KEY_POWER);
+    /* Extremes of the clusters measured on hardware (input.c). */
+    CHECK(input_map_adc(0) == KEY_DOWN);      /* vol- */
+    CHECK(input_map_adc(121) == KEY_UP);      /* vol+ */
+    CHECK(input_map_adc(177) == KEY_UP);
+    CHECK(input_map_adc(245) == KEY_SELECT);  /* play */
+    CHECK(input_map_adc(299) == KEY_SELECT);
+    CHECK(input_map_adc(321) == KEY_MENU);
+    CHECK(input_map_adc(395) == KEY_MENU);
+    CHECK(input_map_adc(483) == KEY_BACK);
+    CHECK(input_map_adc(549) == KEY_BACK);
 
-    /* Documented idle reading and out-of-range values map to no key. */
+    /* Gaps, idle (>= 1001 measured) and out-of-range map to no key. */
+    CHECK(input_map_adc(190) == KEY_NONE);
+    CHECK(input_map_adc(430) == KEY_NONE);
+    CHECK(input_map_adc(1001) == KEY_NONE);
     CHECK(input_map_adc(1023) == KEY_NONE);
     CHECK(input_map_adc(2000) == KEY_NONE);
     CHECK(input_map_adc(-1) == KEY_NONE);
+}
+
+static void test_scan(void)
+{
+    input_event_t ev;
+
+    input_mock_clear();
+    CHECK(input_scan(1023, 0) == 0);
+    CHECK(input_scan(130, 0) == 0);          /* 1st sample: not stable */
+    CHECK(input_scan(130, 0) == 1);          /* 2nd equal sample: press */
+    CHECK(input_scan(127, 0) == 0);          /* hold: no repeat */
+    CHECK(input_scan(1023, 0) == 0);
+    CHECK(input_scan(1023, 0) == 0);         /* release */
+    CHECK(input_scan(500, 0) == 0);
+    CHECK(input_scan(1023, 0) == 0);         /* 1-sample glitch ignored */
+    CHECK(input_scan(1023, 1) == 0);
+    CHECK(input_scan(1023, 1) == 1);         /* power GPIO wins */
+    CHECK(input_pending() == 2);
+    CHECK(input_poll(&ev) == 1 && ev.type == KEY_UP && ev.adc_value == 130);
+    CHECK(input_poll(&ev) == 1 && ev.type == KEY_POWER && ev.adc_value == -1);
+    input_mock_clear();
 }
 
 int main(void)
@@ -102,6 +124,7 @@ int main(void)
     test_queue_fifo();
     test_overflow();
     test_adc_map();
+    test_scan();
 
     printf("test_input: %d checks, %d failures\n", s_checks, s_failures);
     return (s_failures == 0) ? 0 : 1;

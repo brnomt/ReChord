@@ -13,14 +13,10 @@ static unsigned s_head;      /* index of the oldest queued event */
 static unsigned s_count;     /* events currently queued */
 
 /*
- * Provisional ADC band table.
- *
- * TODO(services): calibrate from the SDK AD_KEY driver. The documented
- * bring-up log shows a 10-bit ladder ADC (idle reading 1023, per-channel
- * calibration to ~400 for held keys) and a separate power GPIO. Until the
- * real ladder values are extracted, we use contiguous bands across the
- * 0..1022 range so every reading maps deterministically and tests can pin
- * the mapping logic. Replace adc_min/adc_max with measured values.
+ * ADC ladder bands (10-bit, SAR-ADC channel 1, idle 1023). Measured on
+ * hardware: vol- 0, vol+ 121..177, play 245..299, menu 321..395,
+ * back 483..549, idle >= 1001. Bands sit between those clusters; readings
+ * in the gaps map to no key. Power is a separate GPIO (input_scan).
  */
 typedef struct {
     int type;
@@ -29,12 +25,15 @@ typedef struct {
 } adc_band_t;
 
 static const adc_band_t s_adc_bands[] = {
-    { KEY_UP,       0,  200 },
-    { KEY_DOWN,   201,  400 },
-    { KEY_SELECT, 401,  600 },
-    { KEY_BACK,   601,  800 },
-    { KEY_POWER,  801, 1022 },
+    { KEY_DOWN,     0,   69 },   /* vol- */
+    { KEY_UP,      70,  183 },   /* vol+ */
+    { KEY_SELECT, 200,  319 },   /* play */
+    { KEY_MENU,   320,  409 },   /* menu */
+    { KEY_BACK,   450,  549 },   /* back */
 };
+
+static int s_scan_last = KEY_NONE;   /* previous raw sample   */
+static int s_scan_held = KEY_NONE;   /* debounced key, if any */
 
 #define ADC_IDLE 1023   /* documented idle reading: no key pressed */
 
@@ -58,7 +57,7 @@ int input_push(int type, int adc_value)
 {
     input_event_t *slot;
 
-    if (type < KEY_UP || type > KEY_POWER) {
+    if (type < KEY_UP || type > KEY_MENU) {
         return INPUT_ERR_ARG;
     }
     if (s_count >= (unsigned)INPUT_QUEUE_LEN) {
@@ -85,10 +84,28 @@ int input_poll(input_event_t *ev)
     return 1;
 }
 
+int input_scan(int adc_value, int power)
+{
+    int key = power ? KEY_POWER : input_map_adc(adc_value);
+
+    if (key != s_scan_last) {          /* not stable yet */
+        s_scan_last = key;
+        return 0;
+    }
+    if (key == s_scan_held)
+        return 0;
+    s_scan_held = key;
+    if (key == KEY_NONE)
+        return 0;
+    return input_push(key, power ? -1 : adc_value) == INPUT_OK;
+}
+
 void input_mock_clear(void)
 {
     s_head = 0;
     s_count = 0;
+    s_scan_last = KEY_NONE;
+    s_scan_held = KEY_NONE;
 }
 
 unsigned input_pending(void)

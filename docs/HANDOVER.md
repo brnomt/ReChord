@@ -1155,3 +1155,25 @@ Device is now ON OUR fw1: no USB/updater -> to change firmware, maskrom +
 stock (docs/DEBRICK-LINUX.md), then copy the next HIFIEC90.IMG.
 NEXT: USB MSC (or a key combo that reboots into maskrom/loader) in our fw1
 so iteration stops needing the paperclip; then keys, menus, audio.
+
+## VERDICT #21 (2026-10-11 ~15:00): MILESTONE 2 - KEYS + NAVIGABLE UI ON HARDWARE
+
+build/ReChord_AP5M.IMG md5 2dddb029f64c8709293d0bc973d44edc (copy
+build/ReChord_FW1_m2.IMG) -> splash, then the ReChord root menu (Files /
+Now Playing / Settings / Keys); vol+/vol- move, play selects, back/menu
+return. All keys confirmed by the user.
+
+Key hardware (reference key scan 0x03057eb0 + its ECHOLOG, now in our code):
+- SAR-ADC 0x400D0000: [0] data (10-bit), [1] status, [2] ctrl =
+  ch | 0x08 power | 0x10 start (0x40 irq status). Read the previous result,
+  then start the next conversion (keys_adc in panel_io_rknanoc.c).
+- Ladder on channel 1 (measured): vol- 0, vol+ 121..177, play 245..299,
+  menu 321..395, back 483..549, idle >= 1001 (bands in services/input.c).
+- Power key: GPIO2.5 EXT_PORTA bit, 1 = pressed (keys_power).
+- input_scan(): 2-sample debounce, one event per press, no auto-repeat yet.
+UI loop: firmware/startup/ap_ui.c (root menu + live "Keys" diagnostic row,
+KEY_MENU = back to root, ~5 ms busy-wait scan period).
+Also fixed: firmware/ui `make test` link (theme sources), 250 checks pass.
+
+NEXT candidates: SysTick timebase + key repeat; storage (eMMC/FAT) for
+the browser and settings; USB MSC so updates stop needing maskrom.

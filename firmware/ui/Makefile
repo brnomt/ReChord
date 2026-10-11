@@ -28,7 +28,9 @@ TEST_SRCS := tests/main.c \
              tests/test_ui_redraw.c \
              tests/test_menu_nav.c \
              tests/test_settings_keys.c \
-             tests/test_browser_pagination.c
+             tests/test_browser_pagination.c \
+             ../theme/theme.c \
+             ../theme/themes_builtin.c
 
 BUILD := build
 

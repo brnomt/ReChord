@@ -15,13 +15,15 @@
  *                           0x2B/0x2C path in panel_io_rknanoc.c)
  *   - all colors come from the live theme (theme_get()), never hardcoded.
  *
- * After painting, Main() idles forever; PowerOn_Reset() never returns.
+ * After painting (the splash), Main() runs the key-driven UI loop forever.
  */
 #include <stdint.h>
 
 #include "drivers/panel_io.h"
 #include "drivers/display.h"
 #include "ui/theme.h"       /* THEME_* geometry + palette (theme module) */
+
+void ap_ui_loop(void);   /* ap_ui.c */
 
 uint32_t Main(void)
 {
@@ -51,9 +53,7 @@ uint32_t Main(void)
     panel_io_delay_ms(1000);   /* ~6 s at the 24 MHz boot clock */
     return 0;
 #endif
-    for (;;) {
-        /* idle: no scheduler and no interrupts wired in milestone 1a */
-    }
+    ap_ui_loop();
     return 0;
 }
 

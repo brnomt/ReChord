@@ -22,7 +22,8 @@ typedef enum input_key {
     KEY_DOWN = 2,
     KEY_SELECT = 3,
     KEY_BACK = 4,
-    KEY_POWER = 5
+    KEY_POWER = 5,
+    KEY_MENU = 6
 } input_key_t;
 
 /* One key event.
@@ -42,9 +43,13 @@ int input_poll(input_event_t *ev);
 int input_push(int type, int adc_value);
 
 /* Map a raw ADC reading to a key type (KEY_NONE when idle/unmapped).
- * See the provisional band table in input.c — TODO: calibrate against the
- * SDK AD_KEY driver readings. */
+ * Bands measured on hardware (see input.c). */
 int input_map_adc(int adc_value);
+
+/* Feed one key sample (ADC ladder reading + power GPIO level, 1 = pressed).
+ * Pushes one event per debounced press (2 equal samples); release and
+ * hold produce nothing. Returns 1 if an event was pushed. */
+int input_scan(int adc_value, int power);
 
 /* Host-mock helper: drop all queued events (also useful between test cases). */
 void input_mock_clear(void);
