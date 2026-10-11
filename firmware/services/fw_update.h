@@ -40,7 +40,7 @@ int fw_update_find(uint32_t vol_lba, fw_image_t *img, fwu_progress_t progress);
  * last and every block is read back. 0 or a negative FWU_E*. */
 int fw_update_install(const fw_image_t *img, fwu_progress_t progress);
 
-/* Renames the image to *.OLD so it isn't offered again. */
+/* Deletes the image (as stock does) so it isn't offered again. */
 int fw_update_retire(const fw_image_t *img);
 
 #endif

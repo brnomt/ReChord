@@ -15,6 +15,7 @@
 #include "ui/screens/screens.h"
 
 static int s_adc = 1023, s_power, s_cable;
+static unsigned s_power_held;
 static uint32_t s_user;              /* user volume start, 0 = unknown */
 static char s_emmc[32], s_usb[32] = "plug in";
 
@@ -93,6 +94,8 @@ static int ask(int any_key)
     }
 }
 
+static void power_off(void);
+
 /* After a USB session: offer HIFIECnn.IMG / ECHOMINI.IMG if present. */
 static void update_prompt(void)
 {
@@ -139,12 +142,22 @@ static void update_prompt(void)
         return;
     }
     r = fw_update_retire(&img);
-    snprintf(buf, sizeof buf, "Update done (rename %d)", r);
+    snprintf(buf, sizeof buf, "Update done (cleanup %d)", r);
     line(4, buf);
-    line(5, "power-cycle the player now");
+    line(5, "press power to turn off, then on");
     display_flush_rows(0, DISPLAY_H - 1);
-    for (;;)                             /* no working warm reboot yet */
-        ;
+    ask(1);                              /* no working warm reboot yet */
+    power_off();
+}
+
+static void power_off(void)
+{
+    screen("Powering off");
+    while (keys_power())
+        panel_io_delay_ms(1);
+    display_clear(0x0000);
+    display_flush_rows(0, DISPLAY_H - 1);
+    board_power_off();
 }
 
 /* Cable plugged in: expose the user volume until eject/unplug/power key. */
@@ -185,7 +198,7 @@ static const menu_item_t k_root_items[] = {
     { "USB",         usb_text,  NULL },
     { "USB diag",    usbd_text, NULL },
 };
-#define RC_BUILD "m4c"
+#define RC_BUILD "m4e"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 7 };
 
 void ap_ui_loop(void)
@@ -202,6 +215,12 @@ void ap_ui_loop(void)
         if (cable && !s_cable && s_user)
             usb_session();
         s_cable = cable;
+
+        /* ponytail: hold time in loop passes, calibrated on hardware
+         * (2000 passes = ~6 s, so 700 = ~2 s); use a timer once there is one */
+        s_power_held = power ? s_power_held + 1u : 0u;
+        if (s_power_held == 700u)
+            power_off();
 
         /* live "Keys" row on the root menu: hardware check without a log */
         if ((adc - s_adc > 8 || s_adc - adc > 8 || power != s_power) &&

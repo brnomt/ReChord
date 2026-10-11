@@ -127,6 +127,17 @@ int keys_power(void)
     return (int)((GPIO2->ext_porta >> 5) & 1u);
 }
 
+/* Power hold: GPIO2.6 low cuts the supply (reference 0x03051c1c). With
+ * USB plugged in the player stays powered by VBUS. */
+void board_power_off(void)
+{
+    __asm__ volatile ("cpsid i");
+    iomux_gpio(2, 6);
+    GPIO2->dr &= ~(1u << 6);
+    GPIO2->ddr |= 1u << 6;
+    for (;;) { }
+}
+
 void panel_io_init(void)
 {
     /* Mux every panel pin to GPIO first, as the reference does (0x03051ce8:

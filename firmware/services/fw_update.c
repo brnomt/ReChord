@@ -15,7 +15,7 @@
 
 static uint32_t s_sec[128], s_fat[128], s_fat_lba;
 static uint32_t s_blk[BLK * 128u], s_chk[BLK * 128u];
-static struct { uint32_t fat, data, spc, root; } s_fs;
+static struct { uint32_t fat, data, spc, root, nfats, fatsz; } s_fs;
 
 static uint32_t le16(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8; }
 static uint32_t le32(const uint8_t *p) { return le16(p) | le16(p + 2) << 16; }
@@ -135,7 +135,9 @@ static int fs_mount(uint32_t lba)
         return FWU_EFS;
     s_fs.spc = b[0x0D];
     s_fs.fat = lba + le16(b + 0x0E);
-    s_fs.data = s_fs.fat + b[0x10] * le32(b + 0x24);
+    s_fs.nfats = b[0x10];
+    s_fs.fatsz = le32(b + 0x24);
+    s_fs.data = s_fs.fat + s_fs.nfats * s_fs.fatsz;
     s_fs.root = le32(b + 0x2C);
     return 0;
 }
@@ -304,16 +306,40 @@ int fw_update_install(const fw_image_t *img, fwu_progress_t progress)
     return put(0, s_blk);
 }
 
-/* ponytail: rename only (one directory sector, FAT untouched); a stale
- * long-name entry, if the host wrote one, is left for fsck. */
+/* Deletes the image: its (contiguous) clusters freed in every FAT copy,
+ * then the entry and its long-name entries in the same sector marked 0xE5.
+ * ponytail: long-name entries spilling into the previous sector are left
+ * for fsck. FSInfo free count is not touched (hosts treat it as a hint). */
 int fw_update_retire(const fw_image_t *img)
 {
     uint8_t *b = (uint8_t *)s_sec;
+    uint32_t cl = s_fs.spc * 512u, first = 2u + (img->lba - s_fs.data) / s_fs.spc;
+    uint32_t last = first + (img->size + cl - 1u) / cl - 1u;
 
     if (emmc_read(img->dir_lba, 1, s_sec))
         return FWU_EIO;
     if (memcmp(b + img->dir_off, img->raw, 11) != 0)
         return FWU_EFORMAT;
-    memcpy(b + img->dir_off + 8, "OLD", 3);
+    for (uint32_t c = first; c <= last; ) {
+        uint32_t sec = c / 128u, end = (sec + 1u) * 128u - 1u;
+
+        if (end > last)
+            end = last;
+        for (uint32_t f = 0; f < s_fs.nfats; f++) {
+            uint32_t lba = s_fs.fat + f * s_fs.fatsz + sec;
+
+            if (emmc_read(lba, 1, s_fat))
+                return FWU_EIO;
+            for (uint32_t k = c; k <= end; k++)
+                s_fat[k % 128u] &= 0xF0000000u;
+            if (emmc_write(lba, 1, s_fat))
+                return FWU_EWRITE;
+        }
+        c = end + 1u;
+    }
+    s_fat_lba = 0;
+    b[img->dir_off] = 0xE5;
+    for (int off = (int)img->dir_off - 32; off >= 0 && b[off + 11] == 0x0F && b[off] != 0xE5; off -= 32)
+        b[off] = 0xE5;
     return emmc_write(img->dir_lba, 1, s_sec) ? FWU_EWRITE : 0;
 }

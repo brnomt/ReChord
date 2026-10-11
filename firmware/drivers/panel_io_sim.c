@@ -101,6 +101,11 @@ int keys_power(void)
     return 0;
 }
 
+void board_power_off(void)
+{
+    for (;;) { }
+}
+
 unsigned panel_io_sim_delay_total_ms(void)
 {
     return delay_total_ms;

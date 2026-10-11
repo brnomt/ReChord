@@ -41,5 +41,6 @@ void backlight_on(void);
  * and the power key level (1 = pressed). Feed both to input_scan(). */
 int keys_adc(void);
 int keys_power(void);
+void board_power_off(void);   /* does not return */
 
 #endif /* RECHORD_PANEL_IO_H */

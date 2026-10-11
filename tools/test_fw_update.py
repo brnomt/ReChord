@@ -72,8 +72,10 @@ assert d[(FW_BASE + end // 512) * 512] == 0x5a                       # slot 1 ta
 assert d[(FW_BASE + FW // 2 + end // 512) * 512] == 0x5a             # slot 2 tail untouched
 fs = os.path.join(T, 'fs_after.img')
 open(fs, 'wb').write(d[(VOL + PART) * 512:])
-subprocess.check_call(['/usr/sbin/fsck.fat', '-n', fs])
-assert b'HIFIEC90OLD' in d[(VOL + PART) * 512:]
+fsck = subprocess.run(['/usr/sbin/fsck.fat', '-n', fs], capture_output=True, text=True)
+print(fsck.stdout, end='')
+assert fsck.returncode == 0 and '1 files' in fsck.stdout, 'image not cleanly deleted'
+assert b'\xe5IFIEC90IMG' in d[(VOL + PART) * 512:]
 
 bad = bytearray(img); bad[0x10000] ^= 1
 out, d = run(make_disk(bytes(bad)))

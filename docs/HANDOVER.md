@@ -1267,6 +1267,18 @@ Open:
   refused with FWU_EFIT; going back to stock still needs maskrom.
 - exFAT / FAT16 / fragmented images unsupported.
 
+## VERDICT #25 (2026-10-11): POWER-OFF + CLEAN IMAGE DELETE (m4e)
+
+- Power off = GPIO2.6 (power hold) driven low (reference 0x03051c1c),
+  board_power_off() in panel_io_rknanoc.c. Long press ~2 s in the main
+  loop (700 passes; 2000 passes measured ~6 s on hardware). "Update done"
+  screen: press power to turn off. With USB plugged in VBUS keeps it on.
+- Bug fixed: retire-by-rename to *.OLD created duplicate HIFIEC90.OLD
+  entries on the second update. fw_update_retire() now deletes like stock:
+  clusters freed in every FAT, entry + same-sector LFN entries = 0xE5.
+  Host check asserts fsck clean with 1 cluster in use. Hardware: m4d -> m4e
+  showed "cleanup 0".
+
 Next session:
 1. Pick the real product work (audio path / file browser over FAT32 -
    fw_update.c already has a minimal FAT32 reader to grow from).
