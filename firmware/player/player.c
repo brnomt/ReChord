@@ -12,13 +12,10 @@
  */
 #include "player.h"
 #include "codec.h"
+#include "codecs/codec_registry.h"
 #include "ipc_b.h"
 #include "rg_math.h"
 
-/* Per-open codec instance state pool (bytes). Must fit wav/mp3/flac state;   */
-#define PLAYER_CODEC_STATE_MAX  4096
-
-#define PLAYER_CODEC_MAX        8     /* registered codecs (ext table)    */
 #define PLAYER_QUEUE_LEN        8     /* next-track queue depth           */
 #define PLAYER_PUMP_FRAMES      512   /* decode staging buffer (frames)   */
 #define PLAYER_PUMP_MIN_FRAMES  128   /* min ring room to bother decoding */
@@ -26,12 +23,6 @@
 #define PLAYER_PATH_MAX         128
 #define PLAYER_VOL_MIN_DB       (-60)
 #define PLAYER_VOL_MAX_DB       20
-
-typedef struct
-{
-    char            ext[8];
-    const codec_t  *codec;
-} codec_slot_t;
 
 typedef struct
 {
@@ -61,9 +52,6 @@ typedef struct
     player_event_fn cb;
     void           *cb_user;
 
-    codec_slot_t    codecs[PLAYER_CODEC_MAX];
-    int             ncodecs;
-
     char            queue[PLAYER_QUEUE_LEN][PLAYER_PATH_MAX];
     int             q_head;
     int             q_count;
@@ -74,8 +62,10 @@ typedef struct
 
 static player_t g;
 
-/* Built-in codecs (build-from-source: codec_wav is ours and complete;
- * mp3/flac are adapter scaffolds until their codecs are vendored in). */
+/* Built-in codecs (self-describing descriptors, one file each under
+ * player/codecs/: wav is ours; mp3 wraps minimp3, flac wraps dr_flac —
+ * both vendored and license-pinned next to their headers, see
+ * player/codecs/minimp3/LICENSE and player/codecs/dr_flac/LICENSE). */
 extern const codec_t codec_wav;
 extern const codec_t codec_mp3;
 extern const codec_t codec_flac;
@@ -123,22 +113,6 @@ static void str_copy(char *dst, unsigned cap, const char *src)
 
 static void recalc_rg_gain(void);   /* defined with the player API below */
 
-static char lower(char c)
-{
-    return (c >= 'A' && c <= 'Z') ? (char)(c - 'A' + 'a') : c;
-}
-
-static int str_eq_i(const char *a, const char *b)
-{
-    unsigned i = 0;
-    while (lower(a[i]) == lower(b[i])) {
-        if (a[i] == '\0')
-            return 1;
-        i++;
-    }
-    return 0;
-}
-
 /* ---- events / state ---- */
 
 static void emit(int ev)
@@ -167,60 +141,9 @@ static void do_error(void)
     emit(PLAYER_EV_ERROR);
 }
 
-/* ---- codec registry ---- */
-
-static const char *ext_of(const char *path)
-{
-    const char *dot = 0;
-    unsigned i;
-
-    for (i = 0; path[i] != '\0'; i++) {
-        if (path[i] == '.')
-            dot = path + i + 1;
-    }
-    return dot;
-}
-
-static const codec_t *find_codec(const char *path)
-{
-    const char *ext = ext_of(path);
-    int i;
-
-    if (ext == 0)
-        return 0;
-    for (i = 0; i < g.ncodecs; i++) {
-        if (str_eq_i(ext, g.codecs[i].ext))
-            return g.codecs[i].codec;
-    }
-    return 0;
-}
-
-int player_register_codec(const char *ext, const codec_t *codec)
-{
-    int i;
-
-    if (ext == 0 || codec == 0 || ext[0] == '\0')
-        return PLAYER_ERR;
-
-    for (i = 0; i < g.ncodecs; i++) {
-        if (str_eq_i(ext, g.codecs[i].ext)) {
-            g.codecs[i].codec = codec;   /* override */
-            return PLAYER_OK;
-        }
-    }
-    if (g.ncodecs >= PLAYER_CODEC_MAX)
-        return PLAYER_ERR;
-    str_copy(g.codecs[g.ncodecs].ext,
-             (unsigned)sizeof(g.codecs[g.ncodecs].ext), ext);
-    g.codecs[g.ncodecs].codec = codec;
-    g.ncodecs++;
-    return PLAYER_OK;
-}
-
 /* ---- track info ---- */
 
-/* Title heuristic until tag parsing lands with the mp3/flac codecs:
- * the file's basename without extension. */
+/* Title heuristic (filename basename; ID3/Vorbis titles are a later item). */
 static void title_from_path(char *dst, unsigned cap, const char *path)
 {
     unsigned base = 0, i, n;
@@ -300,7 +223,7 @@ static int open_codec_only(const char *path)
 
     close_codec_only();
 
-    c = find_codec(path);
+    c = codec_registry_find(path);
     if (c == 0)
         return PLAYER_ERR_UNSUPPORTED;
     if (c->state_size <= 0 || c->state_size > PLAYER_CODEC_STATE_MAX)
@@ -473,9 +396,11 @@ int player_init(void)
 {
     mem_zero(&g, (unsigned)sizeof(g));
 
-    player_register_codec("wav", &codec_wav);
-    player_register_codec("mp3", &codec_mp3);
-    player_register_codec("flac", &codec_flac);
+    /* Register the built-ins keyed by their own descriptor extensions
+     * (self-describing codecs; the registry in codecs/codec_registry.c). */
+    player_register_codec(codec_wav.extensions, &codec_wav);
+    player_register_codec(codec_mp3.extensions, &codec_mp3);
+    player_register_codec(codec_flac.extensions, &codec_flac);
 
     return ipc_b_init();
 }

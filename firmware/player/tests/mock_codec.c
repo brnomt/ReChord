@@ -158,6 +158,7 @@ static int mock_tags(void *vst, codec_replaygain_t *out)
 static const codec_t g_mock_codec =
 {
     "mock",
+    "mock",
     mock_open,
     mock_decode,
     mock_seek,

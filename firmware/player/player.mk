@@ -25,29 +25,39 @@ PLAYER_DIR := firmware/player
 
 PLAYER_IPC_IMPL ?= $(PLAYER_DIR)/ipc_b_target.c
 
-# Module sources (public API: player.h, codec.h, ipc_b.h; ringbuf.h and
-# codec_io.h are internal contracts shared inside the module).
+# Module sources (public API: player.h, codec.h, ipc_b.h; ringbuf.h,
+# codec_io.h, codecs/codec_registry.h are internal contracts).
+# Codec layout (one file per codec, self-describing descriptors — see
+# docs/rewrite/audio.md): codecs/{wav,mp3,flac}.c + codecs/codec_registry.c.
+# Vendored decoder sources (minimp3/dr_flac) are header-included by their
+# adapter TUs — they add no build entries here.
 PLAYER_SRCS := \
   $(PLAYER_DIR)/player.c \
   $(PLAYER_DIR)/ringbuf.c \
   $(PLAYER_DIR)/codec_io.c \
   $(PLAYER_CODEC_IO_IMPL) \
-  $(PLAYER_DIR)/codec_wav.c \
-  $(PLAYER_DIR)/codec_mp3_stub.c \
-  $(PLAYER_DIR)/codec_flac_stub.c \
+  $(PLAYER_DIR)/tags.c \
+  $(PLAYER_DIR)/rg_math.c \
+  $(PLAYER_DIR)/codecs/codec_registry.c \
+  $(PLAYER_DIR)/codecs/wav.c \
+  $(PLAYER_DIR)/codecs/mp3.c \
+  $(PLAYER_DIR)/codecs/flac.c \
   $(PLAYER_IPC_IMPL)
 
 # Host-side per-module tests (run via tests/run_tests.sh).
 PLAYER_TEST_SRCS := \
   $(PLAYER_DIR)/tests/test_ringbuf.c \
   $(PLAYER_DIR)/tests/test_codec_wav.c \
+  $(PLAYER_DIR)/tests/test_codec_io_fs.c \
+  $(PLAYER_DIR)/tests/test_codec_mp3.c \
+  $(PLAYER_DIR)/tests/test_codec_flac.c \
   $(PLAYER_DIR)/tests/test_player_state.c \
   $(PLAYER_DIR)/tests/test_ipc_mock.c \
+  $(PLAYER_DIR)/tests/test_player_gapless.c \
+  $(PLAYER_DIR)/tests/test_player_replaygain.c \
+  $(PLAYER_DIR)/tests/test_rg_math.c \
+  $(PLAYER_DIR)/tests/test_tags.c \
   $(PLAYER_DIR)/tests/mock_codec.c
 
-# Extra host-test libraries (the WAV golden test cross-checks with sin()).
+# Extra host-test libraries (WAV golden + rg_math cross-checks use sin/pow).
 PLAYER_HOST_LIBS := -lm
-
-# When minimp3/dr_flac are vendored in (docs/rewrite/player.md §"Codec
-# vendoring"), their sources join PLAYER_SRCS from:
-#   $(PLAYER_DIR)/codecs/minimp3/  $(PLAYER_DIR)/codecs/dr_flac/

@@ -27,6 +27,14 @@
 #define CODEC_ERR_UNSUPPORTED -3   /* valid but outside the supported subset*/
 #define CODEC_ERR_STATE       -4   /* bad call order / bad state pointer    */
 
+/* Per-open codec instance state pool (bytes) — the player carves this from
+ * its static codec_mem and zeroes it before open(). Adapters must fit
+ * their state (and static_assert it) to this budget; large per-track
+ * buffers (minimp3 residual/feed, dr_flac window) live as file-statics in
+ * their adapters instead — there is one open track at a time. Sized:
+ * mp3dec_t is 6668 B + adapter ctx. Static pool — no malloc on target. */
+#define PLAYER_CODEC_STATE_MAX  7168
+
 /* ---- codec format + gapless ---- */
 
 /* Stream format report (sample-rate reporting for the sink). */
@@ -66,6 +74,11 @@ typedef struct
 typedef struct codec_s
 {
     const char *name;                              /* short id, e.g. "wav" */
+    /* Primary file extension this codec dispatches on (registry key,
+     * lower-case, no dot). Kept in the descriptor so a codec is fully
+     * self-describing: drop its .c from the build and nothing else
+     * references it (conditional compilation, Makefile-level). */
+    const char *extensions;
 
     /* Open `path` (via the codec_io abstraction) and parse headers into
      * `st` (state_size bytes, zeroed by the caller). 0 on success. */

@@ -146,14 +146,28 @@ def build_scatter_table(elf: Elf32):
     """
     all_segs = [s for s in elf.program_headers()
                 if s["type"] == PT_LOAD and s["memsz"] > 0]
+
+    load_base = RAM_IMG_BASE + FW1_PAYLOAD_IMG_OFF   # RAM addr of payload[0]
+
+    def is_header_shadow(s):
+        """Some link layouts put the ELF header itself in the first PT_LOAD
+        (file offset 0, VMA below the payload): its 'content' is the ELF
+        header + program headers, NOT firmware data. Exclude it from the
+        payload chunks (it would poison the 0x5B0 prefix calc) and from the
+        .data-image filter (paddr is not the .data LMA), while KEEPING it
+        in the rw region math below so the row-1 total still spans
+        .data + .bss. The hardware-proven images had this segment as a
+        pure .bss region (filesz == 0) so the question never arose."""
+        return s["offset"] == 0 and s["vaddr"] < load_base
+
     # payload placement only from chunks that carry bytes (filesz > 0);
     # file-less segments are pure regions (bss) -> Type A rows only.
-    segs = sorted((s for s in all_segs if s["filesz"] > 0),
+    segs = sorted((s for s in all_segs
+                   if s["filesz"] > 0 and not is_header_shadow(s)),
                   key=lambda s: s["paddr"])
     if not segs:
         return [], b""
 
-    load_base = RAM_IMG_BASE + FW1_PAYLOAD_IMG_OFF   # RAM addr of payload[0]
     prefix = segs[0]["paddr"] - load_base
     assert prefix == REF_PREFIX_LEN, "prefix must be 0x5B0 for the clone"
     if prefix < 0:
@@ -198,7 +212,8 @@ def build_scatter_table(elf: Elf32):
     if rw:
         lo = min(s["vaddr"] for s in rw)
         hi = max(s["vaddr"] + s["memsz"] for s in rw)
-        data = [s for s in rw if s["filesz"]]
+        data = [s for s in rw
+                if s["filesz"] and not is_header_shadow(s)]
         init = sum(s["filesz"] for s in data)
         if data:
             code_end = loads[0][1] + loads[0][2]

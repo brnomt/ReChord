@@ -1468,6 +1468,70 @@ Fix in `usb_session()`: `update_prompt()` now runs for
 FWU_NONE and the return is seamless (no visible scan screen). RC_BUILD
 m6a → **m6b**; IMG md5 `2cf844ccd39f398dfbe2f7c49f79ca2c`, RESULT: PASS.
 
+### m6c (2026-10-12): real MP3 + FLAC codecs vendored (structure adopted)
+
+Per the codec-structure recommendation (uniform vtable + registry + one file
+per codec + Makefile-level conditional compilation) — which matches what
+`codec_t` already was — the layout was applied while landing the codecs:
+
+- **Vendored (unmodified, version-pinned, license files included):**
+  - `firmware/player/codecs/minimp3/` — minimp3 **CC0-1.0**, pin
+    `ea99364f61c14656440e8d77e9c233ccf3124633` (2026-07-27).
+  - `firmware/player/codecs/dr_flac/` — dr_flac **v0.13.4** dual
+    public-domain/MIT-0, dr_libs pin `dfe8377631000664666519fdb83da193fd8037f4`
+    (2026-08-31).
+  License rationale: CC0/MIT-0 carry **no** attribution or copyleft
+  obligations — safer than any derivative of the leaked RKnano SDK codec
+  blobs (still proprietary; "modifying" them does not clean them;
+  constitution §1 forbids third-party CFW code).
+- **Layout** (`firmware/player/codecs/`): `wav.c`, `mp3.c`, `flac.c`
+  (each a self-describing `codec_t` with its `extensions` key; mp3.c/flac.c
+  are the single implementation TUs for their headers) + `codec_registry.c`
+  (extension→codec dispatch extracted from player.c; `codec_registry.h`).
+  Disable a codec by dropping its `.c` from `PLAYER_SRCS`/`AP_PLAYER_SRCS`.
+- **mp3.c**: ID3v2 skip + ReplayGain, Xing/Info (frames/bytes/TOC), LAME
+  gapless delay/padding (+528+1 adjustment), CBR duration fallback,
+  1152-frame residual buffer, EOF frame salvage past ID3v1 junk, TOC seek.
+  Non-obvious minimp3 facts learned the hard way: it requires frame+NEXT
+  header in-buffer (tail frames must collect data, never be discarded), and
+  the MPEG version mask is `0x18` (not `0x08`).
+- **flac.c**: metadata pre-scan (RG via tags_replaygain_vorbis, SEEKTABLE
+  budget), static 56 KiB pool allocator replacing DRFLAC_MALLOC/REALLOC/FREE,
+  deterministic UNSUPPORTED for blocksize/seektable > pool, frame-accurate
+  seek, gapless 0/0 (FLAC has no encoder delay in-stream).
+- **RAM budget**: IPC ring 64K→**32 KiB** (`ipc_b.h`, ~186 ms — bump back
+  only if underruns show), `PLAYER_CODEC_STATE_MAX` 4096→**7168** moved to
+  codec.h (mp3dec_t is 6668 B), mp3 feed+residual are file-statics. ELF:
+  text 99,600 / data 180 / bss 283,836, `_bss_end 0x03049570` ≤
+  `__heap_end 0x0304C000` (linker-enforced, 10.6 KB margin).
+- **Packer fix (tools/pack_fw1.py)**: some link layouts map the ELF header
+  into the first PT_LOAD (file offset 0); that segment's "content" is the
+  ELF headers, not firmware — it poisoned the 0x5B0 prefix calculation
+  (assert fired) and would have copied headers over RAM 0x03004000. Now
+  filtered via `is_header_shadow()` from payload chunks and the .data-image
+  filter (kept in the rw math so row1's data+bss total stays exact).
+- **Makefile fix**: `-include` deps now cover `build/cfw/*.d` (was bb+ap
+  only) — a header change previously left a STALE 64 KiB ipc_b_target.o
+  in a flashable image.
+- Tests: `test_codec_mp3.c` (crafted ID3v2+Xing/LAME+silence frames: exact
+  counts, gapless 576/623, TOC seek, RG e2e) and `test_codec_flac.c`
+  (synthesized VERBATIM-subframe FLAC: LOSSLESS byte-for-byte golden,
+  frame-accurate seek @2028, RG from VORBIS_COMMENT). Full suite:
+  **ALL PLAYER TESTS PASSED** (11 binaries, ~340 assertions). M3 compile of
+  every player TU clean; `make cfw-img` → RESULT: PASS, AP5M md5
+  `5f2a55d301d8861711f762def778245b`, fw1 end 0x1932C, CRC 0x593367AE.
+  (FLAC fixture pitfalls pinned in the test: subframe VERBATIM type is
+  1 → header byte 0x02; rate code 1001=44100; the 16-bit blocksize is
+  bitstream-ordered AFTER the coded frame number.)
+- **DFIU**: preflight (alert: 2 blockers + 3 stale on the packer change) →
+  byte-level revalidation of AP5M on all five (rows loaded-RAM, entry VT
+  @IMG 0x19278 SP/reset/Thumb and not-0xD68, stack clean, row parity vs m5b,
+  self-copy @0x44C000, CRC 0x500000 = 0x593367AE) → 3 effective passes
+  recorded → R-70b34b8f2528 / R-5add7c251c3f / R-9f6e141101cb reactivated →
+  `compile_artifacts`: **7 active rules**.
+- NOT DONE: DAC renderer (still no sound — ipc_b_target doorbell is a
+  placeholder), B-core IPC bring-up, and flashing this build to the device.
+
 ## 1. Where audio actually comes from
 
 Two layers, strict separation:

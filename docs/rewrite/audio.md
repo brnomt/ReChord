@@ -20,7 +20,7 @@
   codec_io.h  (cio_open/read/seek/tell/size/close)
         |
         v
-  codec_t  (codec_wav fully ours; codec_mp3/codec_flac scaffolds for minimp3/dr_flac)
+  codec_t  (self-describing vtable: codecs/{wav,mp3,flac}.c + codec_registry)
         |  interleaved int16 PCM frames
         v
   player.c state machine  --ipc_b ring->  B core (RKnanoD SDK audio) -> DAC/I2S
@@ -37,19 +37,18 @@ The reference's `ECHOLOG.TXT` is the contract we match:
 `end of stream, 5843 frames queued`. Gapless is a decode+ring property of
 the AP; the B core must not be restarted between gapless-compatible tracks.
 
-Status today: the player module is **host-complete and host-tested** — WAV codec
-byte-exact, and the gapless / ReplayGain / codec_io_fs paths are implemented and
-covered by host tests in `firmware/player/tests/run_tests.sh`. It is **linked
-into the AP image since milestone 2a** (`AP_PLAYER_SRCS` in `firmware/ap.mk`;
-`make cfw-ap` links `build/cfw/rechord_ap.elf` with all player symbols, the
-target backend `codec_io_fs.c` + `ipc_b_target.c`, and a 4-slot static handle
-pool instead of malloc). `make cfw-img` produces `build/ReChord_AP.IMG` /
-`build/ReChord_AP5M.IMG` behind the packer's scatter gate; AP5M was uploaded to
-the device as `HIFIEC90.IMG` (2026-10-12) and installed on hardware
-(ECHOLOG: `update: result 0`, fw_end 0x44C000) — boot verdict pending a
-power-cycle. Playback itself is not wired yet: `player_screen.c` is still a
-stub and the PCM→DAC consumer (B core) does not exist in this fw1 build, so
-the resident player is silent until those two land.
+Status today: the player module is **host-complete and host-tested** — WAV,
+**MP3 (minimp3)** and **FLAC (dr_flac)** decode for real (the last two
+vendored + adapted under `player/codecs/`, licenses pinned), plus gapless /
+ReplayGain / codec_io_fs — all covered by host tests in
+`firmware/player/tests/run_tests.sh` (11 binaries, ~340 assertions, green).
+It is **linked into the AP image** (`AP_PLAYER_SRCS` in `firmware/ap.mk`;
+`make cfw-ap` links `build/cfw/rechord_ap.elf`; `make cfw-img` →
+`build/ReChord_AP5M.IMG` behind the packer's scatter gate, `RESULT: PASS`,
+md5 `5f2a55d301d8861711f762def778245b`). Still missing for audible sound:
+the PCM→DAC renderer (this fw1 has no B core; `ipc_b_target`'s doorbell is a
+placeholder), so the resident player decodes but stays silent until that
+landmark — plus the B-core IPC bring-up for the reference two-core path.
 
 ## 2. Files
 
@@ -62,20 +61,26 @@ firmware/player/
 ├── codec_io_stdio.c    stdio backend (host + newlib target)  <-- host only
 ├── codec_io.c          shared cio_* dispatch (open lives in the backend)
 ├── codec_io_fs.c       fs.h backend (target: SD/eMMC)  <-- DONE
-├── codec_wav.c         FULL WAV/RIFF PCM decoder (ours)
-├── codec_mp3_stub.c    minimp3 adapter scaffold
-├── codec_flac_stub.c   dr_flac adapter scaffold
 ├── ipc_b.h             A<->B audio IPC contract + shared block @0x01020000
 ├── ipc_b_mock.c        host simulated B core
 ├── ipc_b_target.c      target shared block + supervisor
-├── ringbuf.h/.c        SPSC lock-free ring (PCM streaming)
+├── ringbuf.h/.c        SPSC lock-free ring (PCM streaming, 32 KiB)
 ├── rg_math.c/.h        ReplayGain dB->linear + PCM scaler (Q1.15)  <-- DONE
 ├── tags.c/.h           ReplayGain + ID3v2 TXXX / Vorbis parse  <-- DONE
 ├── player.mk           build fragment
+├── codecs/             one file per codec, self-describing descriptors
+│   ├── codec_registry.h/.c  extension -> codec_t dispatch
+│   ├── wav.c            FULL WAV/RIFF PCM decoder (ours)
+│   ├── mp3.c            minimp3 adapter (Xing/LAME gapless + RG)  <-- DONE
+│   ├── flac.c           dr_flac adapter (pool + pre-scan + RG)     <-- DONE
+│   ├── minimp3/         vendored minimp3.h (CC0-1.0, pinned) + LICENSE
+│   └── dr_flac/         vendored dr_flac.h (PD/MIT-0, pinned) + LICENSE
 └── tests/
     ├── run_tests.sh
     ├── mock_codec.c/.h scripted codec (gapless + RG-aware)
     ├── test_codec_wav.c        WAV golden (sine, byte-exact)
+    ├── test_codec_mp3.c        crafted Xing/LAME/ID3v2 fixture      <-- DONE
+    ├── test_codec_flac.c       synthesized VERBATIM lossless golden <-- DONE
     ├── test_codec_io_fs.c      FS backend decode = stdio baseline  <-- DONE
     ├── test_player_gapless.c   gapless trim + seamless advance  <-- DONE
     ├── test_player_state.c
@@ -85,10 +90,11 @@ firmware/player/
 
 ## 3. Plan (in order — each host-testable before any hardware)
 
-> Steps 1–4 are **implemented and host-tested** (55 checks across
+> Steps 1–6 are **implemented and host-tested** (~340 checks across
 > `test_player_gapless`, `test_rg_math`, `test_player_replaygain`,
-> `test_codec_io_fs`, `test_tags`). Step 5 (AP linkage) is gated on hardware
-> + DFIU preflight.
+> `test_codec_io_fs`, `test_tags`, `test_codec_mp3`, `test_codec_flac`).
+> Step 7 (DAC renderer) is the next landmark; step 8 (AP flash) is gated on
+> hardware + DFIU preflight.
 
 1. **fs_seek (portability).** DONE — `fs_seek(fs_file_t*, long offset)` added to
    `fs.h`, `fs_target.c` (set `f->pos`; the read loop re-derives the cluster)
@@ -138,17 +144,42 @@ firmware/player/
 
 5. **AP linkage (hardware-gated). DONE (milestone 2a, 2026-10-12).**
    `firmware/ap.mk`: `AP_PLAYER_SRCS` (player.c, codec_io.c, codec_io_fs.c,
-   codec_wav.c, codec_mp3/flac stubs, tags.c, rg_math.c, ipc_b_target.c,
+   tags.c, rg_math.c, `codecs/{registry,wav,mp3,flac}.c`, ipc_b_target.c,
    ringbuf.c) joined `AP_SRCS`; `-Ifirmware/player` added to
    `AP_INCLUDE_DIRS`. `codec_io_fs.c` rewritten to a 4-slot static pool (the
    freestanding `-nostdlib` link has no malloc/free). Verified:
-   `make cfw-ap` → `build/cfw/rechord_ap.elf` (text 42,436 / data 100 /
-   bss 248,956; `_bss_end 0x03040CE0` inside the linker's FW_RAM window
-   to 0x0304C000) with player symbols present; all clean-road TUs compile
+   `make cfw-ap` → `build/cfw/rechord_ap.elf` (text 99,600 / data 180 /
+   bss 283,836; `_bss_end 0x03049570` inside the linker's FW_RAM window to
+   0x0304C000) with player symbols present; all player TUs compile
    `-mcpu=cortex-m3 -mthumb -Wall`; host tests stay green. `make cfw-img`
    → AP5M uploaded to the device as HIFIEC90.IMG and installed on hardware
    (ECHOLOG `update: result 0`, fw_end 0x44C000); boot verdict pending a
    power-cycle (DFIU `verify_resolution` after the user confirms).
+
+6. **Codec vendoring (MP3 + FLAC). DONE (m6c, 2026-10-12).**
+   minimp3 (CC0-1.0, pin `ea99364f…`) and dr_flac v0.13.4 (PD/MIT-0, pin
+   `dfe83776…`) vendored unmodified under `codecs/{minimp3,dr_flac}/` with
+   LICENSE files; adapters `codecs/mp3.c` / `codecs/flac.c` are the single
+   implementation TUs and self-describing `codec_t`s (registry extracted to
+   `codecs/codec_registry.c`). MP3: Xing/Info + LAME gapless (+528+1),
+   CBR fallback, TOC seek, ID3v2 RG, ID3v1 tail salvage. FLAC: metadata
+   pre-scan (RG + SEEKTABLE budget), static 56 KiB pool for
+   DRFLAC_MALLOC/REALLOC/FREE, deterministic UNSUPPORTED over budget,
+   frame-accurate seek. Host tests synthesize both formats byte-exactly
+   (crafted MP3 frames; VERBATIM-subframe FLAC lossless golden). RAM:
+   ring 64K→32 KiB, `PLAYER_CODEC_STATE_MAX`→7168 (codec.h). Packer
+   (`is_header_shadow`) + Makefile (`build/cfw/*.d` deps) fixes landed in
+   the same pass — see HANDOVER m6c.
+
+7. **DAC renderer (NEXT).** Consume the ipc_b ring → I2S/DAC in this fw1
+   (the SDK DMA-ISR path `Service.c: AudioDmaIsrHandler → AudioDecoding`
+   is the reference model, `docs/re/dac-output-path.md`). Until then the
+   player decodes but is silent and the ipc_b supervisor eventually reports
+   "no audio renderer".
+
+8. **AP flash (hardware-gated).** DFIU `preflight_check` → scatter
+   byte-revalidation → flash AP5M (debrick ready: docs/DEBRICK-LINUX.md) →
+   `verify_resolution(reproduction)` on the user's confirmed outcome.
 
 ## 4. Verification (docs/rewrite/architecture.md §5)
 
@@ -166,10 +197,12 @@ firmware/player/
 
 ## 5. Open items
 
-1. minimp3 / dr_flac vendoring — unblocks MP3/FLAC decode, Xing/Info and
-   Vorbis comments. CPU budget on the B core still unmeasured.
-2. B-core gain/DSP register mapping — where ReplayGain's final multiply is
+1. ~~minimp3 / dr_flac vendoring~~ DONE (step 6) — MP3/FLAC decode, Xing/Info
+   and Vorbis comments work; CPU budget on the B core still unmeasured.
+2. **DAC renderer** — the ipc_b ring has no consumer in this fw1; no sound
+   until the I2S/DAC path lands (step 7).
+3. B-core gain/DSP register mapping — where ReplayGain's final multiply is
    applied (AP pre-attenuation vs B-core DSP volume).
-3. SD write + settings on target (the RG mode preference: track vs album)
+4. SD write + settings on target (the RG mode preference: track vs album)
    — needs the volume path convention from the storage workstream.
-4. Warm reboot / high-speed USB — polish, not blocking audio.
+5. Warm reboot / high-speed USB — polish, not blocking audio.

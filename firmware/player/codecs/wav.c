@@ -283,6 +283,7 @@ static int wav_format(void *vst, codec_format_t *out)
 const codec_t codec_wav =
 {
     "wav",
+    "wav",
     wav_open,
     wav_decode,
     wav_seek,

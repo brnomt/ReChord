@@ -40,7 +40,9 @@ include firmware/rockchip/manifests/ap.mk
 # ReChord module fragments (docs/rewrite/architecture.md §2): one subsystem,
 # one folder, one .mk. Fragments only define *_SRCS/*_INCLUDE_DIRS variables;
 # build targets stay in this file so the graph lives in one place.
--include $(shell find build/bb build/ap -name "*.d" 2>/dev/null)
+# Header-change tracking for EVERY pipeline (missing build/cfw once left a
+# stale 64 KiB ipc_b_target.o in a flashable image — always list all three).
+-include $(shell find build/bb build/ap build/cfw -name "*.d" 2>/dev/null)
 
 include firmware/ap.mk
 

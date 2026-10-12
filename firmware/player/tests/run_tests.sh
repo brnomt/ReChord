@@ -9,9 +9,11 @@ CFLAGS="${CFLAGS:--Wall -Werror -O1}"
 
 mkdir -p .work
 
-# Sources shared by the tests (the real player stack + mock codec).
-PLAYER_SRCS="../player.c ../codec_wav.c ../codec_mp3_stub.c \
-             ../codec_flac_stub.c ../ipc_b_mock.c"
+# Sources shared by the tests (the real player stack + codec registry +
+# the three codecs + mock codec). minimp3/dr_flac come in through the
+# adapter TUs' header includes (no separate build entries).
+PLAYER_SRCS="../player.c ../codecs/codec_registry.c ../codecs/wav.c \
+             ../codecs/mp3.c ../codecs/flac.c ../tags.c ../ipc_b_mock.c"
 
 # The shared codec_io dispatch wrappers now live in codec_io.c; both backends
 # (codec_io_stdio.c for host tests, codec_io_fs.c for the on-device FS path)
@@ -23,7 +25,7 @@ IO_DISPATCH=../codec_io.c
 $CC $CFLAGS -I.. -o .work/test_ringbuf   test_ringbuf.c ../ringbuf.c
 
 # WAV golden test: stdio backend + dispatch wrappers + newlib.
-$CC $CFLAGS -I.. -o .work/test_codec_wav test_codec_wav.c ../codec_wav.c \
+$CC $CFLAGS -I.. -o .work/test_codec_wav test_codec_wav.c ../codecs/wav.c \
     ../codec_io_stdio.c $IO_DISPATCH -lm
 
 # Player state machine + IPC end-to-end: stdio backend + dispatch wrappers.
@@ -38,7 +40,7 @@ $CC $CFLAGS -I.. -o .work/test_ipc_mock  test_ipc_mock.c \
 # codec_io_fs.c + codec_io.c (+ fs_host.c backing fs.h) decode a WAV and are
 # checked byte-for-byte against the analytical sine.
 $CC $CFLAGS -I.. -I../../services -o .work/test_codec_io_fs \
-    test_codec_io_fs.c ../codec_wav.c ../codec_io_fs.c \
+    test_codec_io_fs.c ../codecs/wav.c ../codec_io_fs.c \
     ../codec_io.c ../../services/fs_host.c -lm
 
 # Gapless: leading/trailing trim + seamless same-format auto-advance
@@ -60,6 +62,16 @@ $CC $CFLAGS -I.. -o .work/test_player_replaygain \
 $CC $CFLAGS -I.. -o .work/test_tags \
     test_tags.c ../tags.c ../codec_io_stdio.c ../codec_io.c
 
+# MP3 adapter: crafted ID3v2 + Xing/Info + LAME + silence frames.
+$CC $CFLAGS -I.. -o .work/test_codec_mp3 \
+    test_codec_mp3.c ../codecs/mp3.c ../tags.c \
+    ../codec_io_stdio.c $IO_DISPATCH -lm
+
+# FLAC adapter: synthesized VERBATIM-subframe FLAC (exact golden) + RG tags.
+$CC $CFLAGS -I.. -o .work/test_codec_flac \
+    test_codec_flac.c ../codecs/flac.c ../tags.c \
+    ../codec_io_stdio.c $IO_DISPATCH -lm
+
 .work/test_ringbuf
 .work/test_codec_wav
 .work/test_player_state
@@ -69,4 +81,6 @@ $CC $CFLAGS -I.. -o .work/test_tags \
 .work/test_rg_math
 .work/test_player_replaygain
 .work/test_tags
+.work/test_codec_mp3
+.work/test_codec_flac
 echo "ALL PLAYER TESTS PASSED"

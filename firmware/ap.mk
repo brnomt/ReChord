@@ -98,16 +98,19 @@ AP_LIBC_SRCS := \
   firmware/libc/math_min.c
 
 # Player module (audio path): linked from milestone 2a. Includes the
-# target IPC backend (ipc_b_target.c) and the codec adapters.
+# target IPC backend (ipc_b_target.c) and the codecs — one file per codec
+# under player/codecs/ (self-describing descriptors + registry), vendored
+# minimp3/dr_flac are header-included by their adapter TUs.
 AP_PLAYER_SRCS := \
   firmware/player/player.c \
   firmware/player/codec_io.c \
   firmware/player/codec_io_fs.c \
-  firmware/player/codec_wav.c \
-  firmware/player/codec_mp3_stub.c \
-  firmware/player/codec_flac_stub.c \
   firmware/player/tags.c \
   firmware/player/rg_math.c \
+  firmware/player/codecs/codec_registry.c \
+  firmware/player/codecs/wav.c \
+  firmware/player/codecs/mp3.c \
+  firmware/player/codecs/flac.c \
   firmware/player/ipc_b_target.c \
   firmware/player/ringbuf.c
 

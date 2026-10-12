@@ -106,8 +106,13 @@ typedef struct
 #define IPC_B_CMD_TRACK      7u   /* new track, same stream (gapless)    */
 /* cmd_arg0 = duration_ms of the new track */
 
-/* PCM ring geometry shared by both implementations (bytes, pow2). */
-#define IPC_B_RING_BYTES     (64u * 1024u)
+/* PCM ring geometry shared by both implementations (bytes, pow2).
+ * 32 KiB = ~186 ms of 44.1 kHz stereo — ample margin for a continuously
+ * consuming renderer, and it is the RAM budget that lets the mp3/flac
+ * adapters' static buffers fit inside the fw1 FW_RAM window (linker-gated,
+ * see firmware/firmware_ap.ld). Bump back to 64 KiB only if underruns show
+ * up on hardware. */
+#define IPC_B_RING_BYTES     (32u * 1024u)
 #define IPC_B_FRAME_BYTES    4u   /* stereo int16 is the worst case     */
 
 /* ---- API (both implementations) ---- */

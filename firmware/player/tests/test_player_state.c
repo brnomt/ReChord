@@ -61,8 +61,8 @@ int main(void)
     TEST("codec dispatch by extension");
     CHECK_EQI(player_open("x.unknownext"), PLAYER_ERR_UNSUPPORTED,
               "no codec for extension");
-    CHECK_EQI(player_open("x.mp3"), CODEC_ERR_UNSUPPORTED,
-              "mp3 stub reports UNSUPPORTED (open failure)");
+    CHECK_EQI(player_open("x.mp3"), CODEC_ERR_IO,
+              "real mp3 codec: missing file -> IO error");
     CHECK_EQI(player_open(0), PLAYER_ERR, "NULL path rejected");
 
     /* From here on the mock codec drives the machine. */
