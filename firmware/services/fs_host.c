@@ -222,6 +222,17 @@ long fs_file_size(fs_file_t *f)
     return f->size;
 }
 
+long fs_seek(fs_file_t *f, long offset)
+{
+    if (f == NULL || f->fp == NULL || offset < 0) {
+        return FS_ERR_ARG;
+    }
+    if (fseek(f->fp, offset, SEEK_SET) != 0) {
+        return FS_ERR_IO;
+    }
+    return offset;
+}
+
 void fs_close(fs_file_t *f)
 {
     if (f == NULL) {

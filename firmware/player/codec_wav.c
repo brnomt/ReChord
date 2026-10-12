@@ -276,6 +276,7 @@ static int wav_format(void *vst, codec_format_t *out)
     out->sample_rate = (int)st->sample_rate;
     out->channels    = st->channels;
     out->bits        = 16;
+    out->total_samples = st->total_frames;
     return CODEC_OK;
 }
 

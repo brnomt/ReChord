@@ -103,6 +103,8 @@ typedef struct
 #define IPC_B_CMD_RESUME     4u
 #define IPC_B_CMD_SET_VOL    5u
 #define IPC_B_CMD_FLUSH      6u   /* drop ring contents (seek)           */
+#define IPC_B_CMD_TRACK      7u   /* new track, same stream (gapless)    */
+/* cmd_arg0 = duration_ms of the new track */
 
 /* PCM ring geometry shared by both implementations (bytes, pow2). */
 #define IPC_B_RING_BYTES     (64u * 1024u)
@@ -128,6 +130,20 @@ int ipc_b_pause(int paused);
 /* Set playback volume in dB (forwarded to the B core). Returns 0. */
 int ipc_b_set_volume(int db);
 
+/* Announce a new track on an EXISTING stream (gapless continuation). The B
+ * core is NOT restarted: the PCM ring keeps its read cursor and the stream
+ * keeps flowing, so adjacent same-format tracks join sample-accurately with
+ * no click/silence. `duration_ms` is the new track's length (used by the
+ * supervisor's drained-timeout; 0 = unknown, keep ticking). Must only be
+ * called while the B core is RUNNING. Returns 0, < 0 on error.
+ *
+ * This is the A<->B half of "B: boundary to track N: ... (gapless)"
+ * (reference ECHOLOG). On the target it maps to a doorbell that advances
+ * the B-side stream length without a core reset (register-level bring-up
+ * TODO in docs/rewrite/player.md §7). The mock simply updates its length
+ * bookkeeping. */
+int ipc_b_track_change(long duration_ms);
+
 /* Poll the supervisor state machine: advances the sim on the host mock,
  * samples the shared block on target. Fills `out` (may be NULL).
  * Returns the current ipc_b_state_t (>= 0) or < 0 on error. */
@@ -140,5 +156,11 @@ int ipc_b_ring_fill(const int16_t *pcm, int frames);
 /* Discard all buffered PCM and zero the per-stream consumed counter
  * (used on seek; only legal while paused/stopped or between fills). */
 int ipc_b_flush(void);
+
+/* Announce a NEW TRACK on the SAME live stream (gapless boundary).
+ * The B core is NOT restarted (no ring flush, no clock relock); the
+ * supervisor updates its expected length with `duration_ms`. cmd_arg0.
+ * Returns non-negative on acceptance. */
+int ipc_b_track_change(long duration_ms);
 
 #endif /* RECHORD_IPC_B_H */

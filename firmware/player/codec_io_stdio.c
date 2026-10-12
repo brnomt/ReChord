@@ -114,39 +114,5 @@ codec_io_t *cio_open(const char *path)
     return io;
 }
 
-void cio_close(codec_io_t *io)
-{
-    if (io == NULL)
-        return;
-    if (io->close != NULL)
-        io->close(io->ctx);
-    free(io);
-}
-
-long cio_read(codec_io_t *io, void *buf, long len)
-{
-    if (io == NULL || io->read == NULL)
-        return -1;
-    return io->read(io->ctx, buf, len);
-}
-
-long cio_seek(codec_io_t *io, long offset)
-{
-    if (io == NULL || io->seek == NULL)
-        return -1;
-    return io->seek(io->ctx, offset);
-}
-
-long cio_tell(codec_io_t *io)
-{
-    if (io == NULL || io->tell == NULL)
-        return -1;
-    return io->tell(io->ctx);
-}
-
-long cio_size(codec_io_t *io)
-{
-    if (io == NULL || io->size == NULL)
-        return -1;
-    return io->size(io->ctx);
-}
+/* Shared dispatch wrappers (cio_read/seek/tell/size/close) live in
+ * codec_io.c — exactly one backend supplies cio_open per image. */

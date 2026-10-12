@@ -539,6 +539,21 @@ long fs_file_size(fs_file_t *f)
     return f && f->used ? (long)f->size : FS_ERR_ARG;
 }
 
+long fs_seek(fs_file_t *f, long offset)
+{
+    if (f == NULL || !f->used || offset < 0)
+        return FS_ERR_ARG;
+    if (offset > (long)f->size)
+        offset = (long)f->size;   /* legal; reads past end report EOF */
+    f->pos = (uint32_t)offset;
+    /* Invalidate the read cursor's cached cluster walk so the next fs_read
+     * re-derives it from `first`/`pos` (the read loop already does this for
+     * `want < cidx`). */
+    f->cidx = 0;
+    f->clus = 0;
+    return offset;
+}
+
 void fs_close(fs_file_t *f)
 {
     if (f)

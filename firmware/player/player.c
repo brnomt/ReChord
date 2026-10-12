@@ -13,9 +13,9 @@
 #include "player.h"
 #include "codec.h"
 #include "ipc_b.h"
+#include "rg_math.h"
 
-/* Per-open codec instance state pool (bytes). Must fit wav/mp3/flac state;
- * minimp3/dr_flac adapters size against this when vendored in. */
+/* Per-open codec instance state pool (bytes). Must fit wav/mp3/flac state;   */
 #define PLAYER_CODEC_STATE_MAX  4096
 
 #define PLAYER_CODEC_MAX        8     /* registered codecs (ext table)    */
@@ -43,6 +43,11 @@ typedef struct
     int             codec_active;     /* codec->open() succeeded          */
     uint8_t         codec_mem[PLAYER_CODEC_STATE_MAX];
     codec_format_t  fmt;
+    codec_gapless_t gapless;          /* delay/padding (0/0 if unaware)   */
+    long            total_samples;    /* decoder frame count (for trim)   */
+    long            decoded_samples;  /* frames emitted this track so far */
+    long            emitted_samples;  /* frames pushed to ring (post-trim)*/
+    int             leading_trimmed;  /* have we dropped the leading delay*/
     long            duration_ms;
 
     long            base_ms;          /* playhead at last seek/rewind     */
@@ -50,6 +55,8 @@ typedef struct
     int             eof;              /* decoder hit end of stream        */
 
     int             volume_db;
+    int             rg_mode;
+    int32_t         rg_gain_q16;          /* cached Q16 gain for open track   */
 
     player_event_fn cb;
     void           *cb_user;
@@ -83,6 +90,25 @@ static void mem_zero(void *p, unsigned n)
         b[i] = 0;
 }
 
+/* Byte-by-byte move handles overlapping regions (used by gapless trim,
+ * which shifts PCM samples toward the front of the staging buffer). */
+static void mem_move(void *dst, const void *src, unsigned n)
+{
+    uint8_t *d = (uint8_t *)dst;
+    const uint8_t *s = (const uint8_t *)src;
+    unsigned i;
+
+    if (d == s || n == 0)
+        return;
+    if (d < s) {
+        for (i = 0; i < n; i++)
+            d[i] = s[i];
+    } else {
+        for (i = n; i > 0; i--)
+            d[i - 1] = s[i - 1];
+    }
+}
+
 static void str_copy(char *dst, unsigned cap, const char *src)
 {
     unsigned i = 0;
@@ -94,6 +120,8 @@ static void str_copy(char *dst, unsigned cap, const char *src)
     }
     dst[i] = '\0';
 }
+
+static void recalc_rg_gain(void);   /* defined with the player API below */
 
 static char lower(char c)
 {
@@ -239,27 +267,38 @@ int player_enqueue(const char *path)
 
 /* ---- track lifecycle ---- */
 
-static void close_track(void)
+/* Close the current codec WITHOUT touching the B core (no ipc_b_stop).
+ * Used for a gapless transition: the ring and the B-core stream must keep
+ * flowing while we swap in the next codec. */
+static void close_codec_only(void)
 {
     if (g.codec_active && g.codec != 0)
         g.codec->close(codec_state());
     g.codec_active = 0;
     g.codec = 0;
+}
+
+static void close_track(void)
+{
+    close_codec_only();
     if (g.state == PLAYER_PLAYING || g.state == PLAYER_PAUSED) {
         ipc_b_stop();
         ipc_b_flush();
     }
 }
 
-/* Open `path` as the current track (closes any previous one).
- * Leaves the player in PLAYER_STOPPED on success. */
-static int open_track(const char *path)
+/* Open `path` as the current codec and populate format/gapless/track meta.
+ * Resets the per-track decode cursors but touches neither the player state
+ * nor the B core — the caller decides whether to play, stop, or gapless-
+ * continue. Returns PLAYER_OK or a negative code (and does not emit here;
+ * TRACK is emitted by the caller so hard- and gapless-advance share it). */
+static int open_codec_only(const char *path)
 {
     const codec_t *c;
     codec_format_t fmt;
     int rc;
 
-    close_track();
+    close_codec_only();
 
     c = find_codec(path);
     if (c == 0)
@@ -281,43 +320,107 @@ static int open_track(const char *path)
     fmt.channels = 2;
     fmt.bits = 16;
     if (c->format != 0 && c->format(codec_state(), &fmt) < 0) {
-        close_track();
+        close_codec_only();
         do_error();
         return PLAYER_ERR;
     }
     if (fmt.channels < 1 || fmt.channels > 2 || fmt.sample_rate <= 0) {
-        close_track();
+        close_codec_only();
         do_error();
         return PLAYER_ERR;
     }
     g.fmt = fmt;
 
+    /* Gapless: query the codec; NULL/zero means "no trimming." */
+    g.gapless.delay_samples = 0;
+    g.gapless.padding_samples = 0;
+    if (c->gapless != 0) {
+        codec_gapless_t gg = {0, 0};
+        if (c->gapless(codec_state(), &gg) == 0) {
+            g.gapless = gg;
+        }
+    }
+
+    /* ReplayGain: query the codec's tags (NULL => no adjustment). */
+    g.track.replaygain_track_gain_tenth_db = 0;
+    g.track.replaygain_album_gain_tenth_db = 0;
+    g.track.replaygain_track_peak_q15 = 0;
+    g.track.replaygain_album_peak_q15 = 0;
+    if (c->tags != 0) {
+        codec_replaygain_t rg = {0, 0, 0, 0};
+        if (c->tags(codec_state(), &rg) == 0) {
+            g.track.replaygain_track_gain_tenth_db = rg.track_gain_tenth_db;
+            g.track.replaygain_album_gain_tenth_db = rg.album_gain_tenth_db;
+            g.track.replaygain_track_peak_q15 = rg.track_peak_q15;
+            g.track.replaygain_album_peak_q15 = rg.album_peak_q15;
+        }
+    }
+
     g.duration_ms = (c->duration_ms != 0) ? c->duration_ms(codec_state()) : -1;
     if (g.duration_ms < 0)
         g.duration_ms = 0;
 
-    g.base_ms = 0;
-    g.frames_consumed = 0;
+    /* Prefer the codec's exact frame count; fall back to duration*SR when the
+     * codec doesn't report one (e.g. raw streams). */
+    g.total_samples = g.fmt.total_samples;
+    if (g.total_samples <= 0)
+        g.total_samples = (long)((long long)fmt.sample_rate * g.duration_ms / 1000);
+
+    /* Per-track decode cursors: the new track starts at its (trimmed) start. */
     g.eof = 0;
+    g.decoded_samples = 0;
+    g.emitted_samples = 0;
+    g.leading_trimmed = (g.gapless.delay_samples == 0) ? 1 : 0;
 
     g.track_no++;
     g.track.track_no = g.track_no;
     g.track.duration_ms = g.duration_ms;
+    g.track.gapless_delay = g.gapless.delay_samples;
+    g.track.gapless_padding = g.gapless.padding_samples;
+    g.track.total_samples = g.total_samples;
     str_copy(g.track.path, (unsigned)sizeof(g.track.path), path);
     title_from_path(g.track.title, (unsigned)sizeof(g.track.title), path);
     g.track.artist[0] = '\0';   /* TODO: ID3/Vorbis tags (mp3/flac) */
     g.track_valid = 1;
+
+    recalc_rg_gain();   /* cache Q16 gain for the open track */
+    return PLAYER_OK;
+}
+
+/* Open `path` as the current track (stops the B core first).
+ * Leaves the player in PLAYER_STOPPED on success. */
+static int open_track(const char *path)
+{
+    int rc;
+
+    close_track();
+
+    rc = open_codec_only(path);
+    if (rc != PLAYER_OK)
+        return rc;
+
+    g.base_ms = 0;
+    g.frames_consumed = 0;
+    g.leading_trimmed = (g.gapless.delay_samples == 0) ? 1 : 0;
 
     set_state(PLAYER_STOPPED);
     emit(PLAYER_EV_TRACK);
     return PLAYER_OK;
 }
 
-/* Auto/manual advance to the next queued track (plays it). */
-static int advance_queue(void)
+/* Auto/manual advance to the next queued track.
+ *
+ * Gapless rule (docs/re/write/audio.md §3): on the AUTO-advance (EOF) path,
+ * if the next track's format matches the current one, the B core is NOT
+ * restarted — the codec is swapped with the ring kept live and
+ * ipc_b_track_change() announces the new length, so adjacent tracks join
+ * sample-accurately. On a format change (or a user-driven next()), a hard
+ * boundary is taken: ipc_b_stop + ipc_b_start (the DAC re-locks to the new
+ * rate). `hard` forces the hard path (used by player_next()). */
+static int advance_queue(int hard)
 {
     char path[PLAYER_PATH_MAX];
-    int rc;
+    codec_format_t prev;
 
     if (queue_pop(path) != 0) {
         player_stop();
@@ -325,12 +428,37 @@ static int advance_queue(void)
         return PLAYER_ERR_EMPTY;
     }
 
-    rc = open_track(path);
+    if (g.track_valid)
+        prev = g.fmt;
+    else
+        prev.sample_rate = prev.channels = 0;
+
+    if (hard || prev.sample_rate == 0 ||
+        prev.sample_rate != g.fmt.sample_rate ||
+        prev.channels != g.fmt.channels) {
+        /* Hard boundary (format change, or a user-driven next()): stop the
+         * old stream and start the new one so the B core relocks to the new
+         * format. open_track + player_play() does the full restart. */
+        int rc = open_track(path);
+        if (rc != PLAYER_OK) {
+            emit(PLAYER_EV_ERROR);
+            return rc;
+        }
+        return player_play();
+    }
+
+    /* Seamless gapless continuation: the B core is already RUNNING. Swap in
+     * the next codec WITHOUT stopping the ring (close_codec_only), then
+     * announce the new length on the live stream — no ipc_b_start. */
+    int rc = open_codec_only(path);
     if (rc != PLAYER_OK) {
         emit(PLAYER_EV_ERROR);
         return rc;
     }
-    return player_play();
+    emit(PLAYER_EV_TRACK);
+    ipc_b_track_change(g.duration_ms);
+    set_state(PLAYER_PLAYING);
+    return PLAYER_OK;
 }
 
 /* ---- public API ---- */
@@ -354,9 +482,11 @@ int player_init(void)
 
 int player_open(const char *path)
 {
+    int rc;
     if (path == 0 || path[0] == '\0')
         return PLAYER_ERR;
-    return open_track(path);
+    rc = open_track(path);
+    return rc;
 }
 
 int player_play(void)
@@ -414,6 +544,9 @@ int player_stop(void)
     g.base_ms = 0;
     g.frames_consumed = 0;
     g.eof = 0;
+    g.decoded_samples = 0;
+    g.emitted_samples = 0;
+    g.leading_trimmed = (g.gapless.delay_samples == 0) ? 1 : 0;
 
     set_state(PLAYER_STOPPED);
     return PLAYER_OK;
@@ -442,6 +575,12 @@ int player_seek(long ms)
     g.base_ms = ms;
     g.frames_consumed = 0;
     g.eof = 0;
+    /* Gapless: a seek repositions the audible stream, so the trim cursors
+     * must reset — the leading delay is re-applied from the new position and
+     * the trailing trim recounts from here. */
+    g.decoded_samples = 0;
+    g.emitted_samples = 0;
+    g.leading_trimmed = (g.gapless.delay_samples == 0) ? 1 : 0;
 
     /* Buffered PCM is at the old position — drop it. The flush also
      * zeroes the sink-side consumed counter, keeping
@@ -452,7 +591,7 @@ int player_seek(long ms)
 
 int player_next(void)
 {
-    return advance_queue();
+    return advance_queue(1);   /* user "next": hard boundary w/ B-core restart */
 }
 
 int player_get_state(void)
@@ -489,6 +628,55 @@ int player_get_volume(void)
     return g.volume_db;
 }
 
+void player_set_replaygain_mode(int mode)
+{
+    g.rg_mode = mode;
+    recalc_rg_gain();   /* gain may change mid-track when toggling modes */
+}
+
+int player_get_replaygain_mode(void)
+{
+    return g.rg_mode;
+}
+
+/* Effective Q16 gain for the open track under the active RG mode, or 0
+ * (neutral) if RG is off or the track has no ReplayGain tags. */
+int player_get_replaygain_gain_tenth_db(void)
+{
+    if (g.rg_mode == PLAYER_RG_OFF || !g.track_valid)
+        return 0;
+    if (g.rg_mode == PLAYER_RG_TRACK)
+        return g.track.replaygain_track_gain_tenth_db;
+    return g.track.replaygain_album_gain_tenth_db;
+}
+
+/* Recompute the cached Q16 gain for the open track from the active RG mode. */
+static void recalc_rg_gain(void)
+{
+    int gain_tenth_db;
+    int peak_q15;
+
+    if (!g.track_valid) {
+        g.rg_gain_q16 = 32768;                 /* 1.0x */
+        return;
+    }
+    if (g.rg_mode == PLAYER_RG_TRACK) {
+        gain_tenth_db = g.track.replaygain_track_gain_tenth_db;
+        peak_q15 = g.track.replaygain_track_peak_q15;
+    } else if (g.rg_mode == PLAYER_RG_ALBUM) {
+        gain_tenth_db = g.track.replaygain_album_gain_tenth_db;
+        peak_q15 = g.track.replaygain_album_peak_q15;
+    } else {
+        g.rg_gain_q16 = 32768;                 /* OFF: neutral 1.0x */
+        return;
+    }
+
+    if (gain_tenth_db == 0 && peak_q15 == 0)
+        g.rg_gain_q16 = 32768;                 /* no tags: neutral */
+    else
+        g.rg_gain_q16 = rg_effective_gain_q16(gain_tenth_db, peak_q15);
+}
+
 int player_get_track(track_info_t *out)
 {
     if (out == 0)
@@ -503,7 +691,7 @@ int player_get_track(track_info_t *out)
 int player_process(void)
 {
     ipc_b_status_t st;
-    int i, frame_b, want, got, filled;
+    int i, frame_b, want, got, filled, lead, tail_target, emit_now;
     long free_bytes;
 
     if (g.state != PLAYER_PLAYING)
@@ -534,21 +722,73 @@ int player_process(void)
             want = PLAYER_PUMP_FRAMES;
 
         got = g.codec->decode(codec_state(), g.pcm, want);
+        if (got <= 0) {
+            if (got == 0)
+                g.eof = 1;               /* end of stream */
+            else
+                do_error();          /* sets PLAYER_ERROR */
+            break;
+        }
+
+        /* Gapless: drop the leading encoder-delay samples on the first
+         * decoded batch. The delay is consumed first; if the batch is
+         * shorter than the remaining delay, decode more (this round only). */
+        lead = g.leading_trimmed ? 0 : g.gapless.delay_samples;
+        if (lead > 0) {
+            if (lead >= got) {
+                /* entire batch was padding — keep the pump spinning */
+                continue;
+            }
+            /* Shift the surviving (got-lead) frames to the front of g.pcm,
+             * byte-wise so the int16* offset math is unambiguous. */
+            {
+                uint8_t *base = (uint8_t *)g.pcm;
+                mem_move(base, base + (long)lead * frame_b,
+                         (unsigned)((long)(got - lead) * frame_b));
+            }
+            got -= lead;
+            g.leading_trimmed = 1;
+        }
+
+        g.decoded_samples += got;
+        g.emitted_samples += got;
+
+        /* Gapless: stop at total_samples - delay - padding (the last audible
+         * sample). emitted_samples is counted AFTER the leading delay was
+         * trimmed, so the audible tail is total-delay-pad frames deep. The
+         * last emitted frame is exactly the last audible one => clean
+         * boundary => EOF (seamless for the next track). */
+        if (g.total_samples > 0) {
+            tail_target = g.total_samples
+                        - g.gapless.delay_samples
+                        - g.gapless.padding_samples;
+            if (tail_target < 0)
+                tail_target = 0;
+            if (g.emitted_samples >= tail_target) {
+                emit_now = tail_target - (g.emitted_samples - got);
+                if (emit_now < 0)
+                    emit_now = 0;
+                got = emit_now;
+                g.eof = 1;
+            }
+        }
+
         if (got > 0) {
+            /* ReplayGain: apply the track's fixed gain (Q16) to the post-
+             * gapless-trim PCM before it enters the B-core ring. Neutral
+             * (1.0x) when RG is off or the track carried no tags. */
+            if (g.rg_gain_q16 != 32768)
+                rg_scale_pcm(g.pcm, (long)got * g.fmt.channels, g.rg_gain_q16);
             filled = ipc_b_ring_fill(g.pcm, got);
             st.ring_wr += (long)filled * frame_b;   /* loop bookkeeping */
-        } else if (got == 0) {
-            g.eof = 1;               /* end of stream */
-        } else {
-            do_error();
-            return got;
+            g.emitted_samples -= (got - filled);
         }
     }
 
     /* End of track: decoder drained AND the sink consumed everything. */
     if (g.eof && st.ring_wr == st.ring_rd) {
         if (g.q_count > 0) {
-            int rc = advance_queue();
+            int rc = advance_queue(0);   /* auto-advance: gapless if same fmt */
             if (rc != PLAYER_OK)
                 return rc;           /* events already emitted */
         } else {
@@ -556,5 +796,7 @@ int player_process(void)
             emit(PLAYER_EV_END_OF_TRACK);
         }
     }
+    if (g.state == PLAYER_ERROR)
+        return PLAYER_ERR;           /* decode/IO error surfaced this pass */
     return PLAYER_OK;
 }

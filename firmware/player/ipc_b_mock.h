@@ -23,4 +23,8 @@ void ipc_b_mock_set_sink(ipc_b_mock_sink_fn fn, void *user);
 /* Force the supervisor into IPC_B_FAULT ("B is gone") on the next poll. */
 void ipc_b_mock_set_fault(int on);
 
+/* Host-only: number of times ipc_b_start() was called (B-core restarts).
+ * Tests use this to assert a gapless transition does NOT restart the core. */
+int ipc_b_start_count(void);
+
 #endif /* RECHORD_IPC_B_MOCK_H */

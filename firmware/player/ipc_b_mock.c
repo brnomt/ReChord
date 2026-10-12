@@ -35,6 +35,7 @@ static int  g_fault = 0;
 static int  g_started = 0;
 static long g_tick = 0;
 static long g_total_frames = 0;
+static int  g_start_count = 0;   /* ipc_b_start calls (host test hook)     */
 
 static int g_frames_per_tick = 256;
 static ipc_b_mock_sink_fn g_sink_fn = 0;
@@ -70,6 +71,7 @@ int ipc_b_init(void)
     g_started = 0;
     g_tick = 0;
     g_total_frames = 0;
+    g_start_count = 0;
     return 0;
 }
 
@@ -92,6 +94,7 @@ int ipc_b_start(const ipc_b_track_t *track)
     g_paused = 0;
     g_started = 1;
     g_state = IPC_B_STARTING;
+    g_start_count++;
     return 0;
 }
 
@@ -191,5 +194,28 @@ int ipc_b_flush(void)
 {
     rb_reset(&g_ring);
     g_frames_consumed = 0;
+    return 0;
+}
+
+int ipc_b_start_count(void)
+{
+    return g_start_count;
+}
+
+int ipc_b_track_change(long duration_ms)
+{
+    /* Gapless boundary on the live stream: keep the ring and the consumed
+     * counter intact (PCM flows continuously), but extend the stream's
+     * expected length by the new track and resume the B core in case a
+     * zero-padding/previous track left it DRAINED. The supervisor never
+     * restarts the clock — that's the whole point of gapless. */
+    if (duration_ms > 0)
+        g_total_frames += (long)((long long)g_track.sample_rate *
+                                 duration_ms / 1000);
+    if (!g_started)
+        g_started = 1;
+    if (g_state == IPC_B_DRAINED || g_state == IPC_B_OFF ||
+        g_state == IPC_B_STARTING)
+        g_state = IPC_B_RUNNING;
     return 0;
 }

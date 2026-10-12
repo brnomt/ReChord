@@ -51,6 +51,21 @@ typedef struct
     char path[128];
     int  track_no;
     long duration_ms;
+
+    /* Gapless trim (codec gapless query, 0/0 if not gapless-aware). The
+     * player drops `gapless_delay` leading samples and `gapless_padding`
+     * trailing samples when producing sample-accurate transitions. */
+    int  gapless_delay;
+    int  gapless_padding;
+    long total_samples;         /* decoder frame count for this track       */
+
+    /* ReplayGain (dB * 10, e.g. -600 = -60.0 dB; 0 = no adjustment).
+     * Parsed from tags (docs/rewrite/audio.md §"ReplayGain"); the player
+     * forwards the chosen value to the B side as the per-track gain. */
+    int  replaygain_track_gain_tenth_db;
+    int  replaygain_album_gain_tenth_db;
+    int  replaygain_track_peak_q15;    /* 0..32767 = 0..1.0               */
+    int  replaygain_album_peak_q15;
 } track_info_t;
 
 /* Player states (player_get_state()). */
@@ -113,5 +128,25 @@ int   player_process(void);
 
 void  player_set_callback(player_event_fn fn, void *user);
 int   player_get_volume(void);
+
+/* ---- ReplayGain ---- */
+
+/* Which ReplayGain value the player applies as a fixed gain on the decoded
+ * PCM (just before the ipc_b ring), composed with the user-set volume on
+ * the B side. */
+enum
+{
+    PLAYER_RG_OFF = 0,      /* neutral (no adjustment)                       */
+    PLAYER_RG_TRACK,        /* track gain, peak-limited                       */
+    PLAYER_RG_ALBUM         /* album gain, peak-limited                       */
+};
+
+/* Select the active ReplayGain mode. Default after player_init() is OFF. */
+void  player_set_replaygain_mode(int mode);
+int   player_get_replaygain_mode(void);
+
+/* Effective gain the player is applying right now (dB * 10), or 0 if off.
+ * Host-testable hook for verifying gain selection without decoding. */
+int   player_get_replaygain_gain_tenth_db(void);
 
 #endif /* RECHORD_PLAYER_H */

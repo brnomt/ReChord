@@ -1322,3 +1322,211 @@ Next session:
    fs_target.c once throughput matters).
 2. Settings on target (needs a volume path convention or fs writes).
 3. Warm reboot, suspend exit (m3d "USB diag"), high-speed USB: polish.
+
+---
+
+# AUDIO / SD / GAPELESS / REPLAYGAIN ROADMAP (2026-10-12)
+
+> Firmware is currently booting on our standalone fw1 (verdict #20/#21:
+> ROM -> row0 code copy -> our PowerOn_Reset -> our Main; device stable on
+> "ReChord AP alive"). Keys, navigation, eMMC read, SD read, USB MSC, file
+> browser and the self-update all work on hardware. The clean-road AP layer
+> (`firmware/player`, `firmware/dsp`, `firmware/ui`, `firmware/services/fs`)
+> is host-compiled + host-tested but **not yet linked into the AP image**
+> (ap.mk still lists `firmware/player` under "NOT linked in milestone 1a").
+> This section is the path from "boots" to "plays audio from SD with gapless
+> transitions and ReplayGain applied."
+
+> ## IMPLEMENTATION STATUS (this session)
+>
+> Steps 1–7 below are **DONE and host-tested** (`firmware/player/tests/run_tests.sh`, 271 assertions green, `ALL PLAYER TESTS PASSED`). What landed:
+> - ✅ `fs.h`: `fs_seek` added in `fs.h`/`fs_target.c`/`fs_host.c` (target M3 build clean).
+> - ✅ `firmware/player/codec_io_fs.c`: target backend over `fs_*` + `PLAYER_CODEC_IO_IMPL`
+>   switch in `player.mk` (stdlib default). Host WAV-decode byte-exact test passes.
+> - ✅ Gapless: `codec_t.gapless` (`codec_gapless_t{delay,padding}`), `player.c`
+>   leading-trim + trailing-trim (uses codec-authored `codec_format_t.total_samples`
+>   for an exact end, not ms-truncated), and `ipc_b_track_change` for seamless
+>   same-format advance (B core NOT restarted; hard boundary on format change).
+> - ✅ ReplayGain: `tags.c`/`tags.h` (ID3v2 `TXXX` + Vorbis comments), `rg_math.c`
+>   (Q1.15 dB→linear, peak clamp, saturating `rg_scale_pcm`) applied in the PCM
+>   pump pre-ring; `PLAYER_RG_TRACK/ALBUM/OFF` mode via `player_set_replaygain_mode`.
+> - ⏳ Step 8: link `firmware/player` into `ap.mk` (milestone 2a) — **gated** by the
+>   DFIU scatter rules. Not flashed this session.
+> - DFIU preflight (`ChangeSummaryV1`) ran; surfaced variant alert
+>   `R-49b7fd25aca0` (FAT rename/collision in the same volume — informational:
+>   `fs_seek` is read-only). New `ipc_b_track_change` mailbox command must await
+> the B-core reply per `R-e9b5d8222673` (documented; target stub is a no-op
+>   until milestone 2a).
+
+## 1. Where audio actually comes from
+
+Two layers, strict separation:
+
+- **B core (rendering):** built from the Rockchip RKnanoD SDK
+  (`firmware/rockchip/audio/**`). Owns the DAC/I2S path and the PCM ring
+  consumer. Hardware-close; changed last.
+- **A core / AP (decode + tags + gapless + gain):** the clean-road player
+  module (`firmware/player/**`). Decodes to interleaved int16 PCM via
+  `codec_t`, pushes into the SPSC ring (`ipc_b`) consumed by the B core.
+  The B core starts at 400 MHz and clock-negotiates to 100 MHz
+  (facts in `docs/re/refcfw-analysis.md` and `docs/rewrite/player.md` §3).
+
+The reference CFW's ECHOLOG proves the contract we must match:
+  - `B: boundary to track N: FLAC 44100 Hz, ~5840 frames queued (gapless)`
+  - `end of stream, 5843 frames queued`
+  - `stat A: ... pos 462468 ms ... busy 1-28% ... gap <ms>` (the "gap" stat is
+    the inter-frame scheduler slack, NOT an audible gap).
+
+Interpretation for the clean-road player: gapless is a **decode + ring**
+property, owned by the AP/player. The B core must not be restarted between
+gapless-compatible tracks (a restart flushes the DAC and introduces a
+click/silence). ReplayGain is an AP-side gain applied to PCM before it
+enters the ring (or as the B-core DSP volume param — see §5).
+
+## 2. The missing piece: codec_io over fs_target
+
+`codec_io_stdio.c` is the only file backend today (host tests + newlib on
+target). The target path is explicitly a TODO ("newlib syscalls route fopen
+onto the storage driver"). That's the gap between "files are readable"
+(SD browse works) and "audio decodes from SD."
+
+Concrete next step: a target `codec_io_fs.c` backend mapping
+`cio_open/read/seek/tell/size/close` onto the `fs.h` abstraction
+(`fs_open_read/fs_read/fs_file_size/fs_close`). `fs.h` has **no seek**
+yet — the first sub-task is to add `fs_seek(fs_file_t*, long offset)` to
+`fs.h` + `fs_target.c` (set `f->pos`; the existing read walk already
+re-derives the cluster from pos) + `fs_host.c` (fseek/ftell). Then
+`codec_io_fs.c` and a `player.mk` switch (`PLAYER_CODEC_IO_IMPL`, default
+stdio) so the AP links the FS backend while host tests keep stdio. A host
+test decoding a WAV through the FS backend (backed by fs_host) proves the
+seam without hardware.
+
+## 3. Gapless playback contract
+
+Design (host-testable on the mock codec path):
+
+- `codec_t` gains an **optional** `gapless` query:
+  `int (*gapless)(void *st, codec_gapless_t *out)` where
+  `codec_gapless_t{int delay_samples, padding_samples}`. NULL = not gapless-aware
+  (treat as 0/0: no trimming; a hard boundary still happens). delay_samples =
+  encoder delay before the first audible sample; padding_samples = trailing
+  padding to drop at end of stream.
+  - MP3: from the Xing/Info header frame count + length (LAME `Info`/`Xing`
+    carries total frames and a per-track byte layout; the pad/trim values
+    come from the frame count vs the real sample count).
+  - FLAC: STREAMINFO has no delay/padding; FLAC is naturally gapless, but
+    `totalSamples` minus an embedded padding value (if a reference gapless
+    tag exists) gives the trim. NULL when absent.
+  - WAV: no gapless concept; NULL query -> 0/0.
+- `codec_format_t` carries an exact `total_samples` (WAV: data size / frame;
+  mock: cfg.total_frames) so the player's trailing trim ends at
+  `total_samples - delay - padding` instead of an ms-truncated estimate.
+- `track_info_t` carries `delay_samples`/`padding_samples` + `total_samples`.
+- Player gapless advance: when the queue auto-advances and the next track's
+  sample rate/channels match the current one, `advance_queue` calls
+  `ipc_b_track_change(duration_ms)` and opens the next codec **without**
+  `ipc_b_stop()`/`ipc_b_start()` — the ring and the B-core frame counter keep
+  flowing (no DAC restart/click). Leading `delay_samples` are dropped from the
+  first decoded batch; feeding stops once `total_samples - delay - padding` is
+  emitted. If the format differs, fall back to a hard boundary (stop + start),
+  which matches the reference's "boundary to track N: … frames queued (gapless)"
+  without restarting the DAC. `ipc_b_track_change` extends the B-core's
+  expected stream length and resumes RUNNING (no ring flush).
+- Host test: `test_player_gapless` — leading/trailing trim on a mock codec
+  (delay=100/padding=100 → exactly 43900 of 44100 frames) + a two-track
+  same-format auto-advance asserting the B core is **not** restarted
+  (`ipc_b_start_count` stays at 1) and no discontinuity in the sink.
+
+## 4. ReplayGain tag compatibility
+
+Compatibility (we read the same tags the reference uses), not a feature to
+guess at:
+
+- **MP3:** ID3v2 `TXXX` frames `REPLAYGAIN_TRACK_GAIN`,
+  `REPLAYGAIN_TRACK_PEAK`, `REPLAYGAIN_ALBUM_GAIN`, `REPLAYGAIN_ALBUM_PEAK`.
+- **FLAC:** Vorbis comments `REPLAYGAIN_TRACK_GAIN`, ..., `*_PEAK`
+  (dr_flac surfaces the comment list; the adapter forwards it).
+- **Opus/Vorbis (later):** same Vorbis comments.
+- **WAV:** RIFF `iXML`/`bext`/`cues` — out of scope until a need shows up
+  (no clean RG box; reject to `UNSUPPORTED` for RG rather than guess).
+
+Implementation:
+- New module `firmware/player/tags.c` + `tags.h`: the codec-facing parsers are
+  `tags_replaygain_id3v2(codec_io_t *io, codec_replaygain_t *out)` (walks ID3v2
+  v2.3/v2.4 `TXXX` frames — `REPLAYGAIN_TRACK_GAIN`, `*_PEAK`,
+  `REPLAYGAIN_ALBUM_GAIN`, `*_ALBUM_PEAK` — case-insensitive) and
+  `tags_replaygain_vorbis(codec_io_t *io, long offset, long length,
+  codec_replaygain_t *out)` (Vorbis comments, case-insensitive keys). Both return
+  0 if a field was filled, -1 if absent. Clean-room, no third-party code.
+  Host-tested on synthetic blobs (ID3v2 `TXXX` + raw Vorbis comment).
+- `codec_replaygain_t{track_gain_tenth_db, album_gain_tenth_db,
+  track_peak_q15, album_peak_q15}` carried by `track_info_t`; a codec may expose
+  them via the optional `codec_t.tags` callback (`codec_replaygain_t *out`),
+  NULL if none.
+- Gain math in `firmware/player/rg_math.c` (Q1.15, 1.0x = 32768):
+  `rg_gain_q16(tenth_db)`, `rg_effective_gain_q16(tenth_db, peak_q15)`
+  (peak-limited so `gain <= 32768/peak` when peak > 0), and
+  `rg_scale_pcm(pcm, n_samples, gain_q16)` (saturating `>>15`).
+- Player: `open_codec_only` calls `c->tags` and stores the fields on the track;
+  `recalc_rg_gain` caches the effective Q16 gain; the PCM pump applies
+  `rg_scale_pcm` to the decoded batch **before** `ipc_b_ring_fill`
+  (AP-side pre-attenuation, composed with the B-core user volume). Mode via
+  `player_set_replaygain_mode(PLAYER_RG_TRACK/ALBUM/OFF)` (defaults OFF; set
+  before `player_open` to take effect for the track).
+- Decision point: gain is applied AP-side (pre-ring) rather than through
+  `dsp/mod_volume.c`, so the path is fully host-testable end-to-end without
+  wiring the DSP chain into the player. Milestone 3a can fold it into the dsp
+  chain; the math is isolated in `rg_math.c` so a no-libm target swap (fixed-point
+  LUT) is a one-file change.
+- Host tests: `test_rg_math` (dB→linear, peak clamp, scaling/saturation) and
+  `test_player_replaygain` (exact PCM scaling vs `rg_scale_pcm` on the mock).
+
+## 5. DFIU state (read this session)
+
+Active rules (from `.dfiu/artifacts/active_rules.md`, 4 live invariants):
+- `R-e9b5d8222673` [warning] mailbox reply: any reply (even DEC_OPEN_ERR)
+  breaks the AP wait; silence is the only deadlock. — relevant: our player
+  must always emit an ipc_b ACK/STOP, never leave the B core hanging.
+- `R-e9e18de6c692` [blocker] fw1 scatter src addresses live in the loaded RAM
+  image, not XIP; verify byte-for-byte against the reference before flash.
+  — gates the eventual AP linkage of the player/codecs.
+- `R-9461aeaecbe2` [blocker] pack_fw1.py safety gate; no scatter row below
+  0x03000000..0x03004000; reference diff before any fw1 write.
+- `R-1f1c5d829375` [blocker] pack_img.py: never zero-fill the stock
+  section_3 tail; byte-diff it after every repack.
+
+Per the in-doc DFIU routine (HANDOVER §"DFIU USAGE ROUTINE"): run
+`preflight_check` with a ChangeSummaryV1 before every hardware variable
+change, and `verify_resolution` with `method=reproduction` after every
+hardware outcome — no verdict without hardware. The audio/SD/gapless/
+ReplayGain changes below are **host-testable first**; they only become a
+hardware verdict once linked into an fw1 image and flashed, at which point
+the four rules above are the gate.
+
+## 6. Immediate next steps (in order, cheapest + least brick risk first)
+
+1. ✅ DONE — `fs.h`: `fs_seek` added; implemented in `fs_target.c` + `fs_host.c`.
+   `fs_seek` is read-only (set `f->pos`); the existing read walk already
+   re-derives the FAT/exFAT cluster from `pos`.
+2. ✅ DONE — `firmware/player/codec_io_fs.c`: target backend over `fs_*` +
+   `PLAYER_CODEC_IO_IMPL` in `player.mk` (default `codec_io_stdio.c`). Host test
+   decodes a WAV through the FS backend (backed by fs_host), byte-exact vs the
+   stdio WAV golden test.
+3. ✅ DONE — Host test: WAV-through-FS byte-exact (see 2).
+4. ⚠️ PARTIAL — `codec.h` has the optional `gapless` query (`codec_gapless_t`);
+   `codec_wav.c` leaves it NULL (no gapless concept). `codec_mp3_stub.c`/
+   `codec_flac_stub.c` are stubs; the real Xing/Info (MP3) and
+   STREAMINFO (FLAC) delay/padding sources are documented in §3 but are filled in
+   when the real codec adapters are vendored.
+5. ✅ DONE — `player.c` gapless seamless advance on a same-format boundary; hard
+   boundary on format change. Host test with the mock codec (`test_player_gapless`).
+6. ✅ DONE — `firmware/player/tags.c` + `tags.h`: ReplayGain parse
+   (ID3v2 `TXXX` + Vorbis comments), host-tested on synthetic blobs.
+7. ✅ DONE — Player gain application: AP-side pre-attenuation in the PCM pump via
+   `rg_math.c`, peak-limited; `PLAYER_RG_TRACK/ALBUM/OFF` mode. Host-tested
+   (`test_rg_math`, `test_player_replaygain`).
+8. ⏳ NEXT (hardware-gated milestone 2a) — link `firmware/player` into `ap.mk`
+   (AP<->player<->codec<->IPC), guarded by the pack_fw1.py scatter gate, and
+   re-run DFIU `preflight_check` before the flash. Also: fill in the real
+   `codec_mp3`/`codec_flac` adapters (minimpp/dr_flac vendored) + the target
+   `ipc_b_track_change` reply-wait (mailbox invariant `R-e9b5d8222673`).

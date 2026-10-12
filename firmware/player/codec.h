@@ -27,13 +27,41 @@
 #define CODEC_ERR_UNSUPPORTED -3   /* valid but outside the supported subset*/
 #define CODEC_ERR_STATE       -4   /* bad call order / bad state pointer    */
 
+/* ---- codec format + gapless ---- */
+
 /* Stream format report (sample-rate reporting for the sink). */
 typedef struct
 {
     int sample_rate;   /* Hz                                              */
-    int channels;      /* 1 = mono, 2 = stereo                            */
-    int bits;          /* bits per sample; our decoders output 16         */
+    int channels;      /* 1 = mono, 2 = stereo, interleaved                */
+    int bits;          /* bits per sample; our decoders output 16           */
+    long total_samples; /* exact decoder sample count (0 = unknown)         */
 } codec_format_t;
+
+/* Optional gapless info returned by codec_t::gapless(). NULL == not
+ * gapless-aware (delay/padding treated as 0: a hard boundary between
+ * tracks). delay_samples = leading samples to drop from the first decoded
+ * frame (encoder delay); padding_samples = trailing samples to drop at
+ * end-of-stream (encoder padding / encoder-tail). Used by the player to
+ * trim PCM so adjacent tracks join sample-accurately with no silence.
+ */
+typedef struct
+{
+    int delay_samples;
+    int padding_samples;
+} codec_gapless_t;
+
+/* Optional ReplayGain from tags. Gain is stored in dB * 10 (so -600 =
+ * -60.0 dB, matching track_info_t). Peak is a fraction in Q1.15
+ * (32767 = 1.0). A NULL tags() callback, or one returning 0/0, means
+ * "no ReplayGain" (no adjustment, clip-prevention off). */
+typedef struct
+{
+    int track_gain_tenth_db;
+    int album_gain_tenth_db;
+    int track_peak_q15;
+    int album_peak_q15;
+} codec_replaygain_t;
 
 typedef struct codec_s
 {
@@ -62,6 +90,19 @@ typedef struct codec_s
     /* Extension (ReChord, optional — may be NULL): report the decoded
      * stream format. Without it the player assumes 44100 Hz / 2 ch. */
     int (*format)(void *st, codec_format_t *out);
+
+    /* Extension (ReChord, optional — may be NULL): report gapless trim info.
+     * delay_samples = leading samples (encoder delay) to drop from the first
+     * decoded frame; padding_samples = trailing samples to drop at end of
+     * stream. A NULL query, or one returning 0/0, means "no trimming" and
+     * the player will still produce a hard boundary between tracks. */
+    int (*gapless)(void *st, codec_gapless_t *out);
+
+    /* Extension (ReChord, optional — may be NULL): report ReplayGain tags.
+     * The player picks one of track/album gain (see player_set_replaygain_mode)
+     * and applies it as a fixed gain before the PCM ring, composed with the
+     * user volume on the B side. */
+    int (*tags)(void *st, codec_replaygain_t *out);
 } codec_t;
 
 #endif /* RECHORD_CODEC_H */

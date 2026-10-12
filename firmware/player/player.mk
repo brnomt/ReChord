@@ -10,9 +10,12 @@
 #                      register-level bring-up TODO in docs/rewrite/player.md)
 # The root Makefile picks via PLAYER_IPC_IMPL (default: target).
 #
-# codec_io_stdio.c is the stdio backend for codec file I/O; on the target
-# it rides newlib syscalls until the storage workstream lands (see the
-# header comment there).
+# Link exactly ONE codec_io backend per image:
+#   - codec_io_stdio.c : host tests + newlib target path (fopen)
+#   - codec_io_fs.c    : target path over the fs.h abstraction (SD/eMMC)
+# codec_io.c holds the shared dispatch wrappers, always linked. The root
+# Makefile picks the backend via PLAYER_CODEC_IO_IMPL (default: stdio).
+PLAYER_CODEC_IO_IMPL ?= $(PLAYER_DIR)/codec_io_stdio.c
 #
 # Host tests: firmware/player/tests/run_tests.sh (cc -Wall -Werror).
 # Target: arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb -Os -c on every source
@@ -27,7 +30,8 @@ PLAYER_IPC_IMPL ?= $(PLAYER_DIR)/ipc_b_target.c
 PLAYER_SRCS := \
   $(PLAYER_DIR)/player.c \
   $(PLAYER_DIR)/ringbuf.c \
-  $(PLAYER_DIR)/codec_io_stdio.c \
+  $(PLAYER_DIR)/codec_io.c \
+  $(PLAYER_CODEC_IO_IMPL) \
   $(PLAYER_DIR)/codec_wav.c \
   $(PLAYER_DIR)/codec_mp3_stub.c \
   $(PLAYER_DIR)/codec_flac_stub.c \

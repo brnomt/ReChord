@@ -18,6 +18,12 @@ typedef struct
     int  channels;        /* 1 or 2 (default 2)                           */
     int  fail_open;       /* nonzero: open() returns CODEC_ERR_IO         */
     long fail_at_frame;   /* decode() fails at this frame; -1 = never     */
+    int  gapless_delay;   /* encoder delay to trim from the first frames  */
+    int  gapless_padding; /* trailing padding to trim from end-of-stream  */
+    int  rg_track_gain_tenth_db;   /* ReplayGain track gain (dB*10)     */
+    int  rg_album_gain_tenth_db;   /* ReplayGain album gain (dB*10)     */
+    int  rg_track_peak_q15;        /* track peak (Q1.15)                */
+    int  rg_album_peak_q15;        /* album peak (Q1.15)                */
 } mock_codec_cfg_t;
 
 /* Reset to defaults (44100 frames @ 44100 Hz stereo, no failures) and

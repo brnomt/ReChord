@@ -249,3 +249,16 @@ int ipc_b_flush(void)
     target_doorbell();
     return 0;
 }
+
+int ipc_b_track_change(long duration_ms)
+{
+    volatile ipc_b_shared_t *sh = IPC_B_SHARED;
+
+    /* Gapless boundary on the live stream: do NOT reset the ring or the
+     * consumed counter. Tell the B core the new track's length and let it
+     * keep running (DAC stays locked to the same sample rate). */
+    sh->cmd = IPC_B_CMD_TRACK;
+    sh->cmd_arg0 = (duration_ms > 0) ? (uint32_t)duration_ms : 0u;
+    target_doorbell();
+    return 0;
+}

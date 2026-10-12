@@ -70,6 +70,13 @@ fs_file_t *fs_open_read(const char *path);
 /* Read up to <cap> bytes. Returns bytes read (0 at EOF) or FS_ERR_*. */
 long fs_read(fs_file_t *f, void *buf, unsigned long cap);
 
+/* Reposition a read handle to an absolute byte offset (seek). Returns the
+ * new offset (>= 0) or a negative FS_ERR_* (ESPIPE/ARG). After seek, the
+ * next fs_read resumes from `offset`; seeking past the end is legal and
+ * reports FS_ERR_IO on the next read. Required by codec_io and any codec
+ * with a seekable source (WAV/FLAC/MP3). */
+long fs_seek(fs_file_t *f, long offset);
+
 /* Total size of the open file in bytes, or FS_ERR_*. */
 long fs_file_size(fs_file_t *f);
 

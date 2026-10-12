@@ -20,6 +20,12 @@ void mock_codec_configure(const mock_codec_cfg_t *cfg)
     g_cfg.channels = 2;
     g_cfg.fail_open = 0;
     g_cfg.fail_at_frame = -1;
+    g_cfg.gapless_delay = 0;
+    g_cfg.gapless_padding = 0;
+    g_cfg.rg_track_gain_tenth_db = 0;
+    g_cfg.rg_album_gain_tenth_db = 0;
+    g_cfg.rg_track_peak_q15 = 0;
+    g_cfg.rg_album_peak_q15 = 0;
     if (cfg != 0)
         g_cfg = *cfg;
     if (g_cfg.sample_rate <= 0)
@@ -121,6 +127,31 @@ static int mock_format(void *vst, codec_format_t *out)
     out->sample_rate = (int)st->cfg.sample_rate;
     out->channels = st->cfg.channels;
     out->bits = 16;
+    out->total_samples = (long)st->cfg.total_frames;
+    return CODEC_OK;
+}
+
+static int mock_gapless(void *vst, codec_gapless_t *out)
+{
+    mock_state_t *st = (mock_state_t *)vst;
+
+    if (st == 0 || out == 0)
+        return CODEC_ERR_STATE;
+    out->delay_samples = st->cfg.gapless_delay;
+    out->padding_samples = st->cfg.gapless_padding;
+    return CODEC_OK;
+}
+
+static int mock_tags(void *vst, codec_replaygain_t *out)
+{
+    mock_state_t *st = (mock_state_t *)vst;
+
+    if (st == 0 || out == 0)
+        return CODEC_ERR_STATE;
+    out->track_gain_tenth_db = st->cfg.rg_track_gain_tenth_db;
+    out->album_gain_tenth_db = st->cfg.rg_album_gain_tenth_db;
+    out->track_peak_q15 = st->cfg.rg_track_peak_q15;
+    out->album_peak_q15 = st->cfg.rg_album_peak_q15;
     return CODEC_OK;
 }
 
@@ -133,7 +164,9 @@ static const codec_t g_mock_codec =
     mock_duration_ms,
     mock_close,
     (int)sizeof(mock_state_t),
-    mock_format
+    mock_format,
+    mock_gapless,
+    mock_tags
 };
 
 const codec_t *mock_codec_get(void)
