@@ -27,6 +27,7 @@ static uint32_t s_duration_s;
 static uint32_t s_position_s;
 static int      s_volume_db;   /* -60..0 */
 static bool     s_playing;
+static char     s_status[40];  /* non-empty: shown instead of Playing/Paused */
 
 /* ---- pure geometry helper (host-tested) -------------------------------- */
 
@@ -82,11 +83,16 @@ static void player_screen_draw(void)
     display_draw_text(THEME_PAD, 32 + THEME_TEXT_YOFF, line,
                       THEME_COLOR_FG, THEME_COLOR_BG);
 
-    /* play state */
-    display_draw_text(THEME_PAD, 48 + THEME_TEXT_YOFF,
-                      s_playing ? "Playing" : "Paused",
-                      s_playing ? THEME_COLOR_WARM : THEME_COLOR_DIM,
-                      THEME_COLOR_BG);
+    /* play state (or a status line: unsupported file, no renderer, ...) */
+    {
+        const char *state_line = s_status[0] ? s_status
+                                             : (s_playing ? "Playing" : "Paused");
+        display_draw_text(THEME_PAD, 48 + THEME_TEXT_YOFF, state_line,
+                          s_status[0] ? THEME_COLOR_WARM
+                                      : (s_playing ? THEME_COLOR_WARM
+                                                   : THEME_COLOR_DIM),
+                          THEME_COLOR_BG);
+    }
 
     /* progress bar + times */
     draw_bar(PLAYER_BAR_Y, PLAYER_BAR_H,
@@ -114,24 +120,26 @@ static void player_screen_handle_event(const input_event_t *ev)
 {
     switch (ev->type) {
     case KEY_UP:
-        if (s_volume_db < 0) {
-            s_volume_db++;
-            ui_invalidate(0, PLAYER_VOL_Y - THEME_LINE_H,
-                          DISPLAY_W - 1, PLAYER_VOL_Y + PLAYER_VOL_H);
-        }
+    case KEY_DOWN: {
+        /* volume through the player module (it clamps -60..+20 dB) */
+        int db = player_get_volume() + (ev->type == KEY_UP ? 1 : -1);
+        player_set_volume(db);
+        player_screen_set_volume(player_get_volume());
         break;
-    case KEY_DOWN:
-        if (s_volume_db > -60) {
-            s_volume_db--;
-            ui_invalidate(0, PLAYER_VOL_Y - THEME_LINE_H,
-                          DISPLAY_W - 1, PLAYER_VOL_Y + PLAYER_VOL_H);
-        }
-        break;
+    }
     case KEY_SELECT:
-        s_playing = !s_playing;
-        ui_invalidate(0, 48, DISPLAY_W - 1, 48 + THEME_LINE_H);
+        if (s_status[0])
+            break;                        /* error view: inert (BACK leaves) */
+        if (s_playing) {
+            player_pause();
+            player_screen_set_playing(player_get_state() == PLAYER_PLAYING);
+        } else {
+            player_play();
+            player_screen_set_playing(player_get_state() == PLAYER_PLAYING);
+        }
         break;
     case KEY_BACK:
+        /* playback continues in the background; re-entering re-syncs. */
         ui_pop_screen();
         break;
     default:
@@ -139,9 +147,27 @@ static void player_screen_handle_event(const input_event_t *ev)
     }
 }
 
+/* Sync the screen from the player module when the screen is (re)entered. */
+static void player_screen_on_enter(void)
+{
+    track_info_t ti;
+
+    if (s_status[0])
+        return;                       /* error view: keep what's shown */
+    if (player_get_track(&ti) != PLAYER_OK) {
+        player_screen_set_status("nothing playing");
+        return;
+    }
+    player_screen_set_track(ti.title,
+                            ti.duration_ms > 0
+                                ? (uint32_t)(ti.duration_ms / 1000) : 0);
+    player_screen_set_volume(player_get_volume());
+    player_screen_set_playing(player_get_state() == PLAYER_PLAYING);
+}
+
 const ui_screen_t player_screen = {
     "player",
-    NULL,
+    player_screen_on_enter,
     NULL,
     player_screen_draw,
     player_screen_handle_event,
@@ -177,4 +203,38 @@ void player_screen_set_playing(bool playing)
 {
     s_playing = playing;
     ui_invalidate(0, 48, DISPLAY_W - 1, 48 + THEME_LINE_H);
+}
+
+void player_screen_set_status(const char *msg)
+{
+    snprintf(s_status, sizeof(s_status), "%s", msg ? msg : "");
+    ui_invalidate(0, 48, DISPLAY_W - 1, 48 + THEME_LINE_H);
+}
+
+/* Pulled from the app loop every pass: updates position + play state from
+ * the player module (no-ops without a track; redraws only on change). */
+void player_screen_refresh(void)
+{
+    track_info_t ti;
+    uint32_t pos;
+    int st;
+
+    if (player_get_track(&ti) != PLAYER_OK) {
+        if (!s_status[0])
+            player_screen_set_status("nothing playing");
+        return;
+    }
+    st = player_get_state();
+    if (st == PLAYER_ERROR) {
+        if (!s_status[0])
+            player_screen_set_status("no audio renderer");
+        if (s_playing)
+            player_screen_set_playing(false);
+        return;
+    }
+    pos = (uint32_t)(player_get_position_ms() / 1000);
+    if (pos != s_position_s)
+        player_screen_set_position(pos);
+    if ((st == PLAYER_PLAYING) != s_playing)
+        player_screen_set_playing(st == PLAYER_PLAYING);
 }

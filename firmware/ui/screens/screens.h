@@ -105,6 +105,10 @@ void player_screen_set_track(const char *title, uint32_t duration_s);
 void player_screen_set_position(uint32_t position_s);
 void player_screen_set_volume(int volume_db);   /* -60..0 dB */
 void player_screen_set_playing(bool playing);
+/* Status line ("unsupported format", "no audio renderer", ...); NULL/"" clears. */
+void player_screen_set_status(const char *msg);
+/* Re-sync title/position/state from the player module (app loop). */
+void player_screen_refresh(void);
 
 /* Pure geometry helper (host-tested): filled width in px of a bar `width`
  * px wide at position/duration.  dur==0 or overflow-safe: returns 0. */

@@ -1421,6 +1421,53 @@ Consequences for update UX (the "device isn't detecting" confusion):
   "ReChord AP alive" + RC_BUILD label). Then DFIU `verify_resolution` with
   the user's confirmed outcome — no verdict without hardware.
 
+### m6a (2026-10-12): browser → player wired (press play actually does something)
+
+User feedback: pressing PLAY on a file in the browser did nothing — correct,
+`browser_screen.c` only logged (the "player module will own file opening"
+placeholder). Wired end-to-end:
+
+- `browser_screen.c` file select → bounded `<dir>/<name>` build →
+  `player_open()` → on OK: `player_screen_set_status(NULL)` + `set_track`
+  (title/duration from `player_get_track`) + `player_play()`; on error:
+  title = filename + status "unsupported format" (PLAYER_ERR_UNSUPPORTED)
+  or "cannot open file"; always `ui_push_screen(&player_screen)`.
+- `player_screen.c` is now a real consumer: `on_enter` syncs
+  title/duration/volume/state from the player module; SELECT =
+  play/pause via `player_play/pause`; UP/DOWN = volume via
+  `player_set_volume` (player clamps -60..+20 dB); BACK pops (playback
+  continues); `player_screen_refresh()` (called every loop pass) updates
+  position + play state and auto-sets the status line on PLAYER_ERROR
+  (**"no audio renderer"** — honest: no B core/DAC consumer exists in this
+  fw1 image, so the ipc_b supervisor trips after its 512-poll budget).
+- `ap_ui.c` loop: `(void)player_process(); player_screen_refresh();` before
+  `ui_render()`; RC_BUILD bumped m5b → **m6a**.
+- Seam: `firmware/ui/internal/shims/player.h` forwards to the canonical
+  `firmware/player/player.h` (same pattern as `shims/fs.h`); `hal.h` includes
+  it in both branches.
+- Host tests: `mock_services.c` gained the player mock (scripted open rc /
+  state / position, recorded open path / play / pause / volume) + 12 new
+  assertions in `test_browser_pagination.c` (file select → open path
+  `/t/f00` → player screen pushed → "Playing"; unsupported → status shown).
+  **262 checks, 0 failures**; UI M3 target compile OK; player suite green.
+- IMG rebuilt: `build/ReChord_AP5M.IMG` md5 `78ef8d16c8aa29996e66f9a7f0cc40d8`
+  (packer RESULT: PASS). STILL SILENT by design: pressing play now opens
+  Now Playing and decodes up to the ring, but audible output needs the DAC
+  renderer (next milestone: consume the ipc_b ring → I2S/DAC, see
+  `docs/re/dac-output-path.md` for the SDK's DMA-ISR decode loop) and mp3/flac
+  need the vendored codecs (WAV only today).
+
+### m6b (2026-10-12): power-key USB exit now scans for updates
+
+User feedback: pressing POWER to leave the USB session skipped the update
+(the running build only scanned on `USB_EXIT_EJECT || USB_EXIT_UNPLUG`,
+even though the screen says "eject on the PC **or press power**" — and the
+reference updater scans after "usb: exit key pressed" too, per ECHOLOG).
+Fix in `usb_session()`: `update_prompt()` now runs for
+`EJECT || UNPLUG || USER`. With no image present `fw_update_find` returns
+FWU_NONE and the return is seamless (no visible scan screen). RC_BUILD
+m6a → **m6b**; IMG md5 `2cf844ccd39f398dfbe2f7c49f79ca2c`, RESULT: PASS.
+
 ## 1. Where audio actually comes from
 
 Two layers, strict separation:

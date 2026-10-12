@@ -134,4 +134,30 @@ void test_browser_pagination(void)
     CHECK(mock_display_text_find("/t") >= 0);
     CHECK(mock_display_text_find("sub/") >= 0);
     CHECK(mock_display_text_find("f00") >= 0);
+
+    /* opening a FILE (cursor 1 = "f00") asks the player and pushes
+     * Now Playing with the track loaded and playing */
+    e = ev(KEY_DOWN); ui_handle_event(&e);       /* past "sub/" onto "f00" */
+    CHECK_EQ_INT(st->window[1].is_dir, 0);
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(mock_player_open_count(), 1);
+    CHECK_STR_EQ(mock_player_open_path(), "/t/f00");
+    CHECK_EQ_INT(mock_player_play_count(), 1);
+    CHECK_EQ_INT(ui_stack_depth(), 2);           /* player screen on top  */
+    ui_render();
+    CHECK(mock_display_text_find("f00") >= 0);   /* track title           */
+    CHECK(mock_display_text_find("Playing") >= 0);
+
+    /* BACK leaves the player (playback continues) back to the browser */
+    e = ev(KEY_BACK); ui_handle_event(&e);
+    CHECK_EQ_INT(ui_stack_depth(), 1);
+
+    /* an unopenable file still pushes Now Playing, showing the reason */
+    mock_player_set_open_rc(PLAYER_ERR_UNSUPPORTED);
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(mock_player_open_count(), 2);
+    CHECK_EQ_INT(ui_stack_depth(), 2);
+    ui_render();
+    CHECK(mock_display_text_find("unsupported format") >= 0);
+    CHECK(mock_display_text_find("f00") >= 0);   /* file name as title    */
 }

@@ -13,6 +13,7 @@
 #include "services/fs_target.h"
 #include "services/fw_update.h"
 #include "services/input.h"
+#include "player.h"
 #include "ui/ui.h"
 #include "ui/screens/screens.h"
 
@@ -206,7 +207,12 @@ static void usb_session(void)
     snprintf(s_usb, sizeof s_usb, "x%d r%uM w%uM", r, (unsigned)(rd >> 11), (unsigned)(wr >> 11));
     while (keys_power())                 /* don't leak the exit press */
         panel_io_delay_ms(1);
-    if (r == USB_EXIT_EJECT || r == USB_EXIT_UNPLUG)
+    /* Scan for an update on ANY session exit the screen advertises:
+     * eject (LoEj), unplug (VBUS gone), AND the power key — the screen
+     * says "eject on the PC or press power", and the reference updater
+     * scans after "usb: exit key pressed" too (ECHOLOG). With no image
+     * present fw_update_find returns FWU_NONE and we return seamlessly. */
+    if (r == USB_EXIT_EJECT || r == USB_EXIT_UNPLUG || r == USB_EXIT_USER)
         update_prompt();
     ui_invalidate_all();
 }
@@ -232,7 +238,7 @@ static const menu_item_t k_root_items[] = {
     { "USB",         usb_text,  NULL },
     { "USB diag",    usbd_text, NULL },
 };
-#define RC_BUILD "m5b"
+#define RC_BUILD "m6b"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 8 };
 
 void ap_ui_loop(void)
@@ -283,6 +289,11 @@ void ap_ui_loop(void)
         }
         if (ui_stack_depth() == 0)       /* BACK on the root menu */
             ui_push_screen(&menu_screen);
+
+        /* audio pump + Now Playing sync (no-ops without a playing track) */
+        (void)player_process();
+        player_screen_refresh();
+
         ui_render();
         /* ponytail: busy-wait scan period (~5 ms at the 24 MHz boot clock);
          * move to SysTick once the clock tree is set up. */

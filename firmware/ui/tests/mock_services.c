@@ -25,6 +25,7 @@ void mock_services_reset(void)
     s_log_last[0] = '\0';
     mock_settings_reset();
     mock_fs_reset();
+    mock_player_reset();
 }
 
 
@@ -245,4 +246,159 @@ void settings_defaults(settings_t *s)
     s->screen_off_min = 30;
     s->auto_off_min = 15;
     s->volume = -23;
+}
+
+/* ---- mock player (firmware/player API seam for browser/player_screen) ---- */
+
+static int  s_pl_open_rc;
+static int  s_pl_open_count;
+static int  s_pl_play_count;
+static int  s_pl_pause_count;
+static int  s_pl_volume = -23;
+static int  s_pl_state = PLAYER_STOPPED;
+static long s_pl_pos_ms;
+static int  s_pl_present;               /* player_get_track() has a track?  */
+static char s_pl_path[160];
+
+void mock_player_reset(void)
+{
+    s_pl_open_rc = PLAYER_OK;
+    s_pl_open_count = 0;
+    s_pl_play_count = 0;
+    s_pl_pause_count = 0;
+    s_pl_volume = -23;
+    s_pl_state = PLAYER_STOPPED;
+    s_pl_pos_ms = 0;
+    s_pl_present = 0;
+    s_pl_path[0] = '\0';
+}
+
+void mock_player_set_open_rc(int rc)
+{
+    s_pl_open_rc = rc;
+}
+
+int mock_player_open_count(void)
+{
+    return s_pl_open_count;
+}
+
+const char *mock_player_open_path(void)
+{
+    return s_pl_path;
+}
+
+int mock_player_play_count(void)
+{
+    return s_pl_play_count;
+}
+
+int mock_player_pause_count(void)
+{
+    return s_pl_pause_count;
+}
+
+int mock_player_volume_db(void)
+{
+    return s_pl_volume;
+}
+
+void mock_player_set_state(int state)
+{
+    s_pl_state = state;
+}
+
+void mock_player_set_position(long ms)
+{
+    s_pl_pos_ms = ms;
+}
+
+void mock_player_set_track_present(int present)
+{
+    s_pl_present = present ? 1 : 0;
+}
+
+int player_open(const char *path)
+{
+    s_pl_open_count++;
+    if (s_pl_open_rc != PLAYER_OK)
+        return s_pl_open_rc;
+    snprintf(s_pl_path, sizeof s_pl_path, "%s", path ? path : "");
+    s_pl_present = 1;
+    s_pl_state = PLAYER_STOPPED;
+    s_pl_pos_ms = 0;
+    return PLAYER_OK;
+}
+
+int player_play(void)
+{
+    if (!s_pl_present)
+        return PLAYER_ERR_EMPTY;
+    s_pl_play_count++;
+    s_pl_state = PLAYER_PLAYING;
+    return PLAYER_OK;
+}
+
+int player_pause(void)
+{
+    if (s_pl_state != PLAYER_PLAYING)
+        return PLAYER_ERR_STATE;
+    s_pl_pause_count++;
+    s_pl_state = PLAYER_PAUSED;
+    return PLAYER_OK;
+}
+
+int player_get_state(void)
+{
+    return s_pl_state;
+}
+
+long player_get_position_ms(void)
+{
+    return s_pl_pos_ms;
+}
+
+int player_get_volume(void)
+{
+    return s_pl_volume;
+}
+
+int player_set_volume(int db)
+{
+    if (db < -60)
+        db = -60;
+    if (db > 20)
+        db = 20;
+    s_pl_volume = db;
+    return PLAYER_OK;
+}
+
+int player_get_track(track_info_t *out)
+{
+    const char *base;
+    const char *p;
+    size_t i;
+
+    if (out == NULL)
+        return PLAYER_ERR;
+    if (!s_pl_present)
+        return PLAYER_ERR_EMPTY;
+
+    memset(out, 0, sizeof *out);
+    base = s_pl_path;
+    for (p = s_pl_path; *p; p++)
+        if (*p == '/' || *p == '\\')
+            base = p + 1;
+
+    /* bounded copies (snprintf("%s") trips -Werror=format-truncation here) */
+    for (i = 0; base[i] && i + 1 < sizeof out->title; i++)
+        out->title[i] = base[i];
+    out->title[i] = '\0';
+    for (i = 0; s_pl_path[i] && i + 1 < sizeof out->path; i++)
+        out->path[i] = s_pl_path[i];
+    out->path[i] = '\0';
+
+    out->duration_ms = 120000;          /* canned 2 min */
+    out->track_no = 1;
+    return PLAYER_OK;
 }

@@ -9,6 +9,7 @@
 
 #include "internal/shims/input.h"
 #include "internal/shims/fs.h"
+#include "internal/shims/player.h"
 #include "settings_schema.h"
 
 /* ---- input ------------------------------------------------------------- */
@@ -40,5 +41,19 @@ int  mock_fs_add_entry(const char *path, const char *name, int is_dir);
 int         mock_fs_call_count(void);
 uint32_t    mock_fs_call_index(int i);    /* start index of i-th call      */
 const char *mock_fs_call_path(int i);
+
+/* ---- player (browser / player_screen link seam) ------------------------- */
+void        mock_player_reset(void);
+/* scripted player_open() result (default PLAYER_OK) */
+void        mock_player_set_open_rc(int rc);
+int         mock_player_open_count(void);
+const char *mock_player_open_path(void);   /* last player_open() path       */
+int         mock_player_play_count(void);
+int         mock_player_pause_count(void);
+int         mock_player_volume_db(void);   /* last player_set_volume() dB   */
+/* scripted view of the player state */
+void        mock_player_set_state(int state);
+void        mock_player_set_position(long ms);
+void        mock_player_set_track_present(int present); /* get_track OK?     */
 
 #endif /* RECHORD_UI_MOCK_SERVICES_H */

@@ -245,8 +245,41 @@ static void browser_screen_handle_event(const input_event_t *ev)
             browser_enter_dir(ent->name);
             ui_invalidate_all();
         } else {
-            /* placeholder: the player module will own file opening */
-            log_printf("browser: open '%s/%s'", s_state.path, ent->name);
+            /* Open with the player module and show Now Playing.
+             * Full path = "<dir>/<name>" (same bounded build as enter_dir). */
+            char full[BROWSER_PATH_MAX + 2];
+            size_t len = strlen(s_state.path);
+            size_t nlen = strlen(ent->name);
+            int rc;
+
+            if (len + nlen + 2 > sizeof(full)) {
+                log_printf("browser: path too long for '%s'", ent->name);
+                break;
+            }
+            memcpy(full, s_state.path, len);
+            if (len == 0 || full[len - 1] != '/')
+                full[len++] = '/';
+            memcpy(full + len, ent->name, nlen + 1);
+
+            rc = player_open(full);
+            if (rc == PLAYER_OK) {
+                track_info_t ti;
+
+                player_screen_set_status(NULL);
+                if (player_get_track(&ti) == PLAYER_OK)
+                    player_screen_set_track(
+                        ti.title,
+                        ti.duration_ms > 0
+                            ? (uint32_t)(ti.duration_ms / 1000) : 0);
+                (void)player_play();
+            } else {
+                player_screen_set_track(ent->name, 0);
+                player_screen_set_status(
+                    rc == PLAYER_ERR_UNSUPPORTED ? "unsupported format"
+                                                 : "cannot open file");
+                log_printf("browser: open '%s' failed (%d)", full, rc);
+            }
+            ui_push_screen(&player_screen);
         }
         break;
     }

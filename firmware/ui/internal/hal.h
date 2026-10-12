@@ -29,12 +29,14 @@
 #include "settings.h"
 #include "log.h"
 #include "fs.h"
+#include "player.h"      /* canonical: firmware/player (needs -Ifirmware/player) */
 #else
 #include "shims/display.h"
 #include "shims/input.h"
 #include "shims/settings.h"
 #include "shims/log.h"
 #include "shims/fs.h"
+#include "shims/player.h"  /* forwards to firmware/player/player.h */
 #endif
 
 #endif /* RECHORD_UI_HAL_H */
