@@ -22,15 +22,18 @@ hardware mailbox (`MailBox A2B/B2A`):
 
 | Firmware | IMG offset | Role | SDK source |
 |----------|-----------|------|-------------|
-| **fw1 (AP)** | `0x0007B8 – 0x057820` | **UI** — menus, navigation, fonts, I2C, file browser | **RKnanoD SDK** — App/UI build (`main.c` + `SDK_160_128/UI/` 45 `.c`) |
+| **fw1 (AP)** | `0x0007B8 – 0x057820` | **UI + system** — menus, fonts, storage, USB, updates | **RKnanoD SDK** — App/UI build (`main.c` + `SDK_160_128/UI/`) |
 | **section_3 (BB)** | `0x081A14 – 0x9BAA0E` | **Audio** — codecs, DSP/EQ, playback engine | **RKnanoD SDK** — BB build (`Main2.c` + codecs) |
 
 - **Both firmwares are two builds of the same Rockchip RKnanoD SDK**
   (confirmed by string match: fw1 = 223 RKnanoD_MP3 strings vs only 32
   rk3399-table). The AP is the `main.c` + `UI/` build; the BB is the
   `Main2.c` + codecs build.
-- We compile both SDK builds from source and write **our own app layer** on
-  top (our UI for the AP, our DSP/effects for the BB).
+- **ReChord's current product is a from-source fw1 (AP)**: our own boot,
+  UI, storage, and player — the stock AP layer is gone. The BB/section_3
+  remains in the image (stock or SDK-built) for the hybrid-era paths; the
+  reference two-core audio protocol is being reimplemented clean-room
+  (`firmware/player/ipc_b.h`).
 - The **mask ROM** (`0x00000000–0x02FFFFFF`) is the fixed hardware HAL
   (LCD, I2S, DAC, USB, keys) — it is *not* firmware we replace; it is the
   "BIOS" our code calls.
@@ -40,42 +43,56 @@ hardware mailbox (`MailBox A2B/B2A`):
 > integration, hardware map) that makes the from-source build possible. See
 > `docs/RE-HISTORY.md`.
 
-## Status (Aug 2026)
+## Status (Oct 2026)
 
-ReChord is currently under active development and should be considered experimental compared to established alternatives
+ReChord is currently under active development and should be considered
+experimental compared to established alternatives.
 
 | Layer | Status |
 |-------|--------|
-| **Rockchip SDK (BB: kernel + audio + codecs)** | ✅ compiles (53 `.c`) |
-| **BB custom boot** (`firmware_entry` → `rechord_main` on the SDK) | ✅ builds, links, QEMU-verified |
-| **BB display** (our menu → LCD) | 🟡 in progress (framebuffer → LCD DMA is the open problem) |
-| **AP / UI from scratch** (menus, navigation, fonts) | ⬜ next — needs fw1 mapped |
-| **DSP effects** (`Effect.c` / `EffectProcess`) | ⬜ hook ready, effects to write |
-| **Flash** (pack IMG → copy + reboot) | ✅ pipeline verified (byte-exact header/resources) |
+| **fw1 (AP) boots standalone** (ROM → our reset → our Main) | ✅ on hardware (verdict #20 lineage) |
+| **UI**: menus, keys, file browser (eMMC + SD, FAT16/32/exFAT) | ✅ on hardware (m5a/m5b) |
+| **USB mass storage** (LUN0 = eMMC r/w, LUN1 = SD r/o) | ✅ on hardware (m3c) |
+| **Self-updater** (copy HIFIEC90.IMG, eject/power → install) | ✅ on hardware (verdict #24) |
+| **microSD driver** (DW-MMC, 4-bit, read-only) | ✅ on hardware (verdict #26) |
+| **Player module** (state machine, gapless, ReplayGain, fs-backed codec_io) | ✅ linked into fw1, host-tested (~340 asserts) |
+| **Codecs**: WAV (ours), MP3 (minimp3), FLAC (dr_flac) | ✅ vendored + host-tested; MP3/FLAC decoded losslessly in tests |
+| **DAC renderer** (I2S → CS43131) | ⬜ **next — no sound until this lands** |
+| **DSP effects** (`EffectProcess` hook) | 🟡 core written + host-tested (`firmware/dsp/`), waiting on the renderer |
+| **BB (section_3) SDK build** | ✅ compiles + links (`make build-bb`) |
 
-- Ghidra project: `FIIO-3.7.0-Decomp`, language **`ARM:LE:32:v8-m`** (both
-  fw1/AP and section_3/BB imported; section_3 loads at `0x03000000`).
-- `tools/pack_img.py` replaces section_3 (BB) and preserves bootloader +
-  resources. Replacing **fw1 (AP)** is the missing piece for the UI.
+- The player decodes WAV/MP3/FLAC and applies gapless trimming +
+  ReplayGain, but the PCM ring currently has **no consumer** in our fw1
+  (no B core in the image) — the DAC renderer is the next milestone
+  (`docs/rewrite/audio.md` step 7).
+- Flash safety: images are packed behind a scatter-table gate (DFIU rules)
+  and always installed via the official updater flow; stock/restorable via
+  maskrom (`docs/DEBRICK-LINUX.md`).
 
-Full details: [`docs/STATUS.md`](docs/STATUS.md) · [`docs/dispatch-map.md`](docs/dispatch-map.md) · [`docs/community.md`](docs/community.md)
+Full details: [`docs/HANDOVER.md`](docs/HANDOVER.md) (start here) ·
+[`docs/STATUS.md`](docs/STATUS.md) · [`docs/rewrite/audio.md`](docs/rewrite/audio.md)
 
 ## Quick build check
 
 ```bash
-# any SDK .c compiles (see docs/STATUS.md for full include list)
-arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb -fsyntax-only \
-  -include firmware/rockchip/include/armcc_compat.h \
-  -Ifirmware/rockchip/include -Ifirmware/rockchip \
-  -Ifirmware/rockchip/audio/Include -Ifirmware/rockchip/audio/AudioControl \
-  -Ifirmware/rockchip/audio/Common -Ifirmware/rockchip/audio/RkEQ/Effect \
-  -Ifirmware/rockchip/audio/RecordControl -Ifirmware/rockchip/audio/ID3 \
-  -Ifirmware/rockchip/audio/Wav/WAV_LIB -Ifirmware/rockchip/audio/SSRC/resampler \
-  -Ifirmware/rockchip/system/os -Ifirmware/rockchip/system/fileseek \
-  -Ifirmware/rockchip/system/module_overlay -Ifirmware/rockchip/system/sysservice \
-  -Ifirmware/rockchip/bbsystem \
-  firmware/rockchip/bbsystem/Main2.c
+# host tests (codecs, gapless, ReplayGain, player): ~340 assertions
+sh firmware/player/tests/run_tests.sh
+
+# UI host tests
+make -C firmware/ui test
+
+# clean-room AP image (UI + player + codecs) → flashable IMGs
+make cfw-ap                 # build/cfw/rechord_ap.elf
+make cfw-img                # build/ReChord_AP.IMG + build/ReChord_AP5M.IMG
+
+# SDK builds (BB/section_3) — see docs/STATUS.md for the full include list
+make build-bb && make link-bb
 ```
+
+Flash: copy `build/ReChord_AP5M.IMG` to the device root as
+**`HIFIEC90.IMG`**, then **eject** (or unplug — power key also scans since
+m6b) → on-device prompt → confirm → power-cycle. See
+[`docs/FLASHING.md`](docs/FLASHING.md).
 
 ## Repository layout
 
@@ -85,9 +102,17 @@ firmware/rockchip/          # Rockchip RKnanoD SDK (source + codec .lib)
   ├── system/               # OS, fileseek, module_overlay, sysservice
   ├── audio/                # AudioControl, Effect (EQ/DSP), codecs
   └── include/              # ReChord integration headers (armcc compat, etc.)
-firmware/                   # our from-source layer (rechord_app, UI, stubs)
+firmware/                   # our from-source layer
+  ├── startup/              # fw1 boot (ap_startup, vectors, UI loop)
+  ├── ui/                   # screens (menu, browser, player, settings)
+  ├── services/             # settings, log, input, FAT/exFAT fs, fw_update
+  ├── drivers/              # panel, eMMC, SD (DW-MMC), USB MSC, input
+  ├── player/               # playback engine: codec_t + codecs/ (wav/mp3/flac)
+  │   └── codecs/           #   minimp3 + dr_flac vendored (CC0 / MIT-0)
+  ├── dsp/                  # effect modules (EQ, bass, volume) — host-tested
+  └── theme/                # theme data + loader
 tools/                      # build, analyze, pack scripts
-docs/                       # STATUS, dispatch-map, community, hardware, flashing
+docs/                       # HANDOVER (start here), STATUS, re/, rewrite/
 stock/                      # official firmware backups (not distributed)
 ```
 
@@ -96,21 +121,24 @@ stock/                      # official firmware backups (not distributed)
 - [x] Rockchip SDK compiles (kernel + audio + codecs) — the BB base
 - [x] BB custom boot (`firmware_entry` → our own `rechord_main`)
 - [x] QEMU smoke test (boot + framebuffer menu + text rendering)
-- [x] **AP identified**: fw1 = RKnanoC SDK (`rk3399-table-RKNanoC`, 103 `.c`)
-- [ ] **BB display**: get our framebuffer to the LCD (find the ROM DMA/transfer)
-- [ ] **AP (fw1) UI**: compile the RKnanoC SDK (drivers + FileSys + NANO_OS) + our menus
-- [ ] **DSP effects**: custom EQ / bass / reverb in `EffectProcess`
-- [ ] **Flash the full CWF** (AP + BB) and verify on hardware
+- [x] **AP (fw1) boots standalone with our own from-source UI**
+- [x] Storage: eMMC + microSD read, FAT/exFAT browser, USB MSC, self-update
+- [x] **Player linked into the AP**: gapless, ReplayGain, WAV/MP3/FLAC decode
+- [ ] **DAC renderer**: I2S out to the CS43131 DACs — first audible sound
+- [ ] **DSP effects**: custom EQ / bass / reverb in the render path
+- [ ] **Two-core audio**: reference AP↔BB protocol re-impl (`ipc_b`) or
+      single-core renderer, whichever the bring-up proves simpler
 
 ## Safety / flashing
 
 - Flashing uses the **official upgrade method** (copy IMG + reboot) — stock is
   always restorable by copying the original back.
 - No signature verification in hardware (confirmed by the community —
-  `docs/community.md`).
-- `tools/pack_img.py` preserves bootloader + resources; it replaces the code
-  section(s) cleanly.
-- See [`docs/FLASHING.md`](docs/FLASHING.md) for the safe procedure.
+  `docs/community.md`); images are CRC-validated by our own updater.
+- `tools/pack_img.py` / `tools/make_fw1.py` validate the scatter table
+  against the reference boot model before anything is flashable (DFIU rules).
+- See [`docs/FLASHING.md`](docs/FLASHING.md) for the safe procedure and
+  [`docs/DEBRICK-LINUX.md`](docs/DEBRICK-LINUX.md) for maskrom recovery.
 
 ## Disclaimer
 
