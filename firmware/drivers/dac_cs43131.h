@@ -23,6 +23,7 @@ enum {
 /* Breadcrumb: last reached step of dac_init / the feed path. */
 enum {
     DAC_STEP_NONE = 0,
+    DAC_STEP_POWER,        /* GPIO2 power/reset sequence (ref entry)     */
     DAC_STEP_GATES,        /* CRU gates enabled                          */
     DAC_STEP_I2C_SCAN,     /* I2C0 mux candidate scan                    */
     DAC_STEP_RATE,         /* rate table lookup + ACODEC mux             */

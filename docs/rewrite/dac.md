@@ -190,18 +190,65 @@ recovered from its runtime table or from the datasheet equivalents.
    init sequence from datasheet §5 (power/PLL/ASP/PDN), two addresses via
    I²C scan. Heavier, fully understood.
 
-## 8. Open questions / next reads
+## 8. Hardware failure #1 + fix (2026-10-12, DFIU 3a986c9b)
+
+First real-hardware run of `DAC test` failed: `rc -4 step 2 / scan A00 B00
+C00 / hp 00 00` — `DAC_ERR_NOCHIP` at the I2C scan. Diagnosis (ref fw1 via
+Ghidra MCP + the vendor SDK + the CS43131 datasheet) found **six** porting
+bugs in `firmware/drivers/dac_cs43131.c`:
+
+1. **GRF mux register offset**: `grf_iomux()` wrote at `GRF + 0x200 +
+   port*0x20 + (pin>>3)*4`; the real address (ref `FUN_03051458`, SDK
+   `GRFREG_t`, and our hardware-verified `panel_io_rknanoc.c`) is `GRF +
+   port*0x20 + (pin>>3)*4`. The pins never moved to I2C function.
+2. **`GRF_IOMUX_CON` (I2C0 A/B/C select)**: was at `GRF+0x04` (inside
+   `GPIO_IO0MUX[1]`!), actually `GRF+0xBC`. Ref writes `0x30000` there
+   (= WE bits 16/17, value 0 = I2C0_SEL_A) — the board uses candidate A.
+3. **CRU gate ids**: driver used 156/157/177 (reserved bits, from a
+   miscounted enum); real ids per `Hw_cru.h` + ref calls: PCLK_I2S1=130
+   (0x82), PCLK_I2C0=131 (0x83), PCLK_ACODEC=150 (0x96), plus
+   PCLK_GPIO1=149 (0x95). Without PCLK_I2C0 the controller had no bus
+   clock → every probe timed out (shown as 0 in the scan).
+4. **Missing I2C0 soft reset** (`SOFTRST[1]` bit 10, ref
+   `FUN_03051430(0x1a,…)`) and the **GPIO2 power/reset dance** that the
+   ref runs before any clock gate (pins 0/14/2 high, reset pulse on pin
+   1: low 1 ms, high 8 ms, low 2 ms). Chips in HW power-down ACK nothing.
+5. **I2C MAP byte order**: the driver sent the 24-bit MAP LSB-first;
+   datasheet §4.13/Fig 4-32 (scanned PDF, rendered) and the ref frame
+   `FUN_03055e78` both send it **MSB-first** (`[addr+W][23:16][15:8][7:0]
+   [ctl INCR=1][data]`).
+6. **`acodec_mux()`**: m4/m5 were swapped vs the ref table order
+   (`entry[4]→+0x204, entry[5]→+0x208`), the `0x200020` write belongs to
+   `CRU_MODE_CON` (`CRU+0x10`), and the `+0x214` load dance + the final
+   `+0x200 |= 4` were missing.
+
+Also ported while there: I2S1A pin mux (GPIO1A0..A3 func 1 +
+`GRF_IOMUX_CON` bit 13), the four `CRU_CLKSEL_CON[2]` literals, I2S1
+soft-reset release, `RXCR=0x401F`, and the ref's CLKDIV formula
+(`ceil(pclk_kHz/800)-2` split lo/hi; 100 kHz @ 24 MHz ⇒ 14/14, the old
+hard-coded 59 gave ~25 kHz).
+
+**Still open after the fix**: the +0x400 TXDR offset remains a hypothesis
+(SDK `I2sReg_t` puts TXDR right after `CLR` at +0x24 — the reserved-array
+comment `0x400-0x24` suggests the struct was packed for the polled path;
+try +0x24 if the FIFO never drains); the `dac_map_write` register list is
+still the §7 abbreviated one, not the full ref order (harmless once the
+chips ACK — verify Exp 2 by ear first).
+
+## 9. Open questions / next reads
 
 - Exact buffer contract: `rom_buffer_calculate` semantics + where PCM must
   be written (RE `audio_stream_process.c`, 290 lines).
 - Which I2C channel/pins the DAC is on and which `rom_dac_*` mapping the
   stock jumptable (codec-ID selector at `DAT_0302ca9c`) picks for this
-  board (`audio_codec_dac_set.c` dispatch).
+  board (`audio_codec_dac_set.c` dispatch). **Partly answered: I2C0
+  candidate A (GPIO2B2/B3) per the ref `GRF_IOMUX_CON=0x30000`; the scan
+  now also proves it on hardware once the chips ACK.**
 - Do both chips ACK on the bus (I²C scan in Exp 1 also settles the 2-chip
   topology question: distinct addresses ⇒ two independently-configured DACs).
 - MCLK actually delivered by RKnanoD I2S (TRM) — 22.5792/24.576 or PLL.
 
-## 9. RAM/code budget notes
+## 10. RAM/code budget notes
 
 The player + codecs currently end `.bss` at `0x03049570` (window to
 `0x0304C000`) — ~10 KB headroom; the ROM path needs almost no buffers of
