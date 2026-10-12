@@ -171,10 +171,14 @@ firmware/player/
    (`is_header_shadow`) + Makefile (`build/cfw/*.d` deps) fixes landed in
    the same pass — see HANDOVER m6c.
 
-7. **DAC renderer (NEXT).** Consume the ipc_b ring → I2S/DAC in this fw1
-   (the SDK DMA-ISR path `Service.c: AudioDmaIsrHandler → AudioDecoding`
-   is the reference model, `docs/re/dac-output-path.md`). Until then the
-   player decodes but is silent and the ipc_b supervisor eventually reports
+7. **DAC renderer (NEXT).** Consume the ipc_b ring → I2S/DAC in this fw1.
+   Full plan + evidence in **`docs/rewrite/dac.md`**: the mask ROM owns the
+   I2S/DMA/CS43131 bring-up (stock call sequence recovered from the
+   annotated section_3 decomp), so Exp 1 = ROM sequence sanity → Exp 2 =
+   tone → Exp 3 = player PCM into the ROM refill contract; the SDK
+   `driver/IIS/I2s.c` + datasheet §4.13 I²C driver is the documented
+   fallback (`docs/re/dac-output-path.md` has the SDK DMA-ISR path). Until
+   then the player decodes but is silent and the ipc_b supervisor reports
    "no audio renderer".
 
 8. **AP flash (hardware-gated).** DFIU `preflight_check` → scatter
