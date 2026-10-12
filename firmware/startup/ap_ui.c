@@ -10,6 +10,7 @@
 #include "drivers/emmc.h"
 #include "drivers/panel_io.h"
 #include "drivers/usb_msc.h"
+#include "drivers/dac_cs43131.h"
 #include "services/fs_target.h"
 #include "services/fw_update.h"
 #include "services/input.h"
@@ -228,6 +229,78 @@ static const char *keys_text(void)
     return buf;
 }
 
+/* DAC bring-up test (Exp 1/2 of docs/rewrite/dac.md §7): run the CS43131
+ * init (recovered from the reference fw1), show the breadcrumb + I2C scan
+ * + HP status, then feed a 1 kHz tone over I2S1 until POWER (or 3 s). */
+static void dac_test_run(void)
+{
+    /* sin(2*pi*i/64) * 9000, i = 0..63 */
+    static const int16_t sine64[64] = {
+           0,  785, 1567, 2340, 3096, 3827, 4530, 5200,
+        5831, 6417, 6954, 7439, 7865, 8226, 8520, 8742,
+        8889, 8960, 8952, 8867, 8703, 8462, 8148, 7762,
+        7307, 6788, 6209, 5575, 4891, 4161, 3390, 2583,
+        1746,  885,     0,  -885,-1746,-2583,-3390,-4161,
+       -4891,-5575,-6209,-6788,-7307,-7762,-8148,-8462,
+       -8703,-8867,-8952,-8960,-8889,-8742,-8520,-8226,
+       -7865,-7439,-6954,-6417,-5831,-5200,-4530,-3827,
+    };
+    int16_t chunk[512];
+    uint8_t hp[2];
+    char buf[40];
+    int rc, i, n = 0;
+
+    screen("DAC test");
+    line(1, "bring-up 44100 Hz...");
+    display_flush_rows(0, DISPLAY_H - 1);
+    rc = dac_init(44100);
+
+    dac_get_hp_status(hp);
+    screen("DAC test result");
+    snprintf(buf, sizeof buf, "rc %d step %d", rc, dac_last_step());
+    line(1, buf);
+    snprintf(buf, sizeof buf, "scan A%d%d B%d%d C%d%d",
+             dac_scan_result(0, 0), dac_scan_result(0, 1),
+             dac_scan_result(1, 0), dac_scan_result(1, 1),
+             dac_scan_result(2, 0), dac_scan_result(2, 1));
+    line(2, buf);
+    snprintf(buf, sizeof buf, "hp %02x %02x", hp[0], hp[1]);
+    line(3, buf);
+    display_flush_rows(0, DISPLAY_H - 1);
+
+    if (rc != DAC_OK) {
+        line(5, "bring-up FAILED - any key");
+        display_flush_rows(0, DISPLAY_H - 1);
+        ask(1);
+        return;
+    }
+
+    line(4, "tone: 1 kHz, POWER = stop");
+    display_flush_rows(0, DISPLAY_H - 1);
+    dac_i2s_start();
+    for (;;) {
+        if (keys_power())
+            break;
+        for (i = 0; i < 256; i++) {
+            int idx = (n + i) & 63;
+            chunk[2 * i] = sine64[idx];
+            chunk[2 * i + 1] = sine64[idx];
+        }
+        rc = dac_i2s_feed(chunk, 256);
+        if (rc != DAC_OK)
+            break;
+        n += 256;
+        if (n > 44100 * 3)               /* ~3 s cap */
+            break;
+    }
+    dac_i2s_stop();
+    snprintf(buf, sizeof buf, "tone rc %d, frames %d", rc, n);
+    line(5, buf);
+    line(6, "any key");
+    display_flush_rows(0, DISPLAY_H - 1);
+    ask(1);
+}
+
 static const menu_item_t k_root_items[] = {
     { "Files",       NULL,      open_files },
     { "Now Playing", NULL,      open_player },
@@ -237,9 +310,10 @@ static const menu_item_t k_root_items[] = {
     { "SD",          sd_text,   NULL },
     { "USB",         usb_text,  NULL },
     { "USB diag",    usbd_text, NULL },
+    { "DAC test",    NULL,      dac_test_run },
 };
-#define RC_BUILD "m6b"
-static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 8 };
+#define RC_BUILD "m7a"
+static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 9 };
 
 void ap_ui_loop(void)
 {
