@@ -16,13 +16,16 @@
 # 0x03060000 entry via ap_vectors, SYS_DATA 0x03000000, MSP 0x03050000 --
 # docs/fw1-packing.md).
 #
+# firmware/player is now linked (milestone 2a): player.c, codec_io, the codec
+# adapters, tags/replaygain, rg_math, and the A<->B IPC target backend
+# (ipc_b_target.c). It is the clean-road audio path; see docs/rewrite/audio.md.
+#
 # NOT linked in milestone 1a (by design):
-#   firmware/player, firmware/dsp, firmware/modules  (later milestones)
-#   firmware/rockchip/**                            (stock SDK, hybrid era)
-#   firmware/services/fs_host.c                     (host-only backend;
-#       the target backend is fs_target.c -- its fs_* calls are TODO stubs
-#       that return FS_ERR_UNSUPPORTED until the FAT stack lands)
-#   firmware/stubs.c, firmware/fault.c              (hybrid-era glue)
+#   firmware/dsp, firmware/modules                      (later milestones)
+#   firmware/rockchip/**                                (stock SDK, hybrid era)
+#   firmware/services/fs_host.c                         (host-only backend;
+#       the device FS backend is fs_target.c, wired via fs.h)
+#   firmware/stubs.c, firmware/fault.c                  (hybrid-era glue)
 #
 # NOTE on -std: the Makefile's COMMON_FLAGS passes no -std (default gnu17).
 # The clean-room sources are C99 (ui.mk uses -std=c99) and do NOT compile
@@ -94,14 +97,29 @@ AP_LIBC_SRCS := \
   firmware/libc/stdio_min.c \
   firmware/libc/math_min.c
 
-# Every AP link input, milestone 1a.
+# Player module (audio path): linked from milestone 2a. Includes the
+# target IPC backend (ipc_b_target.c) and the codec adapters.
+AP_PLAYER_SRCS := \
+  firmware/player/player.c \
+  firmware/player/codec_io.c \
+  firmware/player/codec_io_fs.c \
+  firmware/player/codec_wav.c \
+  firmware/player/codec_mp3_stub.c \
+  firmware/player/codec_flac_stub.c \
+  firmware/player/tags.c \
+  firmware/player/rg_math.c \
+  firmware/player/ipc_b_target.c \
+  firmware/player/ringbuf.c
+
+# Every AP link input, milestone 2a (includes clean-road player).
 AP_SRCS := \
   $(AP_STARTUP_SRCS) \
   $(AP_UI_SRCS) \
   $(AP_DRIVER_SRCS) \
   $(AP_SERVICE_SRCS) \
   $(AP_THEME_SRCS) \
-  $(AP_LIBC_SRCS)
+  $(AP_LIBC_SRCS) \
+  $(AP_PLAYER_SRCS)
 
 # ---- include roots (-I) ------------------------------------------------
 # firmware/ itself comes first (as in AP_CFLAGS in the Makefile) so
@@ -111,6 +129,7 @@ AP_INCLUDE_DIRS := \
   firmware/libc \
   firmware/drivers \
   firmware/services \
+  firmware/player \
   firmware/ui \
   firmware/theme
 

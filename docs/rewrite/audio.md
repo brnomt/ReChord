@@ -39,11 +39,17 @@ the AP; the B core must not be restarted between gapless-compatible tracks.
 
 Status today: the player module is **host-complete and host-tested** — WAV codec
 byte-exact, and the gapless / ReplayGain / codec_io_fs paths are implemented and
-covered by host tests in `firmware/player/tests/run_tests.sh`. It is still
-**not linked into the AP image**: `firmware/ap.mk` excludes it ("NOT linked in
-milestone 1a"; see §3.5). The target `codec_io_fs.c` backend over `fs_target`
-(the "decode from SD" path) is implemented; the FS backend is exercised in host
-tests through `fs_host.c`.
+covered by host tests in `firmware/player/tests/run_tests.sh`. It is **linked
+into the AP image since milestone 2a** (`AP_PLAYER_SRCS` in `firmware/ap.mk`;
+`make cfw-ap` links `build/cfw/rechord_ap.elf` with all player symbols, the
+target backend `codec_io_fs.c` + `ipc_b_target.c`, and a 4-slot static handle
+pool instead of malloc). `make cfw-img` produces `build/ReChord_AP.IMG` /
+`build/ReChord_AP5M.IMG` behind the packer's scatter gate; AP5M was uploaded to
+the device as `HIFIEC90.IMG` (2026-10-12) and installed on hardware
+(ECHOLOG: `update: result 0`, fw_end 0x44C000) — boot verdict pending a
+power-cycle. Playback itself is not wired yet: `player_screen.c` is still a
+stub and the PCM→DAC consumer (B core) does not exist in this fw1 build, so
+the resident player is silent until those two land.
 
 ## 2. Files
 
@@ -130,11 +136,19 @@ firmware/player/
    (dB→linear, peak clamp, scaling/saturation) and `test_player_replaygain`
    (exact PCM scaling vs `rg_scale_pcm` on the mock).
 
-5. **AP linkage (hardware-gated).** Only after host tests are green and a
-   DFIU `preflight_check` passes: link `firmware/player` into `ap.mk`
-   (milestone 2a), guarded by the `make_fw1.py`/`pack_fw1.py` scatter gate
-   (no row below 0x03000000..0x03004000) and a reference-image diff, then a
-   `verify_resolution(reproduction)` hardware verdict.
+5. **AP linkage (hardware-gated). DONE (milestone 2a, 2026-10-12).**
+   `firmware/ap.mk`: `AP_PLAYER_SRCS` (player.c, codec_io.c, codec_io_fs.c,
+   codec_wav.c, codec_mp3/flac stubs, tags.c, rg_math.c, ipc_b_target.c,
+   ringbuf.c) joined `AP_SRCS`; `-Ifirmware/player` added to
+   `AP_INCLUDE_DIRS`. `codec_io_fs.c` rewritten to a 4-slot static pool (the
+   freestanding `-nostdlib` link has no malloc/free). Verified:
+   `make cfw-ap` → `build/cfw/rechord_ap.elf` (text 42,436 / data 100 /
+   bss 248,956; `_bss_end 0x03040CE0` inside the linker's FW_RAM window
+   to 0x0304C000) with player symbols present; all clean-road TUs compile
+   `-mcpu=cortex-m3 -mthumb -Wall`; host tests stay green. `make cfw-img`
+   → AP5M uploaded to the device as HIFIEC90.IMG and installed on hardware
+   (ECHOLOG `update: result 0`, fw_end 0x44C000); boot verdict pending a
+   power-cycle (DFIU `verify_resolution` after the user confirms).
 
 ## 4. Verification (docs/rewrite/architecture.md §5)
 

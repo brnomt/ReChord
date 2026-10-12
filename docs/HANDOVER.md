@@ -1350,13 +1350,76 @@ Next session:
 > - ✅ ReplayGain: `tags.c`/`tags.h` (ID3v2 `TXXX` + Vorbis comments), `rg_math.c`
 >   (Q1.15 dB→linear, peak clamp, saturating `rg_scale_pcm`) applied in the PCM
 >   pump pre-ring; `PLAYER_RG_TRACK/ALBUM/OFF` mode via `player_set_replaygain_mode`.
-> - ⏳ Step 8: link `firmware/player` into `ap.mk` (milestone 2a) — **gated** by the
->   DFIU scatter rules. Not flashed this session.
+> - ✅ Step 8 (milestone 2a): player LINKED into `ap.mk` — see the MILESTONE 2A
+>   section below (ELF + IMG built, DFIU revalidated, uploaded to the device).
 > - DFIU preflight (`ChangeSummaryV1`) ran; surfaced variant alert
 >   `R-49b7fd25aca0` (FAT rename/collision in the same volume — informational:
 >   `fs_seek` is read-only). New `ipc_b_track_change` mailbox command must await
 > the B-core reply per `R-e9b5d8222673` (documented; target stub is a no-op
 >   until milestone 2a).
+
+## MILESTONE 2A (2026-10-12): PLAYER LINKED INTO THE AP + IMG UPLOADED
+
+- ✅ **Linkage DONE.** `firmware/ap.mk`: new `AP_PLAYER_SRCS` (player.c,
+  codec_io.c, codec_io_fs.c, codec_wav/mp3/flac, tags.c, rg_math.c,
+  ipc_b_target.c, ringbuf.c) added to `AP_SRCS`, `-Ifirmware/player` in the
+  include roots, milestone comment updated. The real device build is
+  `make cfw-ap` (rule `$(CFW_BUILD_DIR)/objs/%.o: %.c` compiles any clean-road
+  `.c` — NOT the legacy `build-ap` SDK pipeline, which only covers
+  `firmware/rockchip/%`).
+- ✅ **Heap eliminated from the target path.** The freestanding AP link
+  (`-nostdlib`, `AP_LIBC_SRCS` = mem/str/stdio_min/math_min) has no
+  `malloc/free`, so `codec_io_fs.c` was rewritten to a **4-slot static pool**
+  (== `fs_target.c`'s 4 read handles; `cio_close` dispatches, the slot is
+  returned to the pool in `s_close`). `rg_math.c`'s `pow` resolves via
+  `math_min.c`. First link attempt failed on `malloc/free` — that's the whole
+  fix. All 40 clean-road TUs + player compile with `-mcpu=cortex-m3 -mthumb`.
+- ✅ **ELF:** `build/cfw/rechord_ap.elf`, text 42,436 / data 100 / bss 248,956.
+  `_bss_end = 0x03040CE0` — inside the linker's designed `FW_RAM` window
+  (LENGTH to `0x0304C000`, `__heap_end = 0x0304C000`), clear of the stack
+  zone and the loaded image at `0x0304FA50`. Player symbols present in the
+  ELF (player_init/open/process, cio_open, tags_replaygain_id3v2, rg_scale_pcm,
+  ipc_b_start, ipc_b_track_change; wav/mp3/flac_open static).
+- ✅ **IMG:** `make cfw-img` → `build/ReChord_AP.IMG` (33 MB, packer
+  `RESULT: PASS`, trailer CRC `0xC3948CA9`) + **`build/ReChord_AP5M.IMG`**
+  (5 MB ref-shape, 5,242,884 B, CRC `0x217BC3B0`, fw_end `0x44C000`) — the
+  flash vehicle (packer NOTE: boots on hardware, verdict #20 lineage).
+- ✅ **DFIU:** preflight (alert, no blockers) → stale blocker
+  `R-70b34b8f2528` re-verified (m5b hardware-booted with identical scope
+  files, verdict #27; byte audit of both new images: loaded-RAM row srcs,
+  VT @IMG 0xD68 + entry VT @IMG 0xB32C both SP `0x03004000`/reset
+  `0x03050145` Thumb, row2 byte-identical to m5b, packer-CRC match,
+  no row in the stack zone) → **re-activated (active/blocker, rev 2)** →
+  `compile_artifacts` (5 active rules).
+- ✅ **UPLOADED:** `build/ReChord_AP5M.IMG` →
+  `/run/media/brnomt/ECHO MINI/HIFIEC90.IMG`, md5
+  `d72594b0b0b6023c708737b6d80f7349` (byte-identical to the local build).
+
+### Update detection on hardware (ECHOLOG oracle — read this)
+
+The device was **NOT running our fw1/m5b** at upload time: it runs
+**RECHO (ref-based CFW, `RECHO 7e287ea v0.9.2 2026-10-07`)** — installed by a
+previous boot's `ECHOMINIIMG` (ECHOLOG: `update: found ECHOMINIIMG … result 0`,
+then `boot: build 7e287ea … resources @0 (legacy) are RECHO 7e287ea …`).
+Consequences for update UX (the "device isn't detecting" confusion):
+
+- The **RECHO/ref updater is SILENT**: no "Firmware update detected" screen —
+  it logs to ECHOLOG.TXT only. Our copy WAS detected and INSTALLED:
+  `499.850 update: found HIFIEC90IMG (official v0.9.2 2026-10-11), 5242884
+  bytes` → `503.752 update: result 0 cleanup 0 fw_end 44c000 fw_size 500000
+  fw1_only 0, 3888 ms` (`fw_end 0x44C000` = our AP5M exactly; `result 0` =
+  slots written + verified). Trigger: the user pressed POWER in the USB
+  session ("usb: exit key pressed").
+- Our own prompt (`update_prompt` in ap_ui.c) only runs after
+  `USB_EXIT_EJECT` (LoEj) or `USB_EXIT_UNPLUG` (VBUS gone) — the power-key
+  exit (`USB_EXIT_USER`) skips it by design; `udisksctl power-off` (port
+  disable, no LoEj = suspend) doesn't end our session either (m3d open item).
+- `HIFIEC90.IMG` stays on the volume (ref cleanup doesn't delete it). After
+  booting our fw1, an eject would re-offer the same image (harmless reinstall)
+  — delete it once the boot is confirmed.
+- **NEXT: power-cycle** → boots `ReChord_AP5M` (player linked; expect
+  "ReChord AP alive" + RC_BUILD label). Then DFIU `verify_resolution` with
+  the user's confirmed outcome — no verdict without hardware.
 
 ## 1. Where audio actually comes from
 
