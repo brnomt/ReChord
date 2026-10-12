@@ -244,6 +244,34 @@ void fs_close(fs_file_t *f)
     free(f);
 }
 
+int fs_rename(const char *from, const char *to)
+{
+    char host_from[FS_HOST_PATH_MAX];
+    char host_to[FS_HOST_PATH_MAX];
+
+    if (map_path(from, host_from, (unsigned long)sizeof(host_from)) != FS_OK ||
+        map_path(to, host_to, (unsigned long)sizeof(host_to)) != FS_OK) {
+        return FS_ERR_ARG;
+    }
+    if (rename(host_from, host_to) != 0) {
+        return FS_ERR_IO;
+    }
+    return FS_OK;
+}
+
+int fs_remove(const char *path)
+{
+    char host[FS_HOST_PATH_MAX];
+
+    if (map_path(path, host, (unsigned long)sizeof(host)) != FS_OK) {
+        return FS_ERR_ARG;
+    }
+    if (remove(host) != 0) {
+        return FS_ERR_OPEN;
+    }
+    return FS_OK;
+}
+
 
 /* Pagination listing over the host FS (see fs.h contract). */
 int fs_list_dir(const char *path, uint32_t index, fs_dirent_t *out,

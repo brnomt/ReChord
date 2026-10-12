@@ -131,6 +131,8 @@ include firmware/startup/startup.mk
 include firmware/app/app.mk
 include firmware/drivers/drivers.mk
 include firmware/services/services.mk
+include firmware/config/config.mk
+include firmware/util/util.mk
 include firmware/ui/ui.mk
 include firmware/theme/theme.mk
 include firmware/dsp/dsp.mk

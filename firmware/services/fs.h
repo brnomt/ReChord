@@ -92,4 +92,14 @@ fs_file_t *fs_open_append(const char *path);
 /* Write <len> bytes. Returns bytes written or FS_ERR_*. */
 long fs_write(fs_file_t *f, const void *buf, unsigned long len);
 
+/* Rename a file. `to` replaces any existing entry (POSIX rename semantics;
+ * FAT backends must emulate replace or fail cleanly). Used by the atomic
+ * config save (write .tmp, rename over the real file) and by the log
+ * rotation. Returns FS_OK or a negative FS_ERR_*. */
+int fs_rename(const char *from, const char *to);
+
+/* Remove a file. Removing a missing file is FS_ERR_OPEN. Returns FS_OK or a
+ * negative FS_ERR_*. Used by log rotation to drop the previous .old. */
+int fs_remove(const char *path);
+
 #endif /* RECHORD_SERVICES_FS_H */

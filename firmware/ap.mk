@@ -90,6 +90,14 @@ AP_THEME_SRCS := \
   firmware/theme/themes_builtin.c \
   firmware/theme/theme_file.c
 
+# Persistent config + circular logger (same sets as $(CONFIG_SRCS) in
+# firmware/config/config.mk and $(UTIL_SRCS) in firmware/util/util.mk).
+AP_CONFIG_SRCS := \
+  firmware/config/rechord_config.c
+
+AP_UTIL_SRCS := \
+  firmware/util/rechord_log.c
+
 # Freestanding libc, build-from-source (same set as $(LIBC_SRCS) in
 # firmware/libc/libc.mk -- listed explicitly so this fragment is standalone).
 AP_LIBC_SRCS := \
@@ -121,6 +129,8 @@ AP_SRCS := \
   $(AP_UI_SRCS) \
   $(AP_DRIVER_SRCS) \
   $(AP_SERVICE_SRCS) \
+  $(AP_CONFIG_SRCS) \
+  $(AP_UTIL_SRCS) \
   $(AP_THEME_SRCS) \
   $(AP_LIBC_SRCS) \
   $(AP_PLAYER_SRCS)
@@ -133,6 +143,8 @@ AP_INCLUDE_DIRS := \
   firmware/libc \
   firmware/drivers \
   firmware/services \
+  firmware/config \
+  firmware/util \
   firmware/player \
   firmware/ui \
   firmware/theme
