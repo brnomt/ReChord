@@ -101,9 +101,74 @@ PCM refill into the ROM playback buffer: `rom_dma_or_copy(dst, src)`
   prefer the `music_service.c` pairing (`master_config()` +
   `master_init(0,0x17,0,1)`) and verify by behavior.
 
-## 3. Experiment ladder (in order, cheapest first)
+## 6. Recovered facts — reference fw1 binary (Ghidra MCP, 2026-10-12)
 
-1. **Exp 1 — DAC sanity via ROM (no PCM):** new menu item `DAC test`:
+Read from `community/refcfw/ghidra_input/ref_fw1_ram0304F490.bin` (project
+ReChord, base 0x0304F490). The reference fw1 contains a **complete raw
+CS43131 driver** (not ROM calls) — verified by decompiling its functions:
+
+- **Control bus: I2C0 @ 0x40040000**, programmed master at register level
+  (TXDATA @+0x100, RXDATA @+0x200 per SDK `driver/I2C/i2c.h` constants —
+  the RX read uses `[base+0x200]` directly). Literal pool of the DAC
+  function contains GRF 0x50010000, clock global 0x0300410C, I2C0
+  0x40040000.
+- **Chip address table @ RAM 0x03060B78**: `{0x60, 0x66, 0x70, 0x68}`.
+  chan 0 = **0x60 (7-bit 0x30, ADR=0)**, chan 1 = **0x66 (7-bit 0x33,
+  ADR=3)** — the two CS43131s. (String "aplayer" follows.)
+- **Write primitive** (`FUN_03055f08` = ref's dac_write): **broadcast** —
+  writes `[chipaddr+W][MAP_lo][MAP_mid][MAP_hi][ctl=1 (INCR)][data]` to
+  chan 0 AND chan 1 (`FUN_03055e78(chan, map, val)` per chip). Exactly the
+  datasheet §4.13 format.
+- **Read primitive** (`FUN_03055fe8`): per-channel (`chan, map24, out`).
+- **Mono-mode table @ RAM 0x03060AB8**: 24 `(MAP u32, value u32)` pairs —
+  **byte-identical to the datasheet §5.12 "Enable Mono Mode" sequence**:
+  ```
+  0x180009=0x2F  0x18000A=0xB4  0x18000B=0x25  0x18000C=0x80
+  0x18000F=0x55  0x180010=0xFA  0x180019=0x2F  0x18001A=0xB4
+  0x18001B=0x25  0x18001C=0x80  0x18001F=0x4E  0x180020=0xFD
+  0x180029=0x2F  0x18002A=0xB4  0x18002B=0x25  0x18002C=0x80
+  0x18002F=0x7C  0x180030=0xFD  0x180039=0x2F  0x18003A=0xB4
+  0x18003B=0x25  0x18003C=0x80  0x18003F=0x52  0x180040=0xFE
+  ```
+  **=> the reference runs the two CS43131s in MONO (differential) mode:
+  one chip per channel (L=0x60, R=0x66). The 2-chip L/R topology is
+  confirmed from bytes, not guesswork.**
+- **Bring-up sequence** (ref `FUN_03056550(rate)` ≈ audiocodec_open):
+  audio-path routing ops `(2,0,1)(2,0xe,1)(2,2,1)` + delays; volume dance
+  (`0x1A` 1→delay 100 ms→0); per-rate config table (13 entries, stride 16);
+  chip register probe: read regs `0x10000..end` on chan 0 then chan 1
+  (fail marker 0xEE); MAP writes (both chips): `0x0B0000=0x1F`,
+  `0x080000=0x10`, `0x0D0000=0x04`, `0x180000=0x45` with `0x17` toggling
+  0x99/0x00 and `0x19` toggling 0x20/0x00 (delays between), plus regs
+  0x04/0x0E/0x10/0x12/0x13/0x7D/0x82/0x83/0x95/0x96; **HP-detect read:
+  MAP 0x0F0000 from both chips** — bring-up aborts (-2) only if BOTH
+  chips error; then the 24-pair mono table (above); then I2S1 + DMA.
+- **I2S = I2S1 @ 0x40030000** (literals at 0x030564A4/0x0305654C/0x03056CFC):
+  FIFO-reset poll (`[7]=0; [8]=1; wait [8]==0`), `reg[0]=0x401F`,
+  `reg[1]=0x401F` (16-bit stereo), `reg[2] = ((rate/(mclk<<6))-1)<<16 |
+  0x3F3F` (LRCK/SCLK divider vs system clock), then an 8-entry DMA
+  descriptor ring (block 0x600) via `FUN_03055b0c`.
+- **CRU clock-gate helpers**: `gate(bit, enable)` with write-1-enable /
+  write-1-disable semantics (Rockchip CRU convention), e.g. clocks gated
+  before the I2C/I2S setup (`FUN_030513e0(0x83,1)`, `(0x95,1)`, `(0x96,1)`,
+  `(0xE,1)`, `(0x10/12/13,1)` …).
+
+**Port plan (clean-room, next session):** `firmware/drivers/dac_cs43131.c`
+— I2C0 master polled driver (TX +0x100 / RX +0x200), `dac_write(map24,
+val)` broadcast to 0x60/0x66, `dac_read(chan, map24)`, CRU gates, the
+§6 register order (datasheet-anchored + ref immediates), HP-detect verify,
+then `i2s_rknanoc.c`-style I2S1 setup + polled-tone test. The register
+values that live in the ref's codec-handle struct (per-rate) will be
+recovered from its runtime table or from the datasheet equivalents.
+
+## 7. Experiment ladder (in order, cheapest first)
+
+> **UPDATE after §6:** the reference fw1 drives the DAC with its OWN raw
+> I2S1+I2C0 code from the AP core (no ROM APIs) — so the primary path is
+> now "port the ref's raw register recipe" (§6 port plan) and the ROM-API
+> route below is the background alternative if the raw port misbehaves.
+
+1. **Exp 1 — DAC sanity (no PCM):** new menu item `DAC test`:
    run the §2 sequence up to `rom_dac_unmute(1, 4)` with the DMA buffer
    filled with silence (or a static pattern), volume synced. Success =
    no hang + (maybe) faint DC/click on plug-in. Proves: ROM calls are
@@ -125,7 +190,7 @@ PCM refill into the ROM playback buffer: `rom_dma_or_copy(dst, src)`
    init sequence from datasheet §5 (power/PLL/ASP/PDN), two addresses via
    I²C scan. Heavier, fully understood.
 
-## 4. Open questions / next reads
+## 8. Open questions / next reads
 
 - Exact buffer contract: `rom_buffer_calculate` semantics + where PCM must
   be written (RE `audio_stream_process.c`, 290 lines).
@@ -136,7 +201,7 @@ PCM refill into the ROM playback buffer: `rom_dma_or_copy(dst, src)`
   topology question: distinct addresses ⇒ two independently-configured DACs).
 - MCLK actually delivered by RKnanoD I2S (TRM) — 22.5792/24.576 or PLL.
 
-## 5. RAM/code budget notes
+## 9. RAM/code budget notes
 
 The player + codecs currently end `.bss` at `0x03049570` (window to
 `0x0304C000`) — ~10 KB headroom; the ROM path needs almost no buffers of
