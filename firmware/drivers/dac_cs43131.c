@@ -27,9 +27,10 @@
  * FIX 2026-10-12 (DFIU incident 3a986c9b, hardware failure rc -4 step 2
  * scan A00 B00 C00): GRF mux offsets, CRU gate ids, I2C0 soft reset and
  * the GPIO2 power/reset dance were wrong vs the ref + SDK — all ported
- * verbatim now. I2C frame byte order fixed to MSB-first MAP per the
- * CS43131 datasheet §4.13 / Fig. 4-32 (community/CS43131_DS1155F2.pdf):
- *   [chipaddr+W][MAP 23:16][MAP 15:8][MAP 7:0][ctl INCR=1][data]
+ * verbatim now. I2C MAP byte order is LSB-first per the REF BINARY
+ * (docs/rewrite/dac.md §6: [MAP_lo][MAP_mid][MAP_hi][ctl INCR=1][data]).
+ * (My earlier MSB-first "fix" from the scanned Fig 4-32 was wrong and is
+ * reverted: the reference driver that runs on hardware sends LSB-first.)
  *
  * v1 scope: gates + mux scan + I2C0 + DAC regs + I2S1 TX master + polled
  * FIFO feed. No DMA (ref's DMA block is at 0x03090000 — port later).
@@ -251,10 +252,12 @@ static int i2c_read_map(uint8_t addr_w, uint32_t map24, uint8_t *out,
 {
     uint8_t pre[4];
 
-    /* Same MSB-first MAP order as the write frame (datasheet §4.13). */
-    pre[0] = (uint8_t)(map24 >> 16);
+    /* LSB-first MAP order, matching the ref binary (docs/rewrite/dac.md §6:
+     * [MAP_lo][MAP_mid][MAP_hi][ctl=1][data]); my earlier MSB-first reading
+     * of the scanned Fig 4-32 was wrong. */
+    pre[0] = (uint8_t)(map24);
     pre[1] = (uint8_t)(map24 >> 8);
-    pre[2] = (uint8_t)(map24);
+    pre[2] = (uint8_t)(map24 >> 16);
     pre[3] = 1;                              /* control byte: INCR         */
     if (i2c_write(addr_w, pre, 4) != DAC_OK)
         return DAC_ERR_NAK;
@@ -280,17 +283,16 @@ static int i2c_read_map(uint8_t addr_w, uint32_t map24, uint8_t *out,
 }
 
 /* Broadcast a MAP write to BOTH chips (ref semantics: FUN_03055f08).
- * Frame per datasheet §4.13 / Fig. 4-32 (verified on the scanned PDF):
- * [chipaddr+W][MAP 23:16][MAP 15:8][MAP 7:0][ctl INCR=1][data] — the MAP
- * goes MOST-significant byte first. */
+ * Frame per the ref binary (dac.md §6): [chipaddr+W][MAP lo][MAP mid]
+ * [MAP hi][ctl INCR=1][data] — the MAP goes LEAST-significant byte first. */
 static int dac_map_write(uint32_t map24, uint8_t val)
 {
     uint8_t frame[5];
     int rc, worst = DAC_OK;
 
-    frame[0] = (uint8_t)(map24 >> 16);      /* MAP high (23:16)           */
+    frame[0] = (uint8_t)(map24);            /* MAP low  (7:0)  — LSB 1st  */
     frame[1] = (uint8_t)(map24 >> 8);       /* MAP mid  (15:8)            */
-    frame[2] = (uint8_t)(map24);            /* MAP low  (7:0)             */
+    frame[2] = (uint8_t)(map24 >> 16);      /* MAP high (23:16)           */
     frame[3] = 1;                           /* INCR control byte          */
     frame[4] = val;
     rc = i2c_write(dac_chips[0], frame, 5);
@@ -507,6 +509,10 @@ int dac_init(uint32_t rate_hz)
     /* Ref order (FUN_03056550): power/reset GPIOs FIRST, then gates,
      * then the I2C0 soft reset, and only then touch I2C0. */
     s_step = DAC_STEP_POWER;
+    /* Clock the GPIO/PCLK domain BEFORE the power writes (ref gates 0x95 =
+     * PCLK_GPIO1, dac.md §6): if the GPIO bus clock is off the power/reset
+     * writes are dropped and the CS43131s stay in power-down, ACKing nothing. */
+    cru_gate(G_PCLK_GPIO1, 1);
     dac_power_sequence();
 
     s_step = DAC_STEP_GATES;
