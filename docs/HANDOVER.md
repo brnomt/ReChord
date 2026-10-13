@@ -1704,3 +1704,77 @@ the four rules above are the gate.
    re-run DFIU `preflight_check` before the flash. Also: fill in the real
    `codec_mp3`/`codec_flac` adapters (minimpp/dr_flac vendored) + the target
    `ipc_b_track_change` reply-wait (mailbox invariant `R-e9b5d8222673`).
+
+# SESSION LOG (2026-10-13): DAC bring-up, a boot brick, and the CDC console
+
+## A. DAC bring-up: fixed the I2C scan + I2S feed (no audio yet)
+
+Brought up the CS43131 dual-DAC on hardware. Iterated via the on-screen
+"DAC test" (menu index 0) register dump + bisect, all confirmed on-device:
+
+- **I2C scan no-chip (rc -4, A00 B00 C00) fixed** (`fd62725`): wrong GRF mux
+  offset (+0x200 phantom), GRF_IOMUX_CON at +0x04 not +0xBC, CRU gate ids
+  pointing at reserved bits (real PCLK_I2C0=131/0x83), missing I2C0 soft-reset
+  and the GPIO2 power/reset dance. Verified against ref fw1 (objdump) + SDK.
+- **I2C START bit** (`ac8e345`) was the scan blocker: `i2c_write` never raised
+  START, so no transfer began (every probe NAK/timeout). Ref FUN_03055dcc does
+  CON=EN|START|TX, wait STARTIPD. After this: `rc 0 step 13`, chip 0 (0x60) ACKs.
+- **I2S TX FIFO wait was inverted** (`a82d2a0`): waited while the FIFO was
+  EMPTY (`==0`) instead of for room (`level<0x1e`, SDK I2s.c). Fix: tone feed
+  now writes 132352 frames (was 0 + timeout).
+- **CS43131 register sequence ported verbatim** from ref FUN_03056550
+  (`b734fb5`): ~30 MAP writes (0x00020052, 0x00040010-19, 0x00050000/1,
+  0x00090000/3/4, 0x000D0001, FUN_03055ecc per-chip L=7/R=15, amp GPIO(1,4,1))
+  + the exact 0x00090003=0xEC. My earlier abbreviated list was wrong.
+
+**Still open**: no audio output, and `dac_map_read` returns 0xFF for every
+register (the on-screen dump shows PWR/MUT/VOL/CH0/CH1/OUT all FF = the I2C
+read fails). The read (MAP preamble + MRX) was reworked to the ref's exact
+CON=0x11/wait IPD 0x20 (FUN_03055da8) but still returns FF. **DFIU 5d8b7b3c.**
+Fix the read -> the DAC test screen itself is the debugger for the no-sound.
+
+## B. A boot brick (fixed by bisect) — NOT the DAC code
+
+Flashing a DAC-fix IMG hard-bricked the device (black, no USB, no power;
+stock reflash recovered it). Bisect of the 4 commits isolated it:
+`9e97097` (DAC driver) boots, `fcd6b8c` (config + logging) bricks
+deterministically (SHA256 0121a3c9ae). The DAC fix (`fd62725`) has byte-identical
+.data/.bss to fcd6b8c — not the cause. Workaround: build the DAC fix WITHOUT
+fcd6b8c (base 9e97097 + dac_cs43131.c/h) = `ReChord_AP5M_DACFIX*.IMG`, which
+boots. fcd6b8c's boot bug (a .data/reloc collision) is still open before
+config/logging can be re-added. **DFIU a14e948f / 66654652.**
+
+Gotcha: when building from a git worktree, `git checkout HEAD -- <files>`
+resolves HEAD to the WORKTREE's commit (9e97097), not the repo master — the
+image silently built from the wrong (broken) driver. Always use an explicit
+SHA in worktree builds. **DFIU c200c71d.**
+
+## C. USB CDC-ACM debug console — PAUSED (device doesn't enumerate in console)
+
+`firmware/drivers/usb_cdc_rknanoc.c`: a polled DWC2 CDC-ACM console (shares
+usb_msc's bring-up via `usb_dwc2_init()`), "USB console" menu entry, live
+on-screen enumeration diag (resets/setups/desc counts/last_setup/GINTSTS),
++ `r<map>`/`w<map><val>`/`s` commands for I2C. Debugged via the on-screen diag
++ sysfs raw descriptors. Confirmed fixes: EP0 OUT re-arm after every EP0 event
+(host lost the GET_DESCRIPTOR config SETUP -> reset loop), SET_CONFIGURATION EP
+activation (missing USBAEP/DAINTMSK/DCTL clear-NAK -> no interfaces). Two
+wrong turns worth remembering: DTXFSTS(ep) is for dedicated FIFOs, EP0 space
+is GNPTXSTS (DTXFSTS(0)=0 -> xhci "setup device command" timeout); and the EP0
+FIFO is already big enough (NPTX 128B > 62B config) - a resize was a red herring.
+
+**Current blocker**: with the device in "USB console", the host sees NOTHING
+(no 071b, no xhci activity) - the CDC doesn't connect. Auto-MSC on cable plug
+(`usb_session`, ap_ui.c:466) hijacks the USB; in console mode after that the
+CDC never enumerates. Needs either the on-screen diag values or dmesg access to
+close (blind DWC2 device-mode debugging is too slow). Deferred; the DAC test
+screen is the faster path to the DAC debug once the I2C read is fixed. **DFIU
+8720b71d.**
+
+## D. Immediate next steps (this session's leftovers)
+
+1. Fix `dac_map_read` (I2C master-receive) so the register dump shows real
+   values -> then diagnose no-sound from the screen (DFIU 5d8b7b3c).
+2. Root-cause the fcd6b8c boot bug so config/logging can be re-added
+   (DFIU a14e948f).
+3. (Deferred) CDC-ACM console: close the console-mode enumeration
+   (DFIU 8720b71d).
