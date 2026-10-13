@@ -564,10 +564,9 @@ int dac_init(uint32_t rate_hz)
 
     s_step = DAC_STEP_DAC_REGS;
     dac_map_write(0x000B0000, 0x1F);
-    dac_map_write(0x00080000, 0x10);
-    dac_map_write(0x000D0000, 0x04);
-    dac_map_write(0x00090003, 0x00);
-    dac_delay_ms(10);
+    dac_delay_ms(80);
+    dac_gpio_out(1, 4, 1);            /* amp/HP enable (ref FUN_03051478)  */
+    dac_map_write(0x00020052, 0x02);
 
     s_step = DAC_STEP_HP_CHECK;
     {
@@ -583,22 +582,43 @@ int dac_init(uint32_t rate_hz)
     }
 
     s_step = DAC_STEP_DAC_REGS2;
-    dac_map_write(0x000F0010, 0x87);
-    dac_map_write(0x000F0011, 0x07);
-    dac_map_write(0x00010006, 0x04);
-    dac_map_write(0x0001000D, 0x02);
-    dac_delay_ms(10);
+    dac_map_write(0x000F0010, 0xE7);
+    dac_map_write(0x00020000, 0xF6);
+    dac_map_write(0x0001000C, 0x04);
+    dac_map_write(0x00040010, 0x01);
+    dac_map_write(0x00040011, 0x00);
+    dac_map_write(0x00040012, 0x08);
+    dac_map_write(0x00040013, 0x00);
+    dac_map_write(0x00040014, 0x1F);
+    dac_map_write(0x00040015, 0x00);
+    dac_map_write(0x00040016, 0x3F);
+    dac_map_write(0x00040017, 0x00);
+    dac_map_write(0x00040018, 0x0C);
+    dac_map_write(0x00040019, 0x0A);
+    dac_map_write(0x00050000, 0x00);
+    dac_map_write(0x00050001, 0x00);
+    dac_map_write(0x00090000, 0x02);
+    dac_map_write(0x00090003, 0xEC);
+    dac_map_write(0x00090004, 0x00);
 
     s_step = DAC_STEP_MONO;
     for (i = 0; i < 24; i++)
         dac_map_write(dac_mono_seq[i].map, dac_mono_seq[i].val);
 
     s_step = DAC_STEP_DAC_REGS3;
+    dac_map_write(0x000B0000, 0x1F);
+    dac_delay_ms(80);
+    dac_map_write(0x00080000, 0x10);
+    dac_map_write(0x000D0000, 0x04);
+    dac_map_write(0x000D0001, 0x00);
+    dac_map_write(0x000F0010, 0x87);
+    dac_map_write(0x000F0011, 0x07);
+    dac_map_write(0x00010006, 0x04);
+    dac_map_write(0x0001000D, 0x02);
     dac_map_write(0x00010010, 0x99);
     dac_map_write(0x00180000, 0x45);
-    dac_delay_ms(64);
     dac_map_write(0x00010010, 0x00);
-    dac_delay_ms(16);
+    dac_delay_ms(64);
     dac_map_write(0x00010010, 0x99);
     dac_map_write(0x00080032, 0x20);
     dac_delay_ms(16);
@@ -606,12 +626,13 @@ int dac_init(uint32_t rate_hz)
     dac_map_write(0x00010010, 0x00);
 
     s_step = DAC_STEP_VOLUME;
-    /* Per-rate DAC control byte (ref: MAP 0x01000B, pool 0x030569C4). */
+    /* Per-rate DAC control byte (ref: MAP 0x01000B). */
     dac_map_write(0x0001000B, rt->dac);
     dac_delay_ms(10);
 
     s_step = DAC_STEP_UNMUTE;
-    dac_map_write(0x00010009, 0x00);
+    dac_gpio_out(1, 4, 1);            /* amp enable again (ref)           */
+    dac_map_write(0x00010009, 0x00);   /* unmute                          */
     dac_delay_ms(10);
 
     s_step = DAC_STEP_DONE;
