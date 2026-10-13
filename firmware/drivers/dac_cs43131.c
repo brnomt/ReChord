@@ -293,9 +293,22 @@ static int i2c_read_map(uint8_t addr_w, uint32_t map24, uint8_t *out,
     return DAC_OK;
 }
 
+/* Per-chip MAP write (ref FUN_03055ecc writes different L/R values). */
+static int dac_map_write_chan(int chan, uint32_t map24, uint8_t val)
+{
+    uint8_t frame[5];
+
+    frame[0] = (uint8_t)(map24 >> 16);      /* MAP high (MSB first)       */
+    frame[1] = (uint8_t)(map24 >> 8);
+    frame[2] = (uint8_t)(map24);
+    frame[3] = 1;
+    frame[4] = val;
+    return i2c_write(dac_chips[chan & 1], frame, 5);
+}
+
 /* Broadcast a MAP write to BOTH chips (ref semantics: FUN_03055f08).
- * Frame per the ref binary (dac.md §6): [chipaddr+W][MAP lo][MAP mid]
- * [MAP hi][ctl INCR=1][data] — the MAP goes LEAST-significant byte first. */
+ * Frame per the ref binary (FUN_03055e78): [chipaddr+W][MAP hi][MAP mid]
+ * [MAP lo][ctl INCR=1][data] — the MAP goes MOST-significant byte first. */
 static int dac_map_write(uint32_t map24, uint8_t val)
 {
     uint8_t frame[5];
@@ -597,6 +610,11 @@ int dac_init(uint32_t rate_hz)
     dac_map_write(0x00040019, 0x0A);
     dac_map_write(0x00050000, 0x00);
     dac_map_write(0x00050001, 0x00);
+    /* Per-chip output channel/gain (ref FUN_03055ecc): L=7, R=15. */
+    dac_map_write_chan(0, 0x0005000A, 0x07);
+    dac_map_write_chan(0, 0x0005000B, 0x07);
+    dac_map_write_chan(1, 0x0005000A, 0x0F);
+    dac_map_write_chan(1, 0x0005000B, 0x0F);
     dac_map_write(0x00090000, 0x02);
     dac_map_write(0x00090003, 0xEC);
     dac_map_write(0x00090004, 0x00);
@@ -633,6 +651,11 @@ int dac_init(uint32_t rate_hz)
     s_step = DAC_STEP_UNMUTE;
     dac_gpio_out(1, 4, 1);            /* amp enable again (ref)           */
     dac_map_write(0x00010009, 0x00);   /* unmute                          */
+    /* Ref FUN_03055ecc again right before the feed. */
+    dac_map_write_chan(0, 0x0005000A, 0x07);
+    dac_map_write_chan(0, 0x0005000B, 0x07);
+    dac_map_write_chan(1, 0x0005000A, 0x0F);
+    dac_map_write_chan(1, 0x0005000B, 0x0F);
     dac_delay_ms(10);
 
     s_step = DAC_STEP_DONE;
