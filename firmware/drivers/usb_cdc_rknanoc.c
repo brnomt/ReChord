@@ -382,10 +382,24 @@ void usb_cdc_request_exit(void)
 /* ---- main poll loop ---------------------------------------------------- */
 void usb_cdc_init(void)
 {
+    uint32_t total, rx;
+
     s.exit = 0;
     s.line[0] = 0x80; s.line[1] = 0x25; s.line[2] = 0;   /* 9600 8N1        */
     s.line[3] = 0; s.line[4] = 0; s.line[5] = 0; s.line[6] = 8;
     usb_dwc2_init();                           /* shared DWC2 bring-up       */
+
+    /* Size the EP0 TX (non-periodic) FIFO to hold a full 64-byte packet.
+     * The 62-byte CDC config descriptor needs 16 FIFO words in one packet;
+     * with a smaller NPTX FIFO it assembles only part and the host times out
+     * (kernel: "unable to read config ... /start: -110") while small reads
+     * (device desc 18B, config probe 9B) still work. GRX stays 0x120 words. */
+    total = OTG(GHWCFG3) >> 16;                /* total FIFO depth, words    */
+    rx = 0x120u;
+    if (total > rx + 32u) {
+        OTG(GRXFSIZ) = rx;
+        OTG(GNPTXFSIZ) = ((total - rx) << 16) | rx;   /* NPTX = rest       */
+    }
 }
 
 void usb_cdc_poll(void)
