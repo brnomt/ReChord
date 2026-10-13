@@ -18,6 +18,9 @@ enum {
 
 int usb_cable(void);         /* 1 = VBUS present */
 
+/* Shared DWC2 bring-up (PHY + core + FIFOs + EP0) used by MSC and CDC. */
+void usb_dwc2_init(void);
+
 /* Last session: [7:0] last SCSI opcode, [15:8] last START STOP byte 4,
  * [19:16] GINTSTS bits 10..13 ever seen (early suspend, suspend, reset, enum). */
 extern uint32_t usb_msc_diag;

@@ -661,6 +661,14 @@ static void core_init(void)
     bus_reset();
 }
 
+/* Shared DWC2 bring-up (PHY + core + FIFOs + EP0), reused by the CDC-ACM
+ * console driver so both devices use the exact init that enumerates. */
+void usb_dwc2_init(void)
+{
+    hw_on();
+    core_init();
+}
+
 int usb_msc_run(const usb_lun_t *luns, unsigned nluns, int (*user_exit)(void),
                 uint32_t *rd_sectors, uint32_t *wr_sectors)
 {

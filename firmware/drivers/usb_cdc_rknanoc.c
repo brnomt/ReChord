@@ -15,6 +15,7 @@
 
 #include <stdint.h>
 #include "usb_cdc.h"
+#include "usb_msc.h"                 /* usb_dwc2_init() shared bring-up     */
 
 /* ---- DWC2 OTG registers ------------------------------------------------ */
 #define OTG(off)    (*(volatile uint32_t *)(0x60080000u + (off)))
@@ -61,10 +62,7 @@ static void rk_delay_us(unsigned us)
     while (n--) __asm__ volatile("nop");
 }
 
-static int usb_cable(void)            /* VBUS detect via DSTS[0] BSVLD    */
-{
-    return 1;                         /* assume connected (polled loop)    */
-}
+/* usb_cable() comes from usb_msc.h (real VBUS detect via GRF). */
 
 static int wait_clear(unsigned off, uint32_t mask)
 {
@@ -289,20 +287,7 @@ static void rx_drain(void)
     }
 }
 
-/* ---- core init --------------------------------------------------------- */
-static void dwc2_init(void)
-{
-    OTG(GRSTCTL) = 0x80000000u;                 /* core soft reset           */
-    wait_clear(GRSTCTL, 0x80000000u);
-    OTG(GAHBCFG) = 0;                           /* interrupts off (polled)   */
-    OTG(GUSBCFG) = OTG(GUSBCFG) | 0x1000u;      /* PHY: FS                   */
-    OTG(DCFG) = (OTG(DCFG) & ~0x7F0u) | 3u << 0; /* dev: FS, addr 0          */
-    flush_fifos();
-    OTG(DIEPMSK) = 0;
-    OTG(DOEPMSK) = 0;
-    OTG(DAINTMSK) = 0x10001u;
-    bus_reset();
-}
+/* ---- core init: shared usb_dwc2_init() (hw_on + core_init) from usb_msc -- */
 
 /* ---- public: send text to the host (bulk IN) --------------------------- */
 int usb_cdc_puts(const char *str)
@@ -348,7 +333,7 @@ void usb_cdc_init(void)
     s.exit = 0;
     s.line[0] = 0x80; s.line[1] = 0x25; s.line[2] = 0;   /* 9600 8N1        */
     s.line[3] = 0; s.line[4] = 0; s.line[5] = 0; s.line[6] = 8;
-    dwc2_init();
+    usb_dwc2_init();                           /* shared DWC2 bring-up       */
 }
 
 void usb_cdc_poll(void)
