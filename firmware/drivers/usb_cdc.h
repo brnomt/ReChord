@@ -21,4 +21,14 @@ int  usb_cdc_available(void);
 /* Ask usb_cdc_run() to return. */
 void usb_cdc_request_exit(void);
 
+/* On-screen enumeration diagnostics (what the host sent us). */
+struct usb_cdc_diag_t {
+    uint32_t resets, setups, desc_dev, desc_cfg, desc_str, set_addr;
+    uint32_t class_req, other_req, xfer_err;
+    uint8_t  last_setup[8];
+    uint32_t gintsts, dsts, daint;
+    uint32_t configured;
+};
+const struct usb_cdc_diag_t *usb_cdc_diag(void);
+
 #endif /* RECHORD_USB_CDC_H */

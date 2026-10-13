@@ -386,30 +386,42 @@ static void cdc_exec(char *ln)
 static void usb_console_run(void)
 {
     char ln[64];
-    unsigned len = 0;
+    unsigned len = 0, frames = 0;
 
-    screen("USB console");
-    line(1, "connect /dev/ttyACM0");
-    line(2, "cmds: r<map> w<map><val> s q");
+    screen("USB diag");
+    line(1, "enumerating... POWER=exit");
     display_flush_rows(0, DISPLAY_H - 1);
-    dac_init(44100);                       /* bring up I2C0 + CS43131       */
+    dac_init(44100);                       /* I2C0 up so r/w cmds work      */
     usb_cdc_init();
-    usb_cdc_puts("\r\nReChord console. cmds: r<map> w<map><val> s(scan) q(quit)\r\n> ");
     for (;;) {
         int c;
         usb_cdc_poll();
-        c = usb_cdc_getc();
-        if (c < 0) {
-            if (keys_power())
-                break;
-            continue;
+        if (keys_power())
+            break;
+        /* Live enumeration state, refreshed every ~256 polls. */
+        if ((frames++ & 0xFFu) == 0u) {
+            const struct usb_cdc_diag_t *d = usb_cdc_diag();
+            snprintf(ln, sizeof ln, "rst %u set %u cfg %u", d->resets, d->setups, d->configured ? 1u : 0u);
+            line(2, ln);
+            snprintf(ln, sizeof ln, "dev%u cfg%u str%u adr%u", d->desc_dev, d->desc_cfg, d->desc_str, d->set_addr);
+            line(3, ln);
+            snprintf(ln, sizeof ln, "cls%u oth%u xfer%u", d->class_req, d->other_req, d->xfer_err);
+            line(4, ln);
+            snprintf(ln, sizeof ln, "s %02x %02x %02x %02x %02x %02x %02x %02x", d->last_setup[0], d->last_setup[1], d->last_setup[2], d->last_setup[3], d->last_setup[4], d->last_setup[5], d->last_setup[6], d->last_setup[7]);
+            line(5, ln);
+            snprintf(ln, sizeof ln, "GINT %08x DSTS %03x", d->gintsts, d->dsts & 0xFFFu);
+            line(6, ln);
+            display_flush_rows(0, DISPLAY_H - 1);
         }
+        c = usb_cdc_getc();
+        if (c < 0)
+            continue;
         if (c == '\r' || c == '\n') {
             ln[len] = 0;
-            if (len)
+            if (len) {
                 cdc_exec(ln);
-            len = 0;
-            usb_cdc_puts("> ");
+                len = 0;
+            }
         } else if (len < sizeof ln - 1u) {
             ln[len++] = (char)c;
         }

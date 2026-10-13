@@ -55,6 +55,11 @@ static struct {
     uint8_t  line[7];                 /* SET_LINE_CODING payload          */
 } s;
 
+/* On-screen enumeration diagnostics: what the host actually sent us. */
+static struct usb_cdc_diag_t s_diag;
+
+const struct usb_cdc_diag_t *usb_cdc_diag(void) { return &s_diag; }
+
 /* ---- small helpers ----------------------------------------------------- */
 static void rk_delay_us(unsigned us)
 {
@@ -159,6 +164,7 @@ static void flush_fifos(void)
 static void bus_reset(void)
 {
     unsigned n;
+    s_diag.resets++;
     OTG(DCFG) &= ~0x7F0u;
     DIEPINT(0) = 0xFFu;
     DOEPINT(0) = 0xFFu;
@@ -224,8 +230,14 @@ static void handle_setup(void)
     uint32_t val = r[2] | r[3] << 8, idx = r[4] | r[5] << 8, wlen = r[6] | r[7] << 8;
     const void *data = buf;
     uint32_t n = 0;
+    int i;
+
+    for (i = 0; i < 8; i++)
+        s_diag.last_setup[i] = r[i];
+    s_diag.setups++;
 
     if ((type & 0x60u) == 0x20u) {              /* CDC class requests       */
+        s_diag.class_req++;
         switch (req) {
         case 0x20:                              /* SET_LINE_CODING (7 bytes) */
             if (wlen == 7u) {                   /* data stage follows        */
@@ -256,13 +268,15 @@ static void handle_setup(void)
         goto status;
     case 5:                                     /* SET_ADDRESS               */
         OTG(DCFG) = (OTG(DCFG) & ~0x7F0u) | (val & 0x7Fu) << 4;
+        s_diag.set_addr++;
         goto status;
     case 6:                                     /* GET_DESCRIPTOR            */
         switch (val >> 8) {
-        case 1: data = k_dev; n = sizeof k_dev; break;
-        case 2: data = k_cfg; n = sizeof k_cfg; break;
+        case 1: data = k_dev; n = sizeof k_dev; s_diag.desc_dev++; break;
+        case 2: data = k_cfg; n = sizeof k_cfg; s_diag.desc_cfg++; break;
         case 3: {
             unsigned si = val & 0xFFu;
+            s_diag.desc_str++;
             if (si == 0u) { data = k_str0; n = sizeof k_str0; }
             else if (si < 4u) n = build_str(buf, k_str[si]);
             else goto stall;
@@ -358,11 +372,19 @@ void usb_cdc_init(void)
 
 void usb_cdc_poll(void)
 {
+    if (OTG(GINTSTS) & INT_RESET) {          /* bus reset from host         */
+        OTG(GINTSTS) = INT_RESET;
+        bus_reset();
+    }
     rx_drain();
     if (s.setup_pending) {
         s.setup_pending = 0;
         handle_setup();
     }
+    s_diag.gintsts = OTG(GINTSTS);
+    s_diag.dsts = OTG(DSTS);
+    s_diag.daint = OTG(DAINT);
+    s_diag.configured = (uint32_t)s.configured;
 }
 
 int usb_cdc_run(void)
