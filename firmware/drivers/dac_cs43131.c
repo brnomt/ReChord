@@ -274,19 +274,14 @@ static int i2c_read_map(uint8_t addr_w, uint32_t map24, uint8_t *out,
     if (i2c_write(addr_w, pre, 4) != DAC_OK)
         return DAC_ERR_NAK;
 
-    /* Repeated-START + master-receive (SDK I2CReadData): the read needs its
-     * own START (addr|R) and LASTACK to NAK the final byte. Without these the
-     * read never completes -> dac_map_read returns timeout and every reg
-     * reads back 0xFF. */
+    /* Master-receive, verbatim ref FUN_03055da8: CON = 0x11 (EN | MRX bit4),
+     * then wait IPD bit 0x20 (MRX done). Earlier variants (MOD(TRX)/START/
+     * LASTACK, wait 0x8) never completed the read -> every reg read 0xFF. */
     I2C_IPD = 0x7Fu;
-    I2C_CON = I2C_CON_EN | I2C_CON_START | I2C_CON_MOD(I2C_MODE_TRX) | I2C_CON_LASTACK;
-    if (i2c_wait(I2C_START_DONE, 400000) != DAC_OK)
-        return DAC_ERR_TIMEOUT;
-    I2C_IPD = I2C_START_DONE;
-    I2C_CON = I2C_CON_EN | I2C_CON_MOD(I2C_MODE_TRX) | I2C_CON_LASTACK;
     I2C_MRXADDR = 0x01000000u | addr_w;     /* vld=1 + 7-bit address byte */
     I2C_MRXCNT = n;
-    if (i2c_wait(I2C_MRX_DONE, 400000) != DAC_OK)
+    I2C_CON = 0x11u;                        /* EN | MRX (bit 4)            */
+    if (i2c_wait(0x20u, 400000) != DAC_OK)  /* IPD bit 5: MRX done        */
         return DAC_ERR_TIMEOUT;
     {
         uint32_t word = I2C_RXFIFO(0);

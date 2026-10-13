@@ -325,6 +325,7 @@ static void dac_test_run(void)
 }
 
 static const menu_item_t k_root_items[] = {
+    { "DAC test",    NULL,      dac_test_run },
     { "Files",       NULL,      open_files },
     { "Now Playing", NULL,      open_player },
     { "Settings",    NULL,      open_settings },
@@ -333,7 +334,6 @@ static const menu_item_t k_root_items[] = {
     { "SD",          sd_text,   NULL },
     { "USB",         usb_text,  NULL },
     { "USB diag",    usbd_text, NULL },
-    { "DAC test",    NULL,      dac_test_run },
 };
 #define RC_BUILD "m7a"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 9 };
