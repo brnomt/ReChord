@@ -1727,11 +1727,18 @@ Brought up the CS43131 dual-DAC on hardware. Iterated via the on-screen
   0x00090000/3/4, 0x000D0001, FUN_03055ecc per-chip L=7/R=15, amp GPIO(1,4,1))
   + the exact 0x00090003=0xEC. My earlier abbreviated list was wrong.
 
-**Still open**: no audio output, and `dac_map_read` returns 0xFF for every
-register (the on-screen dump shows PWR/MUT/VOL/CH0/CH1/OUT all FF = the I2C
-read fails). The read (MAP preamble + MRX) was reworked to the ref's exact
-CON=0x11/wait IPD 0x20 (FUN_03055da8) but still returns FF. **DFIU 5d8b7b3c.**
-Fix the read -> the DAC test screen itself is the debugger for the no-sound.
+**Still open**: no audio output. `dac_map_read` returning 0xFF is **FIXED
+(2026-10-13)**: the read phase had copied `FUN_03055da8`'s `CON=0x11`/wait
+`IPD 0x20` as "MRX done" — that function is the **STOP tail helper** (0x11 =
+`EN|STOP`, 0x20 = STOPIPD), so no receive ever ran and the empty RXFIFO read
+back as 0xFFFFFFFF. `i2c_read_map` now follows ref FUN_03055fe8
+byte-for-byte (Fig 4-34 aborted-write preamble + STOP, then TRX receive:
+`MRXADDR=vld|(addr|R)`, `MRXRADDR=0`, `CON=0x0B`, LASTACK, MRXCNT, wait
+MBRFIPD 0x08) and `i2c_write` got the missing STOP tail. MAP byte order is
+**MSB-first**, settled by FUN_03055e78 disassembly + datasheet Fig 4-32
+(see docs/rewrite/dac.md §8b). **DFIU 5d8b7b3c — pending hardware verify.**
+Once reads return real values, the DAC test screen is the debugger for the
+no-sound.
 
 ## B. A boot brick (fixed by bisect) — NOT the DAC code
 
@@ -1743,6 +1750,15 @@ deterministically (SHA256 0121a3c9ae). The DAC fix (`fd62725`) has byte-identica
 fcd6b8c (base 9e97097 + dac_cs43131.c/h) = `ReChord_AP5M_DACFIX*.IMG`, which
 boots. fcd6b8c's boot bug (a .data/reloc collision) is still open before
 config/logging can be re-added. **DFIU a14e948f / 66654652.**
+
+**UPDATE (2026-10-13): `fcd6b8c` REVERTED from master** (`279a00e`) so HEAD is
+bootable — `make cfw-ap && make cfw-img` from HEAD now builds a safe image
+(verified: .data back to 180, no config/logging linked, row1 obj ~9e97097).
+The config/logging work is preserved on branch **`feat/config-logging`**;
+re-add it only after root-causing the boot bug (ap_startup.c never copies
+.data, so fcd6b8c's first initialized .data static breaks the boot). **DFIU
+cacf65c6.** Until then, `make cfw-img` from a HEAD that includes fcd6b8c
+bricks — that is what hit the other agent's build.
 
 Gotcha: when building from a git worktree, `git checkout HEAD -- <files>`
 resolves HEAD to the WORKTREE's commit (9e97097), not the repo master — the
@@ -1762,18 +1778,26 @@ wrong turns worth remembering: DTXFSTS(ep) is for dedicated FIFOs, EP0 space
 is GNPTXSTS (DTXFSTS(0)=0 -> xhci "setup device command" timeout); and the EP0
 FIFO is already big enough (NPTX 128B > 62B config) - a resize was a red herring.
 
-**Current blocker**: with the device in "USB console", the host sees NOTHING
-(no 071b, no xhci activity) - the CDC doesn't connect. Auto-MSC on cable plug
-(`usb_session`, ap_ui.c:466) hijacks the USB; in console mode after that the
-CDC never enumerates. Needs either the on-screen diag values or dmesg access to
-close (blind DWC2 device-mode debugging is too slow). Deferred; the DAC test
-screen is the faster path to the DAC debug once the I2C read is fixed. **DFIU
-8720b71d.**
+**Current blocker — addressed 2026-10-13 (pending hardware verify)**: with
+the device in "USB console", the host sees NOTHING (no 071b, no xhci
+activity) - the CDC doesn't connect. Auto-MSC on cable plug hijacked the USB
+core and mode switches never produced a host-visible disconnect (the
+`DCTL.SftDiscon` pulse in `core_init()` was microseconds long and could be
+cleared by the core soft reset itself, shorter than the host's ~100 ms
+unplug debounce — the host kept the stale MSC device and never
+re-enumerated). Fixed: `usb_dwc2_stop()` (soft-disconnect + 150 ms hold +
+FIFO flush + PHY power-down) on every session exit, `core_init()` re-asserts
+soft-disconnect and holds it 150 ms before connect, CDC SET_CONFIGURATION
+allocates DIEPTXF1/DIEPTXF2 for EP1/EP2 in dedicated-FIFO mode, the VBUS
+edge now opens the CDC console by default and MSC moved to a "USB storage"
+menu entry (no more `usb_msc_run()` hijack). **DFIU 8720b71d.**
 
 ## D. Immediate next steps (this session's leftovers)
 
-1. Fix `dac_map_read` (I2C master-receive) so the register dump shows real
-   values -> then diagnose no-sound from the screen (DFIU 5d8b7b3c).
+1. ~~Fix `dac_map_read` (I2C master-receive)~~ **done 2026-10-13** (ref
+   FUN_03055fe8 TRX receive, dac.md §8b): verify on hardware that the dump
+   shows real PWR/MUT/VOL values -> then diagnose no-sound from the screen
+   (DFIU 5d8b7b3c).
 2. Root-cause the fcd6b8c boot bug so config/logging can be re-added
    (DFIU a14e948f).
 3. (Deferred) CDC-ACM console: close the console-mode enumeration
