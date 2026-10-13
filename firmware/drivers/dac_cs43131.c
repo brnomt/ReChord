@@ -630,7 +630,11 @@ int dac_i2s_feed(const int16_t *pcm, int frames)
 
     s_step = DAC_STEP_FEED;
     for (i = 0; i < frames; i++) {
-        for (stall = 0; (I2S_FIFOLR & 0xFFFFu) == 0; stall++) {
+        /* Wait for TX FIFO room: FIFOLR[5:0] = TX level, write when below
+         * 0x1e (SDK I2s.c I2S_PIO_Write). The old "== 0" waited while the
+         * FIFO was EMPTY (inverted), so an empty FIFO spun to timeout ->
+         * DAC_ERR_TIMEOUT, frames 0. */
+        for (stall = 0; (I2S_FIFOLR & 0x3Fu) >= 0x1Eu; stall++) {
             if (stall > 8000000u)
                 return DAC_ERR_TIMEOUT;     /* FIFO never drains: no clock */
         }
