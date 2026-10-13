@@ -124,16 +124,10 @@ static int cdc_ep_in(unsigned ep, const void *buf, uint32_t len)
     for (;;) {
         if (len) {
             uint32_t n = len < mps ? len : mps;
-            /* TX FIFO space source, byte-clone of the MSC's ep_in(): with
-             * dedicated per-EP FIFOs the space lives in DTXFSTS(ep), not
-             * GNPTXSTS. Reading the wrong register made multi-packet (>64B)
-             * transfers stall after the first packet (the 67-byte config
-             * descriptor only got its first 9 bytes through). */
-            uint32_t space;
-            if ((OTG(GHWCFG4) >> 25) & 1u)
-                space = DTXFSTS(ep) & 0xFFFFu;
-            else
-                space = (OTG(GNPTXSTS) & 0xFF0000u) ? OTG(GNPTXSTS) & 0xFFFFu : 0u;
+            /* EP0 TX FIFO space lives in GNPTXSTS (shared non-periodic FIFO).
+             * DTXFSTS(ep) is only for dedicated per-EP FIFOs; on EP0 it reads
+             * 0 and the transfer times out (xhci "setup device command"). */
+            uint32_t space = (OTG(GNPTXSTS) & 0xFF0000u) ? OTG(GNPTXSTS) & 0xFFFFu : 0u;
             if (space >= (n + 3u) >> 2) {
                 fifo_write(ep, p, n);
                 p += n;
@@ -201,17 +195,17 @@ static const uint8_t k_qual[10] = { 10, 6, 0x00, 0x02, 0x02, 0x00, 0, 0x40, 1, 0
 static const uint8_t k_str0[4] = { 4, 3, 0x09, 0x04 };
 static const char *const k_str[4] = { 0, "ReChord", "ReChord", "000000000001" };
 
-/* Config: legacy CDC-ACM (no IAD): comm iface (CDC Header/ACM/Union/
- * CallMgmt + notif EP) + data iface (bulk IN + bulk OUT). wTotal=67.
- * bDeviceClass=0x02 (CDC) at the device level, interfaces carry the class. */
-static const uint8_t k_cfg[67] = {
-    9, 2, 67, 0, 2, 1, 0, 0x80, 50,          /* config: 2 interfaces        */
+/* Config: legacy CDC-ACM (no IAD), sized to ONE EP0 packet (62 <= 64) so it
+ * uses the proven single-packet transfer path (multi-packet EP0 IN stalls on
+ * this DWC2). Dropped the optional CDC Call Mgmt descriptor; cdc_acm finds
+ * the data interface via the Union descriptor. wTotal=62. */
+static const uint8_t k_cfg[62] = {
+    9, 2, 62, 0, 2, 1, 0, 0x80, 50,          /* config: 2 interfaces        */
     /* comm interface (if 0) */
     9, 4, 0, 0, 1, 0x02, 0x02, 0x01, 0,      /* CDC comm, ACM, AT           */
     5, 0x24, 0x00, 0x20, 0x01,               /* CDC Header 1.20             */
     4, 0x24, 0x02, 0x02,                     /* CDC ACM (cap 0x02)          */
     5, 0x24, 0x06, 0, 1,                     /* CDC Union: comm=0 data=1    */
-    5, 0x24, 0x01, 0, 1,                     /* CDC Call Mgmt: data if 1    */
     7, 5, 0x82, 3, 8, 0, 9,                  /* EP2 IN interrupt (notif)    */
     /* data interface (if 1) */
     9, 4, 1, 0, 2, 0x0A, 0, 0, 0,            /* CDC data, 2 bulk EPs        */
