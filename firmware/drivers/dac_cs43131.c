@@ -8,10 +8,11 @@
  *     L = 0x60 (7-bit 0x30), R = 0x66 (7-bit 0x33) — chip address table
  *     from ref RAM 0x03060B78; mono enable = the 24-pair (MAP,value) table
  *     byte-identical to datasheet §5.12 (ref RAM 0x03060AB8).
- *   - Control: I2C0 @ 0x40040000 (RK I2C: CON 0x00, CLKDIV 0x04, MTXCNT
- *     0x10, MRXCNT 0x14, IPD 0x1C, TXFIFO +0x100, RXFIFO +0x200). Register
- *     access = [chipaddr+W][MAP_lo][MAP_mid][MAP_hi][ctl=1][data] (24-bit
- *     MAP + INCR control byte, datasheet §4.13).
+ *   - Control: I2C0 @ 0x40040000 (RK I2C: CON 0x00, CLKDIV 0x04,
+ *     MRXADDR 0x08, MRXRADDR 0x0C, MTXCNT 0x10, MRXCNT 0x14, IEN 0x18,
+ *     IPD 0x1C, TXFIFO +0x100, RXFIFO +0x200). Register
+ *     access = [chipaddr+W][MAP_hi][MAP_mid][MAP_lo][ctl=1][data] (24-bit
+ *     MAP sent MSB-first + INCR control byte, datasheet §4.13 Fig 4-32).
  *   - Clocks: CRU @ 0x40180000 (CLKGATE_CON[0] @ +0x80, active-low gates
  *     with upper-halfword write-enable). ACODEC block @ 0x40090000
  *     (internal mux, +0x200..+0x210 per sample rate). I2S1 @ 0x40030000.
@@ -27,10 +28,19 @@
  * FIX 2026-10-12 (DFIU incident 3a986c9b, hardware failure rc -4 step 2
  * scan A00 B00 C00): GRF mux offsets, CRU gate ids, I2C0 soft reset and
  * the GPIO2 power/reset dance were wrong vs the ref + SDK — all ported
- * verbatim now. I2C MAP byte order is LSB-first per the REF BINARY
- * (docs/rewrite/dac.md §6: [MAP_lo][MAP_mid][MAP_hi][ctl INCR=1][data]).
- * (My earlier MSB-first "fix" from the scanned Fig 4-32 was wrong and is
- * reverted: the reference driver that runs on hardware sends LSB-first.)
+ * verbatim now.
+ *
+ * FIX 2026-10-13 (DFIU 5d8b7b3c, every register read 0xFF): the MAP byte
+ * order debate is SETTLED — it is MSB-first ([MAP_hi][MAP_mid][MAP_lo]),
+ * byte-exact from ref FUN_03055e78 (strb map>>16, >>8, &0xFF) AND
+ * datasheet §4.13 Fig 4-32/4-33/4-34 ("MAP BYTE High (23:16), Mid (15:8),
+ * Low (7:0)"); dac.md §6's "[MAP_lo] first" note is a transcription error.
+ * The 0xFF reads came from the read phase: it programmed CON = 0x11 and
+ * waited IPD 0x20 — that is EN|STOP + STOPIPD (FUN_03055da8 is the STOP
+ * helper!), so no receive ever ran and the empty RXFIFO read back as
+ * 0xFFFFFFFF. The read now follows ref FUN_03055fe8 byte-for-byte:
+ * aborted-write preamble + STOP (Fig 4-34), then TRX-mode receive
+ * (MRXADDR=vld|(addr|R), MRXRADDR=0, CON=0x0B, LASTACK, MRXCNT, MBRFIPD).
  *
  * v1 scope: gates + mux scan + I2C0 + DAC regs + I2S1 TX master + polled
  * FIFO feed. No DMA (ref's DMA block is at 0x03090000 — port later).
@@ -54,20 +64,24 @@
 #define I2C_CON     REG32(I2C0_BASE + 0x00u)
 #define I2C_CLKDIV  REG32(I2C0_BASE + 0x04u)
 #define I2C_MRXADDR REG32(I2C0_BASE + 0x08u)
+#define I2C_MRXRADDR REG32(I2C0_BASE + 0x0Cu)
 #define I2C_MTXCNT  REG32(I2C0_BASE + 0x10u)
 #define I2C_MRXCNT  REG32(I2C0_BASE + 0x14u)
+#define I2C_IEN     REG32(I2C0_BASE + 0x18u)
 #define I2C_IPD     REG32(I2C0_BASE + 0x1Cu)
 #define I2C_TXFIFO(i) REG32(I2C0_BASE + 0x100u + 4u * (unsigned)(i))
 #define I2C_RXFIFO(i) REG32(I2C0_BASE + 0x200u + 4u * (unsigned)(i))
 #define I2C_CON_EN     (1u << 0)
 #define I2C_CON_MOD(m) ((m) << 1)
 #define I2C_CON_START  (1u << 3)      /* START bit: generate START cond.  */
+#define I2C_CON_STOP   (1u << 4)      /* STOP bit: 0x11 = EN|STOP tail    */
 #define I2C_CON_LASTACK (1u << 5)     /* NAK the last read byte            */
 #define I2C_MODE_TX    0u
-#define I2C_MODE_TRX   1u
+#define I2C_MODE_TRX   1u             /* write-phase + repeated-START read */
 #define I2C_MTX_DONE   (1u << 2)      /* MBTFIPD */
 #define I2C_MRX_DONE   (1u << 3)      /* MBRFIPD */
 #define I2C_START_DONE (1u << 4)      /* STARTIPD */
+#define I2C_STOP_DONE  (1u << 5)      /* STOPIPD */
 #define I2C_NAK        (1u << 6)
 
 #define ACODEC_BASE 0x40090000u
@@ -222,12 +236,28 @@ static int i2c_wait(uint32_t done_mask, unsigned timeout)
     return DAC_ERR_TIMEOUT;
 }
 
+/* Transaction tail, verbatim ref FUN_03055da8 (it is the STOP helper, not a
+ * read!): CON = 0x11 (EN|STOP), wait STOPIPD, clear IPD, CON = 0. The
+ * CS43131 keeps its MAP across STOP (datasheet Fig 4-34 blesses an
+ * "aborted write" preamble that ends in STOP), so this is also the legal
+ * separator between the MAP write and the data read. */
+static void i2c_stop(void)
+{
+    I2C_IPD = 0x7Fu;
+    I2C_CON = I2C_CON_EN | I2C_CON_STOP;    /* 0x11                       */
+    (void)i2c_wait(I2C_STOP_DONE, 400000);
+    I2C_IPD = 0x7Fu;
+    I2C_CON = 0;                            /* ref parks the module here  */
+}
+
 /* One write: FIFO-packed [addr_w|data...], MTXCNT starts the transfer.
- * The CS43131 write frame = [chipaddr+W][MAP lo/mid/hi][ctl=1][data]. */
+ * The CS43131 write frame = [chipaddr+W][MAP hi/mid/lo][ctl=1][data]
+ * (MSB-first MAP — datasheet Fig 4-32). */
 static int i2c_write(uint8_t addr_w, const uint8_t *buf, unsigned n)
 {
     unsigned i, w = 0, bi = 1;
     uint32_t word = addr_w;
+    int rc;
 
     if (n + 1u > 32u)
         return DAC_ERR_ARG;
@@ -255,45 +285,69 @@ static int i2c_write(uint8_t addr_w, const uint8_t *buf, unsigned n)
 
     I2C_IPD = 0x7Fu;
     I2C_MTXCNT = n + 1;
-    return i2c_wait(I2C_MTX_DONE, 400000);
+    rc = i2c_wait(I2C_MTX_DONE, 400000);
+    i2c_stop();                        /* ref FUN_03055dcc tail: STOP + CON=0 */
+    return rc;
 }
 
-/* Repeated-start read of `n` bytes at a 24-bit MAP address (INCR preamble). */
+/* Read `n` bytes at a 24-bit MAP address. Stock-exact two-transaction flow
+ * (ref FUN_03055fe8 + datasheet Fig 4-34):
+ *   1. "aborted write" preamble: [addr+W][MAP hi][MAP mid][MAP lo][ctl=1]
+ *      + STOP (i2c_write() now ends in the FUN_03055da8 STOP tail).
+ *   2. master-receive: MRXADDR = valid | (addr|R), MRXRADDR = 0 (MAP is
+ *      already latched, no register phase), CON = EN|MOD(TRX)|START (0x0B),
+ *      wait STARTIPD, clear START, CON |= LASTACK (NAK the last byte),
+ *      MRXCNT = n, wait MBRFIPD (0x08), read RXFIFO, STOP tail.
+ *
+ * The old code wrote CON = 0x11 — which is EN|STOP (bit 4 = STOP; the SDK
+ * comment "0x11 b 10001" is I2C_send_stop_bit) — and waited IPD 0x20 =
+ * STOPIPD. It only emitted the preamble's STOP and NEVER ran a receive, so
+ * RXFIFO (empty reads as 0xFFFFFFFF) yielded 0xFF for every register
+ * (DFIU 5d8b7b3c). FUN_03055da8 is the STOP helper, not a read. */
 static int i2c_read_map(uint8_t addr_w, uint32_t map24, uint8_t *out,
                         unsigned n)
 {
     uint8_t pre[4];
+    unsigned k;
 
-    /* MSB-first MAP order, matching the ref binary (FUN_03055e78 packs
-     * [MAP_hi][MAP_mid][MAP_lo][ctl=1][data] - the dac.md §6 "MAP_lo first"
-     * note was a transcription error; the disassembly is MSB-first). */
-    pre[0] = (uint8_t)(map24 >> 16);
+    if (n == 0 || n > 32u)
+        return DAC_ERR_ARG;
+
+    /* MSB-first MAP order ([23:16][15:8][7:0]) — byte-exact from ref
+     * FUN_03055e78 (strb >>16, >>8, &0xFF) and datasheet Fig 4-32/4-34.
+     * dac.md §6's "[MAP_lo] first" was a transcription error. */
+    pre[0] = (uint8_t)(map24 >> 16);         /* MAP high (23:16) first     */
     pre[1] = (uint8_t)(map24 >> 8);
     pre[2] = (uint8_t)(map24);
     pre[3] = 1;                              /* control byte: INCR         */
-    if (i2c_write(addr_w, pre, 4) != DAC_OK)
+    if (i2c_write(addr_w, pre, 4) != DAC_OK) /* ends in STOP (Fig 4-34)    */
         return DAC_ERR_NAK;
 
-    /* Master-receive, verbatim ref FUN_03055da8: CON = 0x11 (EN | MRX bit4),
-     * then wait IPD bit 0x20 (MRX done). Earlier variants (MOD(TRX)/START/
-     * LASTACK, wait 0x8) never completed the read -> every reg read 0xFF. */
     I2C_IPD = 0x7Fu;
-    I2C_MRXADDR = 0x01000000u | addr_w;     /* vld=1 + 7-bit address byte */
-    I2C_MRXCNT = n;
-    I2C_CON = 0x11u;                        /* EN | MRX (bit 4)            */
-    if (i2c_wait(0x20u, 400000) != DAC_OK)  /* IPD bit 5: MRX done        */
+    I2C_IEN = 0;                             /* polled, like the ref       */
+    I2C_MRXADDR  = 0x01000000u | (uint32_t)(addr_w | 1u); /* vld + addr|R */
+    I2C_MRXRADDR = 0;                        /* no register-address phase  */
+    I2C_CON = I2C_CON_EN | I2C_CON_MOD(I2C_MODE_TRX) | I2C_CON_START; /* 0x0B */
+    if (i2c_wait(I2C_START_DONE, 400000) != DAC_OK) {
+        i2c_stop();
         return DAC_ERR_TIMEOUT;
-    {
-        uint32_t word = I2C_RXFIFO(0);
-        unsigned k;
-        for (k = 0; k < n && k < 4; k++)
-            out[k] = (uint8_t)(word >> (8u * k));
-        if (n > 4) {
-            word = I2C_RXFIFO(1);
-            for (k = 4; k < n; k++)
-                out[k] = (uint8_t)(word >> (8u * (k - 4)));
-        }
     }
+    I2C_IPD = I2C_START_DONE;
+    I2C_CON &= ~I2C_CON_START;
+    I2C_IPD = 0x7Fu;
+    I2C_CON |= I2C_CON_LASTACK;              /* NAK the final byte         */
+    I2C_MRXCNT = n;                          /* arms the receive           */
+    if (i2c_wait(I2C_MRX_DONE, 400000) != DAC_OK) {
+        i2c_stop();
+        return DAC_ERR_TIMEOUT;
+    }
+    for (k = 0; k < n; k += 4u) {            /* RXFIFO words, byte j<<8*j  */
+        uint32_t word = I2C_RXFIFO(k / 4u);
+        unsigned j;
+        for (j = 0; j < 4u && k + j < n; j++)
+            out[k + j] = (uint8_t)(word >> (8u * j));
+    }
+    i2c_stop();
     return DAC_OK;
 }
 

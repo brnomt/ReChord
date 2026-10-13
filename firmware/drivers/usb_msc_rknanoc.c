@@ -657,6 +657,15 @@ static void core_init(void)
     OTG(GINTSTS) = 0xFFFFFFFFu;
     OTG(GOTGINT) = 0xFFFFFFFFu;
     OTG(GINTMSK) = 0xC00C3C10u;
+    /* The core soft reset above can clear DCTL.SftDiscon (the device
+     * "reconnects" mid-init), and any disconnect shorter than the host's
+     * ~100 ms unplug debounce is invisible — the host keeps the previous
+     * MSC/CDC configuration and the next driver never enumerates ("stale
+     * endpoint state"). Re-assert soft-disconnect AFTER the reset and hold
+     * it past the hub debounce before connecting, so every init gives the
+     * host a clean disconnect -> connect edge and a fresh enumeration. */
+    OTG(DCTL) |= 2u;                                 /* soft disconnect */
+    rk_delay_us(150000);                             /* host debounce   */
     OTG(DCTL) &= ~2u;                                /* connect */
     bus_reset();
 }
@@ -667,6 +676,20 @@ void usb_dwc2_init(void)
 {
     hw_on();
     core_init();
+}
+
+/* Clean teardown when leaving a USB mode (MSC -> CDC, CDC -> menu, ...):
+ * SftDiscon first (drops the D+ pull-up), hold it past the host's unplug
+ * debounce, flush the EP0/EP1/EP2 TX/RX FIFOs (GRSTCTL), then power the
+ * PHY and USB clocks down. The next usb_dwc2_init() re-runs core_init():
+ * GRSTCTL core soft reset + GRXFSIZ/GNPTXFSIZ/DIEPTXF reallocation + EP0
+ * re-arm is the "re-allocate everything" side of the mode switch. */
+void usb_dwc2_stop(void)
+{
+    OTG(DCTL) |= 2u;                                 /* soft disconnect */
+    rk_delay_us(150000);                             /* host debounce   */
+    flush_fifos();           /* GRSTCTL 0x420 (all TX) + 0x10 (RX)      */
+    hw_off();                                        /* PHY/GRF + CRU   */
 }
 
 int usb_msc_run(const usb_lun_t *luns, unsigned nluns, int (*user_exit)(void),
@@ -726,6 +749,6 @@ int usb_msc_run(const usb_lun_t *luns, unsigned nluns, int (*user_exit)(void),
     }
     ret = s.exit;
 out:
-    hw_off();
+    usb_dwc2_stop();
     return ret;
 }

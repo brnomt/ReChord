@@ -116,10 +116,20 @@ CS43131 driver** (not ROM calls) — verified by decompiling its functions:
   chan 0 = **0x60 (7-bit 0x30, ADR=0)**, chan 1 = **0x66 (7-bit 0x33,
   ADR=3)** — the two CS43131s. (String "aplayer" follows.)
 - **Write primitive** (`FUN_03055f08` = ref's dac_write): **broadcast** —
-  writes `[chipaddr+W][MAP_lo][MAP_mid][MAP_hi][ctl=1 (INCR)][data]` to
+  writes `[chipaddr+W][MAP_hi][MAP_mid][MAP_lo][ctl=1 (INCR)][data]` to
   chan 0 AND chan 1 (`FUN_03055e78(chan, map, val)` per chip). Exactly the
-  datasheet §4.13 format.
-- **Read primitive** (`FUN_03055fe8`): per-channel (`chan, map24, out`).
+  datasheet §4.13 format. **MAP byte order is MSB-first** — byte-exact from
+  FUN_03055e78 (`strb map>>16`, `map>>8`, `map&0xFF`) and datasheet Fig 4-32
+  ("MAP BYTE High (23:16), Mid (15:8), Low (7:0)"). The "[MAP_lo] first"
+  wording previously in this bullet was a transcription error (see §8b).
+- **Read primitive** (`FUN_03055fe8`): per-channel (`chan, map24, out`) =
+  the datasheet Fig 4-34 "aborted write" preamble `[addr+W][MAP_hi][MAP_mid]
+  [MAP_lo][ctl=1]` + **STOP**, then a TRX-mode master-receive:
+  `MRXADDR = (1<<24)|(addr|R)`, `MRXRADDR = 0`, `CON = EN|MOD(TRX)|START`
+  (0x0B), wait STARTIPD + clear START, `CON |= LASTACK`, `MRXCNT = n`, wait
+  MBRFIPD (0x08), read RXFIFO (`+0x200`), then the STOP tail.
+  (`FUN_03055da8` is the STOP tail helper — `CON = EN|STOP` 0x11, wait
+  STOPIPD 0x20, `CON = 0` — NOT a read, see §8b.)
 - **Mono-mode table @ RAM 0x03060AB8**: 24 `(MAP u32, value u32)` pairs —
   **byte-identical to the datasheet §5.12 "Enable Mono Mode" sequence**:
   ```
@@ -234,6 +244,35 @@ comment `0x400-0x24` suggests the struct was packed for the polled path;
 try +0x24 if the FIFO never drains); the `dac_map_write` register list is
 still the §7 abbreviated one, not the full ref order (harmless once the
 chips ACK — verify Exp 2 by ear first).
+
+## 8b. Hardware failure #2 + fix (2026-10-13, DFIU 5d8b7b3c): reads 0xFF
+
+`dac_map_read` returned 0xFF for every register while writes ACKed. Two
+investigations settled it (ref fw1 disassembled with
+`arm-none-eabi-objdump -Mforce-thumb`, base 0x0304F490; datasheet §4.13
+text layer):
+
+1. **MAP byte order = MSB-first, settled.** FUN_03055e78 packs
+   `frame[0]=map>>16, frame[1]=map>>8, frame[2]=map&0xFF, frame[3]=1,
+   frame[4]=val`; datasheet Fig 4-32/4-33/4-34 label the wire order
+   "MAP BYTE High (23:16) → Mid (15:8) → Low (7:0)". §6's old
+   "[MAP_lo] first" note was a transcription error. (An early driver
+   revision shipping LSB-first was wrong; MSB-first is correct.)
+2. **The read phase never performed a receive.** The port had copied
+   `FUN_03055da8`'s `CON=0x11` + wait `IPD 0x20` as "master-receive, MRX
+   done" — but FUN_03055da8 is the **STOP tail helper** (0x11 = `EN|STOP`,
+   0x20 = STOPIPD; the SDK's `I2C_send_stop_bit` comment says "0x11 b
+   10001"). The code emitted only the preamble's STOP and never armed
+   MRXCNT, so RXFIFO (empty reads back 0xFFFFFFFF) yielded 0xFF.
+
+Fix (`firmware/drivers/dac_cs43131.c`): `i2c_write()` now ends with the
+FUN_03055da8 STOP tail (`CON=EN|STOP` → wait STOPIPD → `CON=0`) as the ref
+does, and `i2c_read_map()` follows FUN_03055fe8 byte-for-byte: Fig 4-34
+aborted-write preamble + STOP, then `MRXADDR=vld|(addr|R)`, `MRXRADDR=0`,
+`CON=EN|MOD(TRX)|START` (0x0B), STARTIPD → clear START, `CON|=LASTACK`,
+`MRXCNT=n`, wait **MBRFIPD (0x08)**, read RXFIFO words, STOP tail. Note
+the datasheet explicitly blesses the STOP-separated preamble (Fig 4-34) —
+no repeated-START is required; the CS43131 keeps its MAP across STOP.
 
 ## 9. Open questions / next reads
 

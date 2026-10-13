@@ -301,6 +301,17 @@ static void handle_setup(void)
              * no interfaces -> cdc_acm can't bind. */
             uint32_t mps = (OTG(DSTS) & 6u) == 0u ? 512u : 64u;
             uint32_t dedicated = (OTG(GHWCFG4) >> 25) & 1u;
+            if (dedicated) {
+                /* Dedicated-TX-FIFO mode: every IN EP needs its own
+                 * DIEPTXFn allocation. core_init() gave EP1 the whole tail
+                 * (start 0x140, depth 0x100 -> ends 0x240 = full FIFO RAM),
+                 * so split it before enabling the EPs: EP1 IN (bulk) gets
+                 * 0x80 words, EP2 IN (notif, 8-byte packets) gets 8 words
+                 * at 0x1C0. Leaving DIEPTXF2 at reset (0) leaves the
+                 * notification EP dead in this mode. */
+                OTG(DIEPTXF1) = 0x00800140u;
+                OTG(DIEPTXF2) = 0x000801C0u;
+            }
             OTG(DAINTMSK) |= 0x60002u;           /* EP1 IN/OUT + EP2 IN notif */
             DIEPCTL(EP_DATA_IN)  = mps | (dedicated << 22) | 0x18088000u;
             DOEPCTL(EP_DATA_OUT) = mps | 0x18088000u;
@@ -412,5 +423,6 @@ int usb_cdc_run(void)
         usb_cdc_poll();
         rk_delay_us(10);
     }
+    usb_dwc2_stop();               /* host-visible disconnect on exit    */
     return 0;
 }

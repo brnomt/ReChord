@@ -190,8 +190,9 @@ static void power_off(void)
     board_power_off();
 }
 
-/* Cable plugged in: expose the user volume (LUN 0) and the SD card (LUN 1,
- * read-only) until eject/unplug/power key. */
+/* MSC session, run on demand from the "USB storage" menu entry (the cable
+ * edge opens the CDC console instead): expose the user volume (LUN 0) and
+ * the SD card (LUN 1, read-only) until eject/unplug/power key. */
 static void usb_session(void)
 {
     const usb_lun_t luns[2] = {
@@ -383,6 +384,10 @@ static void cdc_exec(char *ln)
     }
 }
 
+/* Cable plugged in: default USB mode = the CDC-ACM console (the "USB
+ * storage" menu entry runs MSC on demand). Returns on POWER or unplug,
+ * then tears the core down so the next mode starts from a host-visible
+ * disconnect instead of stale endpoint state. */
 static void usb_console_run(void)
 {
     char ln[64];
@@ -396,7 +401,7 @@ static void usb_console_run(void)
     for (;;) {
         int c;
         usb_cdc_poll();
-        if (keys_power())
+        if (keys_power() || !usb_cable())
             break;
         /* Live enumeration state, refreshed every ~256 polls. */
         if ((frames++ & 0xFFu) == 0u) {
@@ -427,11 +432,25 @@ static void usb_console_run(void)
         }
     }
     usb_cdc_request_exit();
+    usb_dwc2_stop();               /* host-visible disconnect, no stale EPs */
+}
+
+/* MSC on demand (was the automatic VBUS action; the console owns that now). */
+static void usb_storage_run(void)
+{
+    if (!s_user) {
+        screen("USB storage");
+        line(1, "no eMMC user area");
+        display_flush_rows(0, DISPLAY_H - 1);
+        return;
+    }
+    usb_session();
 }
 
 static const menu_item_t k_root_items[] = {
     { "DAC test",    NULL,      dac_test_run },
     { "USB console", NULL,      usb_console_run },
+    { "USB storage", NULL,      usb_storage_run },
     { "Files",       NULL,      open_files },
     { "Now Playing", NULL,      open_player },
     { "Settings",    NULL,      open_settings },
@@ -442,7 +461,7 @@ static const menu_item_t k_root_items[] = {
     { "USB diag",    usbd_text, NULL },
 };
 #define RC_BUILD "m7a"
-static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 10 };
+static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 11 };
 
 void ap_ui_loop(void)
 {
@@ -463,8 +482,11 @@ void ap_ui_loop(void)
             ui_invalidate_all();
         }
 
-        if (cable && !s_cable && s_user)  /* after the SD probe: LUN 1 */
-            usb_session();
+        /* VBUS edge: the CDC-ACM console is the default cable action —
+         * MSC no longer hijacks the DWC2 core; it runs from the "USB
+         * storage" menu entry when actually wanted. */
+        if (cable && !s_cable)
+            usb_console_run();
         s_cable = cable;
 
         /* ponytail: hold time in loop passes, calibrated on hardware
