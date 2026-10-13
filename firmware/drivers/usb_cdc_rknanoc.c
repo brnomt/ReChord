@@ -326,6 +326,7 @@ static void rx_drain(void)
         if (DOEPINT(0) & 8u)
             s.setup_pending = 1;
         DOEPINT(0) = 9u;
+        arm_ep0_out();                          /* re-arm EP0 for next SETUP */
     }
     if (DOEPINT(EP_DATA_OUT) & 1u) {
         DOEPINT(EP_DATA_OUT) = 1u;
