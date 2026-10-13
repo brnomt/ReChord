@@ -4,11 +4,6 @@
 > input queue, storage abstraction) — clean-room C, per
 > `docs/rewrite/architecture.md`. Status: **host-complete, target stubs
 > marked TODO**. Date: 2026-10.
->
-> NOTE (2026-10): the ReChord-native v2 config and logging modules live in
-> `firmware/config/` and `firmware/util/` (richer schema, atomic saves,
-> leveled/rotating logger) — see `docs/rewrite/config-logging.md`. The
-> modules here stay as the stock-format compatibility layer.
 
 ## 1. Clean-room rule
 

@@ -577,15 +577,3 @@ long fs_write(fs_file_t *f, const void *buf, unsigned long len)
     (void)f; (void)buf; (void)len;
     return FS_ERR_UNSUPPORTED;
 }
-
-int fs_rename(const char *from, const char *to)
-{
-    (void)from; (void)to;
-    return FS_ERR_UNSUPPORTED;      /* writes land with the FAT write work */
-}
-
-int fs_remove(const char *path)
-{
-    (void)path;
-    return FS_ERR_UNSUPPORTED;
-}
