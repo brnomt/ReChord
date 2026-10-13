@@ -471,6 +471,11 @@ int dac_read_reg(int chan, uint32_t map24, uint8_t *out)
     return dac_map_read(chan, map24, out);
 }
 
+int dac_write_reg(int chan, uint32_t map24, uint8_t val)
+{
+    return dac_map_write_chan(chan, map24, val);
+}
+
 int dac_scan_result(int cand, int chip)
 {
     if (cand < 0 || cand > 2 || chip < 0 || chip > 1)

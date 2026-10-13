@@ -10,6 +10,7 @@
 #include "drivers/emmc.h"
 #include "drivers/panel_io.h"
 #include "drivers/usb_msc.h"
+#include "drivers/usb_cdc.h"
 #include "drivers/dac_cs43131.h"
 #include "services/fs_target.h"
 #include "services/fw_update.h"
@@ -324,8 +325,101 @@ static void dac_test_run(void)
     ask(1);
 }
 
+/* ---- USB CDC-ACM debug console ----------------------------------------- */
+static int cdc_hex(const char *p, uint32_t *out)
+{
+    uint32_t v = 0; int n = 0;
+    for (; *p == ' '; p++)
+        ;
+    if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X'))
+        p += 2;
+    for (; *p; p++) {
+        int d;
+        if (*p >= '0' && *p <= '9') d = *p - '0';
+        else if (*p >= 'a' && *p <= 'f') d = *p - 'a' + 10;
+        else if (*p >= 'A' && *p <= 'F') d = *p - 'A' + 10;
+        else break;
+        v = v * 16 + (uint32_t)d;
+        n++;
+    }
+    *out = v;
+    return n;
+}
+
+static void cdc_reply(const char *fmt, uint32_t a, uint32_t b, uint32_t c)
+{
+    char out[64];
+    snprintf(out, sizeof out, fmt, a, b, c);
+    usb_cdc_puts(out);
+}
+
+static void cdc_exec(char *ln)
+{
+    while (*ln == ' ')
+        ln++;
+    if (ln[0] == 'r') {                     /* r <map>  -> read chip 0     */
+        uint32_t map; uint8_t v = 0xFF;
+        cdc_hex(ln + 1, &map);
+        if (dac_read_reg(0, map, &v) == DAC_OK)
+            cdc_reply("0x%06x = 0x%02x\r\n", map, v, 0);
+        else
+            cdc_reply("0x%06x READ FAIL\r\n", map, 0, 0);
+    } else if (ln[0] == 'w') {              /* w <map> <val> -> write both */
+        uint32_t map, val;
+        int n = cdc_hex(ln + 1, &map);
+        cdc_hex(ln + 1 + n, &val);
+        dac_write_reg(0, map, (uint8_t)val);
+        cdc_reply("w 0x%06x <- 0x%02x\r\n", map, val, 0);
+    } else if (ln[0] == 's') {              /* s -> I2C scan (3 candidates)*/
+        uint32_t a, b, c;
+        a = (dac_scan_result(0, 0) << 1) | dac_scan_result(0, 1);
+        b = (dac_scan_result(1, 0) << 1) | dac_scan_result(1, 1);
+        c = (dac_scan_result(2, 0) << 1) | dac_scan_result(2, 1);
+        cdc_reply("scan A%x B%x C%x\r\n", (a << 4) | b, c, 0);
+    } else if (ln[0] == 'q') {
+        usb_cdc_request_exit();
+    } else {
+        usb_cdc_puts("cmds: r<map> w<map><val> s(scan) q(quit)\r\n");
+    }
+}
+
+static void usb_console_run(void)
+{
+    char ln[64];
+    unsigned len = 0;
+
+    screen("USB console");
+    line(1, "connect /dev/ttyACM0");
+    line(2, "cmds: r<map> w<map><val> s q");
+    display_flush_rows(0, DISPLAY_H - 1);
+    dac_init(44100);                       /* bring up I2C0 + CS43131       */
+    usb_cdc_init();
+    usb_cdc_puts("\r\nReChord console. cmds: r<map> w<map><val> s(scan) q(quit)\r\n> ");
+    for (;;) {
+        int c;
+        usb_cdc_poll();
+        c = usb_cdc_getc();
+        if (c < 0) {
+            if (keys_power())
+                break;
+            continue;
+        }
+        if (c == '\r' || c == '\n') {
+            ln[len] = 0;
+            if (len)
+                cdc_exec(ln);
+            len = 0;
+            usb_cdc_puts("> ");
+        } else if (len < sizeof ln - 1u) {
+            ln[len++] = (char)c;
+        }
+    }
+    usb_cdc_request_exit();
+}
+
 static const menu_item_t k_root_items[] = {
     { "DAC test",    NULL,      dac_test_run },
+    { "USB console", NULL,      usb_console_run },
     { "Files",       NULL,      open_files },
     { "Now Playing", NULL,      open_player },
     { "Settings",    NULL,      open_settings },
@@ -336,7 +430,7 @@ static const menu_item_t k_root_items[] = {
     { "USB diag",    usbd_text, NULL },
 };
 #define RC_BUILD "m7a"
-static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 9 };
+static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 10 };
 
 void ap_ui_loop(void)
 {

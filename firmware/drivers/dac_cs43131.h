@@ -64,6 +64,9 @@ void dac_get_hp_status(uint8_t out[2]);
 /* Debug: read back one CS43131 register (per-chip) for the no-sound dump. */
 int dac_read_reg(int chan, uint32_t map24, uint8_t *out);
 
+/* Debug: write one CS43131 register (per-chip) from the USB console. */
+int dac_write_reg(int chan, uint32_t map24, uint8_t val);
+
 /* Busy-wait delay (~ms at the 24 MHz boot clock). */
 void dac_delay_ms(unsigned ms);
 
