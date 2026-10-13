@@ -1745,7 +1745,16 @@ post-fix `pdn`/`fifo` readbacks — if `pdn` is still `f6` the RMW isn't
 landing; if `a6`, the fault is outside the register-visible path (I2S1A
 pin wiring, amp GPIO1.4 polarity, jack/amp stage). Earlier verified
 fixes kept: I2C read TRX sequence (5d8b7b3c resolved), TXDR=+0x24,
-MSB-first MAP.
+MSB-first MAP. **Audio WORKS and the DAC bring-up is CLOSED as of
+2026-10-13** (DFIU 60609d7f verified_resolved): the missing piece was the
+FUN_030563b0 output-enable (GPIO2.0 is a hardware mute, released only in
+the jack-plugged branch), then two lifecycle bugs: test exit must run the
+stock stop+close (`FUN_03055F80` + `FUN_030564d8` — hw mute + amp off +
+**I2S1 soft-reset asserted** + pads Hi-Z) and `i2s1_setup` must cold-reset
+the block before programming (2nd-run noise root cause). The RCO diagnostic
+tone was removed (RCO = uncalibrated RC standby oscillator, noisy by
+design). Hardware verdict: repeated clean 1 kHz tones, silence after every
+exit.
 
 ## B. A boot brick (fixed by bisect) — NOT the DAC code
 

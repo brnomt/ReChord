@@ -50,6 +50,11 @@ int dac_i2s_feed(const int16_t *pcm, int frames);
 void dac_i2s_start(void);
 void dac_i2s_stop(void);
 
+/* Stock output teardown + close (ref FUN_03055F80 + FUN_030564d8): hardware
+ * mute + DAC mute + amp off + I2S1 reset/pad release. Call when leaving an
+ * output session or the next run plays tone with noise (DFIU 60609d7f). */
+void dac_output_off(void);
+
 /* TX FIFO level range observed since dac_i2s_start() (diag: 00-00 = the
  * TXDR writes vanish, 00-1x = the FIFO drains = SCLK is running). */
 void dac_i2s_fifo_range(unsigned *lo, unsigned *hi);

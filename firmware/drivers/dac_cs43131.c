@@ -91,6 +91,8 @@
 #define I2S_RXCR    REG32(I2S1_BASE + 0x04u)
 #define I2S_CKR     REG32(I2S1_BASE + 0x08u)
 #define I2S_FIFOLR  REG32(I2S1_BASE + 0x0Cu)
+#define I2S_DMACR   REG32(I2S1_BASE + 0x10u)
+#define I2S_INTCR   REG32(I2S1_BASE + 0x14u)
 #define I2S_XFER    REG32(I2S1_BASE + 0x1Cu)
 #define I2S_CLR     REG32(I2S1_BASE + 0x20u)
 /* TXDR sits at +0x24, right after I2S_CLR — settled 2026-10-13: the SDK
@@ -167,6 +169,18 @@ typedef struct {
 
 #define DAC_GPIO1 ((dac_gpio_t *)0x40170000u)
 #define DAC_GPIO2 ((dac_gpio_t *)0x50030000u)
+
+/* Release a pad to GPIO input (ref FUN_030514cc semantics): mux func 0 +
+ * DDR in. The close path Hi-Z's the I2S1 pads this way so the DAC's ASP
+ * inputs are not driven by a stopped serializer between sessions. */
+static void dac_gpio_input(int port, int pin)
+{
+    dac_gpio_t *g = (port == 1) ? DAC_GPIO1 : DAC_GPIO2;
+    uint32_t bit = 1u << (unsigned)(pin & 31);
+
+    grf_iomux(port, pin, 0);
+    g->ddr &= ~bit;
+}
 
 /* Ref FUN_03051478(port, pin, level): mux the pin to GPIO (func 0),
  * drive it, and set the direction to output. */
@@ -417,6 +431,34 @@ static void dac_pdn_up(uint8_t mask)
     }
 }
 
+/* Output teardown + close — ref FUN_03055F80 (audio-stop) + the I2S half
+ * of FUN_030564d8 (audiocodec_close): hardware mute back ON (GPIO2.0=1),
+ * DAC mute reg 0x010009 = 0xFF, 0x020000 = 0x10 (PDN_HP), 0x0B0000 = 0x00,
+ * amp GPIO1.4 = 0, GPIO2.1/2.2 park, then stop I2S (XFER=0, DMACR=0),
+ * ASSERT the I2S1 soft reset and Hi-Z the I2S1 pads. Without the close
+ * half, the next run inherits stale serializer state and plays tone with
+ * noise on top (DFIU 60609d7f). */
+void dac_output_off(void)
+{
+    dac_gpio_out(2, 0, 1);              /* hardware mute ON                */
+    dac_gpio_out(2, 14, 1);
+    dac_map_write(0x00010009, 0xFF);    /* DAC mute                        */
+    dac_map_write(0x00020000, 0x10);    /* PDN_HP down (stock stop value)  */
+    dac_delay_ms(5);
+    dac_map_write(0x000B0000, 0x00);
+    dac_delay_ms(10);
+    dac_gpio_out(1, 4, 0);              /* amp off                         */
+    dac_gpio_out(2, 1, 1);
+    dac_gpio_out(2, 2, 0);
+    I2S_XFER = 0;                       /* FUN_030564d8 close tail         */
+    I2S_DMACR = 0;
+    cru_rst(R_I2S1_SRST, 1);            /* reset held asserted while idle  */
+    dac_gpio_input(1, 0);
+    dac_gpio_input(1, 1);
+    dac_gpio_input(1, 2);
+    dac_gpio_input(1, 3);
+}
+
 /* ---- rate table + DAC sequences (verbatim from ref) ---------------------- */
 
 typedef struct
@@ -467,6 +509,14 @@ static void i2s1_setup(uint32_t rate, uint32_t mclk)
      * I2S1A (CLK/LRCK/SCLK/SDO, func 1), select I2S1A in GRF_IOMUX_CON
      * (bit 13, WE bit 29), then the CRU CLKSEL_CON[2] clock routing. */
     cru_gate(G_PCLK_GPIO1, 1);
+    /* Reset the I2S1 block BEFORE programming it: stock asserts the soft
+     * reset in its close (FUN_030564d8) and only releases it here, so a
+     * re-run without a close inherits stale serializer/FIFO state -> the
+     * tone plays with noise on top (DFIU 60609d7f). Asserting first makes
+     * every entry start from a cold block. */
+    cru_rst(R_I2S1_SRST, 1);
+    dac_delay_ms(1);
+    cru_rst(R_I2S1_SRST, 0);               /* ref: release I2S1 reset    */
     grf_iomux(1, 0, 1);
     grf_iomux(1, 1, 1);
     grf_iomux(1, 2, 1);
@@ -494,6 +544,10 @@ static void i2s1_setup(uint32_t rate, uint32_t mclk)
     /* CKR verbatim: high16 = (mclk/(rate*64))-1, low16 = 0x3F3F. */
     div = (mclk / (64u * rate)) - 1u;
     I2S_CKR = ((div & 0xFFFFu) << 16) | 0x3F3Fu;
+    /* INTCR verbatim (ref FUN_03056550 "i2s regs"): 0x01F00102 — TX
+     * underrun INT enable + FIFO threshold fields. The polled path does
+     * not need the interrupts but the threshold bits gate the FIFO. */
+    I2S_INTCR = 0x01F00102u;
     I2S_XFER = 1;
 }
 
@@ -745,6 +799,14 @@ int dac_init(uint32_t rate_hz)
     dac_delay_ms(10);
 
     s_step = DAC_STEP_UNMUTE;
+    /* Stock FUN_030563b0 output-enable (jack-plugged branch), REA/Ghidra
+     * decompiled from ref fw1: GPIO2.14 = 1 then GPIO2.0 = 0 — GPIO2.0 HIGH
+     * is a HARDWARE MUTE (the power-on trio drives it high on purpose), so
+     * leaving it asserted silences a perfectly configured DAC. Then the
+     * mute/volume reg 0x010009 ramps 0xFF -> volume (FUN_03055f48); the
+     * end value is written directly here. */
+    dac_gpio_out(2, 14, 1);
+    dac_gpio_out(2, 0, 0);
     dac_gpio_out(1, 4, 1);            /* amp enable again (ref)           */
     dac_map_write(0x00010009, 0x00);   /* unmute                          */
     /* Ref FUN_03055ecc again right before the feed. */

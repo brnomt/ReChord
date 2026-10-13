@@ -350,36 +350,18 @@ static void dac_test_run(void)
         line(2, buf);
         snprintf(buf, sizeof buf, "clk %02x pdn %02x", clk, pdn);
         line(3, buf);
-        line(4, "any key = RCO tone");
+        line(4, "any key = end");
         display_flush_rows(0, DISPLAY_H - 1);
         ask(1);
     }
 
-    /* RCO experiment: MCLK_SRC_SEL = 10 (internal oscillator, datasheet
-     * 7.1 System Clocking Control). If the SoC's MCLK pin never toggles
-     * this plays — pitch off by the RCO tolerance — and the bug is MCLK
-     * routing; if still silent with a live FIFO, the DAC-side path is at
-     * fault. Wait >150 us after the STOP for the source switch (datasheet
-     * 4.13.1 note on MCLK_SRC_SEL changes). */
-    dac_write_reg(0, 0x00010006, 0x06);
-    dac_write_reg(1, 0x00010006, 0x06);
-    dac_delay_ms(2);
-    screen("DAC test RCO tone");
-    line(1, "rco: 1 kHz, POWER = stop");
-    display_flush_rows(0, DISPLAY_H - 1);
-    rc = tone_burst(sine64, 3, chunk, &n);
-    {
-        unsigned lo, hi;
-
-        dac_i2s_fifo_range(&lo, &hi);
-        snprintf(buf, sizeof buf, "rco rc %d f%d", rc, n);
-        line(2, buf);
-        snprintf(buf, sizeof buf, "fifo %02x-%02x", lo, hi);
-        line(3, buf);
-        line(4, "any key");
-        display_flush_rows(0, DISPLAY_H - 1);
-        ask(1);
-    }
+    /* Leave the hardware in the stock STOPPED state (FUN_03055F80 stop +
+     * FUN_030564d8 close: hw mute + amp off + I2S1 reset held) — a live
+     * amp path with I2S stopped is continuous noise (DFIU 60609d7f).
+     * (The RCO-clock diagnostic tone is gone: MCLK_SRC_SEL=10 routes the
+     * CS43131's uncalibrated RC standby oscillator into the audio path,
+     * so it is BY DESIGN noisy/off-pitch — a probe, not a test mode.) */
+    dac_output_off();
 }
 
 /* ---- USB CDC-ACM debug console ----------------------------------------- */
