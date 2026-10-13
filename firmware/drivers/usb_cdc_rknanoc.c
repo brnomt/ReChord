@@ -244,11 +244,10 @@ static void handle_setup(void)
         if (n > wlen) n = wlen;
         goto send;
     case 9:                                     /* SET_CONFIGURATION         */
-        /* activate CDC data EPs + notif EP */
-        DIEPCTL(EP_DATA_IN)  = 0x40000000u | (EP_D0PID) | 0x00200000u;  /* placeholder */
-        DIEPCTL(EP_DATA_IN)  = 0x48008800u;  /* bulk IN, 64B, active       */
-        DOEPCTL(EP_DATA_OUT) = 0x48008800u;  /* bulk OUT, 64B, active      */
-        DIEPCTL(EP_NOTIF)    = 0x48008800u;  /* notif IN, 64B              */
+        /* activate CDC data EPs (bulk) + notif EP (interrupt) */
+        DIEPCTL(EP_DATA_IN)  = 0x40u | 0x18088000u;  /* EP1 IN bulk, 64B   */
+        DOEPCTL(EP_DATA_OUT) = 0x40u | 0x18088000u;  /* EP1 OUT bulk, 64B  */
+        DIEPCTL(EP_NOTIF)    = 0x40u | 0x1808C000u;  /* EP2 IN intr, 64B   */
         s.configured = 1;
         goto status;
     default:
