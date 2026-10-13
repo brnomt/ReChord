@@ -61,10 +61,12 @@
 #define I2C_RXFIFO(i) REG32(I2C0_BASE + 0x200u + 4u * (unsigned)(i))
 #define I2C_CON_EN     (1u << 0)
 #define I2C_CON_MOD(m) ((m) << 1)
+#define I2C_CON_START  (1u << 3)      /* START bit: generate START cond.  */
 #define I2C_MODE_TX    0u
 #define I2C_MODE_TRX   1u
 #define I2C_MTX_DONE   (1u << 2)      /* MBTFIPD */
 #define I2C_MRX_DONE   (1u << 3)      /* MBRFIPD */
+#define I2C_START_DONE (1u << 4)      /* STARTIPD */
 #define I2C_NAK        (1u << 6)
 
 #define ACODEC_BASE 0x40090000u
@@ -229,6 +231,15 @@ static int i2c_write(uint8_t addr_w, const uint8_t *buf, unsigned n)
     if (n + 1u > 32u)
         return DAC_ERR_ARG;
 
+    /* Generate a START condition and wait for it BEFORE the FIFO/MTXCNT
+     * (ref FUN_03055dcc: CON = EN|START|TX, wait STARTIPD, clear START).
+     * Without the explicit START the transfer never begins and every probe
+     * NAKs/times out -> the A00 B00 C00 scan (DFIU). */
+    I2C_IPD = 0x7Fu;
+    I2C_CON = I2C_CON_EN | I2C_CON_START | I2C_CON_MOD(I2C_MODE_TX);
+    if (i2c_wait(I2C_START_DONE, 400000) != DAC_OK)
+        return DAC_ERR_TIMEOUT;
+    I2C_IPD = I2C_START_DONE;
     I2C_CON = I2C_CON_EN | I2C_CON_MOD(I2C_MODE_TX);
     for (i = 0; i < n; i++) {
         word |= (uint32_t)buf[i] << (8u * bi);
@@ -241,8 +252,8 @@ static int i2c_write(uint8_t addr_w, const uint8_t *buf, unsigned n)
     if (bi)
         I2C_TXFIFO(w) = word;
 
-    I2C_IPD = 0xFFFFFFFFu;                  /* clear leftovers            */
-    I2C_MTXCNT = n + 1;                     /* addr + payload             */
+    I2C_IPD = 0x7Fu;
+    I2C_MTXCNT = n + 1;
     return i2c_wait(I2C_MTX_DONE, 400000);
 }
 
@@ -252,12 +263,12 @@ static int i2c_read_map(uint8_t addr_w, uint32_t map24, uint8_t *out,
 {
     uint8_t pre[4];
 
-    /* LSB-first MAP order, matching the ref binary (docs/rewrite/dac.md §6:
-     * [MAP_lo][MAP_mid][MAP_hi][ctl=1][data]); my earlier MSB-first reading
-     * of the scanned Fig 4-32 was wrong. */
-    pre[0] = (uint8_t)(map24);
+    /* MSB-first MAP order, matching the ref binary (FUN_03055e78 packs
+     * [MAP_hi][MAP_mid][MAP_lo][ctl=1][data] - the dac.md §6 "MAP_lo first"
+     * note was a transcription error; the disassembly is MSB-first). */
+    pre[0] = (uint8_t)(map24 >> 16);
     pre[1] = (uint8_t)(map24 >> 8);
-    pre[2] = (uint8_t)(map24 >> 16);
+    pre[2] = (uint8_t)(map24);
     pre[3] = 1;                              /* control byte: INCR         */
     if (i2c_write(addr_w, pre, 4) != DAC_OK)
         return DAC_ERR_NAK;
@@ -290,9 +301,9 @@ static int dac_map_write(uint32_t map24, uint8_t val)
     uint8_t frame[5];
     int rc, worst = DAC_OK;
 
-    frame[0] = (uint8_t)(map24);            /* MAP low  (7:0)  — LSB 1st  */
+    frame[0] = (uint8_t)(map24 >> 16);      /* MAP high (23:16) — MSB 1st */
     frame[1] = (uint8_t)(map24 >> 8);       /* MAP mid  (15:8)            */
-    frame[2] = (uint8_t)(map24 >> 16);      /* MAP high (23:16)           */
+    frame[2] = (uint8_t)(map24);            /* MAP low  (7:0)             */
     frame[3] = 1;                           /* INCR control byte          */
     frame[4] = val;
     rc = i2c_write(dac_chips[0], frame, 5);
