@@ -468,6 +468,7 @@ void ap_ui_loop(void)
     input_event_t ev;
 
     emmc_probe();
+    player_init();       /* register wav/mp3/flac codecs (registry) */
     ui_init();
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
