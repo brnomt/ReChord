@@ -124,7 +124,16 @@ static int cdc_ep_in(unsigned ep, const void *buf, uint32_t len)
     for (;;) {
         if (len) {
             uint32_t n = len < mps ? len : mps;
-            uint32_t space = OTG(GNPTXSTS) & 0xFFFFu;
+            /* TX FIFO space source, byte-clone of the MSC's ep_in(): with
+             * dedicated per-EP FIFOs the space lives in DTXFSTS(ep), not
+             * GNPTXSTS. Reading the wrong register made multi-packet (>64B)
+             * transfers stall after the first packet (the 67-byte config
+             * descriptor only got its first 9 bytes through). */
+            uint32_t space;
+            if ((OTG(GHWCFG4) >> 25) & 1u)
+                space = DTXFSTS(ep) & 0xFFFFu;
+            else
+                space = (OTG(GNPTXSTS) & 0xFF0000u) ? OTG(GNPTXSTS) & 0xFFFFu : 0u;
             if (space >= (n + 3u) >> 2) {
                 fifo_write(ep, p, n);
                 p += n;
@@ -136,8 +145,10 @@ static int cdc_ep_in(unsigned ep, const void *buf, uint32_t len)
             return 0;
         }
         rx_drain();
-        if ((OTG(GINTSTS) & INT_RESET) || !usb_cable() || --tries == 0u)
+        if ((OTG(GINTSTS) & INT_RESET) || !usb_cable() || --tries == 0u) {
+            s_diag.xfer_err++;
             return -1;
+        }
         rk_delay_us(1);
     }
 }
