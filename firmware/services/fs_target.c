@@ -509,7 +509,7 @@ long fs_read(fs_file_t *f, void *buf, unsigned long cap)
         uint32_t cl = f->v->spc * 512u, want = f->pos / cl, off = f->pos % 512u, k;
         const uint8_t *b;
 
-        if (want < f->cidx) {
+        if (want < f->cidx || f->clus < 2u) {
             f->clus = f->first;
             f->cidx = 0;
         }
@@ -546,11 +546,13 @@ long fs_seek(fs_file_t *f, long offset)
     if (offset > (long)f->size)
         offset = (long)f->size;   /* legal; reads past end report EOF */
     f->pos = (uint32_t)offset;
-    /* Invalidate the read cursor's cached cluster walk so the next fs_read
-     * re-derives it from `first`/`pos` (the read loop already does this for
-     * `want < cidx`). */
+    /* Reset the cluster walk to the file's FIRST cluster so the next fs_read
+     * re-derives from (first, pos). Setting clus=0 here (old bug) made the
+     * walk start at cluster 0 instead of first, so any read after a seek
+     * pulled the wrong clusters (garbage) -> every FLAC failed with FORMAT
+     * (its metadata walk seeks constantly). */
     f->cidx = 0;
-    f->clus = 0;
+    f->clus = f->first;
     return offset;
 }
 
