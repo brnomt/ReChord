@@ -288,11 +288,23 @@ static void handle_setup(void)
         if (n > wlen) n = wlen;
         goto send;
     case 9:                                     /* SET_CONFIGURATION         */
-        /* activate CDC data EPs (bulk) + notif EP (interrupt) */
-        DIEPCTL(EP_DATA_IN)  = 0x40u | 0x18088000u;  /* EP1 IN bulk, 64B   */
-        DOEPCTL(EP_DATA_OUT) = 0x40u | 0x18088000u;  /* EP1 OUT bulk, 64B  */
-        DIEPCTL(EP_NOTIF)    = 0x40u | 0x1808C000u;  /* EP2 IN intr, 64B   */
-        s.configured = 1;
+        if (val == 1u) {
+            /* Byte-clone of the MSC's SET_CONFIGURATION activation: enable
+             * the EP interrupts, set MPS + USBAEP (dedicated<<22) + D0PID/
+             * SNAK on the data EPs, clear global IN NAK. Missing any of these
+             * leaves the EPs inactive -> SET_CONFIGURATION never completes ->
+             * no interfaces -> cdc_acm can't bind. */
+            uint32_t mps = (OTG(DSTS) & 6u) == 0u ? 512u : 64u;
+            uint32_t dedicated = (OTG(GHWCFG4) >> 25) & 1u;
+            OTG(DAINTMSK) |= 0x60002u;           /* EP1 IN/OUT + EP2 IN notif */
+            DIEPCTL(EP_DATA_IN)  = mps | (dedicated << 22) | 0x18088000u;
+            DOEPCTL(EP_DATA_OUT) = mps | 0x18088000u;
+            DIEPCTL(EP_NOTIF)    = 8u | (dedicated << 22) | 0x18088000u;
+            OTG(DCTL) |= 0x100u;                 /* clear global IN NAK       */
+            s.configured = 1;
+        } else {
+            s.configured = 0;
+        }
         goto status;
     default:
         goto stall;
