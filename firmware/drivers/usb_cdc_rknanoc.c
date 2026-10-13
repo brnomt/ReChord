@@ -98,16 +98,48 @@ static void fifo_write(unsigned ep, const uint8_t *src, unsigned cnt)
 
 static void arm_ep0_out(void)
 {
-    DOEPCTL(0) |= EP_ENA_CNAK;
     DOEPTSIZ(0) = 0x60080040u;        /* 3 SETUP, 1 packet, 64 bytes       */
+    DOEPCTL(0) |= EP_ENA_CNAK;
+}
+
+static void rx_drain(void);           /* forward decl (used by cdc_ep_in)  */
+
+/* Synchronous IN transfer (EP0 data/status + bulk IN), byte-clone of the
+ * MSC's ep_in(): clear EPINT, arm DIEPTSIZ, wait for TX FIFO space, push
+ * FIFO, wait for completion. The earlier fire-and-forget ep0_send never
+ * completed the data stage -> the device never enumerated. */
+static int cdc_ep_in(unsigned ep, const void *buf, uint32_t len)
+{
+    const uint8_t *p = buf;
+    uint32_t mps = 64u, tries = 2000000u;
+
+    DIEPINT(ep) = 0xFFu;
+    DIEPTSIZ(ep) = len | (len ? (len + mps - 1u) / mps : 1u) << 19;
+    DIEPCTL(ep) |= EP_ENA_CNAK;
+    for (;;) {
+        if (len) {
+            uint32_t n = len < mps ? len : mps;
+            uint32_t space = OTG(GNPTXSTS) & 0xFFFFu;
+            if (space >= (n + 3u) >> 2) {
+                fifo_write(ep, p, n);
+                p += n;
+                len -= n;
+                continue;
+            }
+        } else if (DIEPINT(ep) & 1u) {
+            DIEPINT(ep) = 1u;
+            return 0;
+        }
+        rx_drain();
+        if ((OTG(GINTSTS) & INT_RESET) || !usb_cable() || --tries == 0u)
+            return -1;
+        rk_delay_us(1);
+    }
 }
 
 static void ep0_send(const void *data, uint32_t n)
 {
-    DIEPTSIZ(0) = (1u << 19) | n;
-    DIEPCTL(0) |= EP_ENA_CNAK;
-    if (n)
-        fifo_write(0, (const uint8_t *)data, n);
+    cdc_ep_in(0, data, n);
 }
 
 static void ep0_stall(void)
@@ -295,19 +327,7 @@ int usb_cdc_puts(const char *str)
     unsigned n = 0;
     while (str[n] && n < sizeof s.in_buf)
         n++;
-    while (n) {
-        /* wait for EP1 IN space (TX FIFO not full) */
-        int tries = 200000;
-        while (tries-- && (DIEPCTL(EP_DATA_IN) & 0x80000000u) &&
-               !(DIEPINT(EP_DATA_IN) & 1u))
-            rk_delay_us(1);
-        DIEPINT(EP_DATA_IN) = 1u;
-        DIEPTSIZ(EP_DATA_IN) = (1u << 19) | n;
-        DIEPCTL(EP_DATA_IN) |= EP_ENA_CNAK;
-        fifo_write(EP_DATA_IN, (const uint8_t *)str, n);
-        break;
-    }
-    return 0;
+    return cdc_ep_in(EP_DATA_IN, str, n);
 }
 
 int usb_cdc_getc(void)                          /* -1 if none               */
