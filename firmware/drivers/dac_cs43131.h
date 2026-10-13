@@ -61,6 +61,9 @@ int dac_scan_result(int cand, int chip);
 /* Raw HP-detect status bytes read from MAP 0x0F0000 (L, R). */
 void dac_get_hp_status(uint8_t out[2]);
 
+/* Debug: read back one CS43131 register (per-chip) for the no-sound dump. */
+int dac_read_reg(int chan, uint32_t map24, uint8_t *out);
+
 /* Busy-wait delay (~ms at the 24 MHz boot clock). */
 void dac_delay_ms(unsigned ms);
 

@@ -266,16 +266,39 @@ static void dac_test_run(void)
     line(2, buf);
     snprintf(buf, sizeof buf, "hp %02x %02x", hp[0], hp[1]);
     line(3, buf);
+
+    /* Register readback (chip 0) to diagnose "no sound": confirms which
+     * CS43131 regs actually took vs our write sequence (POWER, unmute,
+     * volume, output routing, FUN_03055ecc channel/gain). */
+    {
+        uint8_t v0, v1;
+        struct { uint32_t map; const char *name; } regs[] = {
+            { 0x000B0000, "PWR" }, { 0x00010009, "MUT" }, { 0x0001000B, "VOL" },
+            { 0x0005000A, "CH0" }, { 0x0005000B, "CH1" }, { 0x00040010, "OUT" },
+        };
+        int ln = 4;
+        for (i = 0; i < 6; i += 2) {
+            v0 = v1 = 0xFF;
+            dac_read_reg(0, regs[i].map, &v0);
+            dac_read_reg(0, regs[i + 1].map, &v1);
+            snprintf(buf, sizeof buf, "%s%02x %s%02x",
+                     regs[i].name, v0, regs[i + 1].name, v1);
+            line(ln++, buf);
+        }
+    }
     display_flush_rows(0, DISPLAY_H - 1);
+    ask(1);                          /* read the register dump first */
 
     if (rc != DAC_OK) {
-        line(5, "bring-up FAILED - any key");
+        screen("DAC test");
+        line(1, "bring-up FAILED - any key");
         display_flush_rows(0, DISPLAY_H - 1);
         ask(1);
         return;
     }
 
-    line(4, "tone: 1 kHz, POWER = stop");
+    screen("DAC test tone");
+    line(1, "tone: 1 kHz, POWER = stop");
     display_flush_rows(0, DISPLAY_H - 1);
     dac_i2s_start();
     for (;;) {
@@ -295,8 +318,8 @@ static void dac_test_run(void)
     }
     dac_i2s_stop();
     snprintf(buf, sizeof buf, "tone rc %d, frames %d", rc, n);
-    line(5, buf);
-    line(6, "any key");
+    line(2, buf);
+    line(3, "any key");
     display_flush_rows(0, DISPLAY_H - 1);
     ask(1);
 }

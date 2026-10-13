@@ -462,6 +462,11 @@ void dac_get_hp_status(uint8_t out[2])
     out[1] = s_hp_status[1];
 }
 
+int dac_read_reg(int chan, uint32_t map24, uint8_t *out)
+{
+    return dac_map_read(chan, map24, out);
+}
+
 int dac_scan_result(int cand, int chip)
 {
     if (cand < 0 || cand > 2 || chip < 0 || chip > 1)
