@@ -238,12 +238,15 @@ soft-reset release, `RXCR=0x401F`, and the ref's CLKDIV formula
 (`ceil(pclk_kHz/800)-2` split lo/hi; 100 kHz @ 24 MHz ⇒ 14/14, the old
 hard-coded 59 gave ~25 kHz).
 
-**Still open after the fix**: the +0x400 TXDR offset remains a hypothesis
-(SDK `I2sReg_t` puts TXDR right after `CLR` at +0x24 — the reserved-array
-comment `0x400-0x24` suggests the struct was packed for the polled path;
-try +0x24 if the FIFO never drains); the `dac_map_write` register list is
-still the §7 abbreviated one, not the full ref order (harmless once the
-chips ACK — verify Exp 2 by ear first).
+**Still open after the fix**: the `dac_map_write` register list is still
+the §7 abbreviated one, not the full ref order (harmless once the chips
+ACK — verify Exp 2 by ear first). **TXDR offset settled (2026-10-13): it
+is +0x24, not +0x400** — SDK `Hw_i2s.h` `I2SReg_t` places TXDR right after
+`I2S_CLR` (the `(0x400-0x24)` padding is commented out) and the stock DMA
+destination literal is `0x40030024` (ref fw1 pool @ file 0x78a8, beside
+the `0x03090000` DMA-block base); no `0x40030400` exists in the ref. The
++0x400 hypothesis ate every tone sample — that was the "no audio with a
+fully configured DAC" bug.
 
 ## 8b. Hardware failure #2 + fix (2026-10-13, DFIU 5d8b7b3c): reads 0xFF
 

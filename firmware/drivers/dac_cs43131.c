@@ -93,9 +93,13 @@
 #define I2S_FIFOLR  REG32(I2S1_BASE + 0x0Cu)
 #define I2S_XFER    REG32(I2S1_BASE + 0x1Cu)
 #define I2S_CLR     REG32(I2S1_BASE + 0x20u)
-/* TXDR: RK convention places the data register at +0x400 (bring-up
- * hypothesis from the family TRM; if the FIFO never drains, try +0x24). */
-#define I2S_TXDR    REG32(I2S1_BASE + 0x400u)
+/* TXDR sits at +0x24, right after I2S_CLR — settled 2026-10-13: the SDK
+ * I2SReg_t (Hw_i2s.h, where the (0x400-0x24) reserved padding is commented
+ * out) and the stock DMA destination literal 0x40030024 (ref fw1 pool at
+ * file 0x78a8, next to the 0x03090000 DMA-block base) both say +0x24, and
+ * no 0x40030400 exists anywhere in the ref. The old +0x400 wrote every
+ * tone sample into a void -> the FIFO never saw data -> no audio. */
+#define I2S_TXDR    REG32(I2S1_BASE + 0x24u)
 
 static void delay_loops(volatile unsigned n)
 {
@@ -391,6 +395,28 @@ static int dac_map_read(int chan, uint32_t map24, uint8_t *out)
     return i2c_read_map(dac_chips[chan], map24, out, 1);
 }
 
+/* Power-up RMW — verbatim ref FUN_03056c68(mask): clear the PDN bits in
+ * 0x020000 on BOTH chips (chan 0 then chan 1, ~100 us apart). The bring-up
+ * deliberately parks the chip powered DOWN (0x020000 = 0xF6) while it is
+ * configured, then releases blocks here: 0x40 = PDN_ASP (serial port),
+ * 0x10 = PDN_HP (headphone driver). Without these two calls the chip
+ * configures perfectly, reads back sensibly — and outputs silence
+ * forever. (The ref tail called this where an earlier port saw
+ * "movs r0,#64/#16" and misread the calls as delays!) */
+static void dac_pdn_up(uint8_t mask)
+{
+    int chan;
+
+    for (chan = 0; chan < 2; chan++) {
+        uint8_t v = 0xFF;
+
+        dac_delay_ms(1);                    /* ref: DelayUs(100)           */
+        if (dac_map_read(chan, 0x00020000, &v) == DAC_OK)
+            dac_map_write_chan(chan, 0x00020000, (uint8_t)(v & ~(uint8_t)mask));
+        dac_delay_ms(1);
+    }
+}
+
 /* ---- rate table + DAC sequences (verbatim from ref) ---------------------- */
 
 typedef struct
@@ -684,6 +710,7 @@ int dac_init(uint32_t rate_hz)
     dac_map_write_chan(1, 0x0005000A, 0x0F);
     dac_map_write_chan(1, 0x0005000B, 0x0F);
     dac_map_write(0x00090000, 0x02);
+    dac_map_write(0x00010009, 0xFF);   /* ref FUN_03056a98(255): mute/max  */
     dac_map_write(0x00090003, 0xEC);
     dac_map_write(0x00090004, 0x00);
 
@@ -704,10 +731,11 @@ int dac_init(uint32_t rate_hz)
     dac_map_write(0x00010010, 0x99);
     dac_map_write(0x00180000, 0x45);
     dac_map_write(0x00010010, 0x00);
-    dac_delay_ms(64);
+    dac_pdn_up(0x40);                    /* PDN_ASP up — ref FUN_03056c68(0x40) */
     dac_map_write(0x00010010, 0x99);
     dac_map_write(0x00080032, 0x20);
-    dac_delay_ms(16);
+    dac_pdn_up(0x10);                    /* PDN_HP up — ref FUN_03056c68(0x10)  */
+    dac_delay_ms(10);
     dac_map_write(0x00080032, 0x00);
     dac_map_write(0x00010010, 0x00);
 
@@ -732,6 +760,17 @@ int dac_init(uint32_t rate_hz)
 
 /* ---- polled I2S feed -------------------------------------------------------- */
 
+/* Diag: TX FIFO level extremes seen since dac_i2s_start(). If the TXDR
+ * offset were still wrong the level would stay 00-00 (writes into the
+ * void); with a live serializer it oscillates 00..1d. */
+static unsigned s_fifo_lo = 0x3Fu, s_fifo_hi = 0;
+
+void dac_i2s_fifo_range(unsigned *lo, unsigned *hi)
+{
+    *lo = s_fifo_lo;
+    *hi = s_fifo_hi;
+}
+
 int dac_i2s_feed(const int16_t *pcm, int frames)
 {
     int i;
@@ -742,6 +781,8 @@ int dac_i2s_feed(const int16_t *pcm, int frames)
 
     s_step = DAC_STEP_FEED;
     for (i = 0; i < frames; i++) {
+        unsigned fl;
+
         /* Wait for TX FIFO room: FIFOLR[5:0] = TX level, write when below
          * 0x1e (SDK I2s.c I2S_PIO_Write). The old "== 0" waited while the
          * FIFO was EMPTY (inverted), so an empty FIFO spun to timeout ->
@@ -750,6 +791,11 @@ int dac_i2s_feed(const int16_t *pcm, int frames)
             if (stall > 8000000u)
                 return DAC_ERR_TIMEOUT;     /* FIFO never drains: no clock */
         }
+        fl = I2S_FIFOLR & 0x3Fu;
+        if (fl < s_fifo_lo)
+            s_fifo_lo = fl;
+        if (fl > s_fifo_hi)
+            s_fifo_hi = fl;
         I2S_TXDR = (uint32_t)(uint16_t)pcm[2 * i] |
                    ((uint32_t)(uint16_t)pcm[2 * i + 1] << 16);
     }
@@ -758,6 +804,8 @@ int dac_i2s_feed(const int16_t *pcm, int frames)
 
 void dac_i2s_start(void)
 {
+    s_fifo_lo = 0x3Fu;
+    s_fifo_hi = 0;
     I2S_XFER = 1;
 }
 

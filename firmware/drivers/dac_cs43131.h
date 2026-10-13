@@ -50,6 +50,10 @@ int dac_i2s_feed(const int16_t *pcm, int frames);
 void dac_i2s_start(void);
 void dac_i2s_stop(void);
 
+/* TX FIFO level range observed since dac_i2s_start() (diag: 00-00 = the
+ * TXDR writes vanish, 00-1x = the FIFO drains = SCLK is running). */
+void dac_i2s_fifo_range(unsigned *lo, unsigned *hi);
+
 /* Last-reached bring-up step (DAC_STEP_*). */
 int dac_last_step(void);
 

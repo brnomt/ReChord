@@ -231,6 +231,35 @@ static const char *keys_text(void)
     return buf;
 }
 
+/* Feed `seconds` of the 64-sample sine at 44.1 kHz through the polled I2S
+ * FIFO. Returns dac_i2s_feed's rc (DAC_ERR_TIMEOUT = FIFO stopped
+ * draining = no I2S clock); *frames_out = frames actually queued. */
+static int tone_burst(const int16_t *sine64, int seconds, int16_t *chunk,
+                      int *frames_out)
+{
+    int i, n = 0, rc = DAC_OK;
+
+    dac_i2s_start();
+    for (;;) {
+        if (keys_power())
+            break;
+        for (i = 0; i < 256; i++) {
+            int idx = (n + i) & 63;
+            chunk[2 * i] = sine64[idx];
+            chunk[2 * i + 1] = sine64[idx];
+        }
+        rc = dac_i2s_feed(chunk, 256);
+        if (rc != DAC_OK)
+            break;
+        n += 256;
+        if (n > 44100 * seconds)
+            break;
+    }
+    dac_i2s_stop();
+    *frames_out = n;
+    return rc;
+}
+
 /* DAC bring-up test (Exp 1/2 of docs/rewrite/dac.md §7): run the CS43131
  * init (recovered from the reference fw1), show the breadcrumb + I2C scan
  * + HP status, then feed a 1 kHz tone over I2S1 until POWER (or 3 s). */
@@ -302,28 +331,55 @@ static void dac_test_run(void)
     screen("DAC test tone");
     line(1, "tone: 1 kHz, POWER = stop");
     display_flush_rows(0, DISPLAY_H - 1);
-    dac_i2s_start();
-    for (;;) {
-        if (keys_power())
-            break;
-        for (i = 0; i < 256; i++) {
-            int idx = (n + i) & 63;
-            chunk[2 * i] = sine64[idx];
-            chunk[2 * i + 1] = sine64[idx];
-        }
-        rc = dac_i2s_feed(chunk, 256);
-        if (rc != DAC_OK)
-            break;
-        n += 256;
-        if (n > 44100 * 3)               /* ~3 s cap */
-            break;
+    rc = tone_burst(sine64, 3, chunk, &n);
+
+    /* The three observables that split the no-sound hypotheses:
+     * fifo 00-00 = the TXDR writes vanish; fifo 00-1x = SCLK runs and the
+     * fault is DAC-side (MCLK/PLL); clk/pdn = what the chip latched. */
+    {
+        unsigned lo, hi;
+        uint8_t clk = 0xFF, pdn = 0xFF;
+
+        dac_i2s_fifo_range(&lo, &hi);
+        dac_read_reg(0, 0x00010006, &clk);
+        dac_read_reg(0, 0x00020000, &pdn);
+        screen("DAC test tone result");
+        snprintf(buf, sizeof buf, "tone rc %d f%d", rc, n);
+        line(1, buf);
+        snprintf(buf, sizeof buf, "fifo %02x-%02x", lo, hi);
+        line(2, buf);
+        snprintf(buf, sizeof buf, "clk %02x pdn %02x", clk, pdn);
+        line(3, buf);
+        line(4, "any key = RCO tone");
+        display_flush_rows(0, DISPLAY_H - 1);
+        ask(1);
     }
-    dac_i2s_stop();
-    snprintf(buf, sizeof buf, "tone rc %d, frames %d", rc, n);
-    line(2, buf);
-    line(3, "any key");
+
+    /* RCO experiment: MCLK_SRC_SEL = 10 (internal oscillator, datasheet
+     * 7.1 System Clocking Control). If the SoC's MCLK pin never toggles
+     * this plays — pitch off by the RCO tolerance — and the bug is MCLK
+     * routing; if still silent with a live FIFO, the DAC-side path is at
+     * fault. Wait >150 us after the STOP for the source switch (datasheet
+     * 4.13.1 note on MCLK_SRC_SEL changes). */
+    dac_write_reg(0, 0x00010006, 0x06);
+    dac_write_reg(1, 0x00010006, 0x06);
+    dac_delay_ms(2);
+    screen("DAC test RCO tone");
+    line(1, "rco: 1 kHz, POWER = stop");
     display_flush_rows(0, DISPLAY_H - 1);
-    ask(1);
+    rc = tone_burst(sine64, 3, chunk, &n);
+    {
+        unsigned lo, hi;
+
+        dac_i2s_fifo_range(&lo, &hi);
+        snprintf(buf, sizeof buf, "rco rc %d f%d", rc, n);
+        line(2, buf);
+        snprintf(buf, sizeof buf, "fifo %02x-%02x", lo, hi);
+        line(3, buf);
+        line(4, "any key");
+        display_flush_rows(0, DISPLAY_H - 1);
+        ask(1);
+    }
 }
 
 /* ---- USB CDC-ACM debug console ----------------------------------------- */

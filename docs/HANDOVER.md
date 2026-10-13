@@ -1727,18 +1727,25 @@ Brought up the CS43131 dual-DAC on hardware. Iterated via the on-screen
   0x00090000/3/4, 0x000D0001, FUN_03055ecc per-chip L=7/R=15, amp GPIO(1,4,1))
   + the exact 0x00090003=0xEC. My earlier abbreviated list was wrong.
 
-**Still open**: no audio output. `dac_map_read` returning 0xFF is **FIXED
-(2026-10-13)**: the read phase had copied `FUN_03055da8`'s `CON=0x11`/wait
-`IPD 0x20` as "MRX done" — that function is the **STOP tail helper** (0x11 =
-`EN|STOP`, 0x20 = STOPIPD), so no receive ever ran and the empty RXFIFO read
-back as 0xFFFFFFFF. `i2c_read_map` now follows ref FUN_03055fe8
-byte-for-byte (Fig 4-34 aborted-write preamble + STOP, then TRX receive:
-`MRXADDR=vld|(addr|R)`, `MRXRADDR=0`, `CON=0x0B`, LASTACK, MRXCNT, wait
-MBRFIPD 0x08) and `i2c_write` got the missing STOP tail. MAP byte order is
-**MSB-first**, settled by FUN_03055e78 disassembly + datasheet Fig 4-32
-(see docs/rewrite/dac.md §8b). **DFIU 5d8b7b3c — pending hardware verify.**
-Once reads return real values, the DAC test screen is the debugger for the
-no-sound.
+**Status 2026-10-13 — three root causes fixed, STILL SILENT on hardware
+(unresolved)**: instrumented run
+(`fifo 00-1d`, `clk 04`, `pdn f6`, `hp 10 10` = XTAL_READY_INT) proved the
+whole chain live: I2S FIFO drains at audio rate, MCLK arrives (chip
+reports XTAL ready), RCO-mode tone also silent. Byte-diff vs ref
+FUN_03056550 tail found the missing piece: **FUN_03056c68(mask) — the PDN
+power-up RMW** (clears `0x020000` bits on both chips). Stock parks the
+chip powered DOWN (`0x020000=0xF6`) during config, then calls
+`FUN_03056c68(0x40)` (PDN_ASP up) and `FUN_03056c68(0x10)` (PDN_HP up).
+The port had misread both calls as `dac_delay_ms(64)`/`dac_delay_ms(16)`
+(the `movs r0,#64/#16` masks!). Fixed: `dac_pdn_up()` + the missing
+`0x010009=0xFF` pre-mute. `pdn` should now read `a6` after bring-up
+(0xF6 & ~0x50). **Hardware test after all three fixes: STILL SILENT
+(user report 2026-10-13) — unresolved.** Next session: capture the
+post-fix `pdn`/`fifo` readbacks — if `pdn` is still `f6` the RMW isn't
+landing; if `a6`, the fault is outside the register-visible path (I2S1A
+pin wiring, amp GPIO1.4 polarity, jack/amp stage). Earlier verified
+fixes kept: I2C read TRX sequence (5d8b7b3c resolved), TXDR=+0x24,
+MSB-first MAP.
 
 ## B. A boot brick (fixed by bisect) — NOT the DAC code
 
