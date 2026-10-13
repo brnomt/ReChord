@@ -273,10 +273,15 @@ static void browser_screen_handle_event(const input_event_t *ev)
                             ? (uint32_t)(ti.duration_ms / 1000) : 0);
                 (void)player_play();
             } else {
+                /* Show the raw error code (-1 io, -2 format, -3 out of the
+                 * codec subset e.g. FLAC block/seektable pool, -4 no codec):
+                 * "cannot open file" hides three distinct causes. */
+                char eb[24];
+                snprintf(eb, sizeof eb, "cannot open (%d)", rc);
                 player_screen_set_track(ent->name, 0);
                 player_screen_set_status(
                     rc == PLAYER_ERR_UNSUPPORTED ? "unsupported format"
-                                                 : "cannot open file");
+                                                 : eb);
                 log_printf("browser: open '%s' failed (%d)", full, rc);
             }
             ui_push_screen(&player_screen);
