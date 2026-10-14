@@ -503,8 +503,6 @@ static const struct { uint32_t map; uint8_t val; } dac_mono_seq[24] = {
 
 static void i2s1_setup(uint32_t rate, uint32_t mclk)
 {
-    uint32_t div;
-
     /* Ref (FUN_03056550 tail): enable PCLK_GPIO1, mux GPIO1A0..A3 to
      * I2S1A (CLK/LRCK/SCLK/SDO, func 1), select I2S1A in GRF_IOMUX_CON
      * (bit 13, WE bit 29), then the CRU CLKSEL_CON[2] clock routing. */
@@ -541,9 +539,23 @@ static void i2s1_setup(uint32_t rate, uint32_t mclk)
 
     I2S_TXCR = 0x401Fu;      /* verbatim: ch0-1 + 32-bit bus word + 16-bit */
     I2S_RXCR = 0x401Fu;      /* ref writes RXCR too (verbatim)            */
-    /* CKR verbatim: high16 = (mclk/(rate*64))-1, low16 = 0x3F3F. */
-    div = (mclk / (64u * rate)) - 1u;
-    I2S_CKR = ((div & 0xFFFFu) << 16) | 0x3F3Fu;
+    /* CKR per the Rockchip SDK (I2s.c I2sSetSampleRate): Fs = mclk/(TMD*TSD)
+     * where TMD (mclk->sclk, even 2..64 or 1 = bypass) and TSD (sclk->fs)
+     * are each encoded as (div-1) in CKR[16+] and CKR[15:8]/[7:0]. The old
+     * code used a wrong formula + fixed 0x3F3F (TSD=64) which set Fs ~1.3x
+     * off -> music played at the wrong speed (a test tone hides it: no pitch
+     * reference). Derive TMD/TSD from mclk/rate so each rate lands on Fs. */
+    {
+        uint32_t ratio = (rate > 0u) ? (mclk / rate) : 256u;
+        uint32_t tmd, tsd;
+        if (ratio > 256u) { tmd = ratio / 256u; tsd = 256u; }  /* e.g. 512 */
+        else              { tmd = 1u;          tsd = ratio; }
+        if (tsd < 2u)   tsd = 2u;
+        if (tsd > 256u) tsd = 256u;
+        if (tmd > 64u)  tmd = 64u;
+        I2S_CKR = (((tmd - 1u) & 0xFFFFu) << 16) |
+                  (((tsd - 1u) & 0xFFu) << 8) | ((tsd - 1u) & 0xFFu);
+    }
     /* INTCR verbatim (ref FUN_03056550 "i2s regs"): 0x01F00102 — TX
      * underrun INT enable + FIFO threshold fields. The polled path does
      * not need the interrupts but the threshold bits gate the FIFO. */
