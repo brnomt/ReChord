@@ -1,19 +1,13 @@
 /*
- * ipc_b_target.c — target implementation of the A<->B audio IPC, mapped
- * onto the documented hardware protocol facts (clean-room; see ipc_b.h and
- * the facts table in docs/rewrite/player.md).
+ * ipc_b_target.c — target implementation of the A<->B audio IPC.
  *
- * MAPPING (fact -> our implementation):
- *   shared block ~0x01020000  -> ipc_b_shared_t at 0x01020000
- *   "ring rd %u wr %u"        -> shared ring_rd/ring_wr + local ringbuf_t
- *   "player: B start 0 at
- *    400 MHz"                 -> IPC_B_CMD_START, clock_div=1 (400 MHz)
- *   "B /1 -> /4 (100 MHz)"    -> clock negotiation handshake (below)
- *   "B drained" / "B is gone"
- *   / "B off" / "B FAULT"     -> ipc_b_state_t + fault_kind/pc/lr/cfsr
- *   30 s supervisor timeout   -> supervisor tick guard (below)
- *
- * ## STATUS: compile-ready stub — register-level bring-up is TODO ##
+ * CURRENT MAPPING (2026-10-13): the B core bring-up is still TODO (the
+ * mailbox/shared-block wiring below are placeholders), so the "B core"
+ * sink is a DIRECT DAC renderer: decoded PCM -> dac_i2s_feed() (the same
+ * I2S1->CS43131 path the DAC test proved audible on hardware). This is a
+ * stop-gap so playback works end-to-end; when the real B core lands, this
+ * file switches back to the mailbox protocol (the shared block/doorbell
+ * code below is kept and unused).
  *
  * What is NOT yet real (to be settled on hardware, tracked in
  * docs/rewrite/player.md open items):
@@ -37,6 +31,7 @@
  */
 #include "ipc_b.h"
 #include "ringbuf.h"
+#include "drivers/dac_cs43131.h"
 
 /* Documented shared IPC block region (~0x01020xxx in the reference facts). */
 #define IPC_B_SHARED_BASE   0x01020000u
@@ -62,6 +57,9 @@
 /* Producer-side PCM ring (TODO(bring-up) item 4: place into the window the
  * B core reads via DMA; for now it is plain AP RAM behind our contract). */
 static uint8_t   g_ring_storage[IPC_B_RING_BYTES];
+/* Mono->stereo upmix scratch for the direct DAC sink: sized to the player's
+ * decode staging buffer (PLAYER_PUMP_FRAMES=512 frames, stereo). */
+#define IPC_B_PUMP_SCRATCH (512 * 2)
 static ringbuf_t g_ring;
 
 static ipc_b_state_t g_state = IPC_B_OFF;
@@ -140,12 +138,20 @@ int ipc_b_start(const ipc_b_track_t *track)
     sh->sample_rate = (uint32_t)track->sample_rate;
     sh->channels = (uint32_t)track->channels;
     sh->clock_div = 1;                    /* documented start clock       */
-    sh->state = IPC_B_STARTING;
+    sh->state = IPC_B_RUNNING;
     sh->cmd = IPC_B_CMD_START;
     sh->cmd_arg0 = (track->duration_ms > 0) ? (uint32_t)track->duration_ms : 0;
-    target_doorbell();
 
-    g_state = IPC_B_STARTING;
+    /* Direct-DAC renderer: bring the I2S1->CS43131 path up at the track's
+     * sample rate and start feeding. No B core involved. */
+    if (dac_init((uint32_t)track->sample_rate) != 0) {
+        g_state = IPC_B_FAULT;
+        sh->state = IPC_B_FAULT;
+        return -1;
+    }
+    dac_i2s_start();
+
+    g_state = IPC_B_RUNNING;
     return 0;
 }
 
@@ -158,6 +164,7 @@ int ipc_b_stop(void)
     sh->state = IPC_B_OFF;                /* "B off"                      */
     rb_reset(&g_ring);
     shared_publish_ring();
+    dac_i2s_stop();
     g_frames_consumed = 0;
     g_paused = 0;
     g_state = IPC_B_OFF;
@@ -190,29 +197,17 @@ int ipc_b_poll_state(ipc_b_status_t *out)
 {
     volatile ipc_b_shared_t *sh = IPC_B_SHARED;
 
-    g_supervisor_ticks++;
-
-    if (sh->magic == IPC_B_MAGIC) {
-        /* The B side publishes its state; mirror it and apply the
-         * supervisor timeout ("B is gone" when start never completes). */
-        g_state = (ipc_b_state_t)sh->state;
-        g_frames_consumed = (long)sh->frames_consumed;
-        if (g_state == IPC_B_STARTING &&
-            g_supervisor_ticks > IPC_B_SUPERVISOR_TICKS) {
-            g_state = IPC_B_FAULT;
-            sh->state = IPC_B_FAULT;
-            sh->fault_kind = 1;           /* timeout kind                 */
-        }
-    } else {
-        /* Handshake never appeared: B firmware not loaded/started. */
-        g_state = (g_state == IPC_B_OFF) ? IPC_B_OFF : IPC_B_FAULT;
-    }
+    /* Direct-DAC renderer: no B core to handshake with. The DAC sink
+     * (dac_i2s_feed) blocks until the I2S FIFO drains, so frames pushed
+     * here are consumed in ~real time; we track them in g_frames_consumed. */
+    if (g_state == IPC_B_STARTING)
+        g_state = IPC_B_RUNNING;
 
     if (out != 0) {
         out->state = g_state;
         out->frames_consumed = g_frames_consumed;
-        out->ring_rd = (long)sh->ring_rd;
-        out->ring_wr = (long)sh->ring_wr;
+        out->ring_rd = (long)g_frames_consumed;   /* consumed == fed to DAC */
+        out->ring_wr = (long)g_frames_consumed;
         out->clock_div = (int)sh->clock_div;
         out->busy_pct = (int)sh->busy_pct;
         out->volume_db = (int)sh->volume_db;
@@ -222,19 +217,32 @@ int ipc_b_poll_state(ipc_b_status_t *out)
 
 int ipc_b_ring_fill(const int16_t *pcm, int frames)
 {
-    size_t written;
+    int fed;
 
     if (pcm == 0 || frames <= 0 || g_state == IPC_B_OFF ||
-        g_state == IPC_B_FAULT)
+        g_state == IPC_B_FAULT || g_paused)
         return 0;
 
-    written = rb_write(&g_ring, pcm,
-                       (size_t)frames * (size_t)g_frame_bytes);
-    shared_publish_ring();
-    if (written != 0) {
-        target_doorbell();                /* TODO: batch/IRQ-coalesce     */
+    /* Direct-DAC renderer: push PCM straight into the I2S1 FIFO. The feed
+     * blocks until there is space, so it self-clocks to the sample rate.
+     * dac_i2s_feed() is stereo; upmix mono to L=R on the way in. */
+    if (g_frame_bytes == 2) {
+        /* mono source: duplicate each sample into both channels */
+        static int16_t st[IPC_B_PUMP_SCRATCH];
+        int n = frames, i;
+        if (n > IPC_B_PUMP_SCRATCH / 2)
+            n = IPC_B_PUMP_SCRATCH / 2;
+        for (i = 0; i < n; i++)
+            st[2 * i] = st[2 * i + 1] = pcm[i];
+        fed = dac_i2s_feed(st, n);
+    } else {
+        fed = dac_i2s_feed(pcm, frames);
     }
-    return (int)(written / (size_t)g_frame_bytes);
+    if (fed > 0) {
+        g_frames_consumed += fed;
+        shared_publish_ring();
+    }
+    return fed;
 }
 
 int ipc_b_flush(void)
