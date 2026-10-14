@@ -8169,6 +8169,16 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
             return NULL;
         }
 
+        /* ReChord: drop an oversized seektable instead of growing the single
+         * allocation beyond our static pool. The seektable only accelerates
+         * seeking; with pSeekpoints == NULL dr_flac falls back to its normal
+         * seek path and playback is unaffected. Real files can carry
+         * ~95 KB SEEKTABLEs (one seekpoint per frame) which we cannot fit. */
+        if ((seekpointCount * sizeof(drflac_seekpoint)) > 16384u) {
+            seekpointCount = 0;
+            seektablePos   = 0;
+        }
+
         allocationSize += seekpointCount * sizeof(drflac_seekpoint);
     }
 

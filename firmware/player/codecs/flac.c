@@ -304,6 +304,10 @@ static int flac_would_fit(unsigned max_block, unsigned channels,
         return 0;
     whole = (max_block % elems) ? (max_block / elems + 1u) : (max_block / elems);
     window = whole * vec * channels;
+    /* dr_flac drops a seektable > 16 KB (see its open path): it contributes
+     * nothing to the allocation then. Budget only what dr_flac keeps. */
+    if (seektable_bytes > 16384u)
+        seektable_bytes = 0;
     need = (unsigned)sizeof(drflac) + window + vec + (unsigned)seektable_bytes;
     return need <= (unsigned)FLAC_POOL_B;
 }
