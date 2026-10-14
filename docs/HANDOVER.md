@@ -1818,3 +1818,43 @@ menu entry (no more `usb_msc_run()` hijack). **DFIU 8720b71d.**
    (DFIU a14e948f).
 3. (Deferred) CDC-ACM console: close the console-mode enumeration
    (DFIU 8720b71d).
+
+## E. Session 2026-10-13 late — DAC works, FLAC plays, but speed/pitch wrong
+
+**Wins (all hardware-verified):** the DAC is alive end-to-end. The I2C
+master-receive fix (ref FUN_03055fe8) made the register dump return real
+values (`PWR 1F, MUT 00, VOL 01, CH0/CH1 07, OUT 01` — CS43131 configured,
+both chips ACK `scan A11`, no mute) and audio plays. FLAC decoding is enabled:
+`player_init()` was never called in the AP (codecs registered nowhere ->
+"unsupported format" for everything); now wired at AP startup. `fs_seek` reset
+the cluster pointer to 0 instead of `first` (broke every FLAC with `-2` after
+the first metadata seek); fixed. Oversized FLAC SEEKTABLEs (~95KB) blew the
+56KB pool (`-3`); now dropped (>16KB) — dr_flac seeks fine without them. Error
+codes are surfaced in the UI for future diagnosis.
+
+**Current blocker — playback speed/pitch WRONG + stutter.** Music plays but at
+the wrong rate and it stutters ("sample, silence, sample"). Two separate causes
+identified:
+
+- **Clock divisor.** Compared the driver against the Rockchip SDK
+  (`I2s.c I2sSetSampleRate`). The PLL (`acodec_mux`) matches the SDK tables
+  exactly, but the I2S `I2S_CKR` divider was wrong: SDK encodes `Fs =
+  mclk/(TMD*TSD)` with TMD (mclk->sclk) and TSD (sclk->fs) each as `(div-1)`;
+  44100 needs TMD=1,TSD=256 -> `CKR 0x0000FFFF`. We wrote a wrong formula +
+  fixed `0x3F3F` (TSD=64). Fixed `i2s1_setup` to derive TMD/TSD from
+  `mclk/rate` (commit 741f15c). **Hardware still reports wrong speed/pitch
+  after this fix** -> so the actual MCLK arriving at the I2S differs from the
+  rate table's `mclk` field (the PLL POSDIV / CRU_CLKSEL_CON[2] routing is not
+  producing the assumed ~256*Fs). Next: measure/correct the real MCLK chain
+  (the CRU literals, "verbatim from ref", may pair with a different PLL than
+  the rate table assumes).
+- **Streaming is LINEAR, not parallel.** decode -> `dac_i2s_feed` (blocks
+  ~90ms/chunk) -> next, all on the UI thread. No DMA/IRQ double-buffer. The
+  I2S FIFO is tiny (~0.7ms), so any gap underruns -> stutter, and the blocking
+  feed makes the UI sluggish while playing. A test tone hid the speed bug (no
+  pitch reference). The real fix for smooth audio + responsive UI is IRQ/DMA-
+  driven I2S TX feeding from a decode ring (the vector table currently has only
+  the 16 core exceptions, no peripheral IRQ wiring yet).
+
+DFIU: 158f67d3 (I2C START), 0b6a53e3 (I2S FIFO), 5d8b7b3c (read/no-sound),
+cf? (FLAC open), plus this speed/stutter entry.
