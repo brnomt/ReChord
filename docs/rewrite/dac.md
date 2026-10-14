@@ -288,7 +288,22 @@ no repeated-START is required; the CS43131 keeps its MAP across STOP.
   now also proves it on hardware once the chips ACK.**
 - Do both chips ACK on the bus (I²C scan in Exp 1 also settles the 2-chip
   topology question: distinct addresses ⇒ two independently-configured DACs).
-- MCLK actually delivered by RKnanoD I2S (TRM) — 22.5792/24.576 or PLL.
+- ~~MCLK actually delivered by RKnanoD I2S (TRM) — 22.5792/24.576 or PLL.~~
+  **RESOLVED (2026-10-13).** MCLK = SoC ACODEC PLL / 5 via `CRU CLKSEL_CON[3]`
+  (divider=4 -> /5, source-select = `CLK_ACODEC_PLL`); the CS43131's 22.5792/
+  24.576 internal-MCLK spec only applies in the chip's own XTAL/PLL-standalone
+  mode, which this board does NOT use — the SoC is the I2S master and feeds the
+  CS43131 MCLK pin at 256xFS. Per-group, the `acodec_mux[]` bytes are
+  byte-exact with `ACodecpllTable_*` in `driver/DAC/rockcodec/rockcodec.c`:
+  44.1k family PLL = 56.448 MHz -> MCLK = 11.2896 MHz = 256*44100; 48k family
+  61.44 MHz -> 12.288 = 256*48000; 32k family 40.96 -> 8.192 = 256*32000. The
+  four `CRU_BASE+0x20` writes equal `CLKSEL_CON[3]` = `SetI2SFreq(ACODEC_PLL)`
+  + `SetI2SClkOutFreq(I2S1_CLK)` (SDK `driver/IIS/I2s.c`). So **MCLK was never
+  wrong** — the residual speed/pitch error was the CKR integer truncation on
+  the slightly-under-256x recovered `mclk` constants for the 44.1 kHz family
+  (44100/88200 -> 11288960 vs 11289600; 176400 -> 22577664 vs 22579200):
+  truncating `mclk/rate` gave TSD=255/127 instead of 256/128. Fixed in
+  `i2s1_setup` by rounding the ratio.
 
 ## 10. RAM/code budget notes
 

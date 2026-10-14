@@ -1836,25 +1836,51 @@ codes are surfaced in the UI for future diagnosis.
 the wrong rate and it stutters ("sample, silence, sample"). Two separate causes
 identified:
 
-- **Clock divisor.** Compared the driver against the Rockchip SDK
-  (`I2s.c I2sSetSampleRate`). The PLL (`acodec_mux`) matches the SDK tables
-  exactly, but the I2S `I2S_CKR` divider was wrong: SDK encodes `Fs =
-  mclk/(TMD*TSD)` with TMD (mclk->sclk) and TSD (sclk->fs) each as `(div-1)`;
-  44100 needs TMD=1,TSD=256 -> `CKR 0x0000FFFF`. We wrote a wrong formula +
-  fixed `0x3F3F` (TSD=64). Fixed `i2s1_setup` to derive TMD/TSD from
-  `mclk/rate` (commit 741f15c). **Hardware still reports wrong speed/pitch
-  after this fix** -> so the actual MCLK arriving at the I2S differs from the
-  rate table's `mclk` field (the PLL POSDIV / CRU_CLKSEL_CON[2] routing is not
-  producing the assumed ~256*Fs). Next: measure/correct the real MCLK chain
-  (the CRU literals, "verbatim from ref", may pair with a different PLL than
-  the rate table assumes).
-- **Streaming is LINEAR, not parallel.** decode -> `dac_i2s_feed` (blocks
-  ~90ms/chunk) -> next, all on the UI thread. No DMA/IRQ double-buffer. The
-  I2S FIFO is tiny (~0.7ms), so any gap underruns -> stutter, and the blocking
-  feed makes the UI sluggish while playing. A test tone hid the speed bug (no
-  pitch reference). The real fix for smooth audio + responsive UI is IRQ/DMA-
-  driven I2S TX feeding from a decode ring (the vector table currently has only
-  the 16 core exceptions, no peripheral IRQ wiring yet).
+- **Clock divisor — RESOLVED.** Compared `dac_cs43131.c` against the Rockchip
+  SDK (`I2s.c I2sSetSampleRate` + `rockcodec.c ACodec_PLL_Set`). Finding: the
+  **actual MCLK is exact**, so the "MCLK differs from the rate-table" worry
+  (dac.md §9) is a red herring. `acodec_mux[]` is byte-exact with the SDK's
+  `ACodecpllTable_*`, and the four `CRU_BASE+0x20` writes are `CLKSEL_CON[3]` =
+  `SetI2SFreq(CLK_ACODEC_PLL)` (sel=ACODEC, /5) + `SetI2SClkOutFreq(I2S1_CLK)`:
+  for 44100 the mux `{6,36,25,3}` == `ACodecpllTable_56448[F_SOURCE_24000KHz]`
+  (= 56.448 MHz) -> MCLK = 56.448 MHz / 5 = 11.2896 MHz = **exactly 256*44100**.
+  The CKR formula was 1.3x-wrong (fixed `0x3F3F`) and was corrected by 741f15c
+  to derive TMD/TSD from `mclk/rate`. The *residual* ~0.4-0.8% sharp is NOT an
+  MCLK mismatch: the ref's recovered `mclk` for the 44.1 kHz family sits just
+  *under* 256x/128x rate (44100/88200 -> 11288960 vs true 11289600; 176400 ->
+  22577664 vs 22579200), so **truncating** `mclk/rate` yielded TSD=255/127 instead
+  of 256/128 -> Fs ~= 44273 (0.4% fast) / 88896 (0.8% fast), heard as "faster,
+  high-pitched." **Fix applied:** round the ratio (`(mclk + rate/2)/rate`) in
+  `i2s1_setup` so TSD lands on 256/128 (verified for all 13 table entries).
+  Compile-checked (`arm-none-eabi-gcc` AP flags). Still hardware-untested (no
+  rig here) — confirm by ear / sample-rate counter.
+- **Streaming is LINEAR, not parallel (stutter — NOT yet fixed).** decode ->
+  `dac_i2s_feed` (blocks) -> next, on one core; no DMA/IRQ double-buffer. The
+  I2S FIFO is tiny (~0.7ms = 32 stereo frames), so the multi-ms decode burst in
+  `player_process` (`PLAYER_PUMP_FRAMES=512`) drains it to empty mid-decode ->
+  "sample, silence, sample". (The blocking feed also pins the UI thread while
+  playing.) Fix = IRQ/DMA-driven TX feeding from the PCM ring so decode and
+  playback overlap. **Verified facts for the port (not yet wired):**
+  `INT_ID_I2S1 = 32` (vector slot 48; `NVIC_ISER1` bit 0 — see
+  `community/sdks/.../I2C/I2C interrupt.c` `IntRegister` usage + the
+  `firmware/bb_stub/bb_stub.c` NVIC/vector pattern); I2S `INTCR` bit 0 =
+  TX-empty interrupt enable, `INTSR` bit 0 = TX-empty status (auto-clears on a
+  `TXDR` write per the SDK `I2sIntIsr`); the 32 KB `g_ring` (`ringbuf.c`,
+  SPSC + `DMB`, ISR-safe) + `ipc_b`'s async-consumer contract (mirrored by
+  `ipc_b_mock.c`, so `player.c` is already written for it). The AP vector
+  table (`ap_vectors[16]`, `firmware/startup/ap_startup.c`) holds only the 16
+  Cortex-M core exceptions today — wiring IRQ 32 needs extending it to slot 48
+  and enabling `NVIC_ISER1`. Two routes: **(A) lighter** — TX-empty ISR drains
+  `g_ring`->TXDR (keeps the polled `dac_i2s_feed` for the `DAC test` tone);
+  **(B) ref-true** — port the ref DMA block (`0x03090000`, channel 4, 8-entry
+  descriptor ring via `FUN_03055b0c`) per `docs/re/dac-output-path.md`'s
+  `AudioDmaIsrHandler -> AudioDecoding -> DMA -> I2S` pipeline. **Defer until
+  hardware-verified**: this is a verified-boot-vector + live-audio-ISR change
+  (gapless/EOS tail-drain edge case); do not ship blind. **Safe probe (no
+  hardware vectoring): shrink `PLAYER_PUMP_FRAMES` (player.c, currently 512) to
+  e.g. 64 so each decode burst fits inside the ~0.7ms FIFO life, then read the
+  existing `s_fifo_lo`/`s_fifo_hi` diag — if `s_fifo_lo` stops hitting 0 the
+  stutter recedes (decode-speed dependent; not a real fix).
 
 DFIU: 158f67d3 (I2C START), 0b6a53e3 (I2S FIFO), 5d8b7b3c (read/no-sound),
 cf? (FLAC open), plus this speed/stutter entry.

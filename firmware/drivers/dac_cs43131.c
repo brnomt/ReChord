@@ -464,7 +464,14 @@ void dac_output_off(void)
 typedef struct
 {
     uint32_t rate;
-    uint32_t mclk;        /* Hz expected at the DAC MCLK pin             */
+    uint32_t mclk;        /* Hz at the DAC MCLK pin. For the 44.1 kHz
+                           * family this recovered constant sits just UNDER
+                           * 256x/128x rate (44100/88200 -> 11288960 vs the
+                           * real 256*44100 = 11289600; 176400 -> 22577664
+                           * vs 128*176400 = 22579200). The actual MCLK is exact
+                           * (PLL 56.448 MHz / 5); only the table byte is
+                           * imprecise, so i2s1_setup() ROUNDS mclk/rate to land
+                           * TSD on 256/128 instead of 255/127. */
     uint8_t  mux[4];      /* ACODEC mux bytes (ref table [4..7])         */
     uint8_t  dac;         /* per-rate DAC control byte (ref table [12])  */
 } dac_rate_t;
@@ -544,9 +551,15 @@ static void i2s1_setup(uint32_t rate, uint32_t mclk)
      * are each encoded as (div-1) in CKR[16+] and CKR[15:8]/[7:0]. The old
      * code used a wrong formula + fixed 0x3F3F (TSD=64) which set Fs ~1.3x
      * off -> music played at the wrong speed (a test tone hides it: no pitch
-     * reference). Derive TMD/TSD from mclk/rate so each rate lands on Fs. */
+     * reference). Derive TMD/TSD from mclk/rate so each rate lands on Fs.
+     *
+     * Round mclk/rate instead of truncating: the 44.1 kHz-family table mclk
+     * is recovered slightly under 256x/128x rate, so truncating gives
+     * TSD=255/127 instead of 256/128 -> Fs ~= 44273 Hz, ~0.4% sharp
+     * ("faster, high-pitched"). The real MCLK is exact (PLL 56.448 MHz /
+     * 5 = 11289600 = 256*44100); only the table constant is imprecise. */
     {
-        uint32_t ratio = (rate > 0u) ? (mclk / rate) : 256u;
+        uint32_t ratio = (rate > 0u) ? ((mclk + (rate >> 1u)) / rate) : 256u;
         uint32_t tmd, tsd;
         if (ratio > 256u) { tmd = ratio / 256u; tsd = 256u; }  /* e.g. 512 */
         else              { tmd = 1u;          tsd = ratio; }
