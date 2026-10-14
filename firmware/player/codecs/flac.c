@@ -34,6 +34,11 @@
 #include "../codec_io.h"
 #include "../tags.h"
 
+/* Debug diag for the flac_open subset check (why a file returns -3). */
+unsigned flac_diag_block, flac_diag_channels;
+unsigned long flac_diag_seektable, flac_diag_need;
+int        flac_diag_reason;
+
 /* ---- static pool allocator (replaces DRFLAC_MALLOC/REALLOC/FREE) -------- */
 
 #define FLAC_POOL_B 57344          /* fits handle + 4096-block stereo window
@@ -328,17 +333,26 @@ static int flac_open(void *vst, const char *path)
                      &scan_channels) != 0) {
         cio_close(st->io);
         st->io = 0;
+        flac_diag_reason = -2;
         return CODEC_ERR_FORMAT;
     }
+    flac_diag_block = max_block;
+    flac_diag_channels = scan_channels;
+    flac_diag_seektable = seektable_bytes;
+    flac_diag_need = (unsigned long)sizeof(drflac) +
+                     ((max_block + 15u) / 16u) * 64u * scan_channels + 64u +
+                     seektable_bytes;
     if (scan_channels > 2) {           /* player contract: mono/stereo     */
         cio_close(st->io);
         st->io = 0;
+        flac_diag_reason = 1;          /* >2 channels                     */
         return CODEC_ERR_UNSUPPORTED;
     }
     if (!flac_would_fit(max_block, scan_channels, seektable_bytes)) {
         cio_close(st->io);
         st->io = 0;
-        return CODEC_ERR_UNSUPPORTED;  /* blocksize/seektable > pool       */
+        flac_diag_reason = 2;          /* block/seektable > pool           */
+        return CODEC_ERR_UNSUPPORTED;
     }
 
     pool_reset();
@@ -364,7 +378,12 @@ static int flac_open(void *vst, const char *path)
         cio_close(st->io);
         st->f = 0;
         st->io = 0;
-        return (st->channels > 2) ? CODEC_ERR_UNSUPPORTED : CODEC_ERR_FORMAT;
+        if (st->channels > 2) {
+            flac_diag_reason = 3;          /* dr_flac saw >2 channels      */
+            return CODEC_ERR_UNSUPPORTED;
+        }
+        flac_diag_reason = -2;             /* bad rate/format              */
+        return CODEC_ERR_FORMAT;
     }
     if (st->total_samples > 0)
         st->duration_ms = st->total_samples * 1000 / st->rate;

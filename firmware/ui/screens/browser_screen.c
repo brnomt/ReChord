@@ -276,13 +276,23 @@ static void browser_screen_handle_event(const input_event_t *ev)
                 /* Show the raw error code (-1 io, -2 format, -3 out of the
                  * codec subset e.g. FLAC block/seektable pool, -4 no codec):
                  * "cannot open file" hides three distinct causes. */
-                char eb[24];
-                snprintf(eb, sizeof eb, "cannot open (%d)", rc);
+                char eb[28];
+                extern unsigned flac_diag_block, flac_diag_channels;
+                extern unsigned long flac_diag_need;
+                extern int flac_diag_reason;
+                if (rc == -3 && flac_diag_reason == 2)
+                    snprintf(eb, sizeof eb, "flac pool %lu", flac_diag_need);
+                else if (rc == -3 && flac_diag_reason)
+                    snprintf(eb, sizeof eb, "flac %d ch%u b%u", flac_diag_reason,
+                             flac_diag_channels, flac_diag_block);
+                else
+                    snprintf(eb, sizeof eb, "cannot open (%d)", rc);
                 player_screen_set_track(ent->name, 0);
                 player_screen_set_status(
-                    rc == PLAYER_ERR_UNSUPPORTED ? "unsupported format"
-                                                 : eb);
-                log_printf("browser: open '%s' failed (%d)", full, rc);
+                    rc == PLAYER_ERR_UNSUPPORTED ? eb : eb);
+                log_printf("browser: open '%s' failed (%d) rsn=%d blk=%u ch=%u st=%lu",
+                           full, rc, flac_diag_reason, flac_diag_block,
+                           flac_diag_channels, flac_diag_need);
             }
             ui_push_screen(&player_screen);
         }
