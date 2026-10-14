@@ -554,13 +554,42 @@ void ap_ui_loop(void)
         if (ui_stack_depth() == 0)       /* BACK on the root menu */
             ui_push_screen(&menu_screen);
 
-        /* audio pump + Now Playing sync (no-ops without a playing track) */
-        (void)player_process();
-        player_screen_refresh();
-
-        ui_render();
-        /* ponytail: busy-wait scan period (~5 ms at the 24 MHz boot clock);
-         * move to SysTick once the clock tree is set up. */
-        panel_io_delay_ms(1);
+        /* audio pump + Now Playing sync (no-ops without a playing track).
+         * While a track plays, feed BACK-TO-BACK so the tiny I2S FIFO (≈0.7
+         * ms of audio) never underruns between chunks: dac_i2s_feed() blocks
+         * and self-paces, so consecutive calls keep the FIFO full — the same
+         * tight loop the DAC test used (which played smooth). Rendering or
+         * delaying between single calls starves the FIFO -> "click, silence".
+         * Input/power are polled cheaply between chunks; the screen redraws
+         * only when something changes. */
+        if (player_get_state() == PLAYER_PLAYING) {
+            int n;
+            for (n = 0; n < 8 && player_get_state() == PLAYER_PLAYING; n++) {
+                (void)player_process();      /* feeds ~90 ms, blocking */
+                adc = keys_adc(); power = keys_power();
+                s_power_held = power ? s_power_held + 1u : 0u;
+                if (s_power_held == 700u)
+                    power_off();
+                input_scan(adc, power);
+                while (input_poll(&ev) > 0) {
+                    if (ev.type == KEY_MENU) {
+                        while (ui_stack_depth() > 1)
+                            ui_pop_screen();
+                    } else {
+                        ui_handle_event(&ev);
+                    }
+                }
+            }
+            player_screen_refresh();
+            ui_render();
+            /* no per-frame delay: the next loop feeds again immediately */
+        } else {
+            (void)player_process();
+            player_screen_refresh();
+            ui_render();
+            /* ponytail: busy-wait scan period (~5 ms at the 24 MHz boot clock);
+             * move to SysTick once the clock tree is set up. */
+            panel_io_delay_ms(1);
+        }
     }
 }
