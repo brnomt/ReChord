@@ -148,6 +148,6 @@ independent reverse-engineering notes. Firmware images are not distributed;
 obtain official firmware from FiiO. Flashing modified firmware carries risk —
 use at your own risk.
 
-## Alternatives
-https://refcfw.atzkey.workers.dev/ by atzkey.
-An existing tool serving a similar purpose. ReChord is an independent project developed from scratch with a different architecture and focus
+## Acknowledgments & Prior Work
+https://recho.atzkey.workers.dev/ by atzkey.
+The pioneering FiiO Echo Mini CFW. ReChord is a **completely independent project** in implementation and codebase from RECHO, but we gratefully acknowledge RECHO as prior inspiration for exploring custom firmware on this hardware.
