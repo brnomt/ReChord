@@ -555,17 +555,15 @@ void ap_ui_loop(void)
             ui_push_screen(&menu_screen);
 
         /* audio pump + Now Playing sync (no-ops without a playing track).
-         * While a track plays, feed BACK-TO-BACK so the tiny I2S FIFO (≈0.7
-         * ms of audio) never underruns between chunks: dac_i2s_feed() blocks
-         * and self-paces, so consecutive calls keep the FIFO full — the same
-         * tight loop the DAC test used (which played smooth). Rendering or
-         * delaying between single calls starves the FIFO -> "click, silence".
-         * Input/power are polled cheaply between chunks; the screen redraws
-         * only when something changes. */
+         * While a track plays, decode ahead into the 32 KiB PCM ring: the
+         * I2S1 TX IRQ (dac_i2s_tx_isr) drains it at the sample clock, so
+         * decode and playback overlap and the pump calls are non-blocking
+         * once the ring is full. The inner loop just refills quickly and
+         * polls input between batches. */
         if (player_get_state() == PLAYER_PLAYING) {
             int n;
             for (n = 0; n < 8 && player_get_state() == PLAYER_PLAYING; n++) {
-                (void)player_process();      /* feeds ~90 ms, blocking */
+                (void)player_process();      /* decodes into the ring */
                 adc = keys_adc(); power = keys_power();
                 s_power_held = power ? s_power_held + 1u : 0u;
                 if (s_power_held == 700u)
@@ -582,7 +580,7 @@ void ap_ui_loop(void)
             }
             player_screen_refresh();
             ui_render();
-            /* no per-frame delay: the next loop feeds again immediately */
+            panel_io_delay_ms(1);   /* ring is ahead; don't hot-spin */
         } else {
             (void)player_process();
             player_screen_refresh();

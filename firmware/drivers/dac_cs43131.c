@@ -93,6 +93,7 @@
 #define I2S_FIFOLR  REG32(I2S1_BASE + 0x0Cu)
 #define I2S_DMACR   REG32(I2S1_BASE + 0x10u)
 #define I2S_INTCR   REG32(I2S1_BASE + 0x14u)
+#define I2S_INTSR   REG32(I2S1_BASE + 0x18u)
 #define I2S_XFER    REG32(I2S1_BASE + 0x1Cu)
 #define I2S_CLR     REG32(I2S1_BASE + 0x20u)
 /* TXDR sits at +0x24, right after I2S_CLR — settled 2026-10-13: the SDK
@@ -464,19 +465,20 @@ void dac_output_off(void)
 typedef struct
 {
     uint32_t rate;
-    uint32_t mclk;        /* Hz at the DAC MCLK pin. For the 44.1 kHz
-                           * family this recovered constant sits just UNDER
-                           * 256x/128x rate (44100/88200 -> 11288960 vs the
-                           * real 256*44100 = 11289600; 176400 -> 22577664
-                           * vs 128*176400 = 22579200). The actual MCLK is exact
-                           * (PLL 56.448 MHz / 5); only the table byte is
-                           * imprecise, so i2s1_setup() ROUNDS mclk/rate to land
-                           * TSD on 256/128 instead of 255/127. */
-    uint8_t  mux[4];      /* ACODEC mux bytes (ref table [4..7])         */
+    uint32_t mclk;        /* Hz at the DAC MCLK pin = ACODEC_PLL/5, always
+                           * an EXACT 256x/128x/512x multiple of rate (512x
+                           * for 8000/11025/12000, 256x for the mid rates,
+                           * 128x for 88200/176400/192000). Byte-verified
+                           * from ref RAM 0x030609E8 via REA 2026-10-16 —
+                           * the earlier "just under 256x" values (44100 ->
+                           * 11288960, 176400 -> 22577664) were transcription
+                           * errors (true bytes: 11289600, 22579200). */
+    uint8_t  mux[4];      /* ACODEC PLL cfg: POSDIV_L3/POSDIV_H8/PREDIV/OUTDIV
+                           * (ref table [4..7] == ACodecpllTable_* rows)   */
     uint8_t  dac;         /* per-rate DAC control byte (ref table [12])  */
 } dac_rate_t;
 
-/* Ref RAM 0x030609E8, 13 entries (byte-exact). */
+/* Ref RAM 0x030609E8, 13 entries (byte-exact; REA read-back 2026-10-16). */
 static const dac_rate_t dac_rates[13] = {
     {  8000,  4096000, { 0x00, 0x30, 0x32, 0x08 }, 0 },
     { 11025,  5644800, { 0x03, 0x12, 0x19, 0x03 }, 1 },
@@ -485,11 +487,11 @@ static const dac_rate_t dac_rates[13] = {
     { 22050,  5644800, { 0x03, 0x12, 0x19, 0x03 }, 1 },
     { 24000,  6144000, { 0x00, 0x18, 0x19, 0x0A }, 2 },
     { 32000,  8192000, { 0x00, 0x60, 0x32, 0x08 }, 0 },
-    { 44100, 11288960, { 0x06, 0x24, 0x19, 0x03 }, 1 },
+    { 44100, 11289600, { 0x06, 0x24, 0x19, 0x03 }, 1 },
     { 48000, 12288000, { 0x00, 0x30, 0x19, 0x0A }, 2 },
-    { 88200, 11288960, { 0x06, 0x24, 0x19, 0x03 }, 3 },
+    { 88200, 11289600, { 0x06, 0x24, 0x19, 0x03 }, 3 },
     { 96000, 24576000, { 0x00, 0x30, 0x19, 0x09 }, 4 },
-    {176400, 22577664, { 0x04, 0x49, 0x19, 0x03 }, 5 },
+    {176400, 22579200, { 0x04, 0x49, 0x19, 0x03 }, 5 },
     {192000, 24576000, { 0x00, 0x30, 0x19, 0x09 }, 6 },
 };
 
@@ -544,30 +546,36 @@ static void i2s1_setup(uint32_t rate, uint32_t mclk)
     while (I2S_CLR)
         delay_loops(100);
 
-    I2S_TXCR = 0x401Fu;      /* verbatim: ch0-1 + 32-bit bus word + 16-bit */
-    I2S_RXCR = 0x401Fu;      /* ref writes RXCR too (verbatim)            */
-    /* CKR per the Rockchip SDK (I2s.c I2sSetSampleRate): Fs = mclk/(TMD*TSD)
-     * where TMD (mclk->sclk, even 2..64 or 1 = bypass) and TSD (sclk->fs)
-     * are each encoded as (div-1) in CKR[16+] and CKR[15:8]/[7:0]. The old
-     * code used a wrong formula + fixed 0x3F3F (TSD=64) which set Fs ~1.3x
-     * off -> music played at the wrong speed (a test tone hides it: no pitch
-     * reference). Derive TMD/TSD from mclk/rate so each rate lands on Fs.
-     *
-     * Round mclk/rate instead of truncating: the 44.1 kHz-family table mclk
-     * is recovered slightly under 256x/128x rate, so truncating gives
-     * TSD=255/127 instead of 256/128 -> Fs ~= 44273 Hz, ~0.4% sharp
-     * ("faster, high-pitched"). The real MCLK is exact (PLL 56.448 MHz /
-     * 5 = 11289600 = 256*44100); only the table constant is imprecise. */
+    /* TXCR/RXCR = 0x401F stock-verbatim (ref FUN_03056550 "i2s regs",
+     * REA-confirmed 2026-10-16): CSR = Channel_0 pair (stereo slots),
+     * HWT = 1 (32-bit FIFO access), VDW = 0x1F (32-bit valid data).
+     * Wire format is set by the stock's DMA payload (Service.c
+     * Bit_Convertor_DEC/shift): ONE FIFO word = ONE channel sample,
+     * left-justified (sample << 16); a stereo frame is TWO words —
+     * L in the first 32-BCLK slot, R in the second. Do not pack L|R
+     * into one word: each slot is its own TXDR write (see the feed and
+     * ISR below). */
+    I2S_TXCR = 0x401Fu;
+    I2S_RXCR = 0x401Fu;
+    /* CKR stock-verbatim (ref: ((mclk/(rate<<6))-1)<<16 | 0x3F3F): the whole
+     * mclk/rate ratio goes into MDIV and TSD/RSD stay 64 (64 BCLK per LRCK =
+     * 2x32-bit slots, exactly the CS43131 ASP 5050 32-bit frame).  This
+     * makes SCLK = 64*Fs, which is the frame rate the CS43131 paces on.
+     * The previous home-grown split (TSD=256) clocked 256 BCLK per LRCK:
+     * the DAC's 64-BCLK frame counter then ran at SCLK/64 = 4x the file
+     * rate — heard as "stuttering at a high speed and a high pitch" (the
+     * FIFO also drained 4x faster than the player fed it).
+     * mclk is an exact ratio multiple (table comment above), so the integer
+     * division lands on MDIV 8/4/2 for every entry, matching the SDK's
+     * CKR_MDIV_Value_8/_4/_2 encodings. */
     {
-        uint32_t ratio = (rate > 0u) ? ((mclk + (rate >> 1u)) / rate) : 256u;
-        uint32_t tmd, tsd;
-        if (ratio > 256u) { tmd = ratio / 256u; tsd = 256u; }  /* e.g. 512 */
-        else              { tmd = 1u;          tsd = ratio; }
-        if (tsd < 2u)   tsd = 2u;
-        if (tsd > 256u) tsd = 256u;
-        if (tmd > 64u)  tmd = 64u;
-        I2S_CKR = (((tmd - 1u) & 0xFFFFu) << 16) |
-                  (((tsd - 1u) & 0xFFu) << 8) | ((tsd - 1u) & 0xFFu);
+        uint32_t tmd = (rate > 0u) ? (mclk / (rate << 6)) : 4u;
+
+        if (tmd < 2u)
+            tmd = 2u;
+        if (tmd > 64u)
+            tmd = 64u;
+        I2S_CKR = ((tmd - 1u) << 16) | 0x3F3Fu;
     }
     /* INTCR verbatim (ref FUN_03056550 "i2s regs"): 0x01F00102 — TX
      * underrun INT enable + FIFO threshold fields. The polled path does
@@ -883,8 +891,13 @@ int dac_i2s_feed(const int16_t *pcm, int frames)
             s_fifo_lo = fl;
         if (fl > s_fifo_hi)
             s_fifo_hi = fl;
-        I2S_TXDR = (uint32_t)(uint16_t)pcm[2 * i] |
-                   ((uint32_t)(uint16_t)pcm[2 * i + 1] << 16);
+        /* Wire format (stock Bit_Convertor_DEC/shift + DMA, Service.c):
+         * ONE 32-bit FIFO word = ONE channel sample, left-justified
+         * (sample << 16); a stereo frame is TWO words, L then R, each in
+         * one 32-BCLK slot of the 64-BCLK frame. The level wait above
+         * covers both writes (threshold 0x1e leaves room for two). */
+        I2S_TXDR = (uint32_t)(uint16_t)pcm[2 * i] << 16;
+        I2S_TXDR = (uint32_t)(uint16_t)pcm[2 * i + 1] << 16;
     }
     return DAC_OK;
 }
@@ -899,4 +912,96 @@ void dac_i2s_start(void)
 void dac_i2s_stop(void)
 {
     I2S_XFER = 0;
+}
+
+/* ---- ISR-driven TX feed (streaming; decode overlaps playback) ------------- */
+
+/* The polled feed above is single-threaded: decode -> blocking feed, so any
+ * decode burst longer than the ~32-frame TX FIFO gaps the stream ("sample,
+ * silence, sample").  The stock streams instead: a ring drained into TXDR by
+ * hardware (its DMA channel; route B in docs/HANDOVER.md).  Route A here is
+ * the lighter equivalent: the I2S1 TX-empty/threshold IRQ (INT_ID_I2S1 =
+ * enum 48 = NVIC IRQn 32, vector slot 48) pulls frames from a caller ring
+ * while the main loop decodes into it — the 32 KiB ring absorbs decode/FS
+ * latency.  INTCR/INTSR semantics per the SDK (Hw_i2s.h + I2sIntIsr):
+ * INTCR bit0 = TX-empty IRQ enable, bit1 = TX-underrun IRQ enable, bit2 =
+ * underrun clear (W1C-style), and INTSR TX-empty/underrun go inactive once
+ * data lands in the FIFO. */
+
+#define NVIC_ISER1  REG32(0xE000E104u)   /* IRQn 32..63 set-enable          */
+#define NVIC_ICER1  REG32(0xE000E184u)   /* IRQn 32..63 clear-enable        */
+#define NVIC_ICPR1  REG32(0xE000E284u)   /* IRQn 32..63 clear-pending       */
+#define NVIC_IRQ32  1u                   /* INT_ID_I2S1                     */
+
+#define INTCR_TX_EMPTY   0x1u            /* Hw_i2s.h bit 0                  */
+#define INTCR_TX_UNDERR  0x2u            /* bit 1                           */
+#define INTCR_TX_UR_CLR  0x4u            /* bit 2 (clear underrun)          */
+#define INTSR_TX_UR_ACT  0x2u
+
+static dac_i2s_pull_fn s_pull;
+static void *s_pull_user;
+static volatile int s_feed_hold;
+
+void dac_i2s_attach(dac_i2s_pull_fn pull, void *user)
+{
+    s_pull = pull;
+    s_pull_user = user;
+    s_feed_hold = 0;
+    NVIC_ICPR1 = NVIC_IRQ32;             /* unpend before enabling          */
+    NVIC_ISER1 = NVIC_IRQ32;
+    /* TX-empty only. The stock base value 0x01F00102 also enables the
+     * TX-underrun IRQ (bit 1) for its DMA handler; with our ring dry an
+     * underrun would re-fire every frame (IRQ storm), and the threshold-
+     * based TX-empty already wakes us for every refill. */
+    I2S_INTCR = (I2S_INTCR | INTCR_TX_EMPTY) & ~INTCR_TX_UNDERR;
+    __asm__ volatile("cpsie i" ::: "memory");
+}
+
+void dac_i2s_detach(void)
+{
+    I2S_INTCR &= ~INTCR_TX_EMPTY;
+    NVIC_ICER1 = NVIC_IRQ32;
+    s_pull = 0;
+}
+
+void dac_i2s_kick(void)
+{
+    if (s_pull != 0 && !s_feed_hold)
+        I2S_INTCR |= INTCR_TX_EMPTY;     /* re-arm after ring dry / resume  */
+}
+
+void dac_i2s_hold(int held)
+{
+    s_feed_hold = held ? 1 : 0;
+    if (held)
+        I2S_INTCR &= ~INTCR_TX_EMPTY;    /* mask source (no IRQ storm)      */
+    else
+        dac_i2s_kick();
+}
+
+void dac_i2s_tx_isr(void)
+{
+    if (I2S_INTSR & INTSR_TX_UR_ACT)
+        I2S_INTCR |= INTCR_TX_UR_CLR;    /* clear underrun (SDK I2sIntIsr)  */
+
+    if (s_pull == 0 || s_feed_hold) {
+        I2S_INTCR &= ~INTCR_TX_EMPTY;
+        return;
+    }
+    /* Top the FIFO up past the IRQ threshold (SDK I2S_PIO_Write level).
+     * Each ring frame is a packed int16 pair (L in [15:0], R in [31:16])
+     * and expands to TWO FIFO words on the wire (L slot then R slot,
+     * each sample << 16) — so require room for two before pulling. */
+    while ((I2S_FIFOLR & 0x3Fu) < 0x1Du) {
+        uint32_t w;
+
+        if (!s_pull(&w, s_pull_user)) {
+            /* Ring dry: mask the source so it cannot re-fire until the
+             * producer pushes data and calls dac_i2s_kick(). */
+            I2S_INTCR &= ~INTCR_TX_EMPTY;
+            break;
+        }
+        I2S_TXDR = (w & 0xFFFFu) << 16;          /* L channel sample      */
+        I2S_TXDR = ((w >> 16) & 0xFFFFu) << 16;  /* R channel sample      */
+    }
 }

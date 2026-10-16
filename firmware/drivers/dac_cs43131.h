@@ -50,6 +50,20 @@ int dac_i2s_feed(const int16_t *pcm, int frames);
 void dac_i2s_start(void);
 void dac_i2s_stop(void);
 
+/* ISR-driven TX feed: dac_i2s_tx_isr() (I2S1 TX IRQ, vector slot 48) drains
+ * a caller-owned PCM ring into the TX FIFO so decode overlaps playback.
+ * `pull` returns 1 and fills *word with one stereo frame as a packed int16
+ * pair (L=[15:0], R=[31:16]); the driver expands it to the two wire words
+ * (L<<16 then R<<16 — one 32-bit channel sample per FIFO word). Returns 0
+ * when no data is available (the IRQ source is masked until
+ * dac_i2s_kick()). */
+typedef int (*dac_i2s_pull_fn)(uint32_t *word, void *user);
+void dac_i2s_attach(dac_i2s_pull_fn pull, void *user);
+void dac_i2s_detach(void);
+void dac_i2s_kick(void);        /* re-arm after producer push / resume     */
+void dac_i2s_hold(int held);    /* 1 = pause feeding, 0 = resume           */
+void dac_i2s_tx_isr(void);      /* the IRQ handler (INT_ID_I2S1)           */
+
 /* Stock output teardown + close (ref FUN_03055F80 + FUN_030564d8): hardware
  * mute + DAC mute + amp off + I2S1 reset/pad release. Call when leaving an
  * output session or the next run plays tone with noise (DFIU 60609d7f). */

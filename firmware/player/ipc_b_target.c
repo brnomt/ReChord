@@ -1,13 +1,15 @@
 /*
  * ipc_b_target.c — target implementation of the A<->B audio IPC.
  *
- * CURRENT MAPPING (2026-10-13): the B core bring-up is still TODO (the
+ * CURRENT MAPPING (2026-10-16): the B core bring-up is still TODO (the
  * mailbox/shared-block wiring below are placeholders), so the "B core"
- * sink is a DIRECT DAC renderer: decoded PCM -> dac_i2s_feed() (the same
- * I2S1->CS43131 path the DAC test proved audible on hardware). This is a
- * stop-gap so playback works end-to-end; when the real B core lands, this
- * file switches back to the mailbox protocol (the shared block/doorbell
- * code below is kept and unused).
+ * sink is a DIRECT DAC renderer: decoded PCM lands in g_ring and the I2S1
+ * TX-empty IRQ (dac_i2s_tx_isr, vector slot 48) drains it into the
+ * CS43131 path at the sample clock.  Decode and playback therefore overlap
+ * — the same streaming shape the stock uses (its DMA ring; docs/HANDOVER
+ * "route A").  When the real B core lands, this file switches back to the
+ * mailbox protocol (the shared block/doorbell code below is kept and
+ * unused).
  *
  * What is NOT yet real (to be settled on hardware, tracked in
  * docs/rewrite/player.md open items):
@@ -65,8 +67,21 @@ static ringbuf_t g_ring;
 static ipc_b_state_t g_state = IPC_B_OFF;
 static int  g_frame_bytes = IPC_B_FRAME_BYTES;
 static int  g_paused = 0;
-static long g_frames_consumed = 0;
+static volatile long g_frames_consumed = 0;
 static long g_supervisor_ticks = 0;
+
+/* Consumer half of the ring: called from dac_i2s_tx_isr() (I2S1 TX IRQ).
+ * One ring word == one stereo frame as a packed int16 pair (L=[15:0],
+ * R=[31:16]) — the driver expands it into the two wire words. Returns 0
+ * when dry; the driver masks the IRQ source until the producer kicks. */
+static int tx_pull(uint32_t *word, void *user)
+{
+    (void)user;
+    if (rb_read(&g_ring, word, sizeof *word) != sizeof *word)
+        return 0;
+    g_frames_consumed++;
+    return 1;
+}
 
 /* TODO(bring-up): real doorbell — poke the mailbox IRQ the B core vectors
  * on (candidate: MAILBOX1/IRQ 10 per firmware/ipc.h). */
@@ -143,13 +158,14 @@ int ipc_b_start(const ipc_b_track_t *track)
     sh->cmd_arg0 = (track->duration_ms > 0) ? (uint32_t)track->duration_ms : 0;
 
     /* Direct-DAC renderer: bring the I2S1->CS43131 path up at the track's
-     * sample rate and start feeding. No B core involved. */
+     * sample rate, then stream the ring through the TX IRQ. No B core. */
     if (dac_init((uint32_t)track->sample_rate) != 0) {
         g_state = IPC_B_FAULT;
         sh->state = IPC_B_FAULT;
         return -1;
     }
     dac_i2s_start();
+    dac_i2s_attach(tx_pull, 0);
 
     g_state = IPC_B_RUNNING;
     return 0;
@@ -162,6 +178,8 @@ int ipc_b_stop(void)
     sh->cmd = IPC_B_CMD_STOP;
     target_doorbell();
     sh->state = IPC_B_OFF;                /* "B off"                      */
+    dac_i2s_hold(1);                      /* stop the feeder before reset */
+    dac_i2s_detach();
     rb_reset(&g_ring);
     shared_publish_ring();
     dac_i2s_stop();
@@ -180,6 +198,9 @@ int ipc_b_pause(int paused)
         return -1;
 
     g_paused = paused ? 1 : 0;
+    /* Held: the TX IRQ stops draining (FIFO runs out -> silence). Resume
+     * re-arms it; any ring data that arrived while paused plays then. */
+    dac_i2s_hold(g_paused);
     sh->cmd = paused ? IPC_B_CMD_PAUSE : IPC_B_CMD_RESUME;
     target_doorbell();
     return 0;
@@ -197,17 +218,19 @@ int ipc_b_poll_state(ipc_b_status_t *out)
 {
     volatile ipc_b_shared_t *sh = IPC_B_SHARED;
 
-    /* Direct-DAC renderer: no B core to handshake with. The DAC sink
-     * (dac_i2s_feed) blocks until the I2S FIFO drains, so frames pushed
-     * here are consumed in ~real time; we track them in g_frames_consumed. */
+    /* Direct-DAC renderer: no B core to handshake with. The TX IRQ drains
+     * the ring at the sample clock; g_frames_consumed counts what left it. */
     if (g_state == IPC_B_STARTING)
         g_state = IPC_B_RUNNING;
 
     if (out != 0) {
         out->state = g_state;
         out->frames_consumed = g_frames_consumed;
-        out->ring_rd = (long)g_frames_consumed;   /* consumed == fed to DAC */
-        out->ring_wr = (long)g_frames_consumed;
+        /* Byte counters (free-running, like the mock's g_ring.rd/wr): the
+         * player derives free space as RING_BYTES - (wr - rd) and its EOS
+         * check is ring_wr == ring_rd (fully drained). */
+        out->ring_rd = (long)g_ring.rd;
+        out->ring_wr = (long)g_ring.wr;
         out->clock_div = (int)sh->clock_div;
         out->busy_pct = (int)sh->busy_pct;
         out->volume_db = (int)sh->volume_db;
@@ -217,15 +240,16 @@ int ipc_b_poll_state(ipc_b_status_t *out)
 
 int ipc_b_ring_fill(const int16_t *pcm, int frames)
 {
-    int fed;
+    size_t written;
 
     if (pcm == 0 || frames <= 0 || g_state == IPC_B_OFF ||
         g_state == IPC_B_FAULT || g_paused)
         return 0;
 
-    /* Direct-DAC renderer: push PCM straight into the I2S1 FIFO. The feed
-     * blocks until there is space, so it self-clocks to the sample rate.
-     * dac_i2s_feed() is stereo; upmix mono to L=R on the way in. */
+    /* Producer half: PCM goes into the ring, the TX IRQ drains it. The ring
+     * always carries STEREO frames (one 32-bit word each, stock HWT_Bit32
+     * order); upmix mono to L=R on the way in. Writes are clamped to free
+     * space (returns < frames when the ring is full). */
     if (g_frame_bytes == 2) {
         /* mono source: duplicate each sample into both channels */
         static int16_t st[IPC_B_PUMP_SCRATCH];
@@ -234,23 +258,27 @@ int ipc_b_ring_fill(const int16_t *pcm, int frames)
             n = IPC_B_PUMP_SCRATCH / 2;
         for (i = 0; i < n; i++)
             st[2 * i] = st[2 * i + 1] = pcm[i];
-        fed = dac_i2s_feed(st, n);
+        written = rb_write(&g_ring, st, (size_t)n * 4u);
     } else {
-        fed = dac_i2s_feed(pcm, frames);
+        written = rb_write(&g_ring, pcm, (size_t)frames * 4u);
     }
-    if (fed > 0) {
-        g_frames_consumed += fed;
-        shared_publish_ring();
-    }
-    return fed;
+    if (written == 0)
+        return 0;
+    shared_publish_ring();
+    dac_i2s_kick();                   /* re-arm the TX IRQ if it went dry  */
+    return (int)(written / 4u);
 }
 
 int ipc_b_flush(void)
 {
     volatile ipc_b_shared_t *sh = IPC_B_SHARED;
 
+    /* rb_reset is only legal with the consumer stopped: hold the feeder
+     * across the reset (an ISR either ran already or sees hold and bails). */
+    dac_i2s_hold(1);
     rb_reset(&g_ring);
     g_frames_consumed = 0;
+    dac_i2s_hold(0);
     shared_publish_ring();
     sh->frames_consumed = 0;
     sh->cmd = IPC_B_CMD_FLUSH;

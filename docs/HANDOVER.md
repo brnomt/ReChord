@@ -1884,3 +1884,79 @@ identified:
 
 DFIU: 158f67d3 (I2C START), 0b6a53e3 (I2S FIFO), 5d8b7b3c (read/no-sound),
 cf? (FLAC open), plus this speed/stutter entry.
+
+## F. Session 2026-10-16 — speed/pitch root cause found (CKR frame) + streaming
+
+**Hardware report that started this:** FLAC playback "stuttering @ a high
+speed and a high pitch" even after the CKR-rounding fix. REA (Ghidra) on
+`community/refcfw/ghidra_input/ref_fw1_ram0304F490.bin` settled it — the
+stock's `FUN_03056550` (audiocodec open) writes the I2S regs **verbatim**:
+
+- `TXCR = RXCR = 0x401F` (HWT=1, VDW=32, CSR=ch0 pair). **Wire format
+  (settled 2026-10-16 pm, from the stock's DMA payload — Service.c
+  `Bit_Convertor_DEC`/`Bit_Convertor_shift` + the CS43131 5050/RES=32
+  slots): ONE 32-bit TXDR word = ONE channel sample, left-justified
+  (`sample << 16`); a stereo frame is TWO words, L then R, one per
+  32-BCLK slot of the 64-BCLK frame.** The interim belief "one word = a
+  packed L|R stereo pair" (from the SDK `TXCR_HWT_Bit32` comment) was
+  WRONG and produced the last hardware symptom: each DAC chip then
+  received every other packed word = the *other* channel's samples at
+  2x the content rate -> "2x speed + 2x pitch + stutter", with the
+  progress bar counting words at exactly 2x (stock ratio: 2 words/frame).
+  The feed and ISR now expand each frame to `L<<16`, `R<<16`.
+- `CKR = ((mclk/(rate<<6))-1)<<16 | 0x3F3F` — **TSD=RSD=64 fixed**, the
+  whole ratio in MDIV (8/4/2). Frame = 64 BCLK = 2x32-bit slots and
+  SCLK = 64*Fs. **This was THE bug**: our TSD=256 split gave 256 BCLK per
+  LRCK, so the CS43131's 64-BCLK frame counter ticked at SCLK/64 = **4x
+  the file rate** — fast + high pitch — and the FIFO drained 4x faster
+  than the player fed it (the stutter). `i2s1_setup` now copies the stock
+  formula/values.
+- Rate table @ RAM 0x030609E8 byte-read: the "just under 256x" mclk
+  constants were **transcription errors**. True words: 44100/88200 ->
+  **11289600**, 176400 -> **22579200** (exact multiples; all 13 entries
+  match). Table + comments corrected; the "round the ratio" workaround
+  story is retired (see dac.md §9).
+
+**Stutter part 2 (decode vs FIFO) — fixed with route A (ISR streaming).**
+The linear decode -> blocking-feed pipeline is gone: decoded PCM lands in
+the 32 KiB SPSC ring and `dac_i2s_tx_isr` (I2S1 TX-empty/threshold IRQ =
+`INT_ID_I2S1` = NVIC IRQn 32 = **vector slot 48**, `NVIC_ISER1` bit 0)
+drains it into TXDR while the main loop decodes — the same streaming shape
+as the stock's DMA ring. Wired in:
+- `ap_startup.c`: `ap_vectors[49]` (196 B, still inside the 256-B VTOR
+  window); slot 48 = `dac_i2s_tx_isr`, everything else Default_Handler
+  (reset leaves all NVIC lines disabled, so only this IRQ can fire).
+- `dac_cs43131.c`: `dac_i2s_attach/detach/kick/hold` + the ISR (pull
+  callback keeps the driver ring-agnostic; masks its own IRQ source when
+  the ring is dry and re-arms on `kick`). Polled `dac_i2s_feed` kept for
+  the DAC tone test.
+- `ipc_b_target.c`: the real ring is the sink now — `ipc_b_ring_fill`
+  rb_writes + kicks, `ipc_b_poll_state` reports the mock's byte-counter
+  contract (`ring_rd/wr` free-running bytes; `frames_consumed` = frames
+  the ISR drained). This also un-breaks two things the old stop-gap had
+  wrong: `dac_i2s_feed` returns `DAC_OK` (0) so `filled` was always 0 and
+  the player's emitted-sample bookkeeping rolled back every batch; and the
+  `ring_wr == ring_rd` EOS check could never fire with the +512 "free
+  space" hack (tracks never ended). The `IPC_B_PUMP_FRAMES_HINT` hack is
+  deleted.
+
+**Verified:** player host tests ALL PASS (mock contract unchanged), AP
+cross-build clean (`make cfw-ap`), vector table objdump-checked (slot 48 =
+`dac_i2s_tx_isr|1`), `make cfw-img` packs `build/ReChord_AP5M.IMG`
+(verification PASS). NOT yet hardware-tested.
+
+**On hardware, check in this order:**
+1. Flash `build/ReChord_AP5M.IMG` (the ONLY safe image; a standalone fw1
+   has no USB/updater -> maskrom, docs/DEBRICK-LINUX.md).
+2. DAC test tone first (isolates the polled path from the ISR path): pitch
+   of the 1 kHz sine is the frequency reference the old work lacked.
+3. Play a known 44.1 kHz FLAC: tempo and pitch must be natural; the
+   progress bar must move at wall-clock speed; the track must END and
+   advance. Then 48 kHz + a high-rate (88.2/96k) file — each rate has its
+   own CKR/PLL entry now byte-exact.
+4. If something hangs at track start, suspect the IRQ wiring first (the
+   vector table moved): the safe rollback is to stop calling
+   `dac_i2s_attach()` in `ipc_b_start` — playback degrades to the old
+   blocking feed but keeps the corrected clock/format.
+
+DFIU: 75271e5f (this entry — open until hardware-verified).

@@ -298,12 +298,22 @@ no repeated-START is required; the CS43131 keeps its MAP across STOP.
   44.1k family PLL = 56.448 MHz -> MCLK = 11.2896 MHz = 256*44100; 48k family
   61.44 MHz -> 12.288 = 256*48000; 32k family 40.96 -> 8.192 = 256*32000. The
   four `CRU_BASE+0x20` writes equal `CLKSEL_CON[3]` = `SetI2SFreq(ACODEC_PLL)`
-  + `SetI2SClkOutFreq(I2S1_CLK)` (SDK `driver/IIS/I2s.c`). So **MCLK was never
-  wrong** — the residual speed/pitch error was the CKR integer truncation on
-  the slightly-under-256x recovered `mclk` constants for the 44.1 kHz family
-  (44100/88200 -> 11288960 vs 11289600; 176400 -> 22577664 vs 22579200):
-  truncating `mclk/rate` gave TSD=255/127 instead of 256/128. Fixed in
-  `i2s1_setup` by rounding the ratio.
+  + `SetI2SClkOutFreq(I2S1_CLK)` (SDK `driver/IIS/I2s.c`). **Re-resolved
+  2026-10-16 (REA byte read of ref RAM 0x030609E8):** the "slightly-under
+  256x" `mclk` constants were transcription errors — the real table words
+  are EXACT multiples (44100/88200 -> 11289600, 176400 -> 22579200). The
+  actual speed/pitch bug was the I2S CKR split: the stock writes
+  `((mclk/(rate<<6))-1)<<16 | 0x3F3F` — the whole ratio in MDIV with
+  **TSD=RSD=64** (64 BCLK/LRCK = the CS43131's 2x32-bit frame). Our
+  home-grown TSD=256 put 256 BCLK in each LRCK, so the DAC's 64-BCLK frame
+  counter ticked at SCLK/64 = 4x rate: "stuttering at a high speed and a
+  high pitch". `i2s1_setup` now writes the stock values verbatim
+  (TXCR/RXCR=0x401F, CKR formula above). **Wire format settled the same
+  day from the stock DMA payload (Service.c `Bit_Convertor_*`): one TXDR
+  word = one channel sample, `sample << 16`, frame = L word then R word
+  (2x32-BCLK slots) — NOT a packed L|R word.** The packed-word mistake is
+  what made each CS43131 hear the other channel at 2x rate (2x speed +
+  2x pitch) with the progress bar at exactly 2x.
 
 ## 10. RAM/code budget notes
 

@@ -24,7 +24,7 @@
  * ap_vectors is a hard error in every C mode.  Fixed by using stdint's
  * uint32_t throughout and declaring ap_vectors up front. */
 
-extern const uint32_t ap_vectors[16];   /* defined at the bottom of this file */
+extern const uint32_t ap_vectors[49];   /* defined at the bottom of this file */
 
 extern uint32_t Main(void);
 extern uint32_t _bss_start, _bss_end;
@@ -104,8 +104,17 @@ const uint32_t ap_ram_vectors[2]
 /* Cortex-M3 vector table (aligned 256 for VTOR). [0]=initial MSP, [1]=reset.
  * Byte-identical word 0/word 1 roles to the reference image's table at
  * IMG 0xD68: word 0 = 0x03004000 (the stack TOP; the stack is the 16 KiB
- * below it), word 1 = the reset entry. */
-const uint32_t ap_vectors[16]
+ * below it), word 1 = the reset entry.
+ * Peripheral slots: IRQn N sits at table index 16+N.  Only I2S1
+ * (INT_ID_I2S1 = 48 in the SDK interrupt.h enum = NVIC IRQn 32 = index 48)
+ * is wired so far — its TX-empty IRQ feeds the audio ring (route A,
+ * docs/HANDOVER.md).  All other NVIC lines stay disabled (the reset
+ * handler unpends/disables everything), so Default_Handler coverage is
+ * belt-and-braces.  49 words = 196 bytes still fits the 256-byte VTOR
+ * alignment window. */
+extern void dac_i2s_tx_isr(void);
+
+const uint32_t ap_vectors[49]
     __attribute__((section(".vectors"), used, aligned(256))) = {
     AP_INITIAL_MSP,                         /* 0x00 initial MSP = 0x03004000 */
     (uint32_t)&PowerOn_Reset,               /* 0x04 Reset_Handler             */
@@ -120,4 +129,22 @@ const uint32_t ap_vectors[16]
     0,                                  /* 0x34 reserved                 */
     (uint32_t)&Default_Handler,         /* 0x38 PendSV                   */
     (uint32_t)&Default_Handler,         /* 0x3C SysTick                  */
+    /* IRQ0..IRQ31 (indices 16..47): unused, disabled at reset. */
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
+    (uint32_t)&dac_i2s_tx_isr,          /* IRQ32 = INT_ID_I2S1 (audio TX)  */
 };
