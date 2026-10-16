@@ -31,6 +31,7 @@ tools/__pycache__/
 # Community reference material (downloaded 2026-08-12: RSE blog, FlameOcean
 # repo, leaked RKnanoD SDKs). 440MB+ raw — see docs/community.md. Local only.
 community/
+.dfiu/
 
 # Rockchip confidential / copyrighted docs (RKnanoD Datasheet & TRM).
 # Reference-only, do not redistribute. See docs/TRM-notes.md.

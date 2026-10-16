@@ -1,7 +1,12 @@
 # ReChord
 
 > **Re-Chord** — re-harmonize the FiiO Echo Mini. A **free, from-source custom
-> firmware (CWF)** for the Echo Mini — a **"Rockbox for the FiiO"**.
+> firmware (CWF)** for the Echo Mini.
+
+[!WARNING]
+Work in Progress (WIP)
+ReChord is currently in an early experimental stage and is not functional for everyday use yet (audio playback and low-level drivers are still under active development)
+Contributions, issues, and PRs are very welcome! However, please note that any driver or hardware-related changes must be tested and verified on physical hardware before being merged
 
 ## Objective (the whole point)
 
@@ -148,6 +153,9 @@ independent reverse-engineering notes. Firmware images are not distributed;
 obtain official firmware from FiiO. Flashing modified firmware carries risk —
 use at your own risk.
 
-## Acknowledgments & Prior Work
-https://recho.atzkey.workers.dev/ by atzkey.
+## Acknowledgments 
+- https://recho.atzkey.workers.dev/ by atzkey.
 The pioneering FiiO Echo Mini CFW. ReChord is a **completely independent project** in implementation and codebase from RECHO, but we gratefully acknowledge RECHO as prior inspiration for exploring custom firmware on this hardware.
+
+- https://github.com/berettavexee/echo-mini-opus by berettavexee.
+ Valuable reference implementation and technical insights for fixed-point LibOpus porting and memory-constrained audio decoding on the Rockchip RKnano platform
