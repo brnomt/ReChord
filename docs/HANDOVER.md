@@ -2004,3 +2004,45 @@ refactor.md`) with two binding constraints: vector ISR symbol integrity and
 1. DAC test tone — same pitch as the c5d571f build (no clock drift).
 2. FLAC playback still correct (DFIU 75271e5f regression guard).
 3. Pause/resume + track end/advance still work.
+
+## H. Session 2026-10-16 pm2 — LOW VOLUME root cause + ReplayGain hardening
+
+**Volume (DFIU 19b83f5e — "extremely quiet" fix).** The port mapped the
+stock's volume writer `FUN_03055f28` to MAP `0x010009`. REA + the CS43131
+datasheet (`community/CS43131_DS1155F2.pdf`) settled it:
+
+- `FUN_03055f28(v)` actually writes **`0x090001` + `0x090002`** =
+  `PCM_VOLUME_B/A` (0.5 dB/step attenuation; datasheet register map p.128).
+- Those registers **reset to 0x78 = -60.0 dB** and our firmware never
+  programmed them -> whisper-quiet playback. Datasheet-recommended init
+  (and the stock's fade target) is 0x00 = **0 dB**.
+- `0x01 0007–0x01 000A` is **Reserved** — the old writes went into a void.
+
+Fix: `cs43131.c` gained `dac_volume_set()` (= FUN_03055f28, both regs) and
+`dac_volume_ramp()` (= FUN_03055f48, ±6 codes / 2 ms soft ramp). The
+bring-up now mutes via `dac_volume_set(0xFF)` and unmutes with
+`dac_volume_ramp(0xFF, 0x00)` (0 dB default); `dac_output_off` mutes the
+same way. All three sites were the same misattribution.
+
+Checklist results: (a) digital attenuation — was the bug, now 0 dB;
+(b) analog/HPA stage — verified stock-parity (`HP Output Control 1` 0x10,
+`Class H` HV_EN 0x1F, amp GPIO1.4; datasheet's "0-dB analog gain" config);
+(c) PCM scale — verified full-scale: `sample<<16` is byte-identical to the
+stock `Bit_Convertor_DEC/shift` output.
+
+**ReplayGain.** Architecture already matched the request (tags.c parsers ->
+codec_t.tags -> player fixed Q16 gain applied pre-ring with peak-based
+clipping prevention; modes OFF/TRACK/ALBUM, default OFF). Completed:
+- `rg_math.c` is now **pure fixed-point** (no floats/libm/malloc): integer
+  dB + 0.1 dB Q1.15 LUTs, exact at 0 / ±20 / -60 dB (test-pinned), clamped
+  -100..+24.9 dB.
+- Per-codec audit: mp3 ✓ (ID3v2 TXXX), flac ✓ (Vorbis comments), wav =
+  documented N/A (no RG source in plain WAV), Opus = reserved drop-in slot.
+- `cs43131` now exposes `dac_volume_set/ramp` (0.5 dB hardware attenuation)
+  for future coarse user-volume mapping; RG itself stays DSP-scaled
+  (finer + peak-protected). I2S wire format and ISR feeder untouched.
+
+Verified: all host tests pass (rg/replaygain/tags/ao included), `make
+cfw-ap` clean, `make cfw-img` RESULT: PASS (CRC 0x896AEAAB). Hardware
+check: music is at normal level; RG-tagged files track-neutral by default
+(RG still opt-in); DFIU 19b83f5e to verify after the user listens.

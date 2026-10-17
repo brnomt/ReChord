@@ -244,6 +244,16 @@ audio/audio_output.c    -- audio_output_t controller: format coordination
   channel sample, `sample << 16`, frame = L word then R word (stock
   Bit_Convertor_* contract). Host test `tests/test_ao_slots.c` pins it and
   the 13 rate-table constants (the 2x-speed bug class, DFIU 75271e5f).
+- **Volume path** (2026-10-16): `cs43131 dac_volume_set/dac_volume_ramp`
+  program `PCM_VOLUME_B/A` (0x090001/0x090002, 0.5 dB/step attenuation,
+  0x00 = 0 dB; chip resets to -60 dB — DFIU 19b83f5e). Bring-up fades
+  0xFF -> 0x00 with the stock's soft ramp. Hardware attenuation is
+  available for coarse user volume; ReplayGain stays DSP-scaled.
+- **ReplayGain** (player/rg_math.c): pure fixed-point Q1.15 (LUT-based
+  dB->linear — no floats, no libm, no malloc), peak-limited clipping
+  prevention (`rg_effective_gain_q16`), applied pre-ring by player.c.
+  Tags: ID3v2 TXXX (MP3) + Vorbis comments (FLAC; Opus when ported);
+  plain WAV has no RG source (NULL tags = neutral).
 - **Hardware-verified code moved 1:1** from the old monolithic
   `drivers/dac_cs43131.c` (commit c5d571f): all MMIO defines live in
   `drivers/ao_regs.h` so every register/mask/shift line stayed textually

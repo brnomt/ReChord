@@ -314,6 +314,14 @@ no repeated-START is required; the CS43131 keeps its MAP across STOP.
   (2x32-BCLK slots) — NOT a packed L|R word.** The packed-word mistake is
   what made each CS43131 hear the other channel at 2x rate (2x speed +
   2x pitch) with the progress bar at exactly 2x.
+- **Volume registers (settled 2026-10-16 pm, DFIU 19b83f5e):** the volume
+  writer `FUN_03055f28` targets **`0x090001`/`0x090002` = PCM_VOLUME_B/A**
+  (0.5 dB/step attenuation, datasheet `community/CS43131_DS1155F2.pdf`
+  register map p.128), NOT `0x010009` (a Reserved MAP). Those regs reset
+  to **0x78 = -60 dB** and must be programmed (0x00 = 0 dB; the stock
+  fades 0xFF -> level via `FUN_03055f48`, ±6 codes / 2 ms). Missing this
+  = whisper-quiet playback. Our `cs43131 dac_volume_set/dac_volume_ramp`
+  are those two functions ported 1:1.
 
 ## 10. RAM/code budget notes
 

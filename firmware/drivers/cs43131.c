@@ -289,6 +289,42 @@ const dac_mono_pair_t dac_mono_seq[24] = {
     { 0x18003C, 0x80 }, { 0x18003F, 0x52 }, { 0x180040, 0xFE },
 };
 
+/* ---- volume ------------------------------------------------------------- */
+
+/* Volume registers = PCM_VOLUME_B/A (MAP 0x090001/0x090002, datasheet
+ * register map p.128): 0.5 dB/step attenuation, 0x00 = 0 dB. = ref
+ * FUN_03055f28(v) which writes BOTH registers.
+ * NOTE (fix 2026-10-16): an earlier port mapped this writer to MAP
+ * 0x010009 — a RESERVED register (datasheet 0x01 0007-000A) — leaving
+ * PCM_VOLUME_A/B at their 0x78 (-60 dB) reset default: playback was
+ * extremely quiet. Datasheet-recommended init writes 0x00 (0 dB). */
+void dac_volume_set(uint8_t atten)
+{
+    dac_map_write(0x00090001, atten);
+    dac_map_write(0x00090002, atten);
+}
+
+/* Soft ramp = ref FUN_03055f48(from, to), ported 1:1: +-6 codes per step
+ * (3 dB at 0.5 dB/step), 2 ms apart, clamped to the target. */
+void dac_volume_ramp(uint8_t from, uint8_t to)
+{
+    int v = (int)from;
+    int target = (int)to;
+    int step = (target < v) ? -6 : 6;
+
+    while (v != target) {
+        v += step;
+        if (step < 0) {
+            if (v < target)
+                v = target;
+        } else if (target <= v) {
+            v = target;
+        }
+        dac_volume_set((uint8_t)v);
+        dac_delay_ms(2);
+    }
+}
+
 /* Output teardown + close — ref FUN_03055F80 (audio-stop) + the I2S half
  * of FUN_030564d8 (audiocodec_close): hardware mute back ON (GPIO2.0=1),
  * DAC mute reg 0x010009 = 0xFF, 0x020000 = 0x10 (PDN_HP), 0x0B0000 = 0x00,
@@ -300,7 +336,7 @@ void dac_output_off(void)
 {
     dac_gpio_out(2, 0, 1);              /* hardware mute ON                */
     dac_gpio_out(2, 14, 1);
-    dac_map_write(0x00010009, 0xFF);    /* DAC mute                        */
+    dac_volume_set(0xFF);               /* ref FUN_03055f28(255): volume mute */
     dac_map_write(0x00020000, 0x10);    /* PDN_HP down (stock stop value)  */
     dac_delay_ms(5);
     dac_map_write(0x000B0000, 0x00);

@@ -291,4 +291,8 @@ const codec_t codec_wav =
     wav_close,
     (int)sizeof(wav_state_t),
     wav_format
+    /* No gapless/tags: plain WAV has no encoder-delay model and no
+     * standard ReplayGain source (RG lives in Vorbis comments for
+     * FLAC/Opus and ID3v2 TXXX for MP3 — see tags.c). NULL tags = the
+     * player treats the track as untagged = neutral gain. */
 };

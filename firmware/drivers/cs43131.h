@@ -74,6 +74,20 @@ int dac_map_read(int chan, uint32_t map24, uint8_t *out);
  * 0x020000 on BOTH chips (0x40 = PDN_ASP, 0x10 = PDN_HP). */
 void dac_pdn_up(uint8_t mask);
 
+/* ---- volume (PCM_VOLUME_B/A = MAP 0x090001/0x090002, datasheet §7) -----
+ * 0.5 dB/step ATTENUATION: 0x00 = 0 dB ... 0xFF = -127.5 dB. The chip
+ * RESETS these to 0x78 = -60.0 dB — they MUST be programmed or playback
+ * is extremely quiet (DFIU-class fix 2026-10-16: an earlier port
+ * misattributed the stock's volume writer FUN_03055f28 to MAP 0x010009,
+ * which is RESERVED (datasheet 0x01 0007-000A), and never touched
+ * PCM_VOLUME_A/B at all).
+ * With 0x090003 = 0xEC (PCM_VOL_BEQA=1) channel A's value drives both
+ * channels; the stock writes both registers anyway (FUN_03055f28). */
+void dac_volume_set(uint8_t atten);              /* = ref FUN_03055f28    */
+/* Soft ramp between two attenuation codes: ref FUN_03055f48 semantics
+ * (step 6 codes = 3 dB, 2 ms apart, click-free fade). */
+void dac_volume_ramp(uint8_t from, uint8_t to);  /* = ref FUN_03055f48    */
+
 /* GPIO power/reset sequence (ref FUN_03056550 entry). */
 void dac_power_sequence(void);
 

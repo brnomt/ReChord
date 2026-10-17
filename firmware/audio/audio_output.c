@@ -151,7 +151,7 @@ static int ao_configure_rate(uint32_t rate_hz)
     dac_map_write_chan(1, 0x0005000A, 0x0F);
     dac_map_write_chan(1, 0x0005000B, 0x0F);
     dac_map_write(0x00090000, 0x02);
-    dac_map_write(0x00010009, 0xFF);   /* ref FUN_03056a98(255): mute/max  */
+    dac_volume_set(0xFF);            /* ref FUN_03055f28(255): volume mute   */
     dac_map_write(0x00090003, 0xEC);
     dac_map_write(0x00090004, 0x00);
 
@@ -190,12 +190,16 @@ static int ao_configure_rate(uint32_t rate_hz)
      * decompiled from ref fw1: GPIO2.14 = 1 then GPIO2.0 = 0 — GPIO2.0 HIGH
      * is a HARDWARE MUTE (the power-on trio drives it high on purpose), so
      * leaving it asserted silences a perfectly configured DAC. Then the
-     * mute/volume reg 0x010009 ramps 0xFF -> volume (FUN_03055f48); the
-     * end value is written directly here. */
+     * volume regs PCM_VOLUME_B/A (0x090001/0x090002, FUN_03055f28) fade
+     * 0xFF -> the user level via FUN_03055f48. The stock's level variable
+     * is 0 at boot (= 0 dB), and dac_volume_ramp is that fade — do NOT
+     * replace it with a bare write to 0x010009: that MAP is RESERVED and
+     * the real volume regs then sit at their -60 dB reset default
+     * (the "extremely quiet" bug). */
     dac_gpio_out(2, 14, 1);
     dac_gpio_out(2, 0, 0);
     dac_gpio_out(1, 4, 1);            /* amp enable again (ref)           */
-    dac_map_write(0x00010009, 0x00);   /* unmute                          */
+    dac_volume_ramp(0xFF, 0x00);       /* fade to 0 dB (FUN_03055f48)      */
     /* Ref FUN_03055ecc again right before the feed. */
     dac_map_write_chan(0, 0x0005000A, 0x07);
     dac_map_write_chan(0, 0x0005000B, 0x07);

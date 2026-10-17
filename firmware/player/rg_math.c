@@ -7,22 +7,74 @@
  * keep the historical "_q16" suffix for call-site compatibility; values are
  * Q1.15.
  *
- * Host builds link libm; target builds that lack libm can swap this TU for a
- * fixed-point LUT without touching the player (see docs/rewrite/audio.md).
+ * FIXED-POINT ONLY (bare-metal requirement): no floats, no libm, no malloc.
+ * dB->linear is table-based: integer-dB and 0.1-dB Q1.15 factors multiply
+ * out to Q1.15. Exact at integer-dB points (tests pin 0 / +-20 / -60 dB);
+ * within one rounding step (<=0.01 dB) elsewhere. Range: -100 dB (clamped
+ * at 0) to +24.9 dB (clamped).
  */
 #include "rg_math.h"
 
-#include <math.h>
+/* round(32768 * 10^(-d/20)), d = 0..100 dB */
+static const uint32_t ao_atten_db_q15[101] = {
+    32768, 29205, 26029, 23198, 20675, 18427, 16423, 14637,
+    13045, 11627, 10362, 9235, 8231, 7336, 6538, 5827,
+    5193, 4629, 4125, 3677, 3277, 2920, 2603, 2320,
+    2068, 1843, 1642, 1464, 1305, 1163, 1036, 924,
+    823, 734, 654, 583, 519, 463, 413, 368,
+    328, 292, 260, 232, 207, 184, 164, 146,
+    130, 116, 104, 92, 82, 73, 65, 58,
+    52, 46, 41, 37, 33, 29, 26, 23,
+    21, 18, 16, 15, 13, 12, 10, 9,
+    8, 7, 7, 6, 5, 5, 4, 4,
+    3, 3, 3, 2, 2, 2, 2, 1,
+    1, 1, 1, 1, 1, 1, 1, 1,
+    1, 0, 0, 0, 0,
+};
+
+/* round(32768 * 10^(d/20)), d = 0..24 dB (24.9 dB max boost) */
+static const uint32_t ao_boost_db_q15[25] = {
+    32768, 36766, 41252, 46286, 51934, 58271, 65381, 73358,
+    82309, 92353, 103622, 116265, 130452, 146369, 164229, 184268,
+    206752, 231980, 260285, 292045, 327680, 367663, 412525, 462860,
+    519338,
+};
+
+/* round(32768 * 10^(-t/200)) / round(32768 * 10^(t/200)), t = 0..9 tenths */
+static const uint32_t ao_atten_tenth_q15[10] = {
+    32768, 32393, 32022, 31656, 31293, 30935, 30581, 30231, 29885, 29543,
+};
+static const uint32_t ao_boost_tenth_q15[10] = {
+    32768, 33147, 33531, 33920, 34312, 34710, 35112, 35518, 35929, 36345,
+};
 
 /* dB*10 -> linear Q1.15 (32768 = 1.0x). Positive dB boosts, negative attenuates. */
 int32_t rg_gain_q16(int gain_tenth_db)
 {
-    double db = (double)gain_tenth_db / 10.0;
-    double lin = pow(10.0, db / 20.0);
-    double q15 = lin * 32768.0;
-    if (q15 < 0.0) q15 = 0.0;
-    if (q15 > 2147483647.0) q15 = 2147483647.0;
-    return (int32_t)q15;
+    int neg = (gain_tenth_db < 0);
+    int mag = neg ? -gain_tenth_db : gain_tenth_db;
+    uint32_t db_q15, tenth_q15, gain_q15;
+    int d, t;
+
+    if (mag > 1009)
+        mag = 1009;                      /* -100.9 .. +100.9 dB input    */
+    d = mag / 10;
+    t = mag % 10;
+    if (neg) {
+        if (d > 100)
+            d = 100;                     /* deep attenuation floors to 0  */
+        db_q15 = ao_atten_db_q15[d];
+        tenth_q15 = ao_atten_tenth_q15[t];
+    } else {
+        if (d > 24) {                    /* boost clamps at +24.9 dB      */
+            d = 24;
+            t = 9;
+        }
+        db_q15 = ao_boost_db_q15[d];
+        tenth_q15 = ao_boost_tenth_q15[t];
+    }
+    gain_q15 = (uint32_t)(((uint64_t)db_q15 * (uint64_t)tenth_q15) >> 15);
+    return (int32_t)gain_q15;
 }
 
 /* Given a dB*10 gain and a Q1.15 peak (32768 = 1.0), return the effective Q1.15
