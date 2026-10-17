@@ -2771,3 +2771,6 @@ green; `make cfw-img` RESULT: PASS — AP5M CRC `0x38394815`, sha256
 **Device check (user):** boot once (LOG appears with its 3 text lines), then
 plug the USB cable in and open `/.rechord/LOG`: it should hold the lines of
 the latest flush with real timestamps, not zeros.
+
+**Result on hardware:** confirmed — "LOG funciona" (BRNOMT-88 closed). The
+file is created, reads as text and is refreshed at the flush points.
