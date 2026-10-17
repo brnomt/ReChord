@@ -45,7 +45,7 @@ static void emmc_probe(void)
                  (unsigned)(s_user = user));
     if (s_user) {
         fs_target_mount(0, "Internal", emmc_read, s_user);
-        fs_target_set_writer(0, emmc_write);   /* player_state lives here */
+        fs_target_set_writer(0, emmc_write);   /* player_state lives here (Internal) */
     }
 }
 
@@ -66,7 +66,7 @@ static void sd_probe(void)
         return;
     }
     r = fs_target_mount(1, "SD", sd_read, 0);
-    fs_target_set_writer(1, sd_write);         /* player_state lives here */
+    fs_target_set_writer(1, sd_write);         /* writes enabled for future use */
     snprintf(s_sd, sizeof s_sd, "%uM %s %db %s", (unsigned)(sd_sectors() >> 11),
              sd_is_hc() ? "HC" : "SC", sd_bus_width(),
              r ? (r == -3 ? "rd err" : "no fs") : fs_target_type(1));
@@ -242,7 +242,7 @@ static void usb_session(void)
     display_flush_rows(0, DISPLAY_H - 1);
     r = usb_msc_run(luns, 2, keys_power, &rd, &wr);
     fs_target_mount(0, "Internal", emmc_read, s_user);   /* host may have written */
-    fs_target_set_writer(0, emmc_write);                 /* writer cleared by mount */
+    fs_target_set_writer(0, emmc_write);                 /* player_state home (re-set after remount) */
     snprintf(s_usb, sizeof s_usb, "x%d r%uM w%uM", r, (unsigned)(rd >> 11), (unsigned)(wr >> 11));
     while (keys_power())                 /* don't leak the exit press */
         panel_io_delay_ms(1);

@@ -2281,3 +2281,8 @@ regardless of flag semantics — the UI can never crawl on this path again.
 **Follow-up 1 (USB):** the VBUS/cable edge now opens **USB storage**
 (MSC, `usb_storage_run`) instead of the CDC console — the pre-CDC
 behaviour. The CDC console stays on the "USB console" menu entry.
+
+**Follow-up 2 (storage):** the state file moves to the DEVICE FLASH:
+`Internal/PLAYER.CFG` (was `SD/PLAYER.STA`) — state must survive SD card
+swaps; the track paths inside still point at SD content. Both volume
+writers stay wired.

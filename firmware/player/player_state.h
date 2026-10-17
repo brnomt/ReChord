@@ -1,11 +1,12 @@
 /*
  * player_state.h — persistent player state on the SD card filesystem.
  *
- * One self-contained, versioned, CRC-protected file: the resume point
- * (track path + position), playback context (queue, duration, paused
- * flag) and the user volume. Loaded once at boot (lazy, see
- * player_state_tick), synced back on a debounced/heartbeat policy and on
- * shutdown.
+ * One self-contained, versioned, CRC-protected file on the DEVICE FLASH
+ * (eMMC "Internal" user area — NOT the SD card, so state survives card
+ * swaps): the resume point (track path + position), playback context
+ * (queue, duration, paused flag) and the user volume. Loaded once at
+ * boot (lazy, see player_state_tick), synced back on a
+ * debounced/heartbeat policy and on shutdown.
  *
  * FILE FORMAT (little-endian, packed, fixed size):
  *   magic 'PSTA' | version | flags | volume_db | position_ms | duration_ms
@@ -33,8 +34,10 @@
 #define PLAYER_STATE_MAGIC    0x41545350u   /* 'PSTA' little-endian      */
 #define PLAYER_STATE_VERSION  1u
 
-/* SD card root volume ("SD" — fs_target_mount(1, "SD", ...) in ap_ui). */
-#define PLAYER_STATE_PATH     "SD/PLAYER.STA"
+/* Device flash: eMMC user area ("Internal" — fs_target_mount(0, ...) in
+ * ap_ui). Deliberately NOT the SD card: the state must survive card
+ * swaps; the track paths inside still point at SD content. */
+#define PLAYER_STATE_PATH     "Internal/PLAYER.CFG"
 
 #define PS_PATH_MAX           128           /* == PLAYER_PATH_MAX         */
 #define PS_QUEUE_MAX          8             /* == PLAYER_QUEUE_LEN        */

@@ -53,9 +53,9 @@ int main(void)
 
     mkdir(".work", 0777);
     mkdir(".work/psroot", 0777);
-    mkdir(".work/psroot/SD", 0777);
+    mkdir(".work/psroot/Internal", 0777);
     fs_host_set_root(".work/psroot");
-    remove(".work/psroot/SD/PLAYER.STA");        /* stale runs             */
+    remove(".work/psroot/Internal/PLAYER.CFG");        /* stale runs             */
 
     /* Long mock track so seeks to 5..40 s are in range. */
     memset(&cfg, 0, sizeof cfg);
