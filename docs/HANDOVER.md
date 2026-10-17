@@ -3133,3 +3133,113 @@ file alone.
 
 Last state: `master` pushed, image `0x240B05BE` verified on hardware (index +
 categories + SysTick clock all working), `_bss_end 0x0304949c`.
+
+## AI. Session 2026-10-17 (cont.) — BRNOMT-89 increment 4.1: internal int32 PCM path
+
+Widened the decode → ring → I2S path from int16 to **int32, left-justified to
+32 bits** (increment 4.1 of `docs/NEXT-SESSION-FLAC-HIRES.md`). 16-bit playback
+must be bit-identical; 24/32-bit FLAC is no longer truncated inside the
+pipeline. The DAC configuration is deliberately unchanged — telling the DAC the
+real word length (`ASP_SPSIZE`) is increment 4.2.
+
+- **Convention:** one internal sample = int32 left-justified (16-bit source →
+  `sample << 16`, 24-bit → `<< 8`, 32-bit as-is) — dr_flac's s32 shape, and
+  exactly one I2S slot word. `codec_t.decode` now takes `int32_t*`; the ring
+  holds 8-byte stereo frames; `format().bits` reports the SOURCE depth.
+- **Codecs:** flac uses `drflac_read_pcm_frames_s32`; mp3/wav widen s16 with
+  `<< 16` (wav stages through a 128-frame stack buffer, bss-neutral).
+- **Feeder:** the ring pull now returns the two slot words of a frame
+  (`rknano_i2s_pull_fn`, `ao_feeder_ops.attach`); the TX ISR writes them as-is.
+  `ao_slot_word` is the identity; `ao_i16_to_s32` lifts the polled DAC test
+  tone (unchanged wire result). The polled tone path is otherwise untouched.
+- **DSP:** the `firmware/dsp/` chain is not linked into the playback path
+  (ap.mk), so nothing to bypass; left untouched. ReplayGain (the one in-path
+  gain stage) was widened to int32.
+- **bss:** staging +2 KB, target mono-upmix scratch shrunk 512→128 frames
+  (looped) → net +1 KB. `_bss_end = 0x0304989c` (< 0x0304A000, ~1.8 KB free).
+- **Tests:** `test_codec_flac` now synthesizes byte-exact 16/24/32-bit VERBATIM
+  fixtures and asserts lossless decode + `bits` reporting; all other suites
+  updated to int32 and green (player, services, ui, theme).
+
+**dr_flac 32-bit quirk (documented, watch on hardware):** v0.13.4's frame bps
+table maps header code `111` (spec: 32 bits) to *reserved* and rejects such a
+frame. Real encoders (libFLAC) code `000` = "same as STREAMINFO", which dr_flac
+accepts, so real 32-bit files decode — but a frame that explicitly codes 32-bit
+would be dropped. If a real 32-bit file misbehaves on device, this is suspect #1.
+
+**Build:** `_bss_end 0x0304989c`, AP5M CRC `0x3FE34881`,
+sha256 `ce8629ec0c913b599be866db86091bb310fddd66672d18fc948bf494f4f30fb5`.
+
+**Device test:** flash and play 16-bit WAV/MP3/FLAC — must sound identical to
+the previous image. 24/32-bit FLAC should open and play cleanly (still 16-bit
+at the DAC until 4.2). Then flash 4.2 (`ASP_SPSIZE`).
+
+## AJ. Session 2026-10-17 (cont.) — BRNOMT-89 increment 4.2: DAC depth (already 32-bit)
+
+**Headline: the bring-up already programmed the DAC for 32-bit words, so
+increment 4.1 (the internal int32 path) already makes hi-res reproduce.**
+Traced against the datasheet (`community/CS43131_DS1155F2.pdf`):
+
+- `ao_configure_rate()` writes MAP `0x01000C = 0x04` → **ASP_SPSIZE = 00 = 32
+  bits** (§7.1.8 Serial Port Sample Bit Size; chip default is 01 = 24 bits).
+- and MAP `0x05000A/B = 0x07/0x0F` → **ASP_RX_CHn_RES = 11 = 32 bits** per
+  channel (§7.3.23/24 ASP Channel n Size and Enable). The old comment labelled
+  these "output channel/gain L=7 R=15" — that was wrong; corrected in place.
+- The rate table's last byte (`rt->dac`, MAP `0x01000B`) is actually
+  **ASP_SPRATE** (Serial Port Sample Rate), not a generic "DAC control byte".
+
+Because 4.1 carries every source LEFT-JUSTIFIED in a 32-bit word (`s16<<16`,
+`s24<<8`), a 32-bit ASP word reads 16/24/32 at full scale with no truncation.
+The stock's bring-up is rate-based only and never sets a per-file depth, so
+uniform 32-bit is both correct and stock-faithful — there was no per-depth
+register change to make.
+
+4.2 therefore did the plumbing only (no register value changed):
+- `audio_output_configure()` accepts `bits` 16/24/32 (`ao_format_bits_ok()`,
+  `audio_hal.h`); `bits` is deliberately NOT in the early-exit compare, so a
+  16 ↔ 24/32 depth change does not force a relock (gap/click).
+- `ipc_b_track_t.bits` → `player.c` (from `format().bits`) → `ipc_b_target.c`
+  → the HAL.
+
+**Build:** `_bss_end 0x0304989c`, AP5M CRC `0x4DD52A09`,
+sha256 `cf8205f8e21f87ac7dd0cdd33b08b24ca4c22264e235456f3cbf83f84361d079`.
+
+**Device test:** play a 24-bit file (`Madeon - Good Faith`) against the 16-bit
+control — it should already sound full-resolution. Only 32-bit sources would
+have been at risk under the chip's 24-bit default, and the library has none.
+
+## AK. Session 2026-10-17 (cont.) — BRNOMT-89: hi-res FLAC that wouldn't open (decode-pool RAM)
+
+Testing 4.2 surfaced the real blocker for hi-res: 24-bit **96 kHz / 88.2 kHz**
+files did not open (44.1/48 kHz did). The cause is the FLAC **frame block
+size**, not the bit depth or the rate:
+
+- dr_flac buffers a whole frame; the pool allocation is
+  `sizeof(drflac) 4336 + max_block * 4 * channels + 64 + SEEKTABLE`.
+- 44.1/48k files use max_block 4608 → 41264 B → fit the old 57344 pool.
+- 96k/88.2k use max_block 8192 → 69936 B → **did not fit** → `flac_open`
+  returned UNSUPPORTED (rsn=2); the browser showed `flac pool 69936`.
+- One 192k file uses max_block 16384 → 143131 B (still unfeasible).
+
+Fix — the DFIU-sanctioned buffer union (`R-8cd5fb0eb24a`):
+- New `services/workbuf.h/.c`: a **second** shared region, 80896 B = old FLAC
+  pool 57344 + fw_update staging 16384 + mp3 buffers 7168. Single owner;
+  FLAC/mp3/fw_update claim and release on close (mutually exclusive in time —
+  fw_update runs at boot). Kept SEPARATE from `scratch` because the media
+  index/query use scratch and can run **during playback** (`R-3f66ea5d12c8`).
+- `flac.c` / `mp3.c` / `fw_update.c`: buffers are now pointer-based into the
+  region; `sizeof` on the old arrays replaced with byte constants; claim-failure
+  paths abort cleanly (fw_update writes nothing → abort-safe).
+- `flac_diag_need`'s ceiling is now WORKBUF_BYTES (80896) → covers **705/706**
+  library files; the 192k/16384 file stays cleanly unsupported.
+
+**Budget:** `_bss_end 0x030498b8` (< 0x0304A000, ~1.8 KiB free) — net ~0 vs
+before (the union removed s_pool 57 KB + s_blk/s_chk 16 KB + s_win/s_res 7 KB).
+
+**Verified host:** new `test_codec_flac` "8192-sample block" case (the bug);
+player + services + ui + theme suites green. `make cfw-img` RESULT: PASS,
+AP5M CRC `0xA8122D30`, sha256 `10c276909782f7fee147fff4b065a1bd92652d9a0693fc4029e08ac273408aa5`.
+
+**Device test:** play `Justice - Hyperdrama` and `Grandson - I Love you, I'm
+Trying` (96k/88.2k, block 8192) — they should now open and play. 44.1/48k
+unchanged.

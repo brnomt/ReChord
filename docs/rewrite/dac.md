@@ -314,6 +314,20 @@ no repeated-START is required; the CS43131 keeps its MAP across STOP.
   (2x32-BCLK slots) — NOT a packed L|R word.** The packed-word mistake is
   what made each CS43131 hear the other channel at 2x rate (2x speed +
   2x pitch) with the progress bar at exactly 2x.
+- **Internal pipeline widened to int32, left-justified (2026-10-17, increment
+  4.1 of docs/NEXT-SESSION-FLAC-HIRES.md):** the AP now carries each sample as
+  a full int32 left-justified to 32 bits (`codec.h`), which IS the 32-bit I2S
+  slot word — the streaming ISR writes it as-is (no `<< 16`). 16-bit sources
+  are bit-identical on the wire (their int32 form is `sample << 16`, exactly
+  the old expression); 24/32-bit samples now occupy the low bits of the slot.
+- **ASP word length is 32 bits (settled 2026-10-17, increment 4.2, datasheet
+  §7.1.8 + §7.3.23/24):** the bring-up already writes MAP `0x01000C = 0x04`
+  (ASP_SPSIZE = 00 = 32 bits; chip default is 01 = 24) and MAP
+  `0x05000A/B = 0x07/0x0F` (ASP_RX_CHn_RES = 11 = 32 bits per channel). With
+  the left-justified 4.1 data, every source depth (16/24/32) then reads at full
+  scale with no truncation — so there is **no per-depth word-length register**
+  to set (the stock's bring-up is rate-based only). `rt->dac` in the rate table
+  is MAP `0x01000B` = **ASP_SPRATE** (sample rate), not a gain/control byte.
 - **Volume registers (settled 2026-10-16 pm, DFIU 19b83f5e):** the volume
   writer `FUN_03055f28` targets **`0x090001`/`0x090002` = PCM_VOLUME_B/A**
   (0.5 dB/step attenuation, datasheet `community/CS43131_DS1155F2.pdf`

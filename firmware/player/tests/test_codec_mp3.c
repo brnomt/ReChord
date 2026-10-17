@@ -190,7 +190,7 @@ static void rm_fix(const char *path)
 static long decode_all(const codec_t *c, void *st, int check_silent,
                        int *bad_samples)
 {
-    int16_t pcm[SPF * 2];
+    int32_t pcm[SPF * 2];
     long frames = 0;
 
     *bad_samples = 0;

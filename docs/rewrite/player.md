@@ -44,11 +44,12 @@
         storage / files          +---------------------------------+
 ```
 
-Data path: codec decodes **interleaved int16 PCM** (the one stream format
-of the whole pipeline) -> `ipc_b_ring_fill()` -> SPSC ring -> B core
-consumes and renders. `player_process()` is the pump: it is called
-periodically (UI loop on AP; an audio task on target) and refills the ring
-from the codec in bounded rounds.
+Data path: codec decodes **interleaved int32 PCM, left-justified to 32 bits**
+(the one stream format of the whole pipeline; a 16-bit source lands at
+`sample << 16`, 24-bit at `sample << 8`, 32-bit as-is — codec.h) ->
+`ipc_b_ring_fill()` -> SPSC ring -> B core consumes and renders.
+`player_process()` is the pump: it is called periodically (UI loop on AP; an
+audio task on target) and refills the ring from the codec in bounded rounds.
 
 ### State machine (player.c)
 
@@ -89,7 +90,7 @@ while the sink consumes — on the host that is per `player_process()` tick
 typedef struct codec_s {
     const char *name;                                /* "wav", "mp3", ... */
     int  (*open)(void *st, const char *path);        /* 0 / CODEC_ERR_*   */
-    int  (*decode)(void *st, int16_t *pcm, int max_frames);
+    int  (*decode)(void *st, int32_t *pcm, int max_frames);
                                                      /* frames, 0=EOF, <0 */
     int  (*seek)(void *st, long ms);                 /* clamp to duration */
     long (*duration_ms)(void *st);                   /* <0 if unknown     */
@@ -104,12 +105,14 @@ Rules and rationale:
 - **State block**: the player allocates `state_size` bytes from a static
   pool (`PLAYER_CODEC_STATE_MAX` = 4096, no malloc on target) and zeroes
   it before `open`. Codecs own nothing else.
-- **Output format**: interleaved int16, 1 or 2 channels — matches the
-  ring/DAC path and every vendored candidate's native s16 output.
+- **Output format**: interleaved int32, left-justified to 32 bits, 1 or 2
+  channels — matches the ring/DAC path (the wire slot word is the sample
+  itself); the source bit depth is reported through `format().bits`. s16
+  codecs (minimp3, our WAV) widen with `<< 16`, dr_flac returns s32 directly.
 - **Sample-rate reporting** (WAV deliverable): the `format()` extension
-  reports `sample_rate/channels/bits`; the player forwards the rate to
-  `ipc_b_start()` and uses it for position math. May be NULL (player then
-  assumes 44100/2).
+  reports `sample_rate/channels/bits`; the player forwards the rate and the
+  source depth (`bits`) to `ipc_b_start()` and uses the rate for position
+  math. May be NULL (player then assumes 44100/2).
 - **Errors**: `CODEC_ERR_IO / FORMAT / UNSUPPORTED / STATE` (< 0).
   Unsupported-but-valid files must return `UNSUPPORTED`, malformed ones
   `FORMAT` (tested strictly for WAV).
@@ -170,7 +173,7 @@ here, licenses verified at vendoring time):
 |---|---|---|---|---|---|
 | WAV | ours (`codec_wav.c`) | ours | in-tree | complete | reference codec |
 | MP3 | **minimp3** (single header) | CC0-1.0 | `firmware/player/codecs/minimp3/minimp3.h` | `codec_mp3_stub.c` -> `codec_mp3.c` | s16 output natively; duration/seek via Xing/Info TOC, CBR fallback estimate (document accuracy class) |
-| FLAC | **dr_flac** (single header) | MIT-0 / Unlicense (dual) | `firmware/player/codecs/dr_flac/dr_flac.h` | `codec_flac_stub.c` -> `codec_flac.c` | `drflac_read_pcm_frames_s16` matches codec_t exactly; frame-accurate seek; route `DRFLAC_MALLOC` to the static pool |
+| FLAC | **dr_flac** (single header) | MIT-0 / Unlicense (dual) | `firmware/player/codecs/dr_flac/dr_flac.h` | `codec_flac_stub.c` -> `codec_flac.c` | `drflac_read_pcm_frames_s32` is already int32 left-justified = codec_t's format; frame-accurate seek; `DRFLAC_MALLOC` routes to the shared **workbuf** region (`services/workbuf.h`), sized for the 8192-sample stereo decode window (~69.9 KiB) |
 | Vorbis | stb_vorbis | MIT | `firmware/player/codecs/stb_vorbis/` | new `codec_ogg.c` (later) | CPU budget on B clock needs proving |
 | Opus | opus reference (silk+celt) | BSD-3-Clause | `firmware/player/codecs/opus/` | new `codec_opus.c` (later) | biggest integration cost; last |
 
@@ -181,8 +184,9 @@ Rules for the vendored drop:
    vendoring.
 2. Nothing from third-party CFW: only upstream open-source projects,
    compiled from their `.c/.h` in this tree (build-from-source rule).
-3. The decoder output must be interleaved int16 to fit `codec_t` (minimp3
-   and dr_flac already do; no DSP glue needed).
+3. The decoder output must be interleaved int32 left-justified to fit
+   `codec_t` (dr_flac's s32 already is; minimp3's s16 is widened with
+   `<< 16`).
 4. Before enabling: host-measure frames-per-poll budget on a mock B clock
    (the `busy 10%, out min 5576` telemetry gives the reference workload
    shape), then size `PLAYER_CODEC_STATE_MAX` to the largest adapter state.

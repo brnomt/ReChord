@@ -20,13 +20,16 @@
 #include "ringbuf.h"        /* player/ringbuf.h — shared SPSC util          */
 #include "cs43131.h"        /* DAC_OK / DAC_ERR_* / diagnostics            */
 
-/* Stream format at the HAL boundary. Codecs standardize on interleaved
- * int16 PCM; `bits` is plumbed for future 24/32-bit paths (only 16 is
- * accepted today — the wire widens each sample to a 32-bit slot). */
+/* Stream format at the HAL boundary. Codecs standardize on interleaved int32
+ * PCM, left-justified to 32 bits (a 16-bit source is `sample << 16`, a 24-bit
+ * one `sample << 8`; see codec.h) — which is exactly one I2S slot word.
+ * `bits` carries the SOURCE depth (16/24/32). The DAC's ASP word length is
+ * fixed at 32 bits by the bring-up (ASP_SPSIZE = 00), so every depth reads at
+ * full scale and the source depth does not itself reconfigure the DAC. */
 typedef struct
 {
     uint32_t sample_rate;   /* Hz                                          */
-    uint8_t  bits;          /* 16 supported now; 24/32 reserved            */
+    uint8_t  bits;          /* SOURCE depth: 16, 24 or 32                  */
     uint8_t  channels;      /* 1 = mono, 2 = stereo (interleaved)          */
 } audio_format_t;
 
@@ -36,7 +39,9 @@ int  audio_output_init(void);
 
 /* (Re)lock clocks + I2S + CS43131 to `fmt`. Runs the full verified
  * bring-up sequence at fmt->sample_rate. Returns DAC_OK / DAC_ERR_*.
- * Accepts bits==16 and channels 1..2. */
+ * Accepts bits 16/24/32 and channels 1..2. A same-rate/same-channel re-open
+ * with a different source depth keeps the DAC state (the ASP word length is
+ * 32 bits for all depths). */
 int  audio_output_configure(const audio_format_t *fmt);
 
 /* Arm the TX feeder on `pcm_ring` and start the serializer. ring == NULL

@@ -58,13 +58,17 @@ static int s_dac_ready;
 static audio_format_t s_fmt;
 static int s_fmt_valid;
 
-/* Ring pull for the IRQ feeder: one packed int16 pair per stereo frame. */
-static int ao_ring_pull(uint32_t *word, void *user)
+/* Ring pull for the IRQ feeder: one int32 stereo frame (8 bytes) per call,
+ * split into the two 32-bit left-justified slot words the wire wants. */
+static int ao_ring_pull(uint32_t *left, uint32_t *right, void *user)
 {
     ringbuf_t *rb = (ringbuf_t *)user;
+    int32_t frame[2];
 
-    if (rb_read(rb, word, sizeof *word) != sizeof *word)
+    if (rb_read(rb, frame, sizeof frame) != sizeof frame)
         return 0;
+    *left = (uint32_t)frame[0];
+    *right = (uint32_t)frame[1];
     s_frames_played++;
     return 1;
 }
@@ -153,6 +157,14 @@ static int ao_configure_rate(uint32_t rate_hz)
     s_step = DAC_STEP_DAC_REGS2;
     dac_map_write(0x000F0010, 0xE7);
     dac_map_write(0x00020000, 0xF6);
+    /* MAP 0x01000C (Serial Port Sample Bit Size, datasheet §7.1.8):
+     * ASP_SPSIZE = 00 = 32 bits (XSP_SPSIZE stays 01 = 24; DSD path unused).
+     * This is the "tell the DAC" register. The AP carries every source
+     * LEFT-JUSTIFIED in a 32-bit word (a 16-bit sample is `s16 << 16`, a
+     * 24-bit one `s24 << 8`), so a 32-bit ASP word reads 16/24/32-bit content
+     * at full scale with no truncation. The value already matches the
+     * hardware-verified reference; increment 4.1 made the decode path honour
+     * it (was truncated to 16 bits by `drflac_read_pcm_frames_s16`). */
     dac_map_write(0x0001000C, 0x04);
     dac_map_write(0x00040010, 0x01);
     dac_map_write(0x00040011, 0x00);
@@ -166,7 +178,12 @@ static int ao_configure_rate(uint32_t rate_hz)
     dac_map_write(0x00040019, 0x0A);
     dac_map_write(0x00050000, 0x00);
     dac_map_write(0x00050001, 0x00);
-    /* Per-chip output channel/gain (ref FUN_03055ecc): L=7, R=15. */
+    /* Per-chip ASP channel size + enable (MAP 0x05000A/B, datasheet
+     * §7.3.23/24 — NOT an output gain): ASP_RX_CHn_RES = 11 = 32 bits per
+     * channel, CHn_EN = 1 (data propagated to the internal path). The
+     * per-chip active-phase bit separates the two chips: L chip 0x07 (AP=0),
+     * R chip 0x0F (AP=1). Ref FUN_03055ecc. Word length is 32 bits here too —
+     * together with 0x01000C this is the whole "communicate the depth" story. */
     dac_map_write_chan(0, 0x0005000A, 0x07);
     dac_map_write_chan(0, 0x0005000B, 0x07);
     dac_map_write_chan(1, 0x0005000A, 0x0F);
@@ -238,7 +255,7 @@ int audio_output_configure(const audio_format_t *fmt)
 
     if (fmt == 0 || fmt->sample_rate == 0)
         return DAC_ERR_ARG;
-    if (fmt->bits != 16)                 /* 24/32-bit plumbed, not built   */
+    if (!ao_format_bits_ok(fmt->bits))   /* 16 / 24 / 32 (see audio_hal.h)  */
         return DAC_ERR_ARG;
     if (fmt->channels < 1 || fmt->channels > 2)
         return DAC_ERR_ARG;
@@ -246,11 +263,16 @@ int audio_output_configure(const audio_format_t *fmt)
     /* Stock FUN_03056550 early-exit: same-format re-open keeps the
      * DAC/I2S state (registers untouched; format changes take the full
      * verified sequence). This is what makes track changes click-free
-     * and fast. */
+     * and fast.
+     *
+     * `bits` is deliberately NOT part of the compare: the bring-up fixes
+     * the ASP word length at 32 bits for every source (ASP_SPSIZE = 00, see
+     * ao_configure_rate), so the source depth does not change the DAC state
+     * — a 16 <-> 24/32 depth change must not force a relock (and its
+     * ~200 ms gap/click) on a mixed-depth playlist. */
     if (s_dac_ready && s_fmt_valid &&
         s_fmt.sample_rate == fmt->sample_rate &&
-        s_fmt.channels == fmt->channels &&
-        s_fmt.bits == fmt->bits)
+        s_fmt.channels == fmt->channels)
         return DAC_OK;
 
     rc = ao_configure_rate(fmt->sample_rate);

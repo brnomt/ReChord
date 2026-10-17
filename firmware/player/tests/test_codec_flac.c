@@ -1,16 +1,17 @@
 /*
  * test_codec_flac.c — host test for codecs/flac.c (dr_flac adapter).
  *
- * No FLAC encoder exists on the build host, so the fixture is synthesized
- * byte-exactly in C using VERBATIM subframes (PCM stored raw): a valid
- * fLaC stream with STREAMINFO (44100/2ch/16-bit, 4096-sample single
- * block), a VORBIS_COMMENT block carrying ReplayGain, and one frame whose
- * samples follow a known formula. Decoding must be LOSSLESS: every sample
- * must equal the formula — the strongest golden a codec test can assert.
+ * No FLAC encoder exists on the build host, so the fixtures are synthesized
+ * byte-exactly in C using VERBATIM subframes (PCM stored raw). Three bit
+ * depths are covered — 16, 24 and 32 — to pin the internal int32
+ * left-justified pipeline contract (codec.h): the decoded sample must equal
+ * the source value shifted up by (32 - bps), and format().bits must report
+ * the SOURCE depth. Decoding must be LOSSLESS at every depth.
  *
- * Covered: metadata pre-scan (RG comments), exact duration from
- * STREAMINFO total, lossless decode, frame-accurate seek (dr_flac lands on
- * the exact PCM frame), EOF, gapless report (0/0), and non-FLAC rejection.
+ * Covered: metadata pre-scan (RG comments), exact duration from STREAMINFO
+ * total, lossless decode at 16/24/32 bits, source bit-depth reporting,
+ * frame-accurate seek (dr_flac lands on the exact PCM frame), EOF, gapless
+ * report (0/0), and non-FLAC rejection.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,11 +26,22 @@ extern const codec_t codec_flac;
 #define RATE       44100
 #define BLOCKSIZE  4096
 #define TOTAL      BLOCKSIZE          /* one frame                          */
+#define HIRES_BLOCK 1024             /* one 24/32-bit frame                */
 
-/* Deterministic sample formula (same family as the mock codec's). */
-static int16_t gen_sample(int i, int ch)
+/* Deterministic signed sample VALUE in the source bit depth (fits `bps`
+ * bits). Same family as the mock codec's generator. */
+static int32_t gen_value(int i, int ch, int bps)
 {
-    return (int16_t)(((i * 37 + ch * 101) % 20000) - 10000);
+    int32_t span = (bps == 32) ? 1000000000 : (bps == 24 ? 400000 : 10000);
+
+    return ((i * 37 + ch * 101) % (2 * span)) - span;
+}
+
+/* Expected decoded sample: the internal pipeline is int32 LEFT-JUSTIFIED,
+ * so dr_flac shifts the bps-bit value up by (32 - bps). */
+static int32_t gen_sample(int i, int ch, int bps)
+{
+    return (int32_t)((uint32_t)gen_value(i, ch, bps) << (32 - bps));
 }
 
 /* ---- byte-writer + checksums --------------------------------------------- */
@@ -42,6 +54,14 @@ static void put24be(bw_t *w, unsigned v) { put8(w, v >> 16); put8(w, v >> 8); pu
 static void put32le(bw_t *w, unsigned v)
 {
     put8(w, v); put8(w, v >> 8); put8(w, v >> 16); put8(w, v >> 24);
+}
+
+/* MSB-first sample of `bytes` bytes (VERBATIM subframe payload). */
+static void put_sample_be(bw_t *w, int32_t v, int bytes)
+{
+    int b;
+    for (b = bytes - 1; b >= 0; b--)
+        put8(w, ((uint32_t)v >> (b * 8)) & 0xFFu);
 }
 
 /* FLAC CRC-8: poly 0x07, init 0, no reflection (frame header). */
@@ -84,18 +104,21 @@ static void put_meta_hdr(bw_t *w, int last, int type, unsigned len)
     put8(w, len);
 }
 
-static void put_streaminfo(bw_t *w, unsigned long total)
+static void put_streaminfo(bw_t *w, unsigned long total, unsigned blocksize,
+                           int bps)
 {
+    unsigned bsp1 = (unsigned)(bps - 1);   /* (bps-1), 5 bits            */
+
     /* 34 bytes */
-    put16be(w, BLOCKSIZE);              /* min block size                  */
-    put16be(w, BLOCKSIZE);              /* max block size                  */
+    put16be(w, blocksize);              /* min block size                  */
+    put16be(w, blocksize);              /* max block size                  */
     put24be(w, 0);                      /* min frame size (0 = unknown)    */
     put24be(w, 0);                      /* max frame size (0 = unknown)    */
     /* rate(20) | ch-1(3) | bps-1(5) | total(36) */
     put8(w, RATE >> 12);                                        /* 4      */
     put8(w, RATE >> 4);                                         /* 12     */
-    put8(w, ((RATE & 0x0F) << 4) | (1 << 1) | (15 >> 4));       /* 16     */
-    put8(w, ((15 & 0x0F) << 4) |
+    put8(w, ((RATE & 0x0F) << 4) | (1 << 1) | ((bsp1 >> 4) & 1));
+    put8(w, ((bsp1 & 0x0F) << 4) |
             (unsigned)(((unsigned long)total >> 32) & 0xF));
     put8(w, (total >> 24) & 0xFF);
     put8(w, (total >> 16) & 0xFF);
@@ -138,30 +161,35 @@ static void put_vorbis_comment(bw_t *w)
     }
 }
 
-/* One frame: fixed blocksize 4096 (code 0111 + 16-bit LE at header end),
- * 44100 (code 1010), stereo independent (0001), 16 bps (100), frame #0,
- * VERBATIM subframes (raw PCM, MSB-first two's complement). Byte-aligned
- * throughout, so the writer emits plain bytes. */
-static void put_verbatim_frame(bw_t *w)
+/* One frame: fixed-blocksize header (code 0111 + 16-bit LE blocksize-1 at
+ * header end), 44100 (code 1001), stereo independent (0001), VERBATIM
+ * subframes (raw PCM, MSB-first two's complement).
+ *
+ * The frame's bits-per-sample field is coded 000 = "same as STREAMINFO" —
+ * what libFLAC emits whenever the frame bps matches the stream, and the only
+ * form dr_flac v0.13.4 accepts at 32 bits (it maps the explicit code 111 to
+ * "reserved"). Byte-aligned throughout for byte-multiple depths. */
+static void put_verbatim_frame(bw_t *w, unsigned blocksize, int bps)
 {
     long start = w->n;
+    int nbytes = bps / 8;
     unsigned crc;
     int ch, i;
 
     put8(w, 0xFF);                      /* sync (14) + reserved(0)+block(0) */
     put8(w, 0xF8);
     put8(w, 0x79);                      /* blocksize 0111, rate 1001=44100 */
-    put8(w, 0x18);                      /* ch 0001, bps 100, reserved 0     */
+    put8(w, (unsigned)(1 << 4));        /* ch 0001, bps 000 (=STREAMINFO)  */
     put8(w, 0x00);                      /* coded frame number (UTF-8) FIRST */
-    put8(w, 0x0F); put8(w, 0xFF);       /* then blocksize-1 = 4095, BITSTREAM
-                                         * order (MSB-first 16-bit read)   */
+    put8(w, (unsigned)((blocksize - 1) >> 8));    /* then blocksize-1,   */
+    put8(w, (unsigned)((blocksize - 1) & 0xFFu)); /* BITSTREAM MSB-first */
     put8(w, crc8(w->b + start, 7));
     for (ch = 0; ch < 2; ch++) {
         /* subframe header: pad(1)=0, type(6)=000001 VERBATIM, wasted(1)=0
          * (dr_flac: type = (hdr & 0x7E) >> 1; 1 == VERBATIM) */
         put8(w, 0x02);
-        for (i = 0; i < TOTAL; i++)
-            put16be(w, (unsigned)(uint16_t)gen_sample(i, ch));
+        for (i = 0; i < (int)blocksize; i++)
+            put_sample_be(w, gen_value(i, ch, bps), nbytes);
     }
     crc = crc16(w->b + start, (int)(w->n - start));
     put16be(w, crc);
@@ -192,7 +220,7 @@ static void test_flac_golden(void)
     codec_replaygain_t rg;
     codec_meta_t meta;
     void *st;
-    int16_t pcm[TOTAL * 2];
+    int32_t pcm[512 * 2];
     long got, total = 0, i;
     int mismatches = 0;
 
@@ -200,7 +228,7 @@ static void test_flac_golden(void)
 
     put8(&w, 'f'); put8(&w, 'L'); put8(&w, 'a'); put8(&w, 'C');
     put_meta_hdr(&w, 0, 0, 34);        /* STREAMINFO (not last)            */
-    put_streaminfo(&w, TOTAL);
+    put_streaminfo(&w, TOTAL, BLOCKSIZE, 16);
     {
         long before = w.n;
         long clen;
@@ -212,7 +240,7 @@ static void test_flac_golden(void)
         buf[before + 2] = (unsigned char)(clen >> 8);
         buf[before + 3] = (unsigned char)clen;
     }
-    put_verbatim_frame(&w);
+    put_verbatim_frame(&w, BLOCKSIZE, 16);
 
     if (write_file(path, buf, w.n) != 0) {
         printf("  FAIL: cannot write fixture\n");
@@ -229,6 +257,7 @@ static void test_flac_golden(void)
     CHECK_EQI(codec_flac.format(st, &fmt), 0, "format()");
     CHECK_EQI(fmt.sample_rate, RATE, "sample rate 44100");
     CHECK_EQI(fmt.channels, 2, "channels 2");
+    CHECK_EQI(fmt.bits, 16, "source bit depth 16");
     CHECK_EQI(fmt.total_samples, TOTAL, "total_samples from STREAMINFO");
     CHECK_EQI(codec_flac.duration_ms(st), TOTAL * 1000 / RATE,
               "duration = total*1000/rate");
@@ -253,18 +282,20 @@ static void test_flac_golden(void)
     CHECK(strcmp(meta.genre, "Test") == 0, "meta: GENRE");
     CHECK_EQI(meta.track, 7, "meta: TRACKNUMBER");
 
-    /* Lossless decode: every sample must equal the generator. Each decode
-     * call fills pcm from offset 0; `total` tracks the global frame index. */
+    /* Lossless decode: every sample must equal the generator, left-justified
+     * to 32 bits. Each decode call fills pcm from offset 0; `total` tracks
+     * the global frame index. */
     while ((got = codec_flac.decode(st, pcm, 512)) > 0) {
         for (i = 0; i < got; i++) {
             int ch;
             for (ch = 0; ch < 2; ch++) {
-                int want = gen_sample((int)(total + i), ch);
+                int32_t want = gen_sample((int)(total + i), ch, 16);
                 if (pcm[i * 2 + ch] != want) {
                     if (mismatches == 0)
                         printf("  DBG first mismatch: frame=%ld ch=%d "
-                               "got=%d want=%d\n",
-                               total + i, ch, pcm[i * 2 + ch], want);
+                               "got=%ld want=%ld\n",
+                               total + i, ch, (long)pcm[i * 2 + ch],
+                               (long)want);
                     mismatches++;
                 }
             }
@@ -280,7 +311,7 @@ static void test_flac_golden(void)
     got = codec_flac.decode(st, pcm, 16);
     CHECK_EQI(got, 16, "post-seek decode works");
     if (got == 16) {
-        int want = gen_sample(2028, 0);
+        int32_t want = gen_sample(2028, 0, 16);
         CHECK_EQI(pcm[0], want, "post-seek first sample = frame 2028");
     }
 
@@ -289,7 +320,126 @@ static void test_flac_golden(void)
     remove(path);
 }
 
-/* A real >48 s file's header: 5,000,000 frames @ 44.1 kHz = 113.4 s. The
+/* 24- and 32-bit FLAC: the sample must survive losslessly into the int32
+ * left-justified pipeline (value << (32-bps)) — this is the increment that
+ * stops 24/32-bit files from being truncated to 16 bits. */
+static void test_flac_hires(int bps)
+{
+    static unsigned char buf[32768];
+    bw_t w = { buf, 0 };
+    char path[] = "/tmp/rechord_codec_flac_hires.flac";
+    char label[64];
+    codec_format_t fmt;
+    void *st;
+    int32_t pcm[256 * 2];
+    long got, total = 0, i;
+    int mismatches = 0, ch;
+
+    snprintf(label, sizeof label, "flac %d-bit: lossless golden", bps);
+    TEST(label);
+
+    put8(&w, 'f'); put8(&w, 'L'); put8(&w, 'a'); put8(&w, 'C');
+    put_meta_hdr(&w, 1, 0, 34);        /* STREAMINFO (last)                */
+    put_streaminfo(&w, HIRES_BLOCK, HIRES_BLOCK, bps);
+    put_verbatim_frame(&w, HIRES_BLOCK, bps);
+
+    if (write_file(path, buf, w.n) != 0) {
+        printf("  FAIL: cannot write fixture\n");
+        failures++;
+        return;
+    }
+
+    st = calloc(1, PLAYER_CODEC_STATE_MAX);
+    if (!st) { printf("  FAIL: alloc\n"); failures++; return; }
+
+    CHECK_EQI(codec_flac.open(st, path), 0, "open hires FLAC");
+
+    memset(&fmt, 0, sizeof fmt);
+    CHECK_EQI(codec_flac.format(st, &fmt), 0, "format()");
+    CHECK_EQI(fmt.sample_rate, RATE, "sample rate 44100");
+    CHECK_EQI(fmt.channels, 2, "channels 2");
+    CHECK_EQI(fmt.bits, bps, "source bit depth reported");
+    CHECK_EQI(fmt.total_samples, HIRES_BLOCK, "total_samples from STREAMINFO");
+
+    while ((got = codec_flac.decode(st, pcm, 256)) > 0) {
+        for (i = 0; i < got; i++) {
+            for (ch = 0; ch < 2; ch++) {
+                int32_t want = gen_sample((int)(total + i), ch, bps);
+                if (pcm[i * 2 + ch] != want) {
+                    if (mismatches == 0)
+                        printf("  DBG %d-bit first mismatch: frame=%ld ch=%d "
+                               "got=%ld want=%ld\n", bps, total + i, ch,
+                               (long)pcm[i * 2 + ch], (long)want);
+                    mismatches++;
+                }
+            }
+        }
+        total += got;
+    }
+    CHECK_EQI(got, 0, "decode reaches EOF cleanly");
+    CHECK_EQI(total, HIRES_BLOCK, "decoded every sample of the block");
+    CHECK_EQI(mismatches, 0, "lossless: samples match the generator exactly");
+
+    codec_flac.close(st);
+    free(st);
+    remove(path);
+}
+
+/* 8192-sample stereo block: the decode window needs sizeof(drflac) 4336 +
+ * 8192*4*2 + 64 = 69936 B, which the old 57344 B pool rejected (the
+ * "flac pool <n>" failure on 96k/88.2k hi-res). This locks in the shared
+ * workbuf region that now backs the pool. */
+static void test_flac_bigblock(void)
+{
+    static unsigned char buf[65536];
+    bw_t w = { buf, 0 };
+    char path[] = "/tmp/rechord_codec_flac_big.flac";
+    codec_format_t fmt;
+    void *st;
+    int32_t pcm[512 * 2];
+    long got, total = 0, i;
+    int mismatches = 0;
+
+    TEST("flac: 8192-sample block (the 96k hi-res pool case)");
+
+    put8(&w, 'f'); put8(&w, 'L'); put8(&w, 'a'); put8(&w, 'C');
+    put_meta_hdr(&w, 1, 0, 34);        /* STREAMINFO (last)                */
+    put_streaminfo(&w, 8192, 8192, 24);
+    put_verbatim_frame(&w, 8192, 24);
+
+    if (write_file(path, buf, w.n) != 0) {
+        printf("  FAIL: cannot write fixture\n");
+        failures++;
+        return;
+    }
+    st = calloc(1, PLAYER_CODEC_STATE_MAX);
+    if (!st) { printf("  FAIL: alloc\n"); failures++; return; }
+
+    CHECK_EQI(codec_flac.open(st, path), 0, "open 8192-block FLAC");
+    memset(&fmt, 0, sizeof fmt);
+    CHECK_EQI(codec_flac.format(st, &fmt), 0, "format()");
+    CHECK_EQI(fmt.channels, 2, "channels 2");
+    CHECK_EQI(fmt.bits, 24, "24-bit");
+    CHECK_EQI(fmt.total_samples, 8192, "total_samples 8192");
+
+    while ((got = codec_flac.decode(st, pcm, 512)) > 0) {
+        for (i = 0; i < got; i++) {
+            int ch;
+            for (ch = 0; ch < 2; ch++)
+                if (pcm[i * 2 + ch] != gen_sample((int)(total + i), ch, 24))
+                    mismatches++;
+        }
+        total += got;
+    }
+    CHECK_EQI(total, 8192, "decoded the whole big block");
+    CHECK_EQI(mismatches, 0, "lossless at 8192 samples");
+
+    codec_flac.close(st);
+    free(st);
+    remove(path);
+}
+
+/* A >48 s file's header: 5,000,000 frames @ 44.1 kHz = 113.4 s. The
  * target's 32-bit `long` wraps in samples*1000 past ~48 s — that is how Now
  * Playing showed bogus few-seconds lengths (BRNOMT-65), so the exact
  * 113378 ms here is the regression guard. The body deliberately stays one
@@ -308,8 +458,8 @@ static void test_flac_long_duration(void)
 
     put8(&w, 'f'); put8(&w, 'L'); put8(&w, 'a'); put8(&w, 'C');
     put_meta_hdr(&w, 1, 0, 34);        /* STREAMINFO (last)                */
-    put_streaminfo(&w, LONG_TOTAL);
-    put_verbatim_frame(&w);
+    put_streaminfo(&w, LONG_TOTAL, BLOCKSIZE, 16);
+    put_verbatim_frame(&w, BLOCKSIZE, 16);
 
     if (write_file(path, buf, w.n) != 0) {
         printf("  FAIL: cannot write fixture\n");
@@ -362,6 +512,9 @@ static void test_flac_reject(void)
 int main(void)
 {
     test_flac_golden();
+    test_flac_hires(24);
+    test_flac_hires(32);
+    test_flac_bigblock();
     test_flac_long_duration();
     test_flac_reject();
     if (failures == 0) {

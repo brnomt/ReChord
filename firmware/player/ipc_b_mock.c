@@ -3,7 +3,7 @@
  * and docs/rewrite/player.md for the protocol-facts mapping).
  *
  * The mock plays the role of the B core in the host tests:
- *   - consumes interleaved int16 PCM from the SPSC ring (ringbuf.h) at a
+ *   - consumes interleaved int32 PCM from the SPSC ring (ringbuf.h) at a
  *     fixed frames-per-poll rate (a stand-in for the real DAC cadence),
  *   - runs the documented supervisor states (STARTING -> RUNNING ->
  *     DRAINED, FAULT injection for "B is gone"),
@@ -82,7 +82,7 @@ int ipc_b_start(const ipc_b_track_t *track)
         return -1;
 
     g_track = *track;
-    g_frame_bytes = track->channels * 2;
+    g_frame_bytes = track->channels * 4;
     g_total_frames = (track->duration_ms > 0 && track->sample_rate > 0)
         ? (track->duration_ms * track->sample_rate) / 1000
         : 0;
@@ -124,7 +124,7 @@ int ipc_b_set_volume(int db)
 
 static void mock_consume(void)
 {
-    int16_t chunk[MOCK_SINK_CHUNK_FRAMES * 2];
+    int32_t chunk[MOCK_SINK_CHUNK_FRAMES * 2];
     int want = g_frames_per_tick;
 
     while (want > 0) {
@@ -178,7 +178,7 @@ int ipc_b_poll_state(ipc_b_status_t *out)
     return (int)g_state;
 }
 
-int ipc_b_ring_fill(const int16_t *pcm, int frames)
+int ipc_b_ring_fill(const int32_t *pcm, int frames)
 {
     size_t written;
 

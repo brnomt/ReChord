@@ -46,9 +46,11 @@ void mock_codec_configure(const mock_codec_cfg_t *cfg)
         g_cfg.total_frames = 0;
 }
 
-int16_t mock_sample(long frame, int ch)
+int32_t mock_sample(long frame, int ch)
 {
-    return (int16_t)(((frame * 37 + ch * 101) % 20000) - 10000);
+    /* Left-justified int32: the s16 pattern in the top 16 bits, i.e. the
+     * internal pipeline format. Tests compare decoded PCM to this directly. */
+    return (int32_t)(int16_t)(((frame * 37 + ch * 101) % 20000) - 10000) << 16;
 }
 
 static int mock_open(void *vst, const char *path)
@@ -65,7 +67,7 @@ static int mock_open(void *vst, const char *path)
     return CODEC_OK;
 }
 
-static int mock_decode(void *vst, int16_t *pcm, int max_frames)
+static int mock_decode(void *vst, int32_t *pcm, int max_frames)
 {
     mock_state_t *st = (mock_state_t *)vst;
     int i, ch, n;

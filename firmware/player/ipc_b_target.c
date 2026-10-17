@@ -59,9 +59,10 @@
 /* Producer-side PCM ring (TODO(bring-up) item 4: place into the window the
  * B core reads via DMA; for now it is plain AP RAM behind our contract). */
 static uint8_t   g_ring_storage[IPC_B_RING_BYTES];
-/* Mono->stereo upmix scratch for the direct DAC sink: sized to the player's
- * decode staging buffer (PLAYER_PUMP_FRAMES=512 frames, stereo). */
-#define IPC_B_PUMP_SCRATCH (512 * 2)
+/* Mono->stereo upmix scratch for the direct DAC sink: a small bss buffer
+ * (int32 frames are twice the int16 size and .bss is at a premium under the
+ * 0x0304A000 ceiling), so the upmix loops over it in chunks. */
+#define IPC_B_PUMP_SCRATCH_FRAMES 128
 static ringbuf_t g_ring;
 
 static ipc_b_state_t g_state = IPC_B_OFF;
@@ -127,7 +128,7 @@ int ipc_b_start(const ipc_b_track_t *track)
         track->sample_rate <= 0)
         return -1;
 
-    g_frame_bytes = track->channels * 2;
+    g_frame_bytes = track->channels * 4;
     rb_reset(&g_ring);
     audio_output_clear_played();
     g_paused = 0;
@@ -150,7 +151,7 @@ int ipc_b_start(const ipc_b_track_t *track)
         audio_format_t fmt;
 
         fmt.sample_rate = (uint32_t)track->sample_rate;
-        fmt.bits = 16;                   /* pipeline standard (codec.h)   */
+        fmt.bits = (uint8_t)track->bits;  /* source depth (16/24/32)     */
         fmt.channels = (uint8_t)track->channels;
         if (audio_output_configure(&fmt) != 0) {
             g_state = IPC_B_FAULT;
@@ -243,7 +244,7 @@ int ipc_b_poll_state(ipc_b_status_t *out)
     return (int)g_state;
 }
 
-int ipc_b_ring_fill(const int16_t *pcm, int frames)
+int ipc_b_ring_fill(const int32_t *pcm, int frames)
 {
     size_t written;
 
@@ -252,26 +253,36 @@ int ipc_b_ring_fill(const int16_t *pcm, int frames)
         return 0;
 
     /* Producer half: PCM goes into the ring, the TX IRQ drains it. The ring
-     * always carries STEREO frames (one 32-bit word each, stock HWT_Bit32
-     * order); upmix mono to L=R on the way in. Writes are clamped to free
-     * space (returns < frames when the ring is full). */
-    if (g_frame_bytes == 2) {
-        /* mono source: duplicate each sample into both channels */
-        static int16_t st[IPC_B_PUMP_SCRATCH];
-        int n = frames, i;
-        if (n > IPC_B_PUMP_SCRATCH / 2)
-            n = IPC_B_PUMP_SCRATCH / 2;
-        for (i = 0; i < n; i++)
-            st[2 * i] = st[2 * i + 1] = pcm[i];
-        written = rb_write(&g_ring, st, (size_t)n * 4u);
+     * always carries STEREO int32 frames (8 bytes: two 32-bit slot words,
+     * stock HWT_Bit32 order); upmix mono to L=R on the way in. Writes are
+     * clamped to free space (returns < frames when the ring is full). */
+    if (g_frame_bytes == 4) {
+        /* mono source: duplicate each sample into both channels, chunked. */
+        static int32_t st[IPC_B_PUMP_SCRATCH_FRAMES * 2];
+        long total = 0;
+
+        while (total < frames) {
+            int n = (int)(frames - total);
+            int i;
+
+            if (n > IPC_B_PUMP_SCRATCH_FRAMES)
+                n = IPC_B_PUMP_SCRATCH_FRAMES;
+            for (i = 0; i < n; i++)
+                st[2 * i] = st[2 * i + 1] = pcm[total + i];
+            written = rb_write(&g_ring, st, (size_t)n * 8u);
+            total += (long)(written / 8u);
+            if (written < (size_t)n * 8u)
+                break;                  /* ring full: rest on the next fill */
+        }
+        written = (size_t)total * 8u;
     } else {
-        written = rb_write(&g_ring, pcm, (size_t)frames * 4u);
+        written = rb_write(&g_ring, pcm, (size_t)frames * 8u);
     }
     if (written == 0)
         return 0;
     shared_publish_ring();
     audio_output_kick();                  /* re-arm the TX IRQ if it went dry  */
-    return (int)(written / 4u);
+    return (int)(written / 8u);
 }
 
 int ipc_b_flush(void)

@@ -84,8 +84,8 @@ int main(void)
     const char *devname = "/rechord_iofs_test.wav";
     char path[256];
     int16_t samples[NSAMPLES * 2];
-    int16_t pcm_a[NSAMPLES * 2];
-    int16_t pcm_b[NSAMPLES * 2];
+    int32_t pcm_a[NSAMPLES * 2];
+    int32_t pcm_b[NSAMPLES * 2];
     uint8_t st_mem[4096];
     codec_format_t fmt = {0, 0, 0};
     codec_t local = codec_wav;
@@ -110,15 +110,16 @@ int main(void)
     CHECK_EQI(local.seek(st_mem, 0), 0, "fs backend: seek(0) ok");
     CHECK_EQI(local.decode(st_mem, pcm_b, NSAMPLES), NSAMPLES,
               "fs backend: re-decode after seek");
-    CHECK(memcmp(pcm_a, pcm_b, (size_t)NSAMPLES * 2 * sizeof(int16_t)) == 0,
+    CHECK(memcmp(pcm_a, pcm_b, (size_t)NSAMPLES * 2 * sizeof(int32_t)) == 0,
           "fs backend: seek->decode byte-exact vs first decode");
 
-    /* Cross-check the FS-backed decode against the analytical sine. */
+    /* Cross-check the FS-backed decode against the analytical sine (decoded
+     * output is int32 left-justified: the s16 value << 16). */
     int bad = 0;
     for (int i = 0; i < NSAMPLES * 2; i++) {
         double phase = 440.0 * (2.0 * T_PI) * (double)(i / 2) / (double)RATE;
         int16_t expect = (int16_t)(30000.0 * sin(phase));
-        if (pcm_a[i] != expect) {
+        if (pcm_a[i] != ((int32_t)expect << 16)) {
             bad = 1; break;
         }
     }

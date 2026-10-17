@@ -11,8 +11,10 @@
  * halfword write-enable), ACODEC block @ 0x40090000 (PLL mux +0x200..+0x214),
  * I2S1 @ 0x40030000 (TXDR +0x24). I2S registers are stock-verbatim:
  * TXCR/RXCR=0x401F, CKR=((mclk/(rate<<6))-1)<<16 | 0x3F3F, INTCR=0x01F00102.
- * Wire format: ONE 32-bit FIFO word = ONE channel sample, left-justified
- * (sample << 16); a stereo frame is TWO words, L slot then R slot.
+ * Wire format: ONE 32-bit FIFO word = ONE channel sample, left-justified;
+ * a stereo frame is TWO words, L slot then R slot. The streaming path
+ * carries the internal int32 sample as-is (already left-justified); the
+ * polled tone path lifts its int16 source with `(uint16_t)sample << 16`.
  */
 #include <stdint.h>
 
@@ -351,19 +353,19 @@ void rknano_i2s_tx_isr(void)
         return;
     }
     /* Top the FIFO up past the IRQ threshold (SDK I2S_PIO_Write level).
-     * Each ring frame is a packed int16 pair (L in [15:0], R in [31:16])
-     * and expands to TWO FIFO words on the wire (L slot then R slot,
-     * each sample << 16) — so require room for two before pulling. */
+     * Each ring frame is one int32 stereo frame = TWO 32-bit slot words
+     * (L then R); the sample is already left-justified, so each goes out
+     * as-is — require room for two before pulling. */
     while ((I2S_FIFOLR & 0x3Fu) < 0x1Du) {
-        uint32_t w;
+        uint32_t l, r;
 
-        if (!s_pull(&w, s_pull_user)) {
+        if (!s_pull(&l, &r, s_pull_user)) {
             /* Ring dry: mask the source so it cannot re-fire until the
              * producer pushes data and calls rknano_i2s_kick(). */
             I2S_INTCR &= ~INTCR_TX_EMPTY;
             break;
         }
-        I2S_TXDR = (w & 0xFFFFu) << 16;          /* L channel sample      */
-        I2S_TXDR = ((w >> 16) & 0xFFFFu) << 16;  /* R channel sample      */
+        I2S_TXDR = l;                            /* L channel sample      */
+        I2S_TXDR = r;                            /* R channel sample      */
     }
 }

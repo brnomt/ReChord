@@ -144,7 +144,18 @@ static void gen_reference(void)
     }
 }
 
-static int decode_all(const codec_t *cc, void *st, int16_t *pcm, int max,
+/* Decoded output is the internal int32 left-justified format: the 16-bit
+ * golden value widened by 16. */
+static int matches_ref(const int32_t *pcm, const int16_t *ref, int n)
+{
+    int i;
+    for (i = 0; i < n; i++)
+        if (pcm[i] != ((int32_t)ref[i] << 16))
+            return 0;
+    return 1;
+}
+
+static int decode_all(const codec_t *cc, void *st, int32_t *pcm, int max,
                       long *frames_out)
 {
     long total = 0;
@@ -167,7 +178,7 @@ int main(void)
     const codec_t *cc = &codec_wav;
     uint8_t *state;
     codec_format_t fmt;
-    int16_t pcm[512 * 2];
+    int32_t pcm[512 * 2];
     long total = 0;
     int rc, i, c, ok;
     long dur;
@@ -208,7 +219,7 @@ int main(void)
         ok = 1;
         while ((n = cc->decode(state, pcm, chunk)) > 0) {
             for (i = 0; i < n * GOLD_CH; i++) {
-                if (pcm[i] != g_ref[got * GOLD_CH + i]) {
+                if (pcm[i] != ((int32_t)g_ref[got * GOLD_CH + i] << 16)) {
                     ok = 0;
                     break;
                 }
@@ -235,7 +246,7 @@ int main(void)
         double want = 0.8 * 32767.0 *
             sin(2.0 * T_PI * GOLD_FREQ * (double)i / (double)GOLD_RATE);
         for (c = 0; c < GOLD_CH; c++) {
-            double diff = (double)pcm[i * GOLD_CH + c] - want;
+            double diff = ((double)pcm[i * GOLD_CH + c] / 65536.0) - want;
             if (diff > 2.0 || diff < -2.0) {
                 ok = 0;
                 break;
@@ -249,7 +260,7 @@ int main(void)
     CHECK_EQI(cc->decode(state, pcm, 50), 50, "decode 50 frames after seek");
     ok = 1;
     for (i = 0; i < 50 * GOLD_CH; i++) {
-        if (pcm[i] != g_ref[200 * GOLD_CH + i]) {   /* 25 ms = frame 200 */
+        if (pcm[i] != ((int32_t)g_ref[200 * GOLD_CH + i] << 16)) {  /* 25 ms = frame 200 */
             ok = 0;
             break;
         }
@@ -257,7 +268,7 @@ int main(void)
     CHECK(ok, "samples after seek(25 ms) match golden at frame 200");
     CHECK_EQI(cc->seek(state, 0), CODEC_OK, "seek(0) -> 0");
     CHECK_EQI(cc->decode(state, pcm, 4), 4, "decode after rewind");
-    CHECK(memcmp(pcm, g_ref, sizeof(int16_t) * 4 * GOLD_CH) == 0,
+    CHECK(matches_ref(pcm, g_ref, 4 * GOLD_CH),
           "rewind lands on frame 0");
     CHECK_EQI(cc->seek(state, -10), CODEC_OK, "seek(-10) clamps to 0");
     CHECK_EQI(cc->seek(state, 999999), CODEC_OK, "seek(past end) clamps");
@@ -283,7 +294,7 @@ int main(void)
         CHECK_EQI(cc->duration_ms(state), (200 * 1000) / 44100,
                   "mono duration");
         CHECK_EQI(cc->decode(state, pcm, 200), 200, "mono decode all");
-        CHECK(memcmp(pcm, mono, sizeof(mono)) == 0, "mono samples exact");
+        CHECK(matches_ref(pcm, mono, 200), "mono samples exact");
         cc->close(state);
     }
 
@@ -297,7 +308,8 @@ int main(void)
               "odd-size JUNK chunk skipped + padded");
     CHECK_EQI(cc->decode(state, pcm, GOLD_FRAMES), GOLD_FRAMES,
               "decode all with JUNK present");
-    CHECK(memcmp(pcm, g_ref, sizeof(g_ref)) == 0, "samples exact with JUNK");
+    CHECK(matches_ref(pcm, g_ref, GOLD_FRAMES * GOLD_CH),
+          "samples exact with JUNK");
     cc->close(state);
 
     write_wav(".work/reorder.wav", &(wav_spec_t){
@@ -309,7 +321,7 @@ int main(void)
               "fmt chunk after data accepted");
     CHECK_EQI(cc->decode(state, pcm, GOLD_FRAMES), GOLD_FRAMES,
               "decode all with reordered chunks");
-    CHECK(memcmp(pcm, g_ref, sizeof(g_ref)) == 0,
+    CHECK(matches_ref(pcm, g_ref, GOLD_FRAMES * GOLD_CH),
           "samples exact with reordered chunks");
     cc->close(state);
 

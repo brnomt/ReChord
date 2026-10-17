@@ -20,11 +20,30 @@ int main(void)
 {
     int i;
 
-    /* Slot packing == the raw expression kept inline in rknano_i2s.c. */
-    CHECK(ao_slot_word(0) == ((uint32_t)(uint16_t)0 << 16), "slot: zero");
-    CHECK(ao_slot_word(0x1234) == 0x12340000u, "slot: positive sample");
-    CHECK(ao_slot_word(-1) == 0xFFFF0000u, "slot: -1 sign pattern");
-    CHECK(ao_slot_word(-32768) == 0x80000000u, "slot: INT16_MIN");
+    /* Slot packing: the 16-bit (polled tone) path composes
+     * ao_i16_to_s32 -> ao_slot_word, which must equal the raw inline
+     * expression kept in rknano_i2s.c; the streaming path passes the
+     * internal int32 sample straight through (it is already the slot). */
+    CHECK(ao_slot_word(ao_i16_to_s32(0)) == ((uint32_t)(uint16_t)0 << 16),
+          "slot: zero");
+    CHECK(ao_slot_word(ao_i16_to_s32(0x1234)) == 0x12340000u,
+          "slot: positive sample");
+    CHECK(ao_slot_word(ao_i16_to_s32(-1)) == 0xFFFF0000u,
+          "slot: -1 sign pattern");
+    CHECK(ao_slot_word(ao_i16_to_s32(-32768)) == 0x80000000u,
+          "slot: INT16_MIN");
+    CHECK(ao_slot_word((int32_t)0x12345678) == 0x12345678u,
+          "slot: int32 sample is the slot word (identity)");
+    CHECK(ao_slot_word((int32_t)-1) == 0xFFFFFFFFu,
+          "slot: int32 -1 sign pattern");
+
+    /* Stream-depth gate (audio_hal.h): 16/24/32 accepted, others rejected.
+     * A 32-bit ASP word reads every left-justified depth at full scale. */
+    CHECK(ao_format_bits_ok(16) && ao_format_bits_ok(24) &&
+          ao_format_bits_ok(32), "bits gate: 16/24/32 accepted");
+    CHECK(!ao_format_bits_ok(8) && !ao_format_bits_ok(20) &&
+          !ao_format_bits_ok(0) && !ao_format_bits_ok(64),
+          "bits gate: other widths rejected");
 
     /* Volume mapping: 2 codes per dB (0.5 dB/step), 0x00 = 0 dB,
      * 0xFF = -127.5 dB (datasheet volume decode). Pure integer. */

@@ -15,8 +15,9 @@
 void ipc_b_mock_set_frames_per_tick(int frames);
 
 /* Called with every chunk of PCM the simulated B core consumes — the
- * "mock audio sink", so tests can verify streamed content end-to-end. */
-typedef void (*ipc_b_mock_sink_fn)(const int16_t *pcm, int frames,
+ * "mock audio sink", so tests can verify streamed content end-to-end.
+ * Samples are int32, left-justified to 32 bits (the pipeline format). */
+typedef void (*ipc_b_mock_sink_fn)(const int32_t *pcm, int frames,
                                    void *user);
 void ipc_b_mock_set_sink(ipc_b_mock_sink_fn fn, void *user);
 

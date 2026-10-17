@@ -4,9 +4,13 @@
  * CODEC ABSTRACTION LAYER (CAL): every codec is a plain `codec_t` vtable
  * plus a caller-allocated state block (`state_size` bytes; the player
  * carves it from a static pool, no malloc on the target). Codecs decode to
- * interleaved 16-bit PCM frames — the standardized pipeline contract (this
+ * interleaved int32 PCM frames, LEFT-JUSTIFIED to 32 bits (the internal
+ * pipeline format; docs/rewrite/player.md §2): a 16-bit source lands at
+ * `sample << 16`, 24-bit at `sample << 8`, 32-bit as-is — exactly the shape
+ * `drflac_read_pcm_frames_s32` returns, and exactly one I2S slot word. This
  * is the "raw interleaved PCM" boundary: sample_rate / bits / channels are
- * reported via codec_format_t). Codecs are PURE SOFTWARE TRANSFORMS: no
+ * reported via codec_format_t, where `bits` is the SOURCE depth (16/24/32),
+ * not the 32-bit container. Codecs are PURE SOFTWARE TRANSFORMS: no
  * I2C registers, no I2S clocks, no DMA channels, no hardware drivers —
  * all I/O goes through the codec_io abstraction.
  *
@@ -58,7 +62,8 @@ typedef struct
 {
     int sample_rate;   /* Hz                                              */
     int channels;      /* 1 = mono, 2 = stereo, interleaved                */
-    int bits;          /* bits per sample; our decoders output 16           */
+    int bits;          /* SOURCE bits per sample (16/24/32); the decoded
+                        * samples are always int32 left-justified above    */
     long total_samples; /* exact decoder sample count (0 = unknown)         */
 } codec_format_t;
 
@@ -118,9 +123,10 @@ typedef struct codec_s
      * `st` (state_size bytes, zeroed by the caller). 0 on success. */
     int (*open)(void *st, const char *path);
 
-    /* Decode up to `max_frames` interleaved int16 frames into `pcm`.
-     * Returns frames produced, 0 at end of stream, < 0 on error. */
-    int (*decode)(void *st, int16_t *pcm, int max_frames);
+    /* Decode up to `max_frames` interleaved int32 frames into `pcm`
+     * (left-justified to 32 bits; see the header note). Returns frames
+     * produced, 0 at end of stream, < 0 on error. */
+    int (*decode)(void *st, int32_t *pcm, int max_frames);
 
     /* Seek to `ms` from the start of the track (clamped to the duration).
      * 0 on success, < 0 if not seekable / error. */

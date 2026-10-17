@@ -26,6 +26,10 @@
 #include "codec.h"
 #include "codec_io.h"
 
+/* Stack staging for one decode chunk (frames); the s16 source is widened to
+ * the int32 pipeline format in place, so no source-width static buffer. */
+#define WAV_STAGE_FRAMES 128
+
 typedef struct
 {
     codec_io_t *io;
@@ -199,11 +203,11 @@ io_error:
     return CODEC_ERR_IO;
 }
 
-static int wav_decode(void *vst, int16_t *pcm, int max_frames)
+static int wav_decode(void *vst, int32_t *pcm, int max_frames)
 {
     wav_state_t *st = (wav_state_t *)vst;
-    long remaining, want, got;
-    long bytes;
+    int16_t stage[WAV_STAGE_FRAMES * 2];    /* stack staging (bss-neutral) */
+    long remaining, want, produced = 0;
 
     if (st == 0 || st->io == 0 || pcm == 0)
         return CODEC_ERR_STATE;
@@ -214,15 +218,30 @@ static int wav_decode(void *vst, int16_t *pcm, int max_frames)
     if (remaining <= 0)
         return 0;                       /* end of stream */
     want = (max_frames < remaining) ? max_frames : remaining;
-    bytes = want * st->block_align;
 
-    got = read_fully(st->io, (uint8_t *)pcm, bytes);
-    if (got < 0)
-        return CODEC_ERR_IO;
+    while (produced < want) {
+        long chunk = want - produced;
+        long got_samples, frames_read, i;
 
-    got /= st->block_align;             /* whole frames only */
-    st->frame += got;
-    return (int)got;
+        if (chunk > WAV_STAGE_FRAMES)
+            chunk = WAV_STAGE_FRAMES;
+        got_samples = read_fully(st->io, (uint8_t *)stage,
+                                 chunk * st->channels *
+                                 (long)sizeof(int16_t));
+        if (got_samples < 0)
+            return CODEC_ERR_IO;
+        got_samples /= (long)sizeof(int16_t);
+        frames_read = got_samples / st->channels;   /* whole frames only */
+        /* WAV PCM here is s16; widen to the int32 left-justified pipeline
+         * format (sample << 16). */
+        for (i = 0; i < frames_read * st->channels; i++)
+            pcm[(produced * st->channels) + i] = (int32_t)stage[i] << 16;
+        produced += frames_read;
+        st->frame += frames_read;
+        if (frames_read < chunk)
+            break;                      /* short read == end of file */
+    }
+    return (int)produced;
 }
 
 static int wav_seek(void *vst, long ms)

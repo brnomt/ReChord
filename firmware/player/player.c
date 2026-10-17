@@ -1,10 +1,11 @@
 /*
  * player.c — ReChord playback state machine (see player.h for semantics).
  *
- * Data path: codec.h decoder -> interleaved int16 PCM -> ipc_b ring
- * (ipc_b.h) -> B core. The B core mock (ipc_b_mock.c) or the target IPC
- * (ipc_b_target.c) is the audio sink; nothing else in the player touches
- * hardware, so the whole service runs in host tests.
+ * Data path: codec.h decoder -> interleaved int32 PCM (left-justified to
+ * 32 bits; see codec.h) -> ipc_b ring (ipc_b.h) -> B core. The B core mock
+ * (ipc_b_mock.c) or the target IPC (ipc_b_target.c) is the audio sink;
+ * nothing else in the player touches hardware, so the whole service runs in
+ * host tests.
  *
  * Freestanding-friendly: no libc string/alloc — small helpers instead.
  * The codec instance state is carved from a static pool (no malloc on the
@@ -58,7 +59,7 @@ typedef struct
     int             q_count;
     int             track_no;         /* monotonically increasing         */
 
-    int16_t         pcm[PLAYER_PUMP_FRAMES * 2];   /* staging (stereo)   */
+    int32_t         pcm[PLAYER_PUMP_FRAMES * 2];   /* staging (stereo)   */
 } player_t;
 
 static player_t g;
@@ -472,6 +473,7 @@ int player_play(void)
          * 400 MHz", then the mock/target negotiates its steady clock). */
         t.sample_rate = g.fmt.sample_rate;
         t.channels = g.fmt.channels;
+        t.bits = g.fmt.bits;
         t.duration_ms = g.duration_ms;
         t.path = g.track.path;
         if (ipc_b_start(&t) < 0) {
@@ -674,7 +676,7 @@ int player_process(void)
         return PLAYER_ERR;
     }
 
-    frame_b = g.fmt.channels * 2;
+    frame_b = g.fmt.channels * 4;   /* int32 left-justified per sample */
     for (i = 0; i < PLAYER_PUMP_ROUNDS; i++) {
         if (g.eof)
             break;

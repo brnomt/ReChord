@@ -2,10 +2,10 @@
  * rg_math.c — ReplayGain dB->linear gain (host + target).
  *
  * Converts a dB*10 gain and a Q1.15 peak fraction into a Q1.15 fixed-point
- * linear multiplier applied to int16 PCM (32768 == 1.0x), with peak-limited
- * clipping so the (known) peak never exceeds full scale. The public names
- * keep the historical "_q16" suffix for call-site compatibility; values are
- * Q1.15.
+ * linear multiplier applied to the int32 left-justified PCM (32768 == 1.0x),
+ * with peak-limited clipping so the (known) peak never exceeds full scale.
+ * The public names keep the historical "_q16" suffix for call-site
+ * compatibility; values are Q1.15.
  *
  * FIXED-POINT ONLY (bare-metal requirement): no floats, no libm, no malloc.
  * dB->linear is table-based: integer-dB and 0.1-dB Q1.15 factors multiply
@@ -97,9 +97,10 @@ int32_t rg_effective_gain_q16(int gain_tenth_db, int peak_q15)
     }
 }
 
-/* Scale `n` interleaved int16 samples by `gain_q15` (Q1.15, 32768 = 1.0x, stored
- * in the int32_t arg historically named gain_q16), in place, saturating. */
-void rg_scale_pcm(int16_t *pcm, long n, int32_t gain_q15)
+/* Scale `n` interleaved int32 samples (left-justified pipeline format) by
+ * `gain_q15` (Q1.15, 32768 = 1.0x, stored in the int32_t arg historically
+ * named gain_q16), in place, saturating to the int32 range. */
+void rg_scale_pcm(int32_t *pcm, long n, int32_t gain_q15)
 {
     long i;
     if (gain_q15 <= 0) {
@@ -109,8 +110,8 @@ void rg_scale_pcm(int16_t *pcm, long n, int32_t gain_q15)
     }
     for (i = 0; i < n; i++) {
         int64_t v = ((int64_t)pcm[i] * (int64_t)gain_q15) >> 15;
-        if (v > 32767) v = 32767;
-        if (v < -32768) v = -32768;
-        pcm[i] = (int16_t)v;
+        if (v > 2147483647LL) v = 2147483647LL;
+        if (v < -2147483648LL) v = -2147483648LL;
+        pcm[i] = (int32_t)v;
     }
 }

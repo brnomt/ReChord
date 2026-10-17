@@ -43,12 +43,11 @@ void rknano_i2s_stop(void);
 
 /* ISR-driven TX feed: rknano_i2s_tx_isr() (I2S1 TX IRQ, vector slot 48 =
  * INT_ID_I2S1) drains a caller-owned PCM ring into the TX FIFO so decode
- * overlaps playback. `pull` returns 1 and fills *word with one stereo
- * frame as a packed int16 pair (L=[15:0], R=[31:16]); the driver expands
- * it to the two wire words (L<<16 then R<<16 — one 32-bit channel sample
- * per FIFO word). Returns 0 when no data is available (the IRQ source is
- * masked until rknano_i2s_kick()). */
-typedef int (*rknano_i2s_pull_fn)(uint32_t *word, void *user);
+ * overlaps playback. `pull` returns 1 and writes the two 32-bit slot words
+ * of one stereo frame (*left, *right — each a full-width left-justified
+ * int32 sample, exactly one FIFO word); it returns 0 when no data is
+ * available (the IRQ source is then masked until rknano_i2s_kick()). */
+typedef int (*rknano_i2s_pull_fn)(uint32_t *left, uint32_t *right, void *user);
 void rknano_i2s_attach(rknano_i2s_pull_fn pull, void *user);
 void rknano_i2s_detach(void);
 void rknano_i2s_kick(void);        /* re-arm after producer push / resume */

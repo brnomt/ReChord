@@ -24,6 +24,10 @@ IO_DISPATCH=../codec_io.c
 # ringbuf: standalone (no codec_io).
 $CC $CFLAGS -I.. -o .work/test_ringbuf   test_ringbuf.c ../ringbuf.c
 
+# Shared codec/update RAM region (flac.c + mp3.c now claim their buffers
+# from services/workbuf.c instead of file-statics).
+WORKBUF=../../services/workbuf.c
+
 # WAV golden test: stdio backend + dispatch wrappers + newlib.
 $CC $CFLAGS -I.. -o .work/test_codec_wav test_codec_wav.c ../codecs/wav.c \
     ../codec_io_stdio.c $IO_DISPATCH -lm
@@ -31,10 +35,10 @@ $CC $CFLAGS -I.. -o .work/test_codec_wav test_codec_wav.c ../codecs/wav.c \
 # Player state machine + IPC end-to-end: stdio backend + dispatch wrappers.
 $CC $CFLAGS -I.. -o .work/test_player_state test_player_state.c \
     mock_codec.c $PLAYER_SRCS ../codec_io_stdio.c $IO_DISPATCH ../ringbuf.c \
-    ../rg_math.c -lm
+    ../rg_math.c $WORKBUF -lm
 $CC $CFLAGS -I.. -o .work/test_ipc_mock  test_ipc_mock.c \
     mock_codec.c $PLAYER_SRCS ../codec_io_stdio.c $IO_DISPATCH ../ringbuf.c \
-    ../rg_math.c -lm
+    ../rg_math.c $WORKBUF -lm
 
 # codec_io_fs: the target FS backend exercised through fs_host on the host.
 # codec_io_fs.c + codec_io.c (+ fs_host.c backing fs.h) decode a WAV and are
@@ -47,7 +51,7 @@ $CC $CFLAGS -I.. -I../../services -o .work/test_codec_io_fs \
 # (no B-core restart), via the mock codec.
 $CC $CFLAGS -I.. -o .work/test_player_gapless \
     test_player_gapless.c mock_codec.c $PLAYER_SRCS ../ringbuf.c \
-    ../codec_io_stdio.c ../codec_io.c ../rg_math.c -lm
+    ../codec_io_stdio.c ../codec_io.c ../rg_math.c $WORKBUF -lm
 
 # ReplayGain fixed-point helpers.
 $CC $CFLAGS -I.. -o .work/test_rg_math \
@@ -56,7 +60,7 @@ $CC $CFLAGS -I.. -o .work/test_rg_math \
 # ReplayGain end-to-end through the player state machine + IPC mock sink.
 $CC $CFLAGS -I.. -o .work/test_player_replaygain \
     test_player_replaygain.c mock_codec.c $PLAYER_SRCS ../ringbuf.c \
-    ../codec_io_stdio.c ../codec_io.c ../rg_math.c -lm
+    ../codec_io_stdio.c ../codec_io.c ../rg_math.c $WORKBUF -lm
 
 # ReplayGain tag parsers (ID3v2 TXXX + Vorbis comments) via stdio codec_io.
 $CC $CFLAGS -I.. -o .work/test_tags \
@@ -65,12 +69,12 @@ $CC $CFLAGS -I.. -o .work/test_tags \
 # MP3 adapter: crafted ID3v2 + Xing/Info + LAME + silence frames.
 $CC $CFLAGS -I.. -o .work/test_codec_mp3 \
     test_codec_mp3.c ../codecs/mp3.c ../tags.c \
-    ../codec_io_stdio.c $IO_DISPATCH -lm
+    ../codec_io_stdio.c $IO_DISPATCH $WORKBUF -lm
 
 # FLAC adapter: synthesized VERBATIM-subframe FLAC (exact golden) + RG tags.
 $CC $CFLAGS -I.. -o .work/test_codec_flac \
     test_codec_flac.c ../codecs/flac.c ../tags.c \
-    ../codec_io_stdio.c $IO_DISPATCH -lm
+    ../codec_io_stdio.c $IO_DISPATCH $WORKBUF -lm
 
 # Audio HAL pure pieces: slot packing + the per-rate table constants
 # (regression guard for the 2x-speed framing bug class, DFIU 75271e5f).

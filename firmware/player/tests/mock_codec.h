@@ -39,7 +39,8 @@ void mock_codec_configure(const mock_codec_cfg_t *cfg);
 /* The codec_t to register with player_register_codec("mock", ...). */
 const codec_t *mock_codec_get(void);
 
-/* The exact sample the mock decoder produces for (frame, channel). */
-int16_t mock_sample(long frame, int ch);
+/* The exact sample the mock decoder produces for (frame, channel), as the
+ * internal int32 left-justified pipeline value (source pattern << 16). */
+int32_t mock_sample(long frame, int ch);
 
 #endif /* PLAYER_MOCK_CODEC_H */

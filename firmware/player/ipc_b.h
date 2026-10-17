@@ -19,7 +19,8 @@
  *
  * OUR design (clean-room choice, documented in docs/rewrite/player.md):
  *   the AP-side player decodes with our from-source codecs and produces
- *   interleaved int16 PCM; the B core consumes PCM from the ring and drives
+ *   interleaved int32 PCM (left-justified to 32 bits — one I2S slot word
+ *   per sample); the B core consumes PCM from the ring and drives
  *   the DAC/I2S path (plus optional DSP). The ring is an SPSC ringbuf_t
  *   (ringbuf.h) whose rd/wr counters are exactly the logged pair.
  *
@@ -47,7 +48,9 @@ typedef enum
 typedef struct
 {
     long        sample_rate;   /* Hz (PCM format the ring will carry)   */
-    int         channels;      /* 1 or 2, interleaved int16             */
+    int         channels;      /* 1 or 2, interleaved int32             */
+    int         bits;          /* SOURCE depth (16/24/32); the ring words
+                                * are always int32 left-justified        */
     long        duration_ms;   /* for the drained/timeout supervisor    */
     const char *path;          /* logging aid on the B side; may be NULL*/
 } ipc_b_track_t;
@@ -107,13 +110,13 @@ typedef struct
 /* cmd_arg0 = duration_ms of the new track */
 
 /* PCM ring geometry shared by both implementations (bytes, pow2).
- * 32 KiB = ~186 ms of 44.1 kHz stereo — ample margin for a continuously
- * consuming renderer, and it is the RAM budget that lets the mp3/flac
- * adapters' static buffers fit inside the fw1 FW_RAM window (linker-gated,
- * see firmware/firmware_ap.ld). Bump back to 64 KiB only if underruns show
- * up on hardware. */
+ * 32 KiB = ~93 ms of 44.1 kHz stereo int32 (one 8-byte frame) — ample
+ * margin for a continuously consuming renderer, and it is the RAM budget
+ * that lets the mp3/flac adapters' static buffers fit inside the fw1
+ * FW_RAM window (linker-gated, see firmware/firmware_ap.ld). Bump back to
+ * 64 KiB only if underruns show up on hardware. */
 #define IPC_B_RING_BYTES     (32u * 1024u)
-#define IPC_B_FRAME_BYTES    4u   /* stereo int16 is the worst case     */
+#define IPC_B_FRAME_BYTES    8u   /* stereo int32 is the worst case     */
 
 /* ---- API (both implementations) ---- */
 
@@ -154,9 +157,9 @@ int ipc_b_track_change(long duration_ms);
  * Returns the current ipc_b_state_t (>= 0) or < 0 on error. */
 int ipc_b_poll_state(ipc_b_status_t *out);
 
-/* Producer side: copy `frames` interleaved int16 frames into the ring.
+/* Producer side: copy `frames` interleaved int32 frames into the ring.
  * Returns the number of frames actually accepted (clamped on overflow). */
-int ipc_b_ring_fill(const int16_t *pcm, int frames);
+int ipc_b_ring_fill(const int32_t *pcm, int frames);
 
 /* Discard all buffered PCM and zero the per-stream consumed counter
  * (used on seek; only legal while paused/stopped or between fills). */

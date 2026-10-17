@@ -21,9 +21,9 @@ int32_t rg_gain_q16(int gain_tenth_db);
  * known peak never clips. peak<=0 => no peak info => dB gain as-is. */
 int32_t rg_effective_gain_q16(int gain_tenth_db, int peak_q15);
 
-/* Scale `n` interleaved int16 samples in place by `gain_q15` (32768 = 1.0x),
- * saturating to [-32768, 32767]. */
-void rg_scale_pcm(int16_t *pcm, long n, int32_t gain_q15);
+/* Scale `n` interleaved int32 samples (left-justified pipeline format) in
+ * place by `gain_q15` (32768 = 1.0x), saturating to the int32 range. */
+void rg_scale_pcm(int32_t *pcm, long n, int32_t gain_q15);
 
 #ifdef __cplusplus
 }

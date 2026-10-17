@@ -20,10 +20,10 @@
 /* Everything the "B core" ever played, for frame-exact content checks.
  * Extra polls/ticks only reorder test steps, never the consumed stream. */
 #define CAP_MAX 100000
-static int16_t g_cap[CAP_MAX * 2];
+static int32_t g_cap[CAP_MAX * 2];
 static long g_cap_frames = 0;   /* frames the B core consumed in total  */
 
-static void on_sink(const int16_t *pcm, int frames, void *user)
+static void on_sink(const int32_t *pcm, int frames, void *user)
 {
     int i;
     (void)user;

@@ -37,7 +37,7 @@ static void test_peak_limit(void)
 
 static void test_scale_roundtrip(void)
 {
-    int16_t s[] = { 1000, -1000, 30000, -30000 };
+    int32_t s[] = { 1000, -1000, 30000, -30000 };
     /* unity gain must be a no-op. */
     rg_scale_pcm(s, 4, 32768);
     CHECK_EQI(s[0], 1000, "unity: +1000");
@@ -49,11 +49,16 @@ static void test_scale_roundtrip(void)
     rg_scale_pcm(s, 4, 0);
     CHECK_EQI(s[0], 0, "zero gain => silent");
 
-    /* +20 dB (gain 327680) => 10x, saturating at 32767. */
+    /* +20 dB (gain 327680) => 10x, saturating to the int32 range. */
     s[0] = 1000; s[1] = -1000; s[2] = 30000; s[3] = -30000;
     rg_scale_pcm(s, 4, 327680);
     CHECK_EQI(s[0], 10000, "+20 dB: 1000 * 10");
-    CHECK_EQI(s[2], 32767, "+20 dB: 30000 saturates to 32767");
+    CHECK_EQI(s[2], 300000, "+20 dB: 30000 * 10");
+
+    /* A full-scale left-justified sample (1<<30) * 10 saturates at INT32_MAX. */
+    s[0] = 1 << 30;
+    rg_scale_pcm(s, 1, 327680);
+    CHECK_EQI(s[0], 2147483647, "int32 saturation at INT32_MAX");
 }
 
 int main(void)

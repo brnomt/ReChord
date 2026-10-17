@@ -21,7 +21,7 @@
         |
         v
   codec_t  (self-describing vtable: codecs/{wav,mp3,flac}.c + codec_registry)
-        |  interleaved int16 PCM frames
+        |  interleaved int32 PCM frames (left-justified to 32 bits)
         v
   player.c state machine  --ipc_b ring->  B core (RKnanoD SDK audio) -> DAC/I2S
         |                                  B started @400 MHz -> /4 (100 MHz)
@@ -133,7 +133,8 @@ firmware/player/
    codec_t `tags` callback populates them (NULL = no tags). Gain math lives in
    `rg_math.c` (`rg_gain_q16`, `rg_effective_gain_q16` peak-limited,
    `rg_scale_pcm`), applied in the PCM pump **before** the ring push (`>>15`
-   Q1.15 scaling + saturation) — this is the AP-side pre-attenuation that composes
+   Q1.15 scaling + saturation on the int32 left-justified PCM) — this is the
+   AP-side pre-attenuation that composes
    with the B-core user volume; `PLAYER_RG_TRACK`/`_ALBUM`/`_OFF` mode is set via
    `player_set_replaygain_mode` (defaults OFF). Design note: routed through
    `rg_math.c` instead of the `dsp/mod_volume.c` chain so the path is host-testable
@@ -219,7 +220,8 @@ audio-pipeline-modular-refactor.md`):
 
 ```
 player.c (state machine) -> codec_t (player/codec.h) -> codecs/{wav,mp3,flac}
-   PURE transforms: codec_io only, zero MMIO; output = interleaved int16
+   PURE transforms: codec_io only, zero MMIO; output = interleaved int32
+   PCM, left-justified to 32 bits (the I2S slot word is the sample itself)
         |
         v
 ipc_b_target.c          -- IPC contract glue + producer half of the ring

@@ -38,16 +38,20 @@
 #include "../codec.h"
 #include "../codec_io.h"
 #include "../tags.h"
+#include "../../services/workbuf.h"
 
-/* One open track at a time: big per-track buffers live here. Feed window
- * must hold a whole frame incl. MAX_FREE_FORMAT_FRAME_SIZE payload. */
+/* One open track at a time: the big per-track buffers live in the shared
+ * workbuf region (workbuf.h) — FLAC, mp3 and fw_update are mutually
+ * exclusive. s_win at offset 0, s_res right after it (MP3_WIN_BYTES is even,
+ * so the int16 residual stays 2-aligned). Feed window must hold a whole frame
+ * incl. MAX_FREE_FORMAT_FRAME_SIZE payload. */
 #define MP3_WIN_BYTES  2560
 #define MP3_MAX_CH     2
 
-static uint8_t  s_win[MP3_WIN_BYTES];
+static uint8_t *s_win;                       /* workbuf (claimed on open) */
 static int      s_win_pos, s_win_len;   /* unconsumed = [pos, len) */
 static int      s_win_eof;
-static int16_t  s_res[MINIMP3_MAX_SAMPLES_PER_FRAME]; /* 1152*2 */
+static int16_t *s_res;                       /* 1152*2 */
 static int      s_res_frames, s_res_i;  /* residual frame cursor */
 
 typedef struct
@@ -205,7 +209,7 @@ static int fill_decode(mp3_state_t *st)
             if (s_win_eof)
                 return 0;
             s_win_pos = s_win_len = 0;
-            r = cio_read(st->io, s_win, (long)sizeof s_win);
+            r = cio_read(st->io, s_win, (long)MP3_WIN_BYTES);
             if (r < 0)
                 return CODEC_ERR_IO;
             if (r == 0) {
@@ -213,7 +217,7 @@ static int fill_decode(mp3_state_t *st)
                 return 0;
             }
             s_win_len = (int)r;
-            if ((size_t)r < sizeof s_win)
+            if ((size_t)r < MP3_WIN_BYTES)
                 s_win_eof = 1;         /* short read == EOF for a file */
         }
 
@@ -262,9 +266,9 @@ static int fill_decode(mp3_state_t *st)
                 s_win_len -= s_win_pos;
                 s_win_pos = 0;
             }
-            if (s_win_len < (int)sizeof s_win) {
+            if (s_win_len < MP3_WIN_BYTES) {
                 long r = cio_read(st->io, s_win + s_win_len,
-                                  (long)(sizeof s_win - s_win_len));
+                                  (long)(MP3_WIN_BYTES - s_win_len));
                 if (r < 0)
                     return CODEC_ERR_IO;
                 if (r == 0)
@@ -297,9 +301,17 @@ static int mp3_open(void *vst, const char *path)
     unsigned char hdr[10];
     long r;
     int i, n = 0, off = 0;
+    int rc;
 
     if (st == 0 || path == 0)
         return CODEC_ERR_STATE;
+
+    /* The per-track buffers live in the shared workbuf region (see the header
+     * note); a busy region means FLAC or fw_update is up. */
+    if (workbuf_claim(WORKBUF_OWNER_MP3) == 0)
+        return CODEC_ERR_IO;
+    s_win = (uint8_t *)workbuf_for(WORKBUF_OWNER_MP3);
+    s_res = (int16_t *)(void *)(s_win + MP3_WIN_BYTES);
 
     /* reset the single-track file-statics */
     s_win_pos = s_win_len = 0;
@@ -312,8 +324,10 @@ static int mp3_open(void *vst, const char *path)
     st->delay_s = st->pad_s = 0;
 
     st->io = cio_open(path);
-    if (st->io == 0)
-        return CODEC_ERR_IO;
+    if (st->io == 0) {
+        rc = CODEC_ERR_IO;
+        goto fail;
+    }
     st->file_size = cio_size(st->io);
     st->tag_end = 0;
     st->total_samples = -1;
@@ -327,7 +341,8 @@ static int mp3_open(void *vst, const char *path)
             hdr[8] & 0x80 || hdr[9] & 0x80) {
             cio_close(st->io);
             st->io = 0;
-            return CODEC_ERR_FORMAT;   /* not a synchsafe size */
+            rc = CODEC_ERR_FORMAT;   /* not a synchsafe size */
+            goto fail;
         }
         sz = ((unsigned)(hdr[6] & 0x7F) << 21) |
              ((unsigned)(hdr[7] & 0x7F) << 14) |
@@ -337,7 +352,8 @@ static int mp3_open(void *vst, const char *path)
         if (st->tag_end > st->file_size) {
             cio_close(st->io);
             st->io = 0;
-            return CODEC_ERR_FORMAT;
+            rc = CODEC_ERR_FORMAT;
+            goto fail;
         }
         (void)tags_read_id3v2(st->io, &st->meta, &st->rg);
     }
@@ -351,18 +367,20 @@ static int mp3_open(void *vst, const char *path)
     if (cio_seek(st->io, st->tag_end) < 0) {
         cio_close(st->io);
         st->io = 0;
-        return CODEC_ERR_IO;
+        rc = CODEC_ERR_IO;
+        goto fail;
     }
 
     /* first window + header-only probe (pcm == NULL) */
-    r = cio_read(st->io, s_win, (long)sizeof s_win);
+    r = cio_read(st->io, s_win, (long)MP3_WIN_BYTES);
     if (r <= 0) {
         cio_close(st->io);
         st->io = 0;
-        return CODEC_ERR_FORMAT;
+        rc = CODEC_ERR_FORMAT;
+        goto fail;
     }
     s_win_len = (int)r;
-    s_win_eof = ((size_t)r < sizeof s_win);
+    s_win_eof = ((size_t)r < MP3_WIN_BYTES);
 
     mp3dec_init(&st->dec);
     for (i = 0; i < 9 && n <= 0; i++) {
@@ -379,8 +397,9 @@ static int mp3_open(void *vst, const char *path)
         fi.channels > MP3_MAX_CH || fi.layer != 3) {
         cio_close(st->io);
         st->io = 0;
-        return fi.layer && fi.layer != 3 ? CODEC_ERR_UNSUPPORTED
-                                         : CODEC_ERR_FORMAT;
+        rc = fi.layer && fi.layer != 3 ? CODEC_ERR_UNSUPPORTED
+                                       : CODEC_ERR_FORMAT;
+        goto fail;
     }
     st->rate = fi.hz;
     st->channels = fi.channels;
@@ -412,9 +431,15 @@ static int mp3_open(void *vst, const char *path)
                                    1000);
     }
     return CODEC_OK;
+
+fail:
+    workbuf_release(WORKBUF_OWNER_MP3);
+    s_win = 0;
+    s_res = 0;
+    return rc;
 }
 
-static int mp3_decode(void *vst, int16_t *pcm, int max_frames)
+static int mp3_decode(void *vst, int32_t *pcm, int max_frames)
 {
     mp3_state_t *st = (mp3_state_t *)vst;
     int out = 0;
@@ -426,9 +451,14 @@ static int mp3_decode(void *vst, int16_t *pcm, int max_frames)
         if (s_res_i < s_res_frames) {
             int avail = s_res_frames - s_res_i;
             int n = (avail < max_frames - out) ? avail : max_frames - out;
-            memcpy(pcm + (long)out * st->channels,
-                   s_res + (long)s_res_i * st->channels,
-                   (long)n * st->channels * sizeof(int16_t));
+            const int16_t *src = s_res + (long)s_res_i * st->channels;
+            int32_t *dst = pcm + (long)out * st->channels;
+            int k, total = n * st->channels;
+
+            /* minimp3 yields s16; widen to the int32 left-justified pipeline
+             * format (sample << 16) so the internal path is width-uniform. */
+            for (k = 0; k < total; k++)
+                dst[k] = (int32_t)src[k] << 16;
             out += n;
             s_res_i += n;
             continue;
@@ -499,6 +529,10 @@ static void mp3_close(void *vst)
     s_win_pos = s_win_len = 0;
     s_win_eof = 0;
     s_res_frames = s_res_i = 0;
+    /* Hand the shared region back (no-op if never claimed). */
+    workbuf_release(WORKBUF_OWNER_MP3);
+    s_win = 0;
+    s_res = 0;
 }
 
 static int mp3_format(void *vst, codec_format_t *out)

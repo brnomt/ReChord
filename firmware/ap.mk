@@ -96,6 +96,7 @@ AP_SERVICE_SRCS := \
   firmware/services/input.c \
   firmware/services/store.c \
   firmware/services/scratch.c \
+  firmware/services/workbuf.c \
   firmware/services/media_db.c \
   firmware/services/media_scan.c \
   firmware/services/media_query.c \

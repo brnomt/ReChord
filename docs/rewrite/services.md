@@ -23,6 +23,10 @@ firmware/services/
 ├── fs.h                      minimal storage abstraction (one backend per image)
 ├── fs_host.c / fs_host.h     HOST backend (POSIX real filesystem; tests/tools)
 ├── fs_target.c               TARGET backend — TODO stub for the SDK FAT stack
+├── scratch.h / scratch.c     shared working region (USB MSC / media index)
+├── workbuf.h / workbuf.c     shared region for the mutually-exclusive heavy
+│                             users that must NOT share scratch (FLAC decode
+│                             pool / mp3 buffers / fw_update staging)
 ├── services.mk               build fragment for the root Makefile (not yet included)
 └── tests/                    host tests (cc -Wall -Werror), run_tests.sh runner
 ```

@@ -63,27 +63,91 @@ Extracted from `CS43131_DS1155F2.pdf` (do not re-derive; verify on hardware):
 
 Do them in this order; do not mix two in one A/B flash.
 
-### 4.1 Internal s32 path
-- `codecs/flac.c`: `drflac_read_pcm_frames_s32` (samples are left-aligned per
-  source bps). Decide the internal convention: **int32, left-aligned** (the
-  same shape dr_flac returns), then every consumer shifts as needed.
-- `codecs/mp3.c`, `codecs/wav.c`: widen s16 → s32 (shift left 16).
-- `player/ringbuf`, `audio_output`, `rknano_i2s`: hold 32-bit frames; the TX
-  pull already expands to 32-bit wire words, so the change is the *contents*.
-  The 32 KiB PCM ring keeps its size (half the frames per fill; the feeder
-  refills).
-- DSP: **bypass when the source is >16 bits** (the Q2.30 s16 chain would
-  truncate). Porting the modules to s32 is a separate, later task.
-- Tests: host bit-exactness against a reference WAV for a 24-bit and a 32-bit
-  fixture (generate with `flac`/`ffmpeg`, see §6).
+### 4.1 Internal s32 path — ✅ DONE (2026-10-17), awaiting hardware check
+Convention implemented: **internal PCM = int32, left-justified to 32 bits**
+(16-bit source → `sample << 16`, 24-bit → `<< 8`, 32-bit as-is) — exactly
+`drflac_read_pcm_frames_s32`'s shape, and exactly one I2S slot word.
 
-### 4.2 DAC format per file
-- `audio_output_configure()`: accept `bits` 16/24/32; set `ASP_SPSIZE`
-  (32 for 24- and 32-bit sources is the simplest correct choice: the sample is
-  left-aligned and the DAC ignores the unused low bits; verify), through
-  `dac_map_write`.
-- Callers (`player.c` open path) must pass the *source* bit depth from the
-  codec descriptor / FLAC STREAMINFO.
+- `codecs/flac.c`: `drflac_read_pcm_frames_s32`; `format().bits` now reports
+  the **source** depth (16/24/32).
+- `codecs/mp3.c`, `codecs/wav.c`: s16 → s32 (`<< 16`); wav stages through a
+  small stack buffer (bss-neutral). `bits` stays 16.
+- `player.c`, `ipc_b_mock/target`, `audio_output`, `rknano_i2s`: hold int32
+  frames (8 bytes stereo). The TX pull now returns the two slot words of a
+  frame and the ISR writes them as-is. 32 KiB ring kept (~93 ms).
+- DSP: **none is linked into the playback path** (`ap.mk` "NOT linked"), so
+  there is nothing to bypass; `firmware/dsp/` and its int16 module interface
+  are untouched. ReplayGain is the one in-path gain stage and was widened to
+  int32 (same `>>15` math, int32 saturation).
+- bss: staging +2 KB, target mono-upmix scratch shrunk 512→128 frames
+  (looped) → net +1 KB; `_bss_end = 0x0304989c` (< 0x0304A000).
+- Tests: `test_codec_flac` synthesizes byte-exact **16/24/32-bit** VERBATIM
+  fixtures and asserts lossless decode + `bits` reporting (no ffmpeg dep).
+
+**dr_flac quirk (found while writing the 32-bit fixture):** v0.13.4's frame
+bps table maps header code `111` (spec: 32 bits) to *reserved* and rejects
+such a frame. Real encoders (libFLAC) code `000` = "same as STREAMINFO"
+whenever the frame depth matches the stream, which dr_flac accepts — so real
+32-bit files decode. Watch this on hardware with a real 32-bit file.
+
+### 4.2 DAC format per file — ✅ DONE (2026-10-17)
+**Finding that reshapes this increment: the bring-up ALREADY told the DAC
+"32 bits".** `ao_configure_rate()` (the verbatim stock `dac_init`) writes
+
+- MAP `0x01000C = 0x04` → ASP_SPSIZE = 00 = **32 bits** (datasheet §7.1.8
+  "Serial Port Sample Bit Size"; the chip default is 01 = 24 bits), and
+- MAP `0x05000A/B = 0x07/0x0F` → ASP_RX_CHn_RES = 11 = **32 bits** per channel
+  (§7.3.23/24 "ASP Channel n Size and Enable").
+
+Consequence: because 4.1 left-justifies every source in a 32-bit word (16-bit
+→ `<<16`, 24-bit → `<<8`), a 32-bit ASP word reads each depth at full scale
+with no truncation. So **4.1 alone already reproduces 16- AND 24-bit**; 32-bit
+sources were the only case a 24-bit word could have truncated, and 32 covers
+them too. There is **no per-depth register change** to make — telling the DAC a
+per-file depth is neither necessary nor what the stock does (its bring-up is
+rate-based only).
+
+What 4.2 actually changed: relaxed the gate and plumbed the depth end-to-end.
+- `audio_output_configure()` now accepts `bits` 16/24/32 (via
+  `ao_format_bits_ok()`, `audio_hal.h`).
+- `ipc_b_track_t.bits` carries the source depth; `player.c` fills it from
+  `format().bits`, `ipc_b_target.c` hands it to the HAL.
+- The same-format early-exit deliberately does **not** compare `bits`: the DAC
+  word length is 32 for all depths, so a 16 ↔ 24/32 change must not force a
+  relock (and its ~200 ms gap/click) on a mixed-depth playlist.
+- No register value changed — the bring-up already had the 32-bit ASP.
+
+Verify on hardware by ear: a 24-bit file (e.g. `Madeon - Good Faith`) must sound
+full-resolution, not 16-bit-truncated.
+
+### 4.2b FLAC decode pool too small for 8192-sample blocks — ✅ FIXED (2026-10-17)
+Found while testing 4.2: 24-bit **96 kHz / 88.2 kHz** files would not open,
+while 44.1/48 kHz did. The root cause is NOT the bit depth — it is the FLAC
+**frame block size**. dr_flac buffers a whole frame: the window is
+`max_block * 4 B * channels` (SIMD-rounded), so the single allocation is
+`sizeof(drflac) 4336 + window + 64 + SEEKTABLE`:
+
+| source | max_block | window | `flac_diag_need` | old pool 57344 |
+|---|---|---|---|---|
+| 44.1/48 kHz (most) | 4608 | 36864 | 41264 | fits |
+| 96k / 88.2k | 8192 | 65536 | 69936 (+seek) | **too big** |
+| 192k (one file) | 16384 | 131072 | 143131 | too big |
+
+Symptom on device: the browser shows **"flac pool &lt;need&gt;"** and logs
+`browser: open '<path>' failed (-3) rsn=2 blk=<max_block> ...`.
+
+Fix (DFIU `R-8cd5fb0eb24a` — union the mutually-exclusive big buffers):
+`services/workbuf.h/.c` is a **second** shared region (**80896 B** = old FLAC
+pool 57344 + fw_update staging 16384 + mp3 buffers 7168). FLAC, mp3 and
+fw_update each `workbuf_claim()` it (single owner) and release on close; they
+never overlap in time (fw_update runs at boot, before playback/USB). `.bss` is
+essentially unchanged (`_bss_end 0x030498b8`), and the pool now covers
+**705/706** library files. Only the single 16384-block 192 kHz file still
+cannot fit (~140 KiB) and is cleanly `CODEC_ERR_UNSUPPORTED`.
+
+Why not reuse `scratch`: the media index/query use it and **can run while a
+track plays**; the codec/update buffers must not (rule `R-3f66ea5d12c8`).
+Test: `test_codec_flac`'s `8192-sample block` case locks the fix in.
 
 ### 4.3 384 kHz
 - Add the entry to `ao_rate_table.c`, derived from the datasheet's N/M (1/1)

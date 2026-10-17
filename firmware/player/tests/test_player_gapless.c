@@ -15,10 +15,10 @@
 #include <stdlib.h>
 
 static int      g_count;
-static int16_t *g_sink;
+static int32_t *g_sink;
 static int      g_sink_cap;
 
-static void sink_cb(const int16_t *pcm, int frames, void *u)
+static void sink_cb(const int32_t *pcm, int frames, void *u)
 {
     int i;
     (void)u;
@@ -59,7 +59,7 @@ static void test_gapless_trim(void)
 
     g_count = 0;
     g_sink_cap = 44000 * 2;
-    g_sink = (int16_t *)malloc(sizeof(int16_t) * g_sink_cap);
+    g_sink = (int32_t *)malloc(sizeof(int32_t) * g_sink_cap);
 
     ipc_b_mock_set_sink(sink_cb, 0);
 
@@ -77,8 +77,8 @@ static void test_gapless_trim(void)
     CHECK_EQI(g_count, (44100 - 100 - 100) * 2,
               "trim: emitted total - delay - padding");
     for (i = 0; i < (44100 - 100 - 100) && i * 2 < g_count - 1; i++) {
-        int16_t L = mock_sample(100 + i, 0);
-        int16_t R = mock_sample(100 + i, 1);
+        int32_t L = mock_sample(100 + i, 0);
+        int32_t R = mock_sample(100 + i, 1);
         if (g_sink[i * 2] != L || g_sink[i * 2 + 1] != R) {
             printf("  FAIL: trim: frame %d = %d,%d want %d,%d\n",
                    i, g_sink[i*2], g_sink[i*2+1], L, R);
@@ -116,7 +116,7 @@ static void test_gapless_continuity(void)
 
     g_count = 0;
     g_sink_cap = 44100 * 2 * 2;
-    g_sink = (int16_t *)malloc(sizeof(int16_t) * g_sink_cap);
+    g_sink = (int32_t *)malloc(sizeof(int32_t) * g_sink_cap);
 
     ipc_b_mock_set_sink(sink_cb, 0);
 

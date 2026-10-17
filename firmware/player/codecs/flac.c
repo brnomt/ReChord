@@ -33,6 +33,7 @@
 #include "../codec.h"
 #include "../codec_io.h"
 #include "../tags.h"
+#include "../../services/workbuf.h"
 
 /* Debug diag for the flac_open subset check (why a file returns -3). */
 unsigned flac_diag_block, flac_diag_channels;
@@ -41,10 +42,12 @@ int        flac_diag_reason;
 
 /* ---- static pool allocator (replaces DRFLAC_MALLOC/REALLOC/FREE) -------- */
 
-#define FLAC_POOL_B 57344          /* fits handle + 4096-block stereo window
-                                     * + a generous SEEKTABLE; bss budget
-                                     * checked by the firmware_ap.ld LENGTH
-                                     * gate. See codecs/README note in docs. */
+/* The decode pool is the shared workbuf region (workbuf.h): a whole FLAC
+ * frame must be buffered, and the window for an 8192-sample stereo block
+ * (sizeof(drflac) 4336 + 8192*4*2 + 64 ~= 69.9 KiB, plus SEEKTABLE) no longer
+ * fits a dedicated static under the .bss ceiling. WORKBUF_BYTES is exactly
+ * the old pool size plus the fw_update staging it also serves (mutually
+ * exclusive) — see DFIU R-8cd5fb0eb24a. */
 
 typedef struct flac_blk
 {
@@ -52,7 +55,8 @@ typedef struct flac_blk
     unsigned free;                 /* 1 = available                         */
 } flac_blk_t;
 
-static unsigned char s_pool[FLAC_POOL_B] __attribute__((aligned(8)));
+static unsigned char *s_pool;      /* workbuf region (claimed on open)      */
+static unsigned s_pool_bytes;
 static int s_pool_up;
 
 #define BLK_HDR ((unsigned)sizeof(flac_blk_t))
@@ -60,8 +64,14 @@ static int s_pool_up;
 
 static void pool_reset(void)
 {
-    flac_blk_t *b = (flac_blk_t *)(void *)s_pool;
-    b->size = FLAC_POOL_B;
+    flac_blk_t *b;
+
+    if (s_pool == 0 || s_pool_bytes < BLK_HDR) {
+        s_pool_up = 0;
+        return;
+    }
+    b = (flac_blk_t *)(void *)s_pool;
+    b->size = s_pool_bytes;
     b->free = 1;
     s_pool_up = 1;
 }
@@ -69,7 +79,10 @@ static void pool_reset(void)
 static void pool_merge_forward(void)
 {
     unsigned char *p = s_pool;
-    unsigned char *end = s_pool + FLAC_POOL_B;
+    unsigned char *end = s_pool + s_pool_bytes;
+
+    if (s_pool == 0)
+        return;
 
     while (p + BLK_HDR <= end) {
         flac_blk_t *b = (flac_blk_t *)(void *)p;
@@ -97,12 +110,14 @@ static void *pool_alloc(unsigned need)
 
     if (!s_pool_up)
         pool_reset();
+    if (s_pool == 0)
+        return NULL;
     need = ALIGN8(need + BLK_HDR);
-    if (need > FLAC_POOL_B)
+    if (need > s_pool_bytes)
         return NULL;
 
     p = s_pool;
-    end = s_pool + FLAC_POOL_B;
+    end = s_pool + s_pool_bytes;
     while (p + BLK_HDR <= end) {
         flac_blk_t *b = (flac_blk_t *)(void *)p;
         if (b->size < BLK_HDR || p + b->size > end)
@@ -128,10 +143,10 @@ static void pool_free(void *ptr)
     unsigned char *p, *base = s_pool;
     flac_blk_t *b;
 
-    if (ptr == NULL)
+    if (ptr == NULL || s_pool == 0)
         return;
     p = (unsigned char *)ptr - BLK_HDR;
-    if (p < base || p >= base + FLAC_POOL_B)
+    if (p < base || p >= base + s_pool_bytes)
         return;
     b = (flac_blk_t *)(void *)p;
     if (b->free)
@@ -226,6 +241,7 @@ typedef struct
     drflac         *f;
     long            rate;
     int             channels;
+    int             bits;               /* source depth (16/24/32)          */
     long            total_samples;      /* -1 unknown                       */
     long            duration_ms;        /* -1 unknown                       */
     codec_replaygain_t rg;
@@ -311,7 +327,7 @@ static int flac_would_fit(unsigned max_block, unsigned channels,
     if (seektable_bytes > 16384u)
         seektable_bytes = 0;
     need = (unsigned)sizeof(drflac) + window + vec + (unsigned)seektable_bytes;
-    return need <= (unsigned)FLAC_POOL_B;
+    return need <= (unsigned)WORKBUF_BYTES;
 }
 
 /* ---- codec_t callbacks --------------------------------------------------- */
@@ -322,13 +338,23 @@ static int flac_open(void *vst, const char *path)
     unsigned long seektable_bytes = 0;
     unsigned max_block = 0;
     unsigned scan_channels = 0;
+    int rc;
 
     if (st == 0 || path == 0)
         return CODEC_ERR_STATE;
 
-    st->io = cio_open(path);
-    if (st->io == 0)
+    /* Claim the shared decode pool: FLAC, mp3 and fw_update are mutually
+     * exclusive, so a busy region means one of them is up (skip the file). */
+    if (workbuf_claim(WORKBUF_OWNER_FLAC) == 0)
         return CODEC_ERR_IO;
+    s_pool = (unsigned char *)workbuf_for(WORKBUF_OWNER_FLAC);
+    s_pool_bytes = WORKBUF_BYTES;
+
+    st->io = cio_open(path);
+    if (st->io == 0) {
+        rc = CODEC_ERR_IO;
+        goto fail;
+    }
     st->f = 0;
     st->total_samples = -1;
     st->duration_ms = -1;
@@ -340,7 +366,8 @@ static int flac_open(void *vst, const char *path)
         cio_close(st->io);
         st->io = 0;
         flac_diag_reason = -2;
-        return CODEC_ERR_FORMAT;
+        rc = CODEC_ERR_FORMAT;
+        goto fail;
     }
     flac_diag_block = max_block;
     flac_diag_channels = scan_channels;
@@ -352,44 +379,49 @@ static int flac_open(void *vst, const char *path)
         cio_close(st->io);
         st->io = 0;
         flac_diag_reason = 1;          /* >2 channels                     */
-        return CODEC_ERR_UNSUPPORTED;
+        rc = CODEC_ERR_UNSUPPORTED;
+        goto fail;
     }
     if (!flac_would_fit(max_block, scan_channels, seektable_bytes)) {
         cio_close(st->io);
         st->io = 0;
         flac_diag_reason = 2;          /* block/seektable > pool           */
-        return CODEC_ERR_UNSUPPORTED;
+        rc = CODEC_ERR_UNSUPPORTED;
+        goto fail;
     }
 
     pool_reset();
     if (cio_seek(st->io, 0) != 0) {    /* dr_flac reads from stream start */
         cio_close(st->io);
         st->io = 0;
-        return CODEC_ERR_IO;
+        rc = CODEC_ERR_IO;
+        goto fail;
     }
     st->f = drflac_open(fr_read, fr_seek, fr_tell, (void *)st->io, NULL);
     if (st->f == 0) {
-        pool_reset();
         cio_close(st->io);
         st->io = 0;
-        return CODEC_ERR_FORMAT;
+        rc = CODEC_ERR_FORMAT;
+        goto fail;
     }
 
     st->rate = (long)st->f->sampleRate;
     st->channels = (int)st->f->channels;
+    st->bits = (int)st->f->bitsPerSample;
     st->total_samples = (long)st->f->totalPCMFrameCount;
     if (st->rate <= 0 || st->channels < 1 || st->channels > 2) {
         drflac_close(st->f);
-        pool_reset();
         cio_close(st->io);
         st->f = 0;
         st->io = 0;
         if (st->channels > 2) {
             flac_diag_reason = 3;          /* dr_flac saw >2 channels      */
-            return CODEC_ERR_UNSUPPORTED;
+            rc = CODEC_ERR_UNSUPPORTED;
+        } else {
+            flac_diag_reason = -2;         /* bad rate/format              */
+            rc = CODEC_ERR_FORMAT;
         }
-        flac_diag_reason = -2;             /* bad rate/format              */
-        return CODEC_ERR_FORMAT;
+        goto fail;
     }
     if (st->total_samples > 0)
         /* int64 math: samples*1000 overflows 32-bit `long` past ~48 s at
@@ -398,9 +430,16 @@ static int flac_open(void *vst, const char *path)
         st->duration_ms = (long)(((int64_t)st->total_samples * 1000) /
                                  st->rate);
     return CODEC_OK;
+
+fail:
+    pool_reset();
+    workbuf_release(WORKBUF_OWNER_FLAC);
+    s_pool = 0;
+    s_pool_bytes = 0;
+    return rc;
 }
 
-static int flac_decode(void *vst, int16_t *pcm, int max_frames)
+static int flac_decode(void *vst, int32_t *pcm, int max_frames)
 {
     flac_state_t *st = (flac_state_t *)vst;
     size_t got;
@@ -409,7 +448,9 @@ static int flac_decode(void *vst, int16_t *pcm, int max_frames)
         return CODEC_ERR_STATE;
     if (st->f == 0)
         return CODEC_ERR_STATE;
-    got = drflac_read_pcm_frames_s16(st->f, (size_t)max_frames, pcm);
+    /* s32 output is left-justified to 32 bits (dr_flac shifts by 32-bps),
+     * which is exactly the internal pipeline format: no re-scaling here. */
+    got = drflac_read_pcm_frames_s32(st->f, (size_t)max_frames, pcm);
     return (int)got;                     /* 0 == EOF (codec contract)      */
 }
 
@@ -451,6 +492,10 @@ static void flac_close(void *vst)
     if (st->io != 0)
         cio_close(st->io);
     st->io = 0;
+    /* Hand the shared region back (no-op if this state never claimed it). */
+    workbuf_release(WORKBUF_OWNER_FLAC);
+    s_pool = 0;
+    s_pool_bytes = 0;
 }
 
 static int flac_format(void *vst, codec_format_t *out)
@@ -461,7 +506,7 @@ static int flac_format(void *vst, codec_format_t *out)
         return CODEC_ERR_STATE;
     out->sample_rate = (int)st->rate;
     out->channels = st->channels;
-    out->bits = 16;
+    out->bits = st->bits;                /* source depth (16/24/32)         */
     out->total_samples = st->total_samples;
     return CODEC_OK;
 }

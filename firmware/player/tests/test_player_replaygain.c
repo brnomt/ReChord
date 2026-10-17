@@ -20,10 +20,10 @@
 #include <string.h>
 
 static int       g_count;
-static int16_t  *g_sink;
+static int32_t  *g_sink;
 static int       g_sink_cap;
 
-static void sink_cb(const int16_t *pcm, int frames, void *u)
+static void sink_cb(const int32_t *pcm, int frames, void *u)
 {
     int i;
     (void)u;
@@ -46,7 +46,7 @@ static void test_rg_applied(void)
 {
     mock_codec_cfg_t cfg = {0};
     long total_frames = 1024;
-    int16_t *ref;
+    int32_t *ref;
     int i;
     int32_t gain;
 
@@ -65,8 +65,8 @@ static void test_rg_applied(void)
 
     g_count = 0;
     g_sink_cap = (int)(total_frames * 2);
-    g_sink = (int16_t *)malloc(sizeof(int16_t) * g_sink_cap);
-    ref = (int16_t *)malloc(sizeof(int16_t) * g_sink_cap);
+    g_sink = (int32_t *)malloc(sizeof(int32_t) * g_sink_cap);
+    ref = (int32_t *)malloc(sizeof(int32_t) * g_sink_cap);
 
     ipc_b_mock_set_sink(sink_cb, 0);
 

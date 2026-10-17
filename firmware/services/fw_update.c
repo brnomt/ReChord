@@ -10,12 +10,29 @@
 
 #include "drivers/emmc.h"
 #include "services/fw_update.h"
+#include "services/workbuf.h"
 
 #define BLK 16u                              /* sectors per block (8 KiB) */
 
 static uint32_t s_sec[128], s_fat[128], s_fat_lba;
-static uint32_t s_blk[BLK * 128u], s_chk[BLK * 128u];
+/* Staging lives in the shared workbuf region (workbuf.h): FLAC and mp3 also
+ * use it, but the update runs at boot before any playback, and the write path
+ * is abort-safe (slot 2 -> slot 1, header last, read-back). */
+static uint32_t *s_blk, *s_chk;
 static struct { uint32_t fat, data, spc, root, nfats, fatsz; } s_fs;
+
+/* Bind the staging buffers. Returns 0, or -1 when the region is held by
+ * playback — then the caller reports a failure and skips the update. */
+static int fw_bufs(void)
+{
+    unsigned char *b = (unsigned char *)workbuf_claim(WORKBUF_OWNER_FWUPD);
+
+    if (b == 0)
+        return -1;
+    s_blk = (uint32_t *)(void *)b;
+    s_chk = (uint32_t *)(void *)(b + BLK * 512u);
+    return 0;
+}
 
 static uint32_t le16(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8; }
 static uint32_t le32(const uint8_t *p) { return le16(p) | le16(p + 2) << 16; }
@@ -218,7 +235,7 @@ static int validate(fw_image_t *img, uint32_t first, fwu_progress_t progress)
     return crc == trailer ? 0 : FWU_ECRC;
 }
 
-int fw_update_find(uint32_t vol_lba, fw_image_t *img, fwu_progress_t progress)
+static int fw_find_impl(uint32_t vol_lba, fw_image_t *img, fwu_progress_t progress)
 {
     const uint8_t *b = (const uint8_t *)s_sec;
     uint32_t c;
@@ -256,6 +273,17 @@ int fw_update_find(uint32_t vol_lba, fw_image_t *img, fwu_progress_t progress)
     return FWU_NONE;
 }
 
+int fw_update_find(uint32_t vol_lba, fw_image_t *img, fwu_progress_t progress)
+{
+    int r;
+
+    if (fw_bufs())
+        return FWU_EIO;              /* staging region busy; retry later */
+    r = fw_find_impl(vol_lba, img, progress);
+    workbuf_release(WORKBUF_OWNER_FWUPD);
+    return r;
+}
+
 static int put(uint32_t rel, const uint32_t *src)
 {
     if (emmc_fw_write(rel, BLK, src))
@@ -267,14 +295,14 @@ static int put(uint32_t rel, const uint32_t *src)
 
 /* Slot order and header-last writes are the reference's: at every point
  * one slot holds either the old or the new firmware, complete. */
-int fw_update_install(const fw_image_t *img, fwu_progress_t progress)
+static int fw_install_impl(const fw_image_t *img, fwu_progress_t progress)
 {
     uint32_t n = img->fw_end >> 9, s2 = emmc_fw_sectors() / 2u, b;
     int r;
 
     if (n == 0u || n > s2)
         return FWU_EFIT;
-    memset(s_blk, 0xFF, sizeof s_blk);
+    memset(s_blk, 0xFF, BLK * 512u);
     if ((r = put(s2, s_blk)))
         return r;
     for (b = BLK; b < n; b += BLK) {
@@ -290,7 +318,7 @@ int fw_update_install(const fw_image_t *img, fwu_progress_t progress)
     if ((r = put(s2, s_blk)))
         return r;
 
-    memset(s_blk, 0xFF, sizeof s_blk);
+    memset(s_blk, 0xFF, BLK * 512u);
     if ((r = put(0, s_blk)))
         return r;
     for (b = BLK; b < n; b += BLK) {
@@ -304,6 +332,17 @@ int fw_update_install(const fw_image_t *img, fwu_progress_t progress)
     if (emmc_read(EMMC_FW_BASE + s2, BLK, s_blk))
         return FWU_EIO;
     return put(0, s_blk);
+}
+
+int fw_update_install(const fw_image_t *img, fwu_progress_t progress)
+{
+    int r;
+
+    if (fw_bufs())
+        return FWU_EIO;              /* staging region busy; retry later */
+    r = fw_install_impl(img, progress);
+    workbuf_release(WORKBUF_OWNER_FWUPD);
+    return r;
 }
 
 /* Deletes the image: its (contiguous) clusters freed in every FAT copy,
