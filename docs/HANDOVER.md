@@ -2836,3 +2836,33 @@ word). The point is not the saving but that the index now has a buffer.
 
 **Device check (user):** USB storage still mounts and copies (same buffer,
 new home) and ejects normally — a regression check, nothing new to see.
+
+## AA. Session 2026-10-17 (cont.) — USB session forensics (host filed a crash report)
+
+**Report:** after the scratch change the device boots and USB mass storage
+works (file copied and read back — the regression check passed), but the
+user's Ubuntu file manager (Nautilus) **freezes and crashes** when the device
+is plugged in. Unknown whether it is the host's fault.
+
+**Review of our side (no smoking gun):** the BOT path chunks READ/WRITE by
+`CHUNK_SECTORS` and by the endpoint max packet, reports the residue correctly
+in the CSW, answers unknown opcodes with CHECK CONDITION, refuses EVPD INQUIRY,
+and answers a zero-length LUN (no SD card) with "medium not present" instead
+of a bogus capacity. Two soft spots remain, both only on error paths: a failed
+bulk transfer returns without a CSW (the host then waits for its timeout), and
+a card removed mid-session would leave LUN 1's advertised size stale.
+
+**What was added:** every session now writes one forensic line to
+`/.rechord/LOG` when it ends —
+`usb: exit <code> diag <last-opcode/LUN> rd <sectors> wr <sectors>` — and
+flushes it (the flush happens after the session, when the volume is free
+again). That is the device's half of the story; the host's half is `dmesg -w`
+and `journalctl -f` while plugging in. One reproduction with those two
+side by side decides whether the freeze is ours or the desktop stack's.
+
+**Note for context:** `udisksctl` hangs repeatedly on this desktop *with loop
+devices, unrelated to the device* (several in this session), so udisksd/GVFS
+— the same stack Nautilus drives — is a live suspect.
+
+**Build:** `_bss_end 0x0304932c` (unchanged), AP5M CRC `0xD46C21D7`, sha256
+`2da04860969c649431b1a1dd9acf8aa6ce21ff243b3a01019b599e006cc53ff6`.

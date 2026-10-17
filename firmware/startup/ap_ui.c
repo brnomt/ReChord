@@ -296,6 +296,14 @@ static void usb_session(void)
     r = usb_msc_run(luns, 2, keys_power, &rd, &wr);
     fs_target_mount(0, "Internal", emmc_read, s_user);   /* host may have written */
     snprintf(s_usb, sizeof s_usb, "x%d r%uM w%uM", r, (unsigned)(rd >> 11), (unsigned)(wr >> 11));
+    /* Session forensics: how it ended and which SCSI opcode/LUN was last on
+     * the wire. When a host-side tool misbehaves (Nautilus freezing on
+     * connect, say) this is the device's half of the story, and the flush
+     * writes it to /.rechord/LOG for the PC to read. */
+    log_printf("usb: exit %d diag %08lx rd %lu wr %lu",
+               r, (unsigned long)usb_msc_diag, (unsigned long)rd,
+               (unsigned long)wr);
+    (void)log_flush("usb-exit");
     while (keys_power())                 /* don't leak the exit press */
         panel_io_delay_ms(1);
     /* Scan for an update on ANY session exit the screen advertises:
