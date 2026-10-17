@@ -2094,3 +2094,28 @@ deliberate behavior). Now: services 167 checks + player + UI 262 checks
 all pass; `make cfw-ap` clean; `make cfw-img` RESULT: PASS (CRC
 0x5D5F2DA6). Hardware check: volume keys act as volume under playback;
 no phantom menu/Select navigation.
+
+## J. Session 2026-10-16 pm4 — user volume wired to hardware attenuation
+
+**Symptom:** volume up/down on Now Playing moved the bar but never changed
+the loudness.
+
+**Root cause:** the UI -> player chain worked (`player_screen` calls
+`player_set_volume()` -> `ipc_b_set_volume()`), but the sink only wrote
+`volume_db` into the IPC shared block — nothing applied it. (The
+player_screen header's "mirrors to the audio service later" comment was
+stale; the break was downstream of the player.)
+
+**Fix:** `audio_output_set_volume_db()` maps dB -> `PCM_VOLUME` codes
+(0.5 dB/step attenuation, 0x00 = 0 dB max, positive dB clamps at 0 dB)
+and applies them with the stock's click-free soft ramp — this is exactly
+the stock's volume setter (`FUN_03055f48(0xff, DAT_03004158)` = ramp to
+the user level). `ipc_b_set_volume()` (sink side, per the shared-block
+contract "volume currently applied by the B side") calls it; the level is
+kept in `s_volume_atten` so `configure()` relocks to it (unmute ramps
+0xFF -> user level, stock semantics).
+
+Verified: player/services/UI suites pass, `make cfw-ap` clean, `make
+cfw-img` RESULT: PASS (CRC 0xB0A8CFD9). Hardware check: volume +/- on Now
+Playing changes loudness stepwise without clicks; level survives track
+changes.

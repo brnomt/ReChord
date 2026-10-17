@@ -37,6 +37,11 @@ static const ao_feeder_ops *s_feeder = &ao_feeder_ring_irq;
  * per stereo frame pulled from the ring). */
 static volatile long s_frames_played;
 
+/* Current user-volume attenuation code (0x090001/2; 0.5 dB/step, 0x00 =
+ * 0 dB). Kept across configure() so a track relock lands on the same
+ * level (the stock ramps 0xFF -> its user level for the same reason). */
+static uint8_t s_volume_atten;
+
 /* Ring pull for the IRQ feeder: one packed int16 pair per stereo frame. */
 static int ao_ring_pull(uint32_t *word, void *user)
 {
@@ -199,7 +204,7 @@ static int ao_configure_rate(uint32_t rate_hz)
     dac_gpio_out(2, 14, 1);
     dac_gpio_out(2, 0, 0);
     dac_gpio_out(1, 4, 1);            /* amp enable again (ref)           */
-    dac_volume_ramp(0xFF, 0x00);       /* fade to 0 dB (FUN_03055f48)      */
+    dac_volume_ramp(0xFF, s_volume_atten); /* FUN_03055f48(0xff, user level) */
     /* Ref FUN_03055ecc again right before the feed. */
     dac_map_write_chan(0, 0x0005000A, 0x07);
     dac_map_write_chan(0, 0x0005000B, 0x07);
@@ -263,6 +268,22 @@ void audio_output_clear_played(void)
 void audio_output_power_off(void)
 {
     dac_output_off();
+}
+
+void audio_output_set_volume_db(int db)
+{
+    /* dB -> PCM_VOLUME codes (0.5 dB/step attenuation). The registers
+     * attenuate only: positive dB clamps at 0 dB; -127.5 dB is mute.
+     * Ramp, don't jump: the stock volume path (FUN_03055f48) is a soft
+     * ramp to the user level — this is that setter. */
+    int atten = -2 * db;
+
+    if (atten < 0)
+        atten = 0;
+    if (atten > 255)
+        atten = 255;
+    dac_volume_ramp(s_volume_atten, (uint8_t)atten);
+    s_volume_atten = (uint8_t)atten;
 }
 
 int audio_output_feed_blocking(const int16_t *pcm, int frames)

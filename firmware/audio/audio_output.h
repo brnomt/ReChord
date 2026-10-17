@@ -58,6 +58,13 @@ void audio_output_clear_played(void);
  * pad Hi-Z) — the verified dac_output_off sequence. */
 void audio_output_power_off(void);
 
+/* User volume -> CS43131 PCM_VOLUME attenuation (0.5 dB/step), applied
+ * with the stock's click-free soft ramp (= FUN_03055f48 to the user
+ * level). `db` is dB*1 attenuation: 0 = 0 dB (max), negative attenuates
+ * (-127 dB floor), positive clamps at 0 dB (the registers attenuate
+ * only). Survives configure() — tracks relock to the current level. */
+void audio_output_set_volume_db(int db);
+
 /* Polled feed (DAC test tone): interleaved int16 stereo frames. */
 int  audio_output_feed_blocking(const int16_t *pcm, int frames);
 

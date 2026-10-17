@@ -201,6 +201,10 @@ int ipc_b_pause(int paused)
 
 int ipc_b_set_volume(int db)
 {
+    /* The sink side owns the DAC volume (shared-block contract: "volume
+     * currently applied by the B side"). Apply it to the CS43131
+     * PCM_VOLUME regs through the HAL (click-free ramp) and publish. */
+    audio_output_set_volume_db(db);
     IPC_B_SHARED->volume_db = (uint32_t)db;
     IPC_B_SHARED->cmd = IPC_B_CMD_SET_VOL;
     target_doorbell();
