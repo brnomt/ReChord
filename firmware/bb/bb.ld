@@ -10,7 +10,7 @@ ENTRY(bb_reset)
 
 MEMORY
 {
-    BCODE (rx) : ORIGIN = 0x01000000, LENGTH = 0x00020000   /* 128 KiB HIGHRAM0 */
+    BCODE (rx) : ORIGIN = 0x01000000, LENGTH = 0x00010000   /* < PCM ring */
 }
 
 SECTIONS

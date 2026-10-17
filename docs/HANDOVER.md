@@ -3296,3 +3296,28 @@ Phase 1 gate passed; proceed to Phase 2 (B renders the ring + I2S).
 Note: this does **not** make the firmware independent of the stock IMG yet —
 the flash image is still built on the stock container with section_3
 preserved; a custom section_3 is the `apbb-experimental` brick path (later).
+
+## AN. Session 2026-10-17 (cont.) — BRNOMT-68 phase 2: Core B renders the PCM ring
+
+The AP still decodes; the **renderer moved to B**. New shared layout
+(`firmware/player/ipc_shared.h`, used by both cores): control block at
+`0x01020000`, PCM ring (32 KiB, int32 stereo frames) at `0x01010000` inside
+HIGHRAM0. Single producer (AP) / single consumer (B), free-running byte
+indices, DMB publishes (Cortex-M3 has no data cache).
+
+- `ipc_b_target.c` is now a shared-ring producer: it runs the DAC/I2S
+  bring-up on the AP (`audio_output_configure`), starts the serializer
+  (`audio_output_start(NULL)` — no AP-side feeder), publishes the format and
+  `STATE=RUN`, then fills the shared ring. `frames_consumed` now comes from B.
+- `firmware/bb/bb_main.c` is a polled renderer: while `STATE==RUN` it tops the
+  I2S TX FIFO from the ring (two int32 slot words per frame) and counts
+  frames/underruns in the control block. No IRQ, no libc: B is dedicated.
+- The AP's 32 KiB ring static is gone -> `_bss_end` drops to **`0x030418ac`**
+  (~34 KB free under 0x0304A000).
+
+**Build:** AP5M CRC `0xA8378ADE`, sha256
+`3a4257e333ddad41ae48a2b727e820cdd2c8a9a9f6c6c393118ecfe38103abc4`; player
+host suite green.
+**Status: NOT hardware-tested.** Expected: 44.1/16 identical; 96k/24 may still
+stutter because the AP still decodes (that is phase 3). If audio is silent,
+the STATE/ring handoff is wrong.

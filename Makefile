@@ -64,7 +64,7 @@ BB_CORE_BLOB := $(BB_CORE_DIR)/bb_core_blob.o
 $(BB_CORE_ELF): firmware/bb/bb_main.c firmware/bb/bb.ld
 	@$(MKDIR_P) $(BB_CORE_DIR)
 	$(CC) -mcpu=cortex-m3 -mthumb -Os -ffreestanding -fno-builtin \
-	    -nostdlib -ffunction-sections -fdata-sections \
+	    -nostdlib -ffunction-sections -fdata-sections -Ifirmware/player \
 	    -T firmware/bb/bb.ld firmware/bb/bb_main.c -lgcc -o $@
 
 $(BB_CORE_BIN): $(BB_CORE_ELF)

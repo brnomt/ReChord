@@ -1,22 +1,31 @@
 /*
- * bb_main.c — minimal Core B image (BRNOMT-68 phase 1).
+ * bb_main.c — Core B audio renderer (BRNOMT-68 phase 2).
  *
- * Goal: prove OUR code runs on the second Cortex-M3 before moving any audio.
- * It sets the vector table at HIGHRAM0 0x01000000 (Core B vectors there after
- * CAL_CORE_SRST is released), writes a magic + a heartbeat counter into the
- * shared block at 0x01020000, and loops. No libc, no RTOS, no mailbox: the AP
- * polls shared[0] with a timeout (non-blocking).
+ * Phase 1 proved our code runs on the second Cortex-M3 (heartbeat). Phase 2
+ * makes B render: the AP decodes and produces PCM into the shared SPSC ring
+ * in HIGHRAM0 (firmware/player/ipc_shared.h); B polls the ring and pushes the
+ * 32-bit left-justified slot words into the I2S1 TX FIFO. The AP still owns
+ * the DAC/I2S bring-up (phase 3 moves the decode to B).
+ *
+ * No libc, no RTOS, no interrupts: B is dedicated to the feed, so a tight
+ * poll loop is the simplest and most predictable consumer. The I2S bit clock
+ * runs independently (master on the SoC), so pitch/speed are unaffected by
+ * the poll cadence.
  */
 #include <stdint.h>
 
-#define SHARED    ((volatile uint32_t *)0x01020000u)
-#define BB_MAGIC  0x42524459u        /* 'BRDY' */
+#include "ipc_shared.h"
+
+#define REG32(a)   (*(volatile uint32_t *)(uintptr_t)(a))
+#define I2S_FIFOLR REG32(0x4003000Cu)
+#define I2S_TXDR   REG32(0x40030024u)
+
+#define CTRL ((volatile uint32_t *)IPC_SHARED_BASE)
 
 extern uint32_t __bb_stack_top;
 void bb_reset(void);
 
-/* Vector table: SP, Reset. Must be the first bytes of the image. GCC's Thumb
- * function pointer already carries bit0 (STT_FUNC in Thumb mode). */
+/* Vector table: SP, Reset. Must be the first bytes of the image. */
 __attribute__((section(".vectors_bb"), used))
 static const void *const bb_vectors[2] = {
     (void *)&__bb_stack_top,
@@ -25,10 +34,34 @@ static const void *const bb_vectors[2] = {
 
 void bb_reset(void)
 {
-    SHARED[0] = BB_MAGIC;
+    CTRL[IPC_SH_MAGIC] = IPC_SH_MAGIC_VAL;      /* phase-1 gate / AP poll */
+
     for (;;) {
-        SHARED[1] = SHARED[1] + 1u;
-        for (volatile uint32_t i = 0; i < 200000u; i++)
-            ;
+        uint32_t rd, wr;
+
+        if (CTRL[IPC_SH_STATE] != IPC_SH_RUN)
+            continue;
+
+        /* Top the TX FIFO up past the IRQ threshold (same 0x1D as the AP
+         * feeder). Each ring frame is two int32 left-justified slot words. */
+        while ((I2S_FIFOLR & 0x3Fu) < 0x1Du) {
+            rd = CTRL[IPC_SH_RD];
+            wr = CTRL[IPC_SH_WR];
+            if (rd == wr) {
+                CTRL[IPC_SH_UNDERRUNS] = CTRL[IPC_SH_UNDERRUNS] + 1u;
+                break;                          /* ring dry: wait */
+            }
+            {
+                const volatile uint32_t *f =
+                    (const volatile uint32_t *)(IPC_RING_BASE +
+                                                (rd & IPC_RING_MASK));
+                I2S_TXDR = f[0];
+                I2S_TXDR = f[1];
+            }
+            rd += 8u;
+            CTRL[IPC_SH_RD] = rd;
+            CTRL[IPC_SH_FRAMES] = CTRL[IPC_SH_FRAMES] + 1u;
+            __asm__ volatile("dmb" ::: "memory");
+        }
     }
 }
