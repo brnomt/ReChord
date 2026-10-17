@@ -127,6 +127,33 @@ static int ask(int any_key)
 
 static void power_off(void);
 
+/* Power-hold tracking (shared by the idle and playing loops).
+ * The power key is a mechanical switch on GPIO2.5; the old counter reset
+ * to zero on ANY misread sample, so contact bounce (or one glitched read
+ * while the UI is busy — e.g. during playback) restarted the ~2 s count
+ * and power-off never triggered. Debounce the level first (3 consecutive
+ * samples), then count; `>=` also makes the threshold immune to skips. */
+#define POWER_HOLD_COUNT   700u   /* ~2 s of loop passes (calibrated) */
+#define POWER_DEBOUNCE     3
+static int s_power_level;         /* debounced power-key level (0/1) */
+static int s_power_stable;
+
+static int power_hold_step(int power)
+{
+    int p = power ? 1 : 0;
+
+    if (p != s_power_level) {
+        if (++s_power_stable >= POWER_DEBOUNCE) {
+            s_power_level = p;
+            s_power_stable = 0;
+        }
+    } else {
+        s_power_stable = 0;
+    }
+    s_power_held = s_power_level ? s_power_held + 1u : 0u;
+    return s_power_held >= POWER_HOLD_COUNT;
+}
+
 /* After a USB session: offer HIFIECnn.IMG / ECHOMINI.IMG if present. */
 static void update_prompt(void)
 {
@@ -544,10 +571,9 @@ void ap_ui_loop(void)
             usb_console_run();
         s_cable = cable;
 
-        /* ponytail: hold time in loop passes, calibrated on hardware
-         * (2000 passes = ~6 s, so 700 = ~2 s); use a timer once there is one */
-        s_power_held = power ? s_power_held + 1u : 0u;
-        if (s_power_held == 700u)
+        /* power-hold: debounced (see power_hold_step); ~2 s of held power
+         * turns the device off. */
+        if (power_hold_step(power))
             power_off();
 
         /* live "Keys" row on the root menu: hardware check without a log */
@@ -581,8 +607,7 @@ void ap_ui_loop(void)
             for (n = 0; n < 8 && player_get_state() == PLAYER_PLAYING; n++) {
                 (void)player_process();      /* decodes into the ring */
                 adc = keys_adc(); power = keys_power();
-                s_power_held = power ? s_power_held + 1u : 0u;
-                if (s_power_held == 700u)
+                if (power_hold_step(power))
                     power_off();
                 input_scan(adc, power);
                 while (input_poll(&ev) > 0) {

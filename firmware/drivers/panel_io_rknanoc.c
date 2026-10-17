@@ -106,57 +106,57 @@ void backlight_on(void)
     GPIO2->ddr |= 1u << 4;
 }
 
-/* Keys (reference key scan 0x03057eb0): SAR-ADC at 0x400D0000 [0] data,
- * [1] status, [2] ctrl = ch | 0x08 power | 0x10 start, 0x40 irq status
- * (clear-after-read). The reference pipelines "read previous, start next"
- * but ONLY because its scan is rate-gated to 10 ms — every conversion is
- * long done between reads.
+/* Keys (reference key scan 0x03057eb0 + TRM SARADC chapter): SAR-ADC at
+ * 0x400D0000 [0] SARADC_DATA[9:0], [1] SARADC_STAS bit0 = "conversion in
+ * progress" (RO), [2] SARADC_CTRL bit4 = SOC, bit5 = int_en, bit6 =
+ * int_status/EOC ("set to 1 when end of conversion, set 0 to clear").
+ * The reference pipelines "read previous, start next" but ONLY because
+ * its scan is rate-gated to 10 ms. The TRM's own procedure is: start,
+ * poll for end of conversion, read SARADC_DATA.
  *
  * FIX 2026-10-16 (phantom keys under playback): our UI calls keys_adc()
  * up to 8x per tick while a track plays (player_process returns instantly
  * once the ring is full), so the old pipeline read ADC[0] MID-conversion
- * and restarted the converter on every call. The stale/partial value was
- * stable across the burst and mapped into wrong key bands (volume presses
- * firing Menu/Select/Back — "jump into Test DAC", "pops to main menu").
- * Now each call takes THREE fresh, fully-settled conversions and returns
- * the median: every value is a completed conversion and single-sample
- * noise cannot pick a band. */
+ * and restarted the converter on every call — stale/partial values mapped
+ * into wrong key bands (volume presses firing Menu/Select/Back). Each
+ * call now runs THREE fresh conversions, each waited to TRM end-of-
+ * conversion, and returns the median. */
 #define ADC ((volatile uint32_t *)0x400D0000u)
 
-/* ~50 us settle at the 24 MHz boot clock (24000 loops ~= 1 ms). The SAR
- * conversion finishes in a few us; this bounds burst callers. */
+/* Fallback settle (~200 us at the 24 MHz boot clock) used only if the
+ * EOC flag never asserts — the SARADC runs at <= 1 MHz (TRM), so a
+ * conversion is tens of us at most. */
 static void adc_settle(void)
 {
-    volatile unsigned n = 1200;
+    volatile unsigned n = 4800;
 
     while (n--)
         ;
 }
 
-static void adc_start(void)
+static int adc_read_fresh(void)
 {
-    ADC[2] &= ~0x10u;                            /* stop                */
-    ADC[2] = (ADC[2] & ~0x47u) | 1u | 0x18u;     /* ch1 + power + start */
+    unsigned t = 200000;
+
+    ADC[2] &= ~0x50u;                    /* SOC=0, clear EOC (int_status) */
+    ADC[2] = (ADC[2] & ~0x47u) | 1u | 0x18u;   /* ch1 + power + SOC start */
+    /* TRM: "poll SARADC_STAS ... whether the conversion is completed" —
+     * STAS bit0 clears when done; CTRL bit6 latches EOC (either proves
+     * completion). Bounded wait keeps a broken flag from hanging. */
+    while ((ADC[1] & 0x1u) != 0u || (ADC[2] & 0x40u) == 0u) {
+        if (--t == 0) {
+            adc_settle();
+            break;
+        }
+    }
+    return (int)(ADC[0] & 0x3FFu);
 }
 
 int keys_adc(void)
 {
-    int s0, s1, s2;
-
-    adc_start();
-    adc_settle();
-    s0 = (int)(ADC[0] & 0x3FFu);
-    ADC[2] &= ~0x40u;                    /* clear int flag (ref pattern) */
-
-    adc_start();
-    adc_settle();
-    s1 = (int)(ADC[0] & 0x3FFu);
-    ADC[2] &= ~0x40u;
-
-    adc_start();
-    adc_settle();
-    s2 = (int)(ADC[0] & 0x3FFu);
-    ADC[2] &= ~0x40u;
+    int s0 = adc_read_fresh();
+    int s1 = adc_read_fresh();
+    int s2 = adc_read_fresh();
 
     /* median of three */
     if (s0 > s1) { int t = s0; s0 = s1; s1 = t; }

@@ -32,12 +32,26 @@ static const adc_band_t s_adc_bands[] = {
     { KEY_BACK,   450,  549 },   /* back */
 };
 
-static int s_scan_last = KEY_NONE;   /* previous raw sample   */
+#define ADC_IDLE 1023   /* documented idle reading: no key pressed */
+
+static int s_scan_last = KEY_NONE;   /* previous mapped key            */
 static int s_scan_held = KEY_NONE;   /* debounced key, if any */
 static int s_scan_stable;            /* consecutive samples agreeing with
                                       * s_scan_last (see input_scan)      */
+static int s_scan_min = ADC_IDLE;    /* lowest ADC seen since idle — the
+                                      * pressed-bottom classification the
+                                      * stock scan uses (ref 0x03057eb0:
+                                      * "if (v < min) min = v", classify
+                                      * by min). Press/release transients
+                                      * SWEEP the resistor ladder through
+                                      * the Menu/Back bands; classifying
+                                      * by the settled minimum makes those
+                                      * sweeps unregistrable.            */
 
-#define ADC_IDLE 1023   /* documented idle reading: no key pressed */
+/* Min updates require a real drop (>= this many counts): ADC noise on a
+ * held key must not ratchet the minimum into a lower key band. Bands are
+ * >= 50 counts wide, so 16 is safely below half a band. */
+#define INPUT_ADC_MIN_STEP 16
 
 /* Debounce constants (INPUT_DEBOUNCE_SCANS*) live in input.h; they match
  * the stock key scan (ref 0x03057eb0): 3 consecutive samples for most
@@ -93,9 +107,25 @@ int input_poll(input_event_t *ev)
 
 int input_scan(int adc_value, int power)
 {
-    int key = power ? KEY_POWER : input_map_adc(adc_value);
-    int needed = (key == KEY_UP || key == KEY_DOWN)
-                     ? INPUT_DEBOUNCE_SCANS_VOL : INPUT_DEBOUNCE_SCANS;
+    int key, needed;
+
+    if (power) {
+        key = KEY_POWER;               /* GPIO power key wins            */
+    } else if (adc_value >= ADC_IDLE) {
+        key = KEY_NONE;                /* released (idle line)           */
+    } else {
+        /* Classify by the pressed-bottom ADC (stock scan, ref 0x03057eb0):
+         * the minimum of the current press, not the passing sample — a
+         * press/release transient sweeps through the Menu/Back bands and
+         * must not register them. Noise needs INPUT_ADC_MIN_STEP counts
+         * of real movement to move the bottom. */
+        if (s_scan_min - adc_value >= INPUT_ADC_MIN_STEP)
+            s_scan_min = adc_value;
+        key = input_map_adc(s_scan_min);
+    }
+
+    needed = (key == KEY_UP || key == KEY_DOWN)
+                 ? INPUT_DEBOUNCE_SCANS_VOL : INPUT_DEBOUNCE_SCANS;
 
     if (key != s_scan_last) {          /* changed: restart stability run */
         s_scan_last = key;
@@ -105,12 +135,15 @@ int input_scan(int adc_value, int power)
     s_scan_stable++;                   /* one more agreeing sample        */
     if (s_scan_stable < needed)        /* fires on the N-th equal sample  */
         return 0;
+    if (key == KEY_NONE) {             /* debounced release/idle: re-arm */
+        s_scan_min = ADC_IDLE;         /* the pressed-bottom run         */
+        s_scan_held = KEY_NONE;
+        return 0;
+    }
     if (key == s_scan_held)            /* hold: no repeat               */
         return 0;
     s_scan_held = key;
-    if (key == KEY_NONE)               /* debounced release             */
-        return 0;
-    return input_push(key, power ? -1 : adc_value) == INPUT_OK;
+    return input_push(key, power ? -1 : s_scan_min) == INPUT_OK;
 }
 
 void input_mock_clear(void)

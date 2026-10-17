@@ -2119,3 +2119,47 @@ Verified: player/services/UI suites pass, `make cfw-ap` clean, `make
 cfw-img` RESULT: PASS (CRC 0xB0A8CFD9). Hardware check: volume +/- on Now
 Playing changes loudness stepwise without clicks; level survives track
 changes.
+
+## K. Session 2026-10-16 pm5 — button round 2: ladder transients + power hold
+
+Hardware feedback after session I: buttons "a bit better" but volume-down
+on Now Playing still popped to Main Menu, and power-off was unreliable
+while playing.
+
+**Root causes (both behavioral, confirmed against the stock key scan
+`FUN_03057eb0` and the RKNanoD TRM SARADC chapter):**
+
+1. **Ladder transients.** Pressing/releasing a resistor-ladder key SWEEPS
+   the ADC line through the Menu/Back bands (the RC curve dwells in the
+   middle of the range). N-sample debounce alone still accepts a dwelling
+   transient — which is exactly what the stock defeats by classifying
+   with the **pressed-bottom minimum** (`if (v < min) min = v`, classify
+   by min) plus a latched re-arm on release. A single-band phantom on
+   release was the "vol- -> Main Menu" (KEY_BACK/KEY_MENU) bug.
+2. **ADC reads without end-of-conversion.** The TRM procedure is "start,
+   poll SARADC_STAS/CTRL EOC, read SARADC_DATA" (STAS bit0 = conversion
+   in progress; CTRL bit6 = EOC, write-0-to-clear). Fixed in
+   `keys_adc()` (bounded EOC poll per conversion + median-of-3).
+3. **Power-hold counter resets on one bad sample.** `s_power_held = power
+   ? n+1 : 0` + exact `== 700` — contact bounce or a single glitched
+   GPIO2.5 read restarted the ~2 s count, so power-off never completed
+   under load.
+
+**Fixes:**
+
+- `input_scan()`: classify by the run **minimum** (16-count hysteresis so
+  noise cannot ratchet it into a lower band); release re-arms the run;
+  N-sample stability retained (3 / 8 for vol+-). Press AND release sweeps
+  are now unregistrable — tests pin both directions.
+- `keys_adc()`: TRM end-of-conversion polling (bounded) per conversion.
+- `power_hold_step()` (ap_ui): 3-sample debounced power level, `>= 700`
+  threshold — bounce can no longer reset the hold.
+
+Note: `board_power_off()` cuts the PMIC rail (GPIO2.6); **on USB/VBUS the
+device stays powered by the host** (documented in the code) — power-off
+tests should run on battery.
+
+Verified: all suites pass (services 144 checks incl. sweep/noise cases),
+`make cfw-ap` clean, `make cfw-img` RESULT: PASS (CRC 0xAA858C7D).
+Hardware check: vol- on Now Playing lowers volume (no menu pop); a held
+power key turns the device off within ~2 s during playback.

@@ -110,27 +110,41 @@ static void test_scan(void)
         CHECK(input_scan(130, 0) == 0);      /* not stable yet */
     CHECK(input_scan(130, 0) == 1);          /* Nth equal sample: press */
     CHECK(input_scan(130, 0) == 0);          /* hold: no repeat */
-    for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
-        CHECK(input_scan(1023, 0) == 0);     /* debounced release */
-    /* A single-sample glitch (back band) is ignored. */
+    /* RELEASE SWEEP through the back/menu/play bands must be invisible:
+     * the pressed-bottom minimum classifies the press (ref 0x03057eb0). */
+    CHECK(input_scan(200, 0) == 0);
+    CHECK(input_scan(350, 0) == 0);
     CHECK(input_scan(500, 0) == 0);
-    for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
-        CHECK(input_scan(1023, 0) == 0);
-    /* A bounce sweeping between bands never reaches N equal samples. */
-    for (i = 0; i < 40; i++)
-        CHECK(input_scan((i & 1) ? 130 : 250, 0) == 0);
-    /* play/select (250) needs only INPUT_DEBOUNCE_SCANS samples. */
+    CHECK(input_scan(800, 0) == 0);
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
+        CHECK(input_scan(1023, 0) == 0);     /* debounced release: re-arm */
+    /* A press SWEEP from idle falls through back/menu/play bands without
+     * registering them; only the settled bottom (the run minimum)
+     * registers. */
+    CHECK(input_scan(520, 0) == 0);
+    CHECK(input_scan(380, 0) == 0);
+    CHECK(input_scan(250, 0) == 0);
+    CHECK(input_scan(150, 0) == 0);          /* vol+ band: sample #1 */
+    for (i = 1; i < INPUT_DEBOUNCE_SCANS_VOL - 1; i++)
+        CHECK(input_scan(130, 0) == 0);      /* settles at the min (130) */
+    CHECK(input_scan(130, 0) == 1);          /* 8th UP sample: press */
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
+        CHECK(input_scan(1023, 0) == 0);     /* release */
+    /* Noise on a held key cannot ratchet the minimum into another band. */
     for (i = 1; i < INPUT_DEBOUNCE_SCANS; i++)
-        CHECK(input_scan(250, 0) == 0);
-    CHECK(input_scan(250, 0) == 1);          /* 3rd equal sample: press */
-    CHECK(input_scan(250, 0) == 0);          /* hold: no repeat */
+        CHECK(input_scan(250, 0) == 0);      /* play: 3-sample key */
+    CHECK(input_scan(250, 0) == 1);          /* press play */
+    for (i = 0; i < 12; i++)
+        CHECK(input_scan((i & 1) ? 258 : 244, 0) == 0);   /* +-7 noise */
+    CHECK(input_pending() == 3);            /* UP, UP, SELECT            */
     for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
         CHECK(input_scan(1023, 0) == 0);     /* release */
     /* power GPIO wins once stable. */
     for (i = 1; i < INPUT_DEBOUNCE_SCANS; i++)
         CHECK(input_scan(1023, 1) == 0);
     CHECK(input_scan(1023, 1) == 1);
-    CHECK(input_pending() == 3);
+    CHECK(input_pending() == 4);
+    CHECK(input_poll(&ev) == 1 && ev.type == KEY_UP && ev.adc_value == 130);
     CHECK(input_poll(&ev) == 1 && ev.type == KEY_UP && ev.adc_value == 130);
     CHECK(input_poll(&ev) == 1 && ev.type == KEY_SELECT && ev.adc_value == 250);
     CHECK(input_poll(&ev) == 1 && ev.type == KEY_POWER && ev.adc_value == -1);
