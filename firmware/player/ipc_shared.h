@@ -46,4 +46,27 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_SH_RUN        1u
 #define IPC_SH_PAUSE      2u
 
+/* ---- file service (phase 3): A owns the FS and streams a file to B ---- */
+/* Layout: file ring 0x01008000..0x01010000 (32 KiB), B stack grows down from
+ * 0x01008000, PCM ring 0x01010000..0x01020000, control at 0x01020000. */
+#define IPC_FILE_BASE     0x01008000u
+#define IPC_FILE_BYTES    (32u * 1024u)
+#define IPC_FILE_MASK     (IPC_FILE_BYTES - 1u)
+
+/* File control words (continue after the PCM ones). All logical offsets are
+ * relative to IPC_F_BASE; B's file position = IPC_F_BASE + IPC_F_RD. */
+#define IPC_F_OPEN     9u    /* A: 1 while a file is open/served          */
+#define IPC_F_SIZE     10u   /* A: file size (0xFFFFFFFF = unknown)       */
+#define IPC_F_BASE     11u   /* A: logical offset of ring[0]              */
+#define IPC_F_RD       12u   /* B: ring read cursor (relative)            */
+#define IPC_F_WR       13u   /* A: ring write cursor (relative)           */
+#define IPC_F_EOF      14u   /* A: 1 = rest of the file is in the ring    */
+#define IPC_F_SEEK_TO  15u   /* B: requested absolute file offset         */
+#define IPC_F_SEEK_SEQ 16u   /* B: increment to request a seek            */
+#define IPC_F_SEEK_ACK 17u   /* A: copies SEQ once the seek is applied    */
+#define IPC_F_COUNT    18u
+
+_Static_assert(IPC_FILE_BASE + IPC_FILE_BYTES <= IPC_RING_BASE,
+               "file ring must sit below the PCM ring");
+
 #endif /* RECHORD_IPC_SHARED_H */

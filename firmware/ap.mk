@@ -129,6 +129,7 @@ AP_LIBC_SRCS := \
 # minimp3/dr_flac are header-included by their adapter TUs.
 AP_PLAYER_SRCS := \
   firmware/player/player.c \
+  firmware/player/bfs.c \
   firmware/player/codec_io.c \
   firmware/player/codec_io_fs.c \
   firmware/player/tags.c \

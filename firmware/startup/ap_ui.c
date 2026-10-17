@@ -23,6 +23,7 @@
 #include "player.h"
 #include "ui/ui.h"
 #include "ui/screens/screens.h"
+#include "player/bfs.h"     /* phase 3: A-side file service for Core B */
 
 static int s_adc = 1023, s_power, s_cable;
 static unsigned s_power_held;
@@ -816,6 +817,7 @@ void ap_ui_loop(void)
          * I2S1 TX IRQ (rknano_i2s_tx_isr) drains it at the sample clock,
          * so decode and playback overlap and the pump calls are
          * non-blocking once the ring is full. */
+        bfs_poll();     /* phase 3: feed B's file ring (no-op if none) */
         if (player_get_state() == PLAYER_PLAYING) {
             int n;
 

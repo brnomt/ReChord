@@ -10,7 +10,7 @@ ENTRY(bb_reset)
 
 MEMORY
 {
-    BCODE (rx) : ORIGIN = 0x01000000, LENGTH = 0x00010000   /* < PCM ring */
+    BCODE (rx) : ORIGIN = 0x01000000, LENGTH = 0x00008000   /* < file ring */
 }
 
 SECTIONS
@@ -37,6 +37,6 @@ SECTIONS
     } > BCODE
 }
 
-/* Stack top just BELOW the 64 KiB PCM ring (0x01010000..0x01020000); it grows
- * down into the (tiny) image region, never into the ring. */
-__bb_stack_top = 0x01010000;
+/* Stack top just BELOW the 32 KiB file-service ring (0x01008000..0x01010000);
+ * it grows down into the (tiny) image region, never into a ring. */
+__bb_stack_top = 0x01008000;
