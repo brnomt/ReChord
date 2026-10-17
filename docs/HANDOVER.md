@@ -2277,3 +2277,7 @@ bounded fast path (4000 iterations) with an always-there ~200 us settle
 floor (>= the <=1 MHz SARADC's conversion time), so a read is <= ~1 ms
 regardless of flag semantics — the UI can never crawl on this path again.
 `POWER_HOLD_COUNT` re-tuned 700 -> 400 for the faster pass rate (~2 s).
+
+**Follow-up 1 (USB):** the VBUS/cable edge now opens **USB storage**
+(MSC, `usb_storage_run`) instead of the CDC console — the pre-CDC
+behaviour. The CDC console stays on the "USB console" menu entry.
