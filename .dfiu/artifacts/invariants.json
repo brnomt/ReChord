@@ -60,6 +60,35 @@
       }
     },
     {
+      "action": "When a screen shows 'empty' while the data is known good, check who opens the shared state first. Never pre-acquire state in a test that the code under test should acquire.",
+      "content_hash": "37db6fc01c708e75d533738c32eb0de7ca9ffeb2ce1c1e968762bd69cbba0a6f",
+      "id": "R-3f66ea5d12c8",
+      "incident_ids": [
+        "82cac4ee-76e2-4fe7-b8cc-317114288a41"
+      ],
+      "invariant": "A module reading shared state owns acquiring and releasing it, and its test enters through the same door production does: a test that pre-acquires that state hides lifecycle bugs.",
+      "revision": 1,
+      "scope": "firmware/services, firmware/ui/screens",
+      "severity": "warning",
+      "when": {
+        "args": [
+          {
+            "field": "files_touched",
+            "op": "touches_any",
+            "value": [
+              "firmware/services/media_query.c"
+            ]
+          },
+          {
+            "field": "subsystem",
+            "op": "eq",
+            "value": "ui/library (category queries)"
+          }
+        ],
+        "op": "any"
+      }
+    },
+    {
       "action": "Run arm-none-eabi-nm on the CFW ELF and confirm every remaining weak symbol is an intentional fallback before handing a build over for hardware test.",
       "content_hash": "20b205c4afe04dd82f351f7bbc691b9c84d7eef8e264147d8f70470ee7f9de02",
       "id": "R-7cd6518a7e7b",
@@ -89,15 +118,15 @@
       }
     },
     {
-      "action": "Before adding a list view, compute rows = (DISPLAY_H - THEME_ITEM_H - THEME_MENU_TOP) / THEME_ITEM_H and check every right-hand column against DISPLAY_W; verify on hardware.",
-      "content_hash": "efb4a9eceed4657aa87a3e93794746866caff30242527c83176445bc026deb01",
-      "id": "R-1ddae0f0c00b",
+      "action": "When adding a fallback for a hardware/OS dependency, log the first time it engages (once, not per pass), and verify the dependency on hardware before tuning anything that depends on it.",
+      "content_hash": "ab12fde45434dee5908ec2d9b973ce3b14be8ea700c203a0634d1e32cfae0bef",
+      "id": "R-e68bf2428377",
       "incident_ids": [
-        "1df69d31-b1ac-40bc-8f39-30ff87398fb4"
+        "26eed982-5093-4d17-9b9a-ceb60392f5a2"
       ],
-      "invariant": "Every list on the 320x170 panel sizes its rows from the footer-safe area (never menu_page_size(), which counts the footer row), keeps page == window, and adds no column that cannot fit the width.",
+      "invariant": "A safety net that hides a broken dependency is a bug amplifier: when a fallback triggers, make it observable (log/counter) so the real failure cannot masquerade as a tuning problem.",
       "revision": 1,
-      "scope": "firmware/ui/screens",
+      "scope": "firmware/startup, firmware/services/input.c",
       "severity": "warning",
       "when": {
         "args": [
@@ -105,14 +134,13 @@
             "field": "files_touched",
             "op": "touches_any",
             "value": [
-              "firmware/ui/screens/library_screen.c",
-              "firmware/ui/screens/"
+              "firmware/startup/ap_ui.c"
             ]
           },
           {
             "field": "subsystem",
             "op": "eq",
-            "value": "ui/screens (layout)"
+            "value": "startup/ap_clock + input ladder"
           }
         ],
         "op": "any"
