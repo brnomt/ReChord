@@ -402,3 +402,10 @@ int player_get_track(track_info_t *out)
     out->track_no = 1;
     return PLAYER_OK;
 }
+
+/* FLAC decode diagnostics referenced by browser_screen (lives in
+ * player/codecs/flac.c on target; zeroed stubs for UI tests). Types match
+ * flac.c exactly. */
+unsigned      flac_diag_block, flac_diag_channels;
+unsigned long flac_diag_seektable, flac_diag_need;
+int           flac_diag_reason;

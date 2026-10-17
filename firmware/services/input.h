@@ -47,8 +47,10 @@ int input_push(int type, int adc_value);
 int input_map_adc(int adc_value);
 
 /* Feed one key sample (ADC ladder reading + power GPIO level, 1 = pressed).
- * Pushes one event per debounced press (2 equal samples); release and
- * hold produce nothing. Returns 1 if an event was pushed. */
+ * Pushes one event per debounced press: the key must map identically for
+ * INPUT_DEBOUNCE_SCANS consecutive samples (INPUT_DEBOUNCE_SCANS_VOL for
+ * the vol+- pair), matching the stock key scan (ref 0x03057eb0). Release
+ * and hold produce nothing. Returns 1 if an event was pushed. */
 int input_scan(int adc_value, int power);
 
 /* Host-mock helper: drop all queued events (also useful between test cases). */
@@ -61,6 +63,11 @@ unsigned input_pending(void);
 #ifndef INPUT_QUEUE_LEN
 #define INPUT_QUEUE_LEN 16
 #endif
+
+/* Debounce: consecutive identical samples required before a press
+ * registers (stock key scan ref 0x03057eb0 uses 3, and 8 for vol+-). */
+#define INPUT_DEBOUNCE_SCANS     3
+#define INPUT_DEBOUNCE_SCANS_VOL 8
 
 #define INPUT_OK        0
 #define INPUT_ERR_ARG (-1)

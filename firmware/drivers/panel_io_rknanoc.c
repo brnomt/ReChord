@@ -107,16 +107,62 @@ void backlight_on(void)
 }
 
 /* Keys (reference key scan 0x03057eb0): SAR-ADC at 0x400D0000 [0] data,
- * [1] status, [2] ctrl = ch | 0x08 power | 0x10 start, 0x40 irq status.
- * Returns the previous conversion and starts the next one on channel 1. */
+ * [1] status, [2] ctrl = ch | 0x08 power | 0x10 start, 0x40 irq status
+ * (clear-after-read). The reference pipelines "read previous, start next"
+ * but ONLY because its scan is rate-gated to 10 ms — every conversion is
+ * long done between reads.
+ *
+ * FIX 2026-10-16 (phantom keys under playback): our UI calls keys_adc()
+ * up to 8x per tick while a track plays (player_process returns instantly
+ * once the ring is full), so the old pipeline read ADC[0] MID-conversion
+ * and restarted the converter on every call. The stale/partial value was
+ * stable across the burst and mapped into wrong key bands (volume presses
+ * firing Menu/Select/Back — "jump into Test DAC", "pops to main menu").
+ * Now each call takes THREE fresh, fully-settled conversions and returns
+ * the median: every value is a completed conversion and single-sample
+ * noise cannot pick a band. */
 #define ADC ((volatile uint32_t *)0x400D0000u)
+
+/* ~50 us settle at the 24 MHz boot clock (24000 loops ~= 1 ms). The SAR
+ * conversion finishes in a few us; this bounds burst callers. */
+static void adc_settle(void)
+{
+    volatile unsigned n = 1200;
+
+    while (n--)
+        ;
+}
+
+static void adc_start(void)
+{
+    ADC[2] &= ~0x10u;                            /* stop                */
+    ADC[2] = (ADC[2] & ~0x47u) | 1u | 0x18u;     /* ch1 + power + start */
+}
+
 int keys_adc(void)
 {
-    int v = (int)(ADC[0] & 0x3FFu);
+    int s0, s1, s2;
 
-    ADC[2] &= ~0x10u;
-    ADC[2] = (ADC[2] & ~0x47u) | 1u | 0x18u;
-    return v;
+    adc_start();
+    adc_settle();
+    s0 = (int)(ADC[0] & 0x3FFu);
+    ADC[2] &= ~0x40u;                    /* clear int flag (ref pattern) */
+
+    adc_start();
+    adc_settle();
+    s1 = (int)(ADC[0] & 0x3FFu);
+    ADC[2] &= ~0x40u;
+
+    adc_start();
+    adc_settle();
+    s2 = (int)(ADC[0] & 0x3FFu);
+    ADC[2] &= ~0x40u;
+
+    /* median of three */
+    if (s0 > s1) { int t = s0; s0 = s1; s1 = t; }
+    if (s1 > s2) { int t = s1; s1 = s2; s2 = t; }
+    if (s0 > s1) { int t = s0; s0 = s1; s1 = t; }
+    return s1;
 }
 
 /* Power key: GPIO2.5 input, 1 = pressed (reference 0x03051b2c). */

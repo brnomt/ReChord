@@ -95,6 +95,8 @@
 #define NVIC_ICER1  REG32(0xE000E184u)   /* IRQn 32..63 clear-enable        */
 #define NVIC_ICPR1  REG32(0xE000E284u)   /* IRQn 32..63 clear-pending       */
 #define NVIC_IRQ32  1u                   /* INT_ID_I2S1                     */
+/* IRQn 32 priority byte (NVIC set-priority registers, one byte per IRQ). */
+#define NVIC_IPR_BYTE_IRQ32 (*(volatile uint8_t *)0xE000E420u)
 
 #define INTCR_TX_EMPTY   0x1u            /* Hw_i2s.h bit 0                  */
 #define INTCR_TX_UNDERR  0x2u            /* bit 1                           */

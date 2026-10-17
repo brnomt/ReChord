@@ -34,8 +34,15 @@ static const adc_band_t s_adc_bands[] = {
 
 static int s_scan_last = KEY_NONE;   /* previous raw sample   */
 static int s_scan_held = KEY_NONE;   /* debounced key, if any */
+static int s_scan_stable;            /* consecutive samples agreeing with
+                                      * s_scan_last (see input_scan)      */
 
 #define ADC_IDLE 1023   /* documented idle reading: no key pressed */
+
+/* Debounce constants (INPUT_DEBOUNCE_SCANS*) live in input.h; they match
+ * the stock key scan (ref 0x03057eb0): 3 consecutive samples for most
+ * keys, 8 for the vol+- pair (the keys that phantom-fired under playback
+ * when one sample was enough to "debounce"). */
 
 int input_map_adc(int adc_value)
 {
@@ -87,15 +94,21 @@ int input_poll(input_event_t *ev)
 int input_scan(int adc_value, int power)
 {
     int key = power ? KEY_POWER : input_map_adc(adc_value);
+    int needed = (key == KEY_UP || key == KEY_DOWN)
+                     ? INPUT_DEBOUNCE_SCANS_VOL : INPUT_DEBOUNCE_SCANS;
 
-    if (key != s_scan_last) {          /* not stable yet */
+    if (key != s_scan_last) {          /* changed: restart stability run */
         s_scan_last = key;
+        s_scan_stable = 1;
         return 0;
     }
-    if (key == s_scan_held)
+    s_scan_stable++;                   /* one more agreeing sample        */
+    if (s_scan_stable < needed)        /* fires on the N-th equal sample  */
+        return 0;
+    if (key == s_scan_held)            /* hold: no repeat               */
         return 0;
     s_scan_held = key;
-    if (key == KEY_NONE)
+    if (key == KEY_NONE)               /* debounced release             */
         return 0;
     return input_push(key, power ? -1 : adc_value) == INPUT_OK;
 }
@@ -106,6 +119,7 @@ void input_mock_clear(void)
     s_count = 0;
     s_scan_last = KEY_NONE;
     s_scan_held = KEY_NONE;
+    s_scan_stable = 0;
 }
 
 unsigned input_pending(void)

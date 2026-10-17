@@ -303,6 +303,12 @@ void rknano_i2s_attach(rknano_i2s_pull_fn pull, void *user)
     s_pull = pull;
     s_pull_user = user;
     s_feed_hold = 0;
+    /* Lowest NVIC priority (0xE0 = top 3 priority bits set; works for any
+     * implemented priority width). The TX feeder must never preempt or
+     * starve anything else (input/timers are polled today, but future IRQs
+     * must win). The feeder is short (~a dozen FIFO writes) and the 32 KiB
+     * ring means a delayed ISR cannot cause dropouts. */
+    NVIC_IPR_BYTE_IRQ32 = 0xE0u;
     NVIC_ICPR1 = NVIC_IRQ32;             /* unpend before enabling          */
     NVIC_ISER1 = NVIC_IRQ32;
     /* TX-empty only. The stock base value 0x01F00102 also enables the

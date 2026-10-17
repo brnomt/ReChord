@@ -152,12 +152,14 @@ void test_browser_pagination(void)
     e = ev(KEY_BACK); ui_handle_event(&e);
     CHECK_EQ_INT(ui_stack_depth(), 1);
 
-    /* an unopenable file still pushes Now Playing, showing the reason */
+    /* an unopenable file still pushes Now Playing, showing the reason
+     * (browser_screen renders the diagnostic code — "cannot open (-4)"
+     * for PLAYER_ERR_UNSUPPORTED; raw codes beat a generic message). */
     mock_player_set_open_rc(PLAYER_ERR_UNSUPPORTED);
     e = ev(KEY_SELECT); ui_handle_event(&e);
     CHECK_EQ_INT(mock_player_open_count(), 2);
     CHECK_EQ_INT(ui_stack_depth(), 2);
     ui_render();
-    CHECK(mock_display_text_find("unsupported format") >= 0);
+    CHECK(mock_display_text_find("cannot open (-4)") >= 0);
     CHECK(mock_display_text_find("f00") >= 0);   /* file name as title    */
 }

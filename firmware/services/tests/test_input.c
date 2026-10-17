@@ -101,20 +101,38 @@ static void test_adc_map(void)
 static void test_scan(void)
 {
     input_event_t ev;
+    int i;
 
     input_mock_clear();
     CHECK(input_scan(1023, 0) == 0);
-    CHECK(input_scan(130, 0) == 0);          /* 1st sample: not stable */
-    CHECK(input_scan(130, 0) == 1);          /* 2nd equal sample: press */
-    CHECK(input_scan(127, 0) == 0);          /* hold: no repeat */
-    CHECK(input_scan(1023, 0) == 0);
-    CHECK(input_scan(1023, 0) == 0);         /* release */
+    /* vol+ (130) needs INPUT_DEBOUNCE_SCANS_VOL identical samples. */
+    for (i = 1; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
+        CHECK(input_scan(130, 0) == 0);      /* not stable yet */
+    CHECK(input_scan(130, 0) == 1);          /* Nth equal sample: press */
+    CHECK(input_scan(130, 0) == 0);          /* hold: no repeat */
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
+        CHECK(input_scan(1023, 0) == 0);     /* debounced release */
+    /* A single-sample glitch (back band) is ignored. */
     CHECK(input_scan(500, 0) == 0);
-    CHECK(input_scan(1023, 0) == 0);         /* 1-sample glitch ignored */
-    CHECK(input_scan(1023, 1) == 0);
-    CHECK(input_scan(1023, 1) == 1);         /* power GPIO wins */
-    CHECK(input_pending() == 2);
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
+        CHECK(input_scan(1023, 0) == 0);
+    /* A bounce sweeping between bands never reaches N equal samples. */
+    for (i = 0; i < 40; i++)
+        CHECK(input_scan((i & 1) ? 130 : 250, 0) == 0);
+    /* play/select (250) needs only INPUT_DEBOUNCE_SCANS samples. */
+    for (i = 1; i < INPUT_DEBOUNCE_SCANS; i++)
+        CHECK(input_scan(250, 0) == 0);
+    CHECK(input_scan(250, 0) == 1);          /* 3rd equal sample: press */
+    CHECK(input_scan(250, 0) == 0);          /* hold: no repeat */
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
+        CHECK(input_scan(1023, 0) == 0);     /* release */
+    /* power GPIO wins once stable. */
+    for (i = 1; i < INPUT_DEBOUNCE_SCANS; i++)
+        CHECK(input_scan(1023, 1) == 0);
+    CHECK(input_scan(1023, 1) == 1);
+    CHECK(input_pending() == 3);
     CHECK(input_poll(&ev) == 1 && ev.type == KEY_UP && ev.adc_value == 130);
+    CHECK(input_poll(&ev) == 1 && ev.type == KEY_SELECT && ev.adc_value == 250);
     CHECK(input_poll(&ev) == 1 && ev.type == KEY_POWER && ev.adc_value == -1);
     input_mock_clear();
 }

@@ -2046,3 +2046,51 @@ Verified: all host tests pass (rg/replaygain/tags/ao included), `make
 cfw-ap` clean, `make cfw-img` RESULT: PASS (CRC 0x896AEAAB). Hardware
 check: music is at normal level; RG-tagged files track-neutral by default
 (RG still opt-in); DFIU 19b83f5e to verify after the user listens.
+
+## I. Session 2026-10-16 pm3 — phantom keys / UI instability during playback
+
+**Symptom:** volume-button presses caused phantom navigation (pop to main
+menu, jump into "Test DAC") — only while a track played.
+
+**Root cause (all three confirmed against the stock key scanner
+`FUN_03057eb0` via REA):**
+
+1. **Stale ADC reads on bursts.** `keys_adc()` (panel_io_rknanoc.c) copied
+   the reference's "read previous conversion, start next" pipeline — but
+   the reference ONLY works because its scan is rate-gated to 10 ms. Our
+   playing loop calls `input_scan()` up to 8x per tick (player_process
+   returns instantly once the ring is full), so each read hit ADC[0]
+   MID-conversion and restarted the converter: the stale value was stable
+   across the burst and mapped into wrong key bands (vol -> Menu/Select/
+   Back). This is why only playback mode misbehaved.
+2. **1-sample debounce.** `input_scan()` accepted a key after 2 equal
+   samples; the stock requires **3 identical consecutive scans (8 for
+   vol+-)** — one transient sample was enough to register here.
+3. **No IRQ priority policy.** I2S1 TX IRQ ran at default (highest)
+   priority.
+
+**Fixes (targeted; I2S wire format + ISR feeder untouched):**
+
+- `keys_adc()` now takes **three fresh, fully-settled conversions
+  (~50 us each) and returns the median** — every value is a completed
+  conversion, single-shot noise cannot pick a band.
+- `input_scan()` debounce: N consecutive identical samples before a press
+  registers (`INPUT_DEBOUNCE_SCANS` = 3, `INPUT_DEBOUNCE_SCANS_VOL` = 8,
+  input.h) — matches FUN_03057eb0; release also debounced, holds do not
+  repeat, band-sweeping bounce can never reach N equal samples.
+- `rknano_i2s_attach()` sets IRQ32 NVIC priority to **lowest** (0xE0);
+  input is polled main-loop work so it cannot be starved, and the 32 KiB
+  ring absorbs any ISR latency (no dropout risk).
+
+**UI stack audit:** `ui.c` bounds were already correct (push refuses
+NULL/full, pop reports empty, tests pin it). The phantoms came from bad
+EVENTS, not stack handling — those events now die at the input layer.
+
+**Test harness revival:** the UI suite had no runner (it bit-rotted: one
+stale text assertion). Added `firmware/ui/tests/run_tests.sh`, link-stub
+diag globals in mock_services (types match flac.c), and aligned one stale
+assertion (browser shows the diagnostic code "cannot open (-4)", the
+deliberate behavior). Now: services 167 checks + player + UI 262 checks
+all pass; `make cfw-ap` clean; `make cfw-img` RESULT: PASS (CRC
+0x5D5F2DA6). Hardware check: volume keys act as volume under playback;
+no phantom menu/Select navigation.
