@@ -13,9 +13,11 @@ $CC $CFLAGS -I.. -o .work/test_settings test_settings.c ../settings.c ../fs_host
 $CC $CFLAGS -I.. -o .work/test_log     test_log.c     ../log.c     ../fs_host.c
 $CC $CFLAGS -I.. -o .work/test_input   test_input.c   ../input.c
 $CC $CFLAGS -I.. -o .work/test_fs      test_fs.c      ../fs_host.c
+$CC $CFLAGS -I.. -o .work/test_store   test_store.c   ../store.c
 
 .work/test_settings
 .work/test_log
 .work/test_input
 .work/test_fs
+.work/test_store
 echo "ALL SERVICES TESTS PASSED"

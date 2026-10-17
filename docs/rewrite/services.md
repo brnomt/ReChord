@@ -115,6 +115,40 @@ Exactly one backend is linked per image: `fs_host.c` (host) or
 (`fs_host_set_root()` in `fs_host.h`, host-only header). Errors: negative
 `FS_ERR_*` codes; open calls return NULL.
 
+### 3.5 store.h (2026-10-17)
+
+```c
+typedef struct {
+    int (*read)(void *user, uint32_t lba, uint32_t count, void *buf);
+    int (*write)(void *user, uint32_t lba, uint32_t count, const void *buf);
+    void *user;
+} store_io_t;
+
+typedef struct { const store_io_t *io; uint32_t lba; uint16_t slot_sectors; } store_t;
+
+void     store_init(store_t *s, const store_io_t *io, uint32_t lba,
+                    uint16_t slot_sectors);
+uint32_t store_capacity(const store_t *s);   /* slot_sectors*512 - 32 */
+int      store_load(store_t *s, void *buf, uint32_t cap, uint32_t *out_len);
+int      store_save(store_t *s, const void *data, uint32_t len);
+```
+
+Crash-safe record store over **raw sectors, no filesystem**: two slots of
+`slot_sectors` sectors, each with a 32-byte header (magic `RCHS`, version,
+sequence, length, payload CRC32, header CRC32), payload-first /
+header-last writes and a verified read-back. `store_load()` returns the
+valid slot with the newest sequence number, so a cut at any point leaves
+the previous record authoritative; both slots invalid reads as *empty*
+(fresh region), never as a failed boot. CRC = the image-trailer poly
+(`0x04C10DB7`, bitwise here so it costs no 1 KiB table in .bss).
+
+Why not a file: our FAT **write** path is the one that bricked devices
+(DFIU `fa3968cd` / `15e1c9f5`); block writes above the eMMC user-volume
+floor are hardware-proven (USB MSC LUN0, `fw_update_retire`'s FAT/dirent
+sector writes). The store only ever touches the region the caller hands it
+(`lba .. lba+2*slot_sectors`) — placement is a caller contract, see
+BRNOMT-71 (settings) / BRNOMT-74 (media index). Costs no static RAM.
+
 ## 4. Format compatibility notes (drop-in facts)
 
 ### 4.1 `\RECHORD.CFG` — 12-key schema

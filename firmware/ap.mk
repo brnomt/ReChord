@@ -90,6 +90,7 @@ AP_SERVICE_SRCS := \
   firmware/services/settings.c \
   firmware/services/log.c \
   firmware/services/input.c \
+  firmware/services/store.c \
   firmware/services/fw_update.c \
   firmware/services/fs_target.c
 
