@@ -77,6 +77,13 @@ $CC $CFLAGS -I.. -o .work/test_codec_flac \
 $CC $CFLAGS -I.. -I../.. -o .work/test_ao_slots \
     test_ao_slots.c ../../audio/ao_rate_table.c
 
+# player_state persistence: magic/version/CRC save/load over fs_host,
+# corruption fallback, tick() save policy, restore semantics.
+$CC $CFLAGS -I.. -I../../services -o .work/test_player_persist \
+    test_player_persist.c mock_codec.c $PLAYER_SRCS ../codec_io_stdio.c \
+    $IO_DISPATCH ../ringbuf.c ../rg_math.c ../player_state.c \
+    ../../services/fs_host.c -lm
+
 .work/test_ringbuf
 .work/test_codec_wav
 .work/test_player_state
@@ -89,4 +96,5 @@ $CC $CFLAGS -I.. -I../.. -o .work/test_ao_slots \
 .work/test_codec_mp3
 .work/test_codec_flac
 .work/test_ao_slots
+.work/test_player_persist
 echo "ALL PLAYER TESTS PASSED"

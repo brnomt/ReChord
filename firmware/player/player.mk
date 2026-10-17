@@ -33,6 +33,7 @@ PLAYER_IPC_IMPL ?= $(PLAYER_DIR)/ipc_b_target.c
 # adapter TUs — they add no build entries here.
 PLAYER_SRCS := \
   $(PLAYER_DIR)/player.c \
+  $(PLAYER_DIR)/player_state.c \
   $(PLAYER_DIR)/ringbuf.c \
   $(PLAYER_DIR)/codec_io.c \
   $(PLAYER_CODEC_IO_IMPL) \

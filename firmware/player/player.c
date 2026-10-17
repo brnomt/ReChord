@@ -21,8 +21,6 @@
 #define PLAYER_PUMP_MIN_FRAMES  128   /* min ring room to bother decoding */
 #define PLAYER_PUMP_ROUNDS      8     /* bounded pump loop per process()  */
 #define PLAYER_PATH_MAX         128
-#define PLAYER_VOL_MIN_DB       (-60)
-#define PLAYER_VOL_MAX_DB       20
 
 typedef struct
 {
@@ -185,6 +183,20 @@ int player_enqueue(const char *path)
     idx = (g.q_head + g.q_count) % PLAYER_QUEUE_LEN;
     str_copy(g.queue[idx], PLAYER_PATH_MAX, path);
     g.q_count++;
+    return PLAYER_OK;
+}
+
+int player_queue_count(void)
+{
+    return g.q_count;
+}
+
+int player_queue_get(int index, char *out, int cap)
+{
+    if (out == 0 || cap <= 0 || index < 0 || index >= g.q_count)
+        return PLAYER_ERR_EMPTY;
+    str_copy(out, (unsigned)cap,
+             g.queue[(g.q_head + index) % PLAYER_QUEUE_LEN]);
     return PLAYER_OK;
 }
 

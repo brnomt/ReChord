@@ -32,5 +32,6 @@ uint32_t sd_sectors(void);           /* 0 = not initialized */
 int sd_is_hc(void);
 int sd_bus_width(void);
 int sd_read(uint32_t lba, uint32_t count, void *buf);
+int sd_write(uint32_t lba, uint32_t count, const void *buf);
 
 #endif

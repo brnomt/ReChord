@@ -17,6 +17,7 @@
 #include "services/fw_update.h"
 #include "services/input.h"
 #include "player.h"
+#include "player_state.h"
 #include "ui/ui.h"
 #include "ui/screens/screens.h"
 
@@ -42,8 +43,10 @@ static void emmc_probe(void)
     else
         snprintf(s_emmc, sizeof s_emmc, "%uM u%x", (unsigned)(emmc_sectors() >> 11),
                  (unsigned)(s_user = user));
-    if (s_user)
+    if (s_user) {
         fs_target_mount(0, "Internal", emmc_read, s_user);
+        fs_target_set_writer(0, emmc_write);   /* player_state lives here */
+    }
 }
 
 static const char *emmc_text(void) { return s_emmc; }
@@ -63,6 +66,7 @@ static void sd_probe(void)
         return;
     }
     r = fs_target_mount(1, "SD", sd_read, 0);
+    fs_target_set_writer(1, sd_write);         /* player_state lives here */
     snprintf(s_sd, sizeof s_sd, "%uM %s %db %s", (unsigned)(sd_sectors() >> 11),
              sd_is_hc() ? "HC" : "SC", sd_bus_width(),
              r ? (r == -3 ? "rd err" : "no fs") : fs_target_type(1));
@@ -210,6 +214,7 @@ static void update_prompt(void)
 
 static void power_off(void)
 {
+    player_state_sync();                 /* persist resume point first    */
     screen("Powering off");
     while (keys_power())
         panel_io_delay_ms(1);
@@ -235,6 +240,7 @@ static void usb_session(void)
     display_flush_rows(0, DISPLAY_H - 1);
     r = usb_msc_run(luns, 2, keys_power, &rd, &wr);
     fs_target_mount(0, "Internal", emmc_read, s_user);   /* host may have written */
+    fs_target_set_writer(0, emmc_write);                 /* writer cleared by mount */
     snprintf(s_usb, sizeof s_usb, "x%d r%uM w%uM", r, (unsigned)(rd >> 11), (unsigned)(wr >> 11));
     while (keys_power())                 /* don't leak the exit press */
         panel_io_delay_ms(1);
@@ -595,6 +601,10 @@ void ap_ui_loop(void)
         }
         if (ui_stack_depth() == 0)       /* BACK on the root menu */
             ui_push_screen(&menu_screen);
+
+        /* persist player state (lazy restore on the first pass; saves are
+         * debounced / heartbeat-limited inside player_state_tick). */
+        player_state_tick();
 
         /* audio pump + Now Playing sync (no-ops without a playing track).
          * While a track plays, decode ahead into the 32 KiB PCM ring: the

@@ -108,7 +108,10 @@ int   player_seek(long ms);
 int   player_next(void);
 int   player_get_state(void);
 long  player_get_position_ms(void);
+#define PLAYER_VOL_MIN_DB   (-60)   /* player_set_volume() clamp range    */
+#define PLAYER_VOL_MAX_DB   20
 int   player_set_volume(int db);
+int   player_get_volume(void);
 int   player_get_track(track_info_t *out);
 
 /* ---- extensions (UI glue / host tests) ---- */
@@ -120,6 +123,12 @@ int   player_register_codec(const char *ext, const codec_t *codec);
 
 /* Append `path` to the next-track queue (FIFO, PLAYER_QUEUE_LEN deep). */
 int   player_enqueue(const char *path);
+
+/* Queue introspection (player_state persistence). queue_get copies the
+ * index-th queued path (0 = next up) into out; returns PLAYER_OK or
+ * PLAYER_ERR_EMPTY for an out-of-range index. */
+int   player_queue_count(void);
+int   player_queue_get(int index, char *out, int cap);
 
 /* Pump one streaming step: refill the ipc_b ring from the codec and run
  * end-of-track/auto-advance bookkeeping. Call periodically (UI loop / the

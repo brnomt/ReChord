@@ -2203,3 +2203,58 @@ Confirmed requirements already satisfied:
 
 All suites pass; `make cfw-img` RESULT: PASS (CRC unchanged, no wire-
 format touched).
+
+## M. Session 2026-10-16 pm7 — persistent player state (SD) + FAT write layer
+
+**Deliverable:** `firmware/player/player_state.{c,h}` — resume point
+(track path + position), queue context, duration, flags, and the user
+volume, saved to `SD/PLAYER.STA`. Loaded lazily on the first UI pass,
+synced on a debounced/heartbeat policy and forced at `power_off()`.
+Restore = open + seek + volume + re-enqueue (deliberately NO auto-play).
+
+**Schema:** fixed 1180 B struct — `magic 'PSTA' | version | flags |
+volume_db | position_ms | duration_ms | queue_count | path[128] |
+queue[8][128] | crc32` (IEEE CRC-32, bitwise, no table/malloc). Unknown
+version / bad magic / short file / bad CRC -> silent defaults. Extending
+= add fields before crc32 + bump `PLAYER_STATE_VERSION`.
+
+**Write policy (flash wear):** structural changes (track/volume/pause/
+queue) save after 60 quiet UI passes; position drift heartbeats one save
+per 30 s of playback; `player_state_sync()` at shutdown. Volume restore
+before the first configure() is CACHE-ONLY (`s_dac_ready` guard — an I2C
+ramp to the unpowered DAC would spin in i2c_wait timeouts at boot).
+
+**THE HIDDEN BLOCKER — the target filesystem was READ-ONLY.** Both prior
+attempts died here: `fs_target`'s `fs_open_write` returned NULL, there was
+no `sd_write` at all, and the brick branch (`feat/config-logging`,
+fcd6b8c — DFIU cacf65c6/a14e948f) added `fs_rename` on "the read-only
+target FAT backend" and mixed two config logics. Inspected, NOT merged.
+Lessons taken: no tmp+rename (fs_rename unsupported on device -> magic/
+version/CRC full-file rewrite is the atomic strategy), and ONE state file
+(no dual-config conflict). Built instead:
+
+- `fs_target.c`: FAT16/32 **root-file writes** — create/overwrite, 8.3
+  names, mirrored FAT updates, sequential write with cluster chaining,
+  and commit order **data clusters -> FAT -> directory entry** (a torn
+  write leaves the old file or an orphan chain; the old chain is only
+  reclaimed AFTER the dirent lands — worst case leaks, never corrupts).
+  exFAT refuses writes (bitmap out of scope). Writers are opt-in per
+  volume: `fs_target_set_writer()` (mount clears it).
+- `emmc_rknanoc.c`: `sd_write()` (CMD24/25 via a shared `block_write`
+  twin of `block_read`) — SD had no write primitive at all. Wired
+  `Internal` (emmc_write) + `SD` (sd_write) in ap_ui (all 3 mount sites).
+- `player.h`: `player_queue_count/get` accessors + volume clamp constants
+  moved public; `audio_output` got `s_dac_ready`/`s_volume_applied`.
+
+**Verified:** NEW `test_fs_write` (services, 30 checks): real in-memory
+FAT16 image — create/overwrite/coexist/multi-cluster writes, name and
+read-only refusals, and **re-mount consistency** (what landed on disk is
+valid FAT). NEW `test_player_persist` (player, 30 checks): round trip,
+corruption firewall (garbage/short/bad magic/future version), restore
+semantics, debounce + heartbeat policy. All suites pass; `make cfw-ap`
+clean; `make cfw-img` RESULT: PASS (CRC 0xFC725983).
+
+**Hardware checklist:** (1) play a track, change volume, power off
+(battery!) -> reboot -> resume point + volume + queue back; (2) the SD
+card still lists music in the browser afterwards (fsync/fsck sanity);
+(3) no boot hang before the first track (volume-cache guard).

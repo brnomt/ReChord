@@ -298,16 +298,16 @@ int emmc_read(uint32_t lba, uint32_t count, void *buf)
     return block_read(lba, count, buf);
 }
 
-static int raw_write(uint32_t lba, uint32_t count, const void *buf)
+/* CMD24/CMD25 (+CMD12) on the selected instance; arg = card address. */
+static int block_write(uint32_t arg, uint32_t count, const void *buf)
 {
     int ret, r;
 
-    select_mmc(0);
     clk_gate(0x6C, 1);
     if (count == 1u) {
-        ret = xfer_data(24, lba, (uint32_t *)buf, 512, 1);
+        ret = xfer_data(24, arg, (uint32_t *)buf, 512, 1);
     } else {
-        ret = xfer_data(25, lba, (uint32_t *)buf, count << 9, 1);
+        ret = xfer_data(25, arg, (uint32_t *)buf, count << 9, 1);
         r = send_cmd(12, RCA_ARG, F_RESP | F_CRC | F_STOP, 1);
         if (!ret)
             ret = r;
@@ -317,6 +317,12 @@ static int raw_write(uint32_t lba, uint32_t count, const void *buf)
         ret = -31;
     clk_gate(0x6C, 0);
     return ret;
+}
+
+static int raw_write(uint32_t lba, uint32_t count, const void *buf)
+{
+    select_mmc(0);
+    return block_write(lba, count, buf);
 }
 
 /* Refuses anything below the user volume: IDB and firmware slots are
@@ -498,6 +504,19 @@ int sd_read(uint32_t lba, uint32_t count, void *buf)
         return -30;
     select_mmc(1);
     return block_read(s_sd_hc ? lba : lba << 9, count, buf);
+}
+
+/* SD twin of emmc_write (CMD24/25 via the shared block_write). Same
+ * addressing rule as sd_read. Registered with the fs as the "SD" volume
+ * writer (fs_target_set_writer) for player_state persistence. */
+int sd_write(uint32_t lba, uint32_t count, const void *buf)
+{
+    if (count == 0u)
+        return 0;
+    if (!s_sd_sectors || lba + count < lba || lba + count > s_sd_sectors)
+        return -30;
+    select_mmc(1);
+    return block_write(s_sd_hc ? lba : lba << 9, count, buf);
 }
 
 static uint32_t s_buf[256];

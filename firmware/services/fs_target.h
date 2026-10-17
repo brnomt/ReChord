@@ -12,6 +12,13 @@
 /* Block reader: absolute device sectors, 4-byte aligned buffer, 0 = ok. */
 typedef int (*fs_block_read_t)(uint32_t lba, uint32_t count, void *buf);
 
+/* Block writer: same shape. Volumes are READ-ONLY until a writer is
+ * registered with fs_target_set_writer(); the write path covers
+ * single-component files in the volume ROOT on FAT16/FAT32 (exFAT
+ * stays read-only). fs_target_mount() clears any registered writer. */
+typedef int (*fs_block_write_t)(uint32_t lba, uint32_t count, const void *buf);
+int fs_target_set_writer(int idx, fs_block_write_t wr);
+
 /* Mounts FAT16 / FAT32 / exFAT found at `base` (superfloppy or MBR
  * partition 0) as volume `idx` named `name`. 0, or FS_ERR_* (unsupported
  * file system, I/O). */
