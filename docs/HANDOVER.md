@@ -3023,3 +3023,23 @@ guess, the failure is now self-describing:
 
 **Build:** AP5M CRC `0x992077C3`, sha256
 `26daf28533059c74bf3c0a644f2001d4b7599a60926da9442694a72fcbc3c670`.
+
+### AE.2 The log was rewritten, not appended (the user was right)
+
+Reported: `/.rechord/LOG` only held `0.000 log flush (usb)`, i.e. the forensic
+line from a failed rebuild was gone. The cause was my design: the target
+writer rewrote the file with the pending ring on every flush, so each flush
+(USB entry, power off) wiped the previous one -- the opposite of what
+diagnostics need. The writer now APPENDS through `fs_append()` and rotates
+(truncates) only when the file would pass 32 KiB, so history survives across
+flushes and sessions until the rotation point.
+
+Also noted: the lines are stamped `0.000`, so the log clock is not ticking --
+`ap_ms()` (the DWT cycle counter) reads 0 on this hardware. That is the same
+root cause as the hold-repeat ladder never accelerating (it silently falls back
+to the synthetic per-scan clock, the safety net built for exactly this): the
+next fix is a working millisecond source (SysTick as a free-running counter,
+with wrap tracking, no interrupt needed).
+
+**Build:** AP5M CRC `0x7AD9565E`, sha256
+`7247ffb7a88503a47e4164554ff2b91c4275685eca5701eae12e999ef3db224b`.

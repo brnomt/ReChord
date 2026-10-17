@@ -62,11 +62,27 @@ static void ap_clock_init(void)
     log_init((log_clock_fn)ap_ms);
 }
 
-/* The log file lives in the device's own folder and is rewritten in place
- * (this backend has no append): one flush = the recent ring, one write. */
+/* The log file lives in the device's own folder. Flushes APPEND, so history
+ * survives until the file reaches LOG_FILE_MAX, at which point it is truncated
+ * and starts over (a rotating log: a session's forensics must not be wiped by
+ * the next flush, which is what a rewrite did). */
+#define LOG_FILE_MAX (32u * 1024u)
+
 static int log_write_file(const char *path, const char *text, unsigned len)
 {
-    return fs_target_file_rewrite(path, text, len) == FS_OK ? 0 : -1;
+    fs_file_t *f = fs_open_read(path);
+    long size = f ? fs_file_size(f) : 0;
+
+    if (f != 0)
+        fs_close(f);
+    if (size < 0)
+        size = 0;
+    if ((unsigned long)size + len > LOG_FILE_MAX) {
+        /* Rotate: start over rather than growing without bound. */
+        if (fs_truncate(path) != FS_OK)
+            return -1;
+    }
+    return fs_append(path, text, len) == FS_OK ? 0 : -1;
 }
 
 /* USB storage exposes the volume to the PC: flush the log first so the user

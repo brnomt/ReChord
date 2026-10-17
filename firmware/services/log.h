@@ -48,10 +48,11 @@ typedef unsigned long (*log_clock_fn)(void);
 void log_init(log_clock_fn clock_ms);
 
 /* Optional whole-file writer: when set, log_flush() assembles the pending
- * lines and hands them over in ONE call (the target rewrites the log file in
- * place — it has no append — so the file always holds the last flush), and
- * the buffer is cleared only if the writer reports success. Without a writer
- * the stdio append path is used (host tools/tests). Returns 0 on success. */
+ * lines and hands them over in ONE call. The writer is expected to APPEND
+ * them (the target implemented it as a rewrite at first, which lost the
+ * previous flush -- exactly what diagnostics need), and the buffer is cleared
+ * only if the writer reports success. Without a writer the stdio append path
+ * is used (host tools/tests). Returns 0 on success. */
 typedef int (*log_write_fn)(const char *path, const char *text, unsigned len);
 void log_set_writer(log_write_fn wr);
 
