@@ -7,9 +7,11 @@
  * consumer (B). The Cortex-M3 has no data cache, and each side publishes its
  * index with a DMB, so no cache maintenance is needed.
  *
- * Ring: 32 KiB of interleaved int32 stereo frames (8 bytes), left-justified
- * (the internal pipeline format). The AP writes [wr] then DMB then updates
- * IPC_SH_WR; B reads WR, copies, then updates IPC_SH_RD.
+ * Ring: 64 KiB of interleaved int32 stereo frames (8 bytes), left-justified
+ * (the internal pipeline format) — exactly one 8192-sample FLAC block at
+ * 96 kHz (85.3 ms), so the AP's atomic per-block decode has the whole block
+ * of slack. The AP writes [wr] then DMB then updates IPC_SH_WR; B reads WR,
+ * copies, then updates IPC_SH_RD.
  */
 #ifndef RECHORD_IPC_SHARED_H
 #define RECHORD_IPC_SHARED_H
@@ -18,7 +20,7 @@
 
 #define IPC_SHARED_BASE   0x01020000u
 #define IPC_RING_BASE     0x01010000u
-#define IPC_RING_BYTES    (32u * 1024u)
+#define IPC_RING_BYTES    (64u * 1024u)
 #define IPC_RING_MASK     (IPC_RING_BYTES - 1u)
 
 _Static_assert(IPC_RING_BASE >= 0x01000000u, "ring must stay in HIGHRAM0");

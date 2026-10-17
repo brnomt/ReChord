@@ -37,5 +37,6 @@ SECTIONS
     } > BCODE
 }
 
-/* Top of HIGHRAM0 (the shared block starts at 0x01020000). */
-__bb_stack_top = 0x01020000;
+/* Stack top just BELOW the 64 KiB PCM ring (0x01010000..0x01020000); it grows
+ * down into the (tiny) image region, never into the ring. */
+__bb_stack_top = 0x01010000;

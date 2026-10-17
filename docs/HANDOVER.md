@@ -3301,7 +3301,7 @@ preserved; a custom section_3 is the `apbb-experimental` brick path (later).
 
 The AP still decodes; the **renderer moved to B**. New shared layout
 (`firmware/player/ipc_shared.h`, used by both cores): control block at
-`0x01020000`, PCM ring (32 KiB, int32 stereo frames) at `0x01010000` inside
+`0x01020000`, PCM ring (64 KiB, int32 stereo frames) at `0x01010000` inside
 HIGHRAM0. Single producer (AP) / single consumer (B), free-running byte
 indices, DMB publishes (Cortex-M3 has no data cache).
 
@@ -3314,10 +3314,16 @@ indices, DMB publishes (Cortex-M3 has no data cache).
   frames/underruns in the control block. No IRQ, no libc: B is dedicated.
 - The AP's 32 KiB ring static is gone -> `_bss_end` drops to **`0x030418ac`**
   (~34 KB free under 0x0304A000).
+- **First hardware test (32 KiB ring):** boot + "Core B: ready"; 44.1/16
+  perfect and the UI fluid; 96k/24 nearly perfect but crackles that grow as
+  the track advances. Diagnosis: one FLAC block at 96k is 85.3 ms > the
+  42.7 ms ring, so the ring was raised to **64 KiB** (= one block, 85.3 ms)
+  and `IPC_B_RING_BYTES` (the player's free-space math) matched to it; the B
+  stack top moved below the ring (`0x01010000`).
 
-**Build:** AP5M CRC `0xA8378ADE`, sha256
-`3a4257e333ddad41ae48a2b727e820cdd2c8a9a9f6c6c393118ecfe38103abc4`; player
+**Build:** AP5M CRC `0x4B2829D7`, sha256
+`20acbd3fcce27e415fa9c3c79e36e45a224facba9da464281bc35d82d7592450`; player
 host suite green.
-**Status: NOT hardware-tested.** Expected: 44.1/16 identical; 96k/24 may still
-stutter because the AP still decodes (that is phase 3). If audio is silent,
-the STATE/ring handoff is wrong.
+**Status:** 32 KiB build hardware-tested (see above); the 64 KiB ring is the
+next test. 96k may still stutter if the AP's decode throughput is below real
+time — that is phase 3 (decode on B).
