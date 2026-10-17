@@ -3002,3 +3002,24 @@ to `codec_meta_t` and the parser (one header pass, stack buffers):
 MEDIA_VERSION 2 -> reindex required) -> unique-name lists built during the scan
 (in the scratch, sorted, stored in the index, "Undefined" first) -> the Library
 category menu + the generic category screen.
+
+### AE.1 "Rebuild index failed" after the tag-fields build (diagnostics first)
+
+Report on build 0x3344ADF8: it boots, but the rebuild ends in "failed". The
+scan itself works on the previous builds (the user indexed ~800 files on
+0x1954E0CE), so something between those two changed it -- the tag fields are
+the only change on that path, and nothing obvious explains it yet. Rather than
+guess, the failure is now self-describing:
+
+- the screen says `failed <rc>` (and `aborted` for a user abort);
+- the LOG gets one line per stage: `index: begin rc N`, `index: scan rc N, M
+  files`, `index: end rc N`, plus the existing `index: rebuild ok/rc`.
+  Code meanings: -1 begin (slot/scratch), -2 open, -3 io, -4 unsupported,
+  MEDIA_SCAN_ABORTED for a user abort. The LOG is flushed on the USB-storage
+  entry, so plugging in and opening `/.rechord/LOG` shows exactly where it
+  stopped.
+- The scan's recursion is shallower (5) and its per-level path buffers are the
+  record size, to leave the small stack alone.
+
+**Build:** AP5M CRC `0x992077C3`, sha256
+`26daf28533059c74bf3c0a644f2001d4b7599a60926da9442694a72fcbc3c670`.

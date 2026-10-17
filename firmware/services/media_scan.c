@@ -19,11 +19,12 @@
 #include "fs.h"
 #include "media_db.h"
 #include "media_scan.h"
+#include "log.h"
 
 #include "../player/codec.h"
 #include "../player/tags.h"
 
-#define SCAN_DEPTH_MAX 8
+#define SCAN_DEPTH_MAX 5
 
 static media_scan_progress_t s_progress;
 static uint32_t s_files;
@@ -127,7 +128,7 @@ static int walk(const char *dev_path, const char *rel_path, int depth)
     if (depth > SCAN_DEPTH_MAX)
         return FS_OK;
     for (i = 0; fs_list_dir(dev_path, i, &e, 1u, &count, &total) == FS_OK && count; i++) {
-        char sub_dev[128], sub_rel[MEDIA_PATH_MAX];
+        char sub_dev[MEDIA_PATH_MAX], sub_rel[MEDIA_PATH_MAX];
 
         if (snprintf(sub_dev, sizeof sub_dev, "%s/%s", dev_path, e.name)
                 >= (int)sizeof sub_dev)
@@ -162,14 +163,18 @@ int media_scan_build(media_scan_progress_t progress)
     s_files = 0;
     s_aborted = 0;
     r = media_db_begin();
+    log_printf("index: begin rc %d", r);
     if (r != FS_OK)
         return r;
     r = walk("/Internal", "Internal", 0);
     if (r == FS_OK)
         r = walk("/SD", "SD", 0);
+    log_printf("index: scan rc %d, %lu files", r, (unsigned long)s_files);
     if (r != FS_OK) {
         media_db_abort();
         return r;
     }
-    return media_db_end();
+    r = media_db_end();
+    log_printf("index: end rc %d", r);
+    return r;
 }

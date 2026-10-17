@@ -121,6 +121,9 @@ static void index_rebuild_run(void)
         }
         log_printf("index: rebuild ok, %lu tracks", (unsigned long)tracks);
     } else {
+        /* The code says where it stopped: -1 begin (scratch/slot), -2 open,
+         * -3 io, -4 unsupported; MEDIA_SCAN_ABORTED is its own value. */
+        snprintf(b, sizeof b, r == MEDIA_SCAN_ABORTED ? "aborted" : "failed %d", r);
         log_printf("index: rebuild rc %d (previous index kept)", r);
         snprintf(b, sizeof b, r == MEDIA_SCAN_ABORTED ? "aborted" : "failed");
         line(1, b);
