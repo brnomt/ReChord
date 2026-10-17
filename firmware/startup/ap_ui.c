@@ -25,6 +25,7 @@ static unsigned s_power_held;
 static uint32_t s_user;              /* user volume start, 0 = unknown */
 static char s_emmc[32], s_usb[32] = "plug in", s_sd[32];
 static int s_sd_in = -1;
+static int s_volume_seen;            /* last volume persisted (see loop) */
 
 /*
  * Millisecond clock for the input hold ladder (services/input.h). The
@@ -589,6 +590,13 @@ void ap_ui_loop(void)
     /* User theme override from the internal volume (optional file, see
      * THEME_FILE_PATH). Before the first push so the first frame uses it. */
     (void)theme_boot_load();
+    /* Volume is runtime state: the player owns it while playing, so load the
+     * saved value into the player here and let the loop below persist later
+     * changes. */
+    settings_screen_reload();
+    player_set_volume(settings_screen_get()->volume_db);
+    player_screen_set_volume(player_get_volume());
+    s_volume_seen = player_get_volume();
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
     for (;;) {
@@ -610,9 +618,11 @@ void ap_ui_loop(void)
         s_cable = cable;
 
         /* power-hold: debounced (see power_hold_step); ~2 s of held power
-         * turns the device off. */
-        if (power_hold_step(power))
+         * turns the device off. Flush any pending settings write first. */
+        if (power_hold_step(power)) {
+            settings_screen_store();
             power_off();
+        }
 
         /* live "Keys" row on the root menu: hardware check without a log */
         if ((adc - s_adc > 8 || s_adc - adc > 8 || power != s_power) &&
@@ -638,6 +648,17 @@ void ap_ui_loop(void)
         }
         if (ui_stack_depth() == 0)       /* BACK on the root menu */
             ui_push_screen(&menu_screen);
+
+        /* Volume is owned by the player module while playing, so watch it
+         * here rather than in the player screen (which has no clock): adopt
+         * a change into the settings view and let the screen write it once
+         * the keys have been quiet (SETTINGS_FLUSH_QUIET_MS), so a volume
+         * sweep is one save instead of one per step. */
+        if (player_get_volume() != s_volume_seen) {
+            s_volume_seen = player_get_volume();
+            settings_screen_volume_changed(s_volume_seen, ap_ms());
+        }
+        settings_screen_flush_pending(ap_ms());
 
         /* audio pump + Now Playing sync (no-ops without a playing track).
          * While a track plays, decode ahead into the 32 KiB PCM ring: the

@@ -126,4 +126,13 @@ const rechord_settings_t *settings_screen_get(void);
 const menu_model_t       *settings_screen_model(void);
 const menu_view_t        *settings_screen_view(void);
 
+/* Runtime state that lives outside the settings screen. The volume is owned
+ * by the player module while playing, so the screen is *told* about changes
+ * and defers the write: a volume sweep must end up as one settings_save(),
+ * not one per step. Callers pass their millisecond clock; the flush happens
+ * once the value has been quiet for SETTINGS_FLUSH_QUIET_MS. */
+#define SETTINGS_FLUSH_QUIET_MS 800
+void settings_screen_volume_changed(int volume_db, unsigned now_ms);
+void settings_screen_flush_pending(unsigned now_ms);
+
 #endif /* RECHORD_UI_SCREENS_H */

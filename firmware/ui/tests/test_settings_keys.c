@@ -203,10 +203,54 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(mock_settings_save_count(), 1);
 }
 
+/* Volume is runtime state owned by the player module: a sweep must end up as
+ * one save, once the keys have been quiet, and the saved value must be the
+ * one the player ended on. */
+static void test_settings_volume_flush(void)
+{
+    ui_init();
+    mock_display_reset();
+    mock_services_reset();
+
+    settings_screen_reload();
+    CHECK_EQ_INT(settings_screen_get()->volume_db, -23);   /* default */
+    CHECK_EQ_INT(mock_settings_save_count(), 0);
+
+    /* A sweep: every step re-arms the quiet deadline. */
+    settings_screen_volume_changed(-10, 1000);
+    settings_screen_flush_pending(1100);                   /* too early */
+    CHECK_EQ_INT(mock_settings_save_count(), 0);
+    settings_screen_volume_changed(-9, 1200);
+    settings_screen_flush_pending(1700);                   /* 500 ms    */
+    CHECK_EQ_INT(mock_settings_save_count(), 0);
+    settings_screen_flush_pending(2000);                   /* quiet     */
+    CHECK_EQ_INT(mock_settings_save_count(), 1);
+
+    /* Re-loading reads the saved store: the value that was written is the
+     * last volume of the sweep, not an intermediate one. */
+    settings_screen_reload();
+    CHECK_EQ_INT(settings_screen_get()->volume_db, -9);
+
+    /* A second sweep writes once more, and never twice for one change. */
+    settings_screen_volume_changed(0, 5000);
+    settings_screen_flush_pending(5800);
+    CHECK_EQ_INT(mock_settings_save_count(), 2);
+    settings_screen_flush_pending(9000);
+    CHECK_EQ_INT(mock_settings_save_count(), 2);           /* nothing left */
+
+    /* A plain settings save covers a pending flush (BACK / power-off). */
+    settings_screen_volume_changed(-5, 10000);
+    settings_screen_store();
+    CHECK_EQ_INT(mock_settings_save_count(), 3);
+    settings_screen_flush_pending(20000);
+    CHECK_EQ_INT(mock_settings_save_count(), 3);
+}
+
 void test_settings_keys(void)
 {
     test_schema_table();
     test_defaults_and_format();
     test_key_field_mapping();
     test_settings_screen_binding();
+    test_settings_volume_flush();
 }

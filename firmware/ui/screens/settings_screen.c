@@ -18,6 +18,8 @@
 static rechord_settings_t s_settings;
 static menu_view_t        s_view;
 static menu_item_t        s_items[SETTING_KEY_COUNT];
+static unsigned           s_flush_at_ms;   /* volume flush deadline      */
+static int                s_volume_dirty;  /* a volume save is pending   */
 
 /* value_text callbacks must return stable storage: one scratch slot per key */
 static char s_value_buf[SETTING_KEY_COUNT][32];
@@ -100,8 +102,41 @@ void settings_screen_reload(void)
 
 void settings_screen_store(void)
 {
+    /* This save covers any pending runtime-state write (volume), otherwise a
+     * later flush would write the same values a second time. */
+    s_volume_dirty = 0;
+    s_flush_at_ms = 0;
     if (settings_view_save(&s_settings) != 0)
         log_printf("settings: save failed");
+}
+
+/*
+ * Runtime-state writes (volume). The value is adopted immediately — the view
+ * is what the config file is written from — but the save is armed instead of
+ * executed, so holding vol+/- writes once when the keys go quiet.
+ */
+void settings_screen_volume_changed(int volume_db, unsigned now_ms)
+{
+    if (volume_db < -60)
+        volume_db = -60;
+    if (volume_db > 20)
+        volume_db = 20;
+    s_settings.volume_db = volume_db;
+    s_flush_at_ms = now_ms + SETTINGS_FLUSH_QUIET_MS;
+    s_volume_dirty = 1;
+}
+
+void settings_screen_flush_pending(unsigned now_ms)
+{
+    if (!s_volume_dirty)
+        return;
+    /* `now_ms - s_flush_at_ms` wraps correctly even past the 32-bit ms wrap,
+     * and a zero deadline means the caller's clock is not usable: save now. */
+    if (s_flush_at_ms == 0 ||
+        (int)(now_ms - s_flush_at_ms) >= 0) {
+        s_volume_dirty = 0;
+        settings_screen_store();
+    }
 }
 
 /* ---- screen vtable ----------------------------------------------------- */

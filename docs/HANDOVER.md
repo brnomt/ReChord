@@ -2583,3 +2583,60 @@ first step, ~0.25 s/step, then after ~1 s more, one step per frame (~10-20/s
 `accent=0xF800` + `background=0x0000`, power-cycle and check the UI picks
 the colors up (a broken file must leave the UI unchanged); (3) the settings
 round-trip again, as a regression.
+
+## V. Session 2026-10-17 (cont.) — volume is now runtime state; where the file-creation limit really is
+
+**Device report on `0xE6B7A5D0`:** no acceleration yet (user deprioritised
+it: "nvm it's not important right now"), **volume did not persist**, and
+neither did the last track / playback position. Plus the key question: why
+can't the firmware create its own files (`.cfg`, the DB)?
+
+**V1 — volume persistence.** The volume is owned by the *player module*
+while playing (`player_screen` calls `player_set_volume()`), and nothing ever
+wrote it into the settings view, so the `.cfg` kept whatever value it had.
+The settings screen now owns that runtime state:
+
+- `settings_screen_volume_changed(db, now_ms)` adopts the value into the
+  view and **arms** a write (`SETTINGS_FLUSH_QUIET_MS` 800 ms);
+  `settings_screen_flush_pending(now_ms)` performs it once quiet, so a
+  volume sweep is one `settings_save()` instead of one per step;
+  `settings_screen_store()` covers a pending flush (BACK, power-off).
+- `ap_ui_loop()` applies the saved volume at boot
+  (`player_set_volume(settings_screen_get()->volume_db)`) and watches
+  `player_get_volume()` each pass, feeding changes to the screen with
+  `ap_ms()`. The power-hold path saves before `power_off()`.
+- Test caught a bug in the first cut: `store()` cleared the deadline but not
+  the pending flag, so a later flush wrote the same values twice. Now it
+  clears both (test_settings_keys +7 checks).
+
+**V2 — why files can't be created (yet), and why that is now a smaller
+question than it looks.** The device can only rewrite data sectors of a file
+that already exists (`fs_target_file_rewrite`, device-proven by this very
+`.cfg`). Creating anything needs the *allocation* path: a free-cluster
+search, a FAT chain written to **both** FATs, a dirent (and a new cluster for
+a directory). That path was deliberately never enabled because the project
+bricked twice while it was being developed — but §R/§T settled that: **the
+bricks were the `.bss` ceiling at 0x0304A000, not the FAT code** (that code
+never ran at boot; the linker now makes the failure impossible). So:
+
+- risk is down to ordinary FAT correctness, which is *testable on the host*:
+  `tools/test_fs_target.py` already validates writes against kernel-made
+  FAT16/FAT32/exFAT images with `fsck` — the allocator gets the same
+  treatment before it ever runs on the device;
+- flashing it is an A/B step of its own (bss gate + a fresh image);
+- it unblocks: first-boot `/.rechord/` init, a state file for resume, and the
+  BRNOMT-74 index.
+
+**V3 — resume (last track + position) is a feature, not a bug fix.** Nothing
+records the current track/position today; `resume` in the schema only says
+*what* to resume. Two designs, to be chosen before implementing:
+(a) two extra keys in the existing `.cfg` (`track=`, `pos_ms=`) — no new
+file, no allocator, but the config stops being the reference's 12-key layout;
+(b) a separate `/.rechord/state` written the same in-place way — clean
+separation of settings (user) from state (runtime), needs the allocator from
+V2 first, and is the same file the index work will want.
+
+**Build:** `_bss_end 0x030497d4` (284,436 B), text 111,572 B — ~2.1 KB under
+the gate. All host suites green; `make cfw-img` RESULT: PASS — AP5M CRC
+`0x29C435B6`, sha256
+`5cea1b9b63d4b7838d14c0c18c11c949c10239ade2759a155871015fd13a52ea`.
