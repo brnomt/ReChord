@@ -72,6 +72,11 @@ $CC $CFLAGS -I.. -o .work/test_codec_flac \
     test_codec_flac.c ../codecs/flac.c ../tags.c \
     ../codec_io_stdio.c $IO_DISPATCH -lm
 
+# Audio HAL pure pieces: slot packing + the per-rate table constants
+# (regression guard for the 2x-speed framing bug class, DFIU 75271e5f).
+$CC $CFLAGS -I.. -I../.. -o .work/test_ao_slots \
+    test_ao_slots.c ../../audio/ao_rate_table.c
+
 .work/test_ringbuf
 .work/test_codec_wav
 .work/test_player_state
@@ -83,4 +88,5 @@ $CC $CFLAGS -I.. -o .work/test_codec_flac \
 .work/test_tags
 .work/test_codec_mp3
 .work/test_codec_flac
+.work/test_ao_slots
 echo "ALL PLAYER TESTS PASSED"

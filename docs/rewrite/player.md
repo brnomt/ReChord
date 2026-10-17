@@ -187,6 +187,17 @@ Rules for the vendored drop:
    (the `busy 10%, out min 5576` telemetry gives the reference workload
    shape), then size `PLAYER_CODEC_STATE_MAX` to the largest adapter state.
 
+Codec contract (2026-10-16 refactor, `player/codec.h`): the vtable IS the
+unified codec interface — `init()` (optional one-time setup, called from
+`player_register_codec()`; the hook a fixed-point Opus port would use),
+`open(file)`, `format()` = `get_format(sample_rate, bits, channels)`,
+`decode()` = `decode_frame(pcm, max)`, `close()`, plus the optional
+seek/duration/gapless/tags extensions. Codecs stay pure software
+transforms (codec_io only — no I2C/I2S/clock/DMA knowledge); the
+hardware side is the `audio_output` HAL (docs/rewrite/audio.md §6).
+**Opus is a reserved drop-in slot**: porting it means adding
+`codecs/opus/` + one `codec_opus.c` descriptor — zero core changes.
+
 ## 5. Files
 
 ```

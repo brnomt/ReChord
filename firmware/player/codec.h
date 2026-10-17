@@ -1,16 +1,32 @@
 /*
  * codec.h — ReChord codec interface (build-from-source codecs only).
  *
- * Every codec is a plain `codec_t` vtable plus a caller-allocated state
- * block (`state_size` bytes; the player carves it from a static pool, no
- * malloc on the target). Codecs decode to interleaved 16-bit PCM frames —
- * the format the ring buffer ships to the B core and the DAC path.
+ * CODEC ABSTRACTION LAYER (CAL): every codec is a plain `codec_t` vtable
+ * plus a caller-allocated state block (`state_size` bytes; the player
+ * carves it from a static pool, no malloc on the target). Codecs decode to
+ * interleaved 16-bit PCM frames — the standardized pipeline contract (this
+ * is the "raw interleaved PCM" boundary: sample_rate / bits / channels are
+ * reported via codec_format_t). Codecs are PURE SOFTWARE TRANSFORMS: no
+ * I2C registers, no I2S clocks, no DMA channels, no hardware drivers —
+ * all I/O goes through the codec_io abstraction.
+ *
+ * Vtable mapping to the canonical codec interface names (documented
+ * contract; the shorter names are kept so codecs/tests stay stable):
+ *   init()                 -> codec_t.init   (optional; one-time setup)
+ *   open(file)             -> codec_t.open
+ *   get_format(sr,bits,ch) -> codec_t.format (codec_format_t carries all
+ *                             three: sample_rate, bits, channels)
+ *   decode_frame(pcm, max) -> codec_t.decode (returns frames produced)
+ *   close()                -> codec_t.close
+ * plus optional seek/duration_ms/gapless/tags extensions.
  *
  * Codec implementations must be open-source-clean or written by us
  * (docs/rewrite/architecture.md §4):
- *   - wav  : codec_wav.c      — ours, fully implemented (reference codec)
- *   - mp3  : codec_mp3_stub.c — adapter scaffold for minimp3 (to vendor in)
- *   - flac : codec_flac_stub.c — adapter scaffold for dr_flac (to vendor in)
+ *   - wav  : codecs/wav.c      — ours (reference codec)
+ *   - mp3  : codecs/mp3.c      — adapter over vendored minimp3
+ *   - flac : codecs/flac.c     — adapter over vendored dr_flac
+ *   - opus : RESERVED SLOT (docs/rewrite/player.md) — drop-in codec_t in
+ *            codecs/opus/ when ported; no core changes required.
  *
  * Return-code convention (all callbacks):
  *   >= 0  success (decode: number of PCM frames produced, 0 = end of file)
@@ -116,6 +132,12 @@ typedef struct codec_s
      * and applies it as a fixed gain before the PCM ring, composed with the
      * user volume on the B side. */
     int (*tags)(void *st, codec_replaygain_t *out);
+
+    /* Extension (ReChord, optional — may be NULL): one-time codec-global
+     * initialization, called once at player_register_codec(). 0 = ok.
+     * Place for lookup-table setup (e.g. a future fixed-point Opus port);
+     * NULL = no-op. Must not touch hardware. */
+    int (*init)(void);
 } codec_t;
 
 #endif /* RECHORD_CODEC_H */

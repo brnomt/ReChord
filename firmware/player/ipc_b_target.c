@@ -3,13 +3,13 @@
  *
  * CURRENT MAPPING (2026-10-16): the B core bring-up is still TODO (the
  * mailbox/shared-block wiring below are placeholders), so the "B core"
- * sink is a DIRECT DAC renderer: decoded PCM lands in g_ring and the I2S1
- * TX-empty IRQ (dac_i2s_tx_isr, vector slot 48) drains it into the
- * CS43131 path at the sample clock.  Decode and playback therefore overlap
- * — the same streaming shape the stock uses (its DMA ring; docs/HANDOVER
- * "route A").  When the real B core lands, this file switches back to the
- * mailbox protocol (the shared block/doorbell code below is kept and
- * unused).
+ * sink is a DIRECT DAC renderer via the audio_output HAL: decoded PCM
+ * lands in g_ring and the I2S1 TX-empty IRQ (rknano_i2s_tx_isr, vector
+ * slot 48) drains it into the CS43131 path at the sample clock.  Decode
+ * and playback therefore overlap — the same streaming shape the stock
+ * uses (its DMA ring; docs/HANDOVER "route A").  When the real B core
+ * lands, this file switches back to the mailbox protocol (the shared
+ * block/doorbell code below are kept and unused).
  *
  * What is NOT yet real (to be settled on hardware, tracked in
  * docs/rewrite/player.md open items):
@@ -33,7 +33,7 @@
  */
 #include "ipc_b.h"
 #include "ringbuf.h"
-#include "drivers/dac_cs43131.h"
+#include "audio/audio_output.h"
 
 /* Documented shared IPC block region (~0x01020xxx in the reference facts). */
 #define IPC_B_SHARED_BASE   0x01020000u
@@ -67,21 +67,7 @@ static ringbuf_t g_ring;
 static ipc_b_state_t g_state = IPC_B_OFF;
 static int  g_frame_bytes = IPC_B_FRAME_BYTES;
 static int  g_paused = 0;
-static volatile long g_frames_consumed = 0;
 static long g_supervisor_ticks = 0;
-
-/* Consumer half of the ring: called from dac_i2s_tx_isr() (I2S1 TX IRQ).
- * One ring word == one stereo frame as a packed int16 pair (L=[15:0],
- * R=[31:16]) — the driver expands it into the two wire words. Returns 0
- * when dry; the driver masks the IRQ source until the producer kicks. */
-static int tx_pull(uint32_t *word, void *user)
-{
-    (void)user;
-    if (rb_read(&g_ring, word, sizeof *word) != sizeof *word)
-        return 0;
-    g_frames_consumed++;
-    return 1;
-}
 
 /* TODO(bring-up): real doorbell — poke the mailbox IRQ the B core vectors
  * on (candidate: MAILBOX1/IRQ 10 per firmware/ipc.h). */
@@ -128,7 +114,7 @@ int ipc_b_init(void)
     sh->magic = IPC_B_MAGIC;              /* publish handshake last       */
 
     g_state = IPC_B_OFF;
-    g_frames_consumed = 0;
+    audio_output_clear_played();
     g_supervisor_ticks = 0;
     return 0;
 }
@@ -143,7 +129,7 @@ int ipc_b_start(const ipc_b_track_t *track)
 
     g_frame_bytes = track->channels * 2;
     rb_reset(&g_ring);
-    g_frames_consumed = 0;
+    audio_output_clear_played();
     g_paused = 0;
     g_supervisor_ticks = 0;
 
@@ -157,15 +143,22 @@ int ipc_b_start(const ipc_b_track_t *track)
     sh->cmd = IPC_B_CMD_START;
     sh->cmd_arg0 = (track->duration_ms > 0) ? (uint32_t)track->duration_ms : 0;
 
-    /* Direct-DAC renderer: bring the I2S1->CS43131 path up at the track's
-     * sample rate, then stream the ring through the TX IRQ. No B core. */
-    if (dac_init((uint32_t)track->sample_rate) != 0) {
-        g_state = IPC_B_FAULT;
-        sh->state = IPC_B_FAULT;
-        return -1;
+    /* Direct-DAC renderer: configure the audio HAL for the track's format
+     * (full verified bring-up at the sample rate), then stream the ring
+     * through the TX IRQ. No B core. */
+    {
+        audio_format_t fmt;
+
+        fmt.sample_rate = (uint32_t)track->sample_rate;
+        fmt.bits = 16;                   /* pipeline standard (codec.h)   */
+        fmt.channels = (uint8_t)track->channels;
+        if (audio_output_configure(&fmt) != 0) {
+            g_state = IPC_B_FAULT;
+            sh->state = IPC_B_FAULT;
+            return -1;
+        }
     }
-    dac_i2s_start();
-    dac_i2s_attach(tx_pull, 0);
+    audio_output_start(&g_ring);
 
     g_state = IPC_B_RUNNING;
     return 0;
@@ -178,12 +171,12 @@ int ipc_b_stop(void)
     sh->cmd = IPC_B_CMD_STOP;
     target_doorbell();
     sh->state = IPC_B_OFF;                /* "B off"                      */
-    dac_i2s_hold(1);                      /* stop the feeder before reset */
-    dac_i2s_detach();
+    audio_output_hold(1);                 /* stop the feeder before reset */
+    audio_output_detach();
     rb_reset(&g_ring);
     shared_publish_ring();
-    dac_i2s_stop();
-    g_frames_consumed = 0;
+    audio_output_stop();
+    audio_output_clear_played();
     g_paused = 0;
     g_state = IPC_B_OFF;
     return 0;
@@ -200,7 +193,7 @@ int ipc_b_pause(int paused)
     g_paused = paused ? 1 : 0;
     /* Held: the TX IRQ stops draining (FIFO runs out -> silence). Resume
      * re-arms it; any ring data that arrived while paused plays then. */
-    dac_i2s_hold(g_paused);
+    audio_output_hold(g_paused);
     sh->cmd = paused ? IPC_B_CMD_PAUSE : IPC_B_CMD_RESUME;
     target_doorbell();
     return 0;
@@ -219,13 +212,13 @@ int ipc_b_poll_state(ipc_b_status_t *out)
     volatile ipc_b_shared_t *sh = IPC_B_SHARED;
 
     /* Direct-DAC renderer: no B core to handshake with. The TX IRQ drains
-     * the ring at the sample clock; g_frames_consumed counts what left it. */
+     * the ring at the sample clock; audio_output counts what left it. */
     if (g_state == IPC_B_STARTING)
         g_state = IPC_B_RUNNING;
 
     if (out != 0) {
         out->state = g_state;
-        out->frames_consumed = g_frames_consumed;
+        out->frames_consumed = audio_output_frames_played();
         /* Byte counters (free-running, like the mock's g_ring.rd/wr): the
          * player derives free space as RING_BYTES - (wr - rd) and its EOS
          * check is ring_wr == ring_rd (fully drained). */
@@ -265,7 +258,7 @@ int ipc_b_ring_fill(const int16_t *pcm, int frames)
     if (written == 0)
         return 0;
     shared_publish_ring();
-    dac_i2s_kick();                   /* re-arm the TX IRQ if it went dry  */
+    audio_output_kick();                  /* re-arm the TX IRQ if it went dry  */
     return (int)(written / 4u);
 }
 
@@ -275,10 +268,10 @@ int ipc_b_flush(void)
 
     /* rb_reset is only legal with the consumer stopped: hold the feeder
      * across the reset (an ISR either ran already or sees hold and bails). */
-    dac_i2s_hold(1);
+    audio_output_hold(1);
     rb_reset(&g_ring);
-    g_frames_consumed = 0;
-    dac_i2s_hold(0);
+    audio_output_clear_played();
+    audio_output_hold(0);
     shared_publish_ring();
     sh->frames_consumed = 0;
     sh->cmd = IPC_B_CMD_FLUSH;

@@ -11,7 +11,8 @@
 #include "drivers/panel_io.h"
 #include "drivers/usb_msc.h"
 #include "drivers/usb_cdc.h"
-#include "drivers/dac_cs43131.h"
+#include "audio/audio_output.h"
+#include "drivers/rknano_i2s.h"
 #include "services/fs_target.h"
 #include "services/fw_update.h"
 #include "services/input.h"
@@ -239,7 +240,7 @@ static int tone_burst(const int16_t *sine64, int seconds, int16_t *chunk,
 {
     int i, n = 0, rc = DAC_OK;
 
-    dac_i2s_start();
+    audio_output_start(0);              /* ring NULL = polled path        */
     for (;;) {
         if (keys_power())
             break;
@@ -248,14 +249,14 @@ static int tone_burst(const int16_t *sine64, int seconds, int16_t *chunk,
             chunk[2 * i] = sine64[idx];
             chunk[2 * i + 1] = sine64[idx];
         }
-        rc = dac_i2s_feed(chunk, 256);
+        rc = audio_output_feed_blocking(chunk, 256);
         if (rc != DAC_OK)
             break;
         n += 256;
         if (n > 44100 * seconds)
             break;
     }
-    dac_i2s_stop();
+    audio_output_stop();
     *frames_out = n;
     return rc;
 }
@@ -284,7 +285,14 @@ static void dac_test_run(void)
     screen("DAC test");
     line(1, "bring-up 44100 Hz...");
     display_flush_rows(0, DISPLAY_H - 1);
-    rc = dac_init(44100);
+    {
+        audio_format_t fmt;
+
+        fmt.sample_rate = 44100;
+        fmt.bits = 16;
+        fmt.channels = 2;
+        rc = audio_output_configure(&fmt);
+    }
 
     dac_get_hp_status(hp);
     screen("DAC test result");
@@ -340,7 +348,7 @@ static void dac_test_run(void)
         unsigned lo, hi;
         uint8_t clk = 0xFF, pdn = 0xFF;
 
-        dac_i2s_fifo_range(&lo, &hi);
+        rknano_i2s_fifo_range(&lo, &hi);
         dac_read_reg(0, 0x00010006, &clk);
         dac_read_reg(0, 0x00020000, &pdn);
         screen("DAC test tone result");
@@ -361,7 +369,7 @@ static void dac_test_run(void)
      * (The RCO-clock diagnostic tone is gone: MCLK_SRC_SEL=10 routes the
      * CS43131's uncalibrated RC standby oscillator into the audio path,
      * so it is BY DESIGN noisy/off-pitch — a probe, not a test mode.) */
-    dac_output_off();
+    audio_output_power_off();
 }
 
 /* ---- USB CDC-ACM debug console ----------------------------------------- */
@@ -434,7 +442,15 @@ static void usb_console_run(void)
     screen("USB diag");
     line(1, "enumerating... POWER=exit");
     display_flush_rows(0, DISPLAY_H - 1);
-    dac_init(44100);                       /* I2C0 up so r/w cmds work      */
+    {
+        /* I2C0 up so r/w cmds work (full bring-up at 44100). */
+        audio_format_t fmt;
+
+        fmt.sample_rate = 44100;
+        fmt.bits = 16;
+        fmt.channels = 2;
+        (void)audio_output_configure(&fmt);
+    }
     usb_cdc_init();
     for (;;) {
         int c;

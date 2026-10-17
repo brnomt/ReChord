@@ -1959,4 +1959,48 @@ cross-build clean (`make cfw-ap`), vector table objdump-checked (slot 48 =
    `dac_i2s_attach()` in `ipc_b_start` — playback degrades to the old
    blocking feed but keeps the corrected clock/format.
 
-DFIU: 75271e5f (this entry — open until hardware-verified).
+DFIU: 75271e5f (this entry — VERIFIED RESOLVED 2026-10-16: user flash-tested
+commit c5d571f, "FLAC seems to playback correctly"; root cause + resolution
+confirmed in the incident record).
+
+## G. Session 2026-10-16 pm — modular audio pipeline refactor (structure only)
+
+Applied the approved plan (`~/.commandcode/plans/audio-pipeline-modular-
+refactor.md`) with two binding constraints: vector ISR symbol integrity and
+1:1 verbatim moves of all hardware code.
+
+**Layout now** (was one monolithic `drivers/dac_cs43131.c`):
+
+- `drivers/ao_regs.h` — all MMIO defines (verbatim; the mechanism that
+  keeps register lines textually identical across the split).
+- `drivers/rknano_i2s.{c,h}` — CRU/GPIO/GRF primitives + ACODEC PLL mux +
+  I2S1 setup + TX feeder (polled + TX-empty IRQ). ISR symbol is now
+  **`rknano_i2s_tx_isr`** (was dac_i2s_tx_isr).
+- `drivers/cs43131.{c,h}` — I2C0 master + MAP ops + chip sequences +
+  diag state (names kept from c5d571f so moved call sites stay identical).
+- `audio/audio_output.{c,h}` — the controller (`audio_format_t`,
+  init/configure/start/stop/hold/kick/frames_played/feed_blocking/
+  power_off); configure() runs the moved `dac_init` body line-for-line.
+- `audio/audio_hal.h` — `ao_slot_word` spec + `ao_feeder_ops` seam
+  (bound to the ring-IRQ feeder; DMA ping-pong drops in later).
+- `audio/ao_rate_table.{c,h}` — the 13-entry table (pure, host-tested).
+- `player/codec.h` — additive `init()` hook + canonical vtable mapping
+  docs; Opus = reserved drop-in slot (player.md).
+
+**Verification (all machine-checked this session):**
+- Host: ALL PLAYER TESTS PASSED incl. new `test_ao_slots` (slot packing +
+  the 13 mclk/CKR constants that caused the 2x bug class).
+- `make cfw-ap` clean; `make cfw-img` -> `RESULT: PASS`, AP5M CRC
+  0xD1017450.
+- **Vector integrity (constraint 1):** nm/objdump proof on the linked ELF:
+  `ap_vectors` slot 48 = `0x030552c9` = `rknano_i2s_tx_isr|1`
+  (`0x030552c8`), zero `dac_i2s_*` symbols remain.
+- **Verbatim move (constraint 2):** machine diff of every
+  register/mask/shift/constant statement in c5d571f vs the new modules:
+  101/101 present unchanged (only `static` qualifiers dropped for the
+  cross-module helpers; one stale forward decl removed).
+
+**Hardware checklist (user, after flashing build/ReChord_AP5M.IMG):**
+1. DAC test tone — same pitch as the c5d571f build (no clock drift).
+2. FLAC playback still correct (DFIU 75271e5f regression guard).
+3. Pause/resume + track end/advance still work.

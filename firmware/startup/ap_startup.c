@@ -112,7 +112,7 @@ const uint32_t ap_ram_vectors[2]
  * handler unpends/disables everything), so Default_Handler coverage is
  * belt-and-braces.  49 words = 196 bytes still fits the 256-byte VTOR
  * alignment window. */
-extern void dac_i2s_tx_isr(void);
+extern void rknano_i2s_tx_isr(void);   /* firmware/drivers/rknano_i2s.c    */
 
 const uint32_t ap_vectors[49]
     __attribute__((section(".vectors"), used, aligned(256))) = {
@@ -146,5 +146,5 @@ const uint32_t ap_vectors[49]
     (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
     (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
     (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
-    (uint32_t)&dac_i2s_tx_isr,          /* IRQ32 = INT_ID_I2S1 (audio TX)  */
+    (uint32_t)&rknano_i2s_tx_isr,       /* IRQ32 = INT_ID_I2S1 (audio TX)  */
 };

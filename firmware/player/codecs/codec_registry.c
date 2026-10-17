@@ -78,6 +78,10 @@ int player_register_codec(const char *ext, const codec_t *codec)
     if (ext == 0 || codec == 0 || ext[0] == '\0')
         return PLAYER_ERR;
 
+    /* One-time codec-global init (codec_t.init, optional). */
+    if (codec->init != 0 && codec->init() != 0)
+        return PLAYER_ERR;
+
     for (i = 0; i < s_count; i++) {
         if (str_eq_i(ext, s_slots[i].ext)) {
             s_slots[i].codec = codec;   /* override (tests inject mocks) */

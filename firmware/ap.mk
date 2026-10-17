@@ -74,7 +74,15 @@ AP_DRIVER_SRCS := \
   firmware/drivers/emmc_rknanoc.c \
   firmware/drivers/usb_msc_rknanoc.c \
   firmware/drivers/usb_cdc_rknanoc.c \
-  firmware/drivers/dac_cs43131.c
+  firmware/drivers/cs43131.c \
+  firmware/drivers/rknano_i2s.c
+
+# Audio output HAL (modular pipeline, docs/rewrite/audio.md): controller +
+# pure per-rate table. Replaces the monolithic dac_cs43131.c (register
+# code moved verbatim; see firmware/drivers/ao_regs.h).
+AP_AUDIO_SRCS := \
+  firmware/audio/audio_output.c \
+  firmware/audio/ao_rate_table.c
 
 # Services: settings/log/input + the target fs backend (same set as
 # $(SERVICES_TARGET_SRCS) in firmware/services/services.mk).
@@ -121,6 +129,7 @@ AP_SRCS := \
   $(AP_STARTUP_SRCS) \
   $(AP_UI_SRCS) \
   $(AP_DRIVER_SRCS) \
+  $(AP_AUDIO_SRCS) \
   $(AP_SERVICE_SRCS) \
   $(AP_THEME_SRCS) \
   $(AP_LIBC_SRCS) \

@@ -203,10 +203,50 @@ firmware/player/
 
 1. ~~minimp3 / dr_flac vendoring~~ DONE (step 6) — MP3/FLAC decode, Xing/Info
    and Vorbis comments work; CPU budget on the B core still unmeasured.
-2. **DAC renderer** — the ipc_b ring has no consumer in this fw1; no sound
-   until the I2S/DAC path lands (step 7).
+2. ~~**DAC renderer**~~ DONE — the ring consumer landed as the I2S1 TX-IRQ
+   feeder (route A) and FLAC plays on hardware (DFIU 75271e5f); the DMA
+   ping-pong backend (route B) remains optional (§6).
 3. B-core gain/DSP register mapping — where ReplayGain's final multiply is
    applied (AP pre-attenuation vs B-core DSP volume).
 4. SD write + settings on target (the RG mode preference: track vs album)
    — needs the volume path convention from the storage workstream.
 5. Warm reboot / high-speed USB — polish, not blocking audio.
+
+## 6. Modular pipeline refactor (2026-10-16)
+
+The audio path is now strictly layered (plan: `~/.commandcode/plans/
+audio-pipeline-modular-refactor.md`):
+
+```
+player.c (state machine) -> codec_t (player/codec.h) -> codecs/{wav,mp3,flac}
+   PURE transforms: codec_io only, zero MMIO; output = interleaved int16
+        |
+        v
+ipc_b_target.c          -- IPC contract glue + producer half of the ring
+        |
+        v
+audio/audio_output.c    -- audio_output_t controller: format coordination
+   |        (rate table in audio/ao_rate_table.c, pure/host-tested)
+   +-> drivers/rknano_i2s.c  -- CRU clock tree, ACODEC PLL mux, I2S1, TX
+   |                            feeder (polled + TX-empty IRQ) + BSP
+   +-> drivers/cs43131.c     -- I2C0 master, MAP access, chip sequences
+```
+
+- **audio_output_* API** (`audio/audio_output.h`): `init`, `configure(fmt)`
+  (the verified bring-up order: power GPIOs -> gates -> I2C probe -> rate
+  table -> PLL mux -> I2S1 -> CS43131 sequence -> unmute), `start(ring)`,
+  `stop/detach/hold/kick`, `frames_played`, `feed_blocking`, `power_off`.
+- **Feeder seam** (`audio/audio_hal.h`): `ao_feeder_ops` binds
+  `ao_feeder_ring_irq` (TX-empty IRQ draining the SPSC ring) today; a DMA
+  ping-pong backend (stock descriptor ring at 0x03090000 -> TXDR) can
+  implement the same ops later without touching codecs/player/ipc_b.
+- **Slot packing** (`audio_hal.h ao_slot_word`): one 32-bit FIFO word per
+  channel sample, `sample << 16`, frame = L word then R word (stock
+  Bit_Convertor_* contract). Host test `tests/test_ao_slots.c` pins it and
+  the 13 rate-table constants (the 2x-speed bug class, DFIU 75271e5f).
+- **Hardware-verified code moved 1:1** from the old monolithic
+  `drivers/dac_cs43131.c` (commit c5d571f): all MMIO defines live in
+  `drivers/ao_regs.h` so every register/mask/shift line stayed textually
+  identical (machine-checked against c5d571f during the move). Never
+  "clean up" these sequences casually — that is exactly how the 2x-speed
+  framing bug happened.
