@@ -2380,3 +2380,40 @@ slow pass slows the whole ladder proportionally. If the fast tier feels
 slow in practice, lower `INPUT_FAST_REPEAT_SCANS` (3 = ~33/s); to engage
 it sooner, lower `INPUT_FAST_HOLD_SCANS`.
 
+## R. Session 2026-10-17 (cont.) — AP RAM ceiling found: 0x0304A000 (explains both bricks)
+
+**Finding.** Cross-build `_bss_end` (`arm-none-eabi-nm`) on every AP build
+we have:
+
+| build | `_bss_end` | bss | outcome |
+|---|---|---|---|
+| `a1c3a9f` duration/bar fix | `0x03049F7C` | 286,400 | **hardware-verified good** |
+| `021513b` / `7dab023` (master) | `0x03049F84` | 286,408 | untested, size-neutral |
+| `41667f7` tag metadata (BRNOMT-78 pt.1) | `0x0304A694` | 288,216 | **brick** |
+| `451be2b` config/persistence (parked) | `0x0304A8AC` | 288,752 | **brick** |
+
+The two bricked builds are exactly the ones that cross **`0x0304A000`**; every
+build that boots stays below it. Image geometry, scatter tables and packer
+gates were identical/valid in all four cases, and neither bricked feature
+runs at boot (tag reads only on track open / browser open; the parked FAT
+layer only on a save) — so the shared signature is the **`.bss` end**, not
+the feature code. Corollary: the parked `feat/config-persistence` FAT write
+layer may be innocent (fa3968cd blamed it with the mechanism unconfirmed).
+
+**Fix.** `firmware_ap.ld`: FW_RAM `LENGTH 0x48000 -> 0x46000` (upper bound
+`0x0304A000`) + the SYS_DATA ASSERT text. Verified by building: master links
+(`0x03049F84`); `41667f7` (`0x0304A694`) and `451be2b` (`0x0304A8AC`) are now
+**refused by the linker** ("SYS_DATA overflow ... below 0x0304A000").
+
+**Consequence — the AP RAM budget is effectively exhausted** (132 B of slack
+below the gate). Any further feature must reclaim RAM first. Candidates with
+mutually-exclusive lifetimes: the 56 KiB FLAC pool, the 32 KiB USB-MSC SCSI
+chunk, the 2×8 KiB `fw_update` staging — a union would free tens of KiB
+(playback is stopped before an MSC session / update anyway). Do not raise the
+ceiling: the gate is the evidence.
+
+**DFIU:** incident `fb41cb15` + rule `R-8cd5fb0eb24a` (hypothesis until a
+device flash confirms builds under the gate); the older, vaguer envelope rule
+`R-c423c45206d8` is deprecated.
+
+

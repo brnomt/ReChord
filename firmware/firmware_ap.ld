@@ -52,9 +52,15 @@ MEMORY
 
     /* FW_RAM: initialized data + bss.  Starts at the top of the main stack
        (SP = 0x03004000); the 16 KiB BELOW 0x03004000 is the stack zone
-       0x03000000..0x03004000 and must never hold data.  The upper bound
-       (0x0304C000) also stays clear of the loaded image (0x0304F490+). */
-    FW_RAM  (rwx) : ORIGIN = 0x03004000, LENGTH = 0x00048000   /* to 0x0304C000 */
+       0x03000000..0x03004000 and must never hold data.
+
+       Upper bound 0x0304A000 — NOT 0x0304C000 (2026-10-17, DFIU 15e1c9f5 /
+       fa3968cd): every AP build whose _bss_end crossed 0x0304A000 bricked
+       on hardware (config/persistence 0x0304A8AC, tag-metadata 0x0304A694),
+       while every build below it boots (verified-good a1c3a9f 0x03049F7C,
+       size-neutral 021513b 0x03049F84). Whatever sits at 0x0304A000+ is not
+       ours; the linker now refuses to lay .bss into it. */
+    FW_RAM  (rwx) : ORIGIN = 0x03004000, LENGTH = 0x00046000   /* to 0x0304A000 */
 }
 
 /* ---- stacks ----------------------------------------------------------- */
@@ -150,7 +156,7 @@ ASSERT(_data_start == 0x03004000,
 ASSERT(_data_start >= __stack_top,
        "no data may sit in the stack zone 0x03000000..0x03004000")
 ASSERT(_bss_end <= ORIGIN(FW_RAM) + LENGTH(FW_RAM),
-       "SYS_DATA overflow: .data+.bss must stay below 0x0304C000")
+       "SYS_DATA overflow: .data+.bss must stay below 0x0304A000 (AP RAM ceiling, DFIU 15e1c9f5)")
 ASSERT(LOADADDR(.data) == ADDR(.text) + SIZEOF(.text),
        ".data LMA must be contiguous with the end of .text (flat blob)")
 ASSERT(LOADADDR(.data) + SIZEOF(.data) <= ORIGIN(FW_CODE) + LENGTH(FW_CODE),
