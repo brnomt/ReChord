@@ -18,6 +18,7 @@
 #include "services/log.h"
 #include "services/media_db.h"
 #include "services/media_scan.h"
+#include "services/media_query.h"
 #include "services/rechord_files.h"
 #include "services/input.h"
 #include "player.h"
@@ -736,6 +737,7 @@ void ap_ui_loop(void)
 
     emmc_probe();
     player_init();       /* register wav/mp3/flac codecs (registry) */
+    mq_set_pump(player_process);  /* keep audio fed during library scans */
     ui_init();
     ap_clock_init();     /* ms clock for the input hold ladder */
     /* User theme override from the internal volume (optional file, see

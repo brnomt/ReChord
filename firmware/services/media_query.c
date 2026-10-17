@@ -24,6 +24,14 @@ static uint32_t *s_idx;                  /* filter mode: record indices */
 static unsigned s_cap;                   /* capacity in the current mode */
 static unsigned s_count;
 static int      s_truncated;
+static void   (*s_pump)(void);           /* optional player_process() pump */
+
+#define MQ_PUMP_EVERY 32u
+
+void mq_set_pump(void (*fn)(void))
+{
+    s_pump = fn;
+}
 
 const char *mq_category_name(int cat)
 {
@@ -118,6 +126,8 @@ int mq_names_init(int cat)
 
         if (media_db_get(i, &rec) != FS_OK)
             break;
+        if (s_pump != 0 && (i & (MQ_PUMP_EVERY - 1u)) == 0u)
+            s_pump();                  /* keep the PCM ring fed during scan */
         v = rec_value(&rec, cat, ybuf, sizeof ybuf);
         for (k = 0; k < s_count; k++)
             if (strcmp(s_cells + k * MQ_CELL, v) == 0)
@@ -177,6 +187,8 @@ int mq_filter_init(int cat, const char *value)
 
         if (media_db_get(i, &rec) != FS_OK)
             break;
+        if (s_pump != 0 && (i & (MQ_PUMP_EVERY - 1u)) == 0u)
+            s_pump();                  /* keep the PCM ring fed during scan */
         if (cat == MQ_ALL || value == 0) {
             match = 1;
         } else {

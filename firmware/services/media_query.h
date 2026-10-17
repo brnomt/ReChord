@@ -47,4 +47,10 @@ int      mq_filter_get(unsigned i, media_rec_t *out);
 /* Release the scratch region and drop the current query. */
 void mq_done(void);
 
+/* Optional pump called every few index records while a query scans the index.
+ * The scan is a long blocking loop of media_db_get() calls; without pumping,
+ * the player stops refilling the PCM ring and an underrun cuts the audio (at
+ * 96 kHz the ring is only ~85 ms). The caller sets this to player_process(). */
+void mq_set_pump(void (*fn)(void));
+
 #endif /* RECHORD_SERVICES_MEDIA_QUERY_H */

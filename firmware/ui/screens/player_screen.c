@@ -105,16 +105,13 @@ static void player_screen_draw(void)
     display_draw_text(THEME_PAD, PLAYER_BAR_Y + PLAYER_BAR_H + 4,
                       line, THEME_COLOR_DIM, THEME_COLOR_BG);
 
-    /* stream format, right-aligned on the time line: e.g. "24b/96.0k" */
+    /* stream format on its own line: e.g. "24b/96.0k" */
     if (s_bits > 0 && s_rate > 0) {
         char f[24];
         long k10 = s_rate / 100;      /* tenths of kHz, no float printf */
-        int  flen;
 
         snprintf(f, sizeof(f), "%db/%ld.%ldk", s_bits, k10 / 10, k10 % 10);
-        flen = (int)strlen(f);
-        display_draw_text(DISPLAY_W - THEME_PAD - THEME_TEXT_W(flen),
-                          PLAYER_BAR_Y + PLAYER_BAR_H + 4,
+        display_draw_text(THEME_PAD, 64 + THEME_TEXT_YOFF,
                           f, THEME_COLOR_DIM, THEME_COLOR_BG);
     }
 
@@ -221,8 +218,7 @@ void player_screen_set_format(int bits, long sample_rate)
         return;
     s_bits = bits;
     s_rate = sample_rate;
-    ui_invalidate(0, PLAYER_BAR_Y + PLAYER_BAR_H + 4, DISPLAY_W - 1,
-                  PLAYER_BAR_Y + PLAYER_BAR_H + 4 + THEME_LINE_H);
+    ui_invalidate(0, 64, DISPLAY_W - 1, 64 + THEME_LINE_H);
 }
 
 void player_screen_set_playing(bool playing)
