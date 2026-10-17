@@ -2227,3 +2227,20 @@ regardless of flag semantics — the UI can never crawl on this path again.
 **Follow-up 1 (USB):** the VBUS/cable edge now opens **USB storage**
 (MSC, `usb_storage_run`) instead of the CDC console — the pre-CDC
 behaviour. The CDC console stays on the "USB console" menu entry.
+
+**BRICK + SPLIT (DFIU fa3968cd, 2026-10-16 late):** the 451be2b-era
+build (player-state persistence + FAT write layer) **bricked the device**
+— the same pattern as the old `feat/config-logging` branch (fcd6b8c,
+DFIU cacf65c6/a14e948f). Per the user's decision the whole
+config/persistence feature (player_state.{c,h}, fs_target FAT writes,
+sd_write, its tests and docs) is now on branch **`feat/config-persistence`**
+and POPPED from main; everything else (audio fixes, both input fixes, the
+USB-storage-on-cable fix) stays on main. Main rebuilt clean: all suites
+pass, `make cfw-img` RESULT: PASS (CRC 0xB89A8063) — this is the image
+to flash back to.
+
+Root cause of the brick is still OPEN (analysis happens on the branch —
+do not merge it until the brick is explained). Prime suspects: the FAT
+write path on real media (sd_write first use / root dirent or FAT
+corruption halting mount loops), or RAM/link pressure from the new
+statics (the config-logging brick died on the FW_RAM window).
