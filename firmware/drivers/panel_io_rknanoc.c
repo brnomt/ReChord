@@ -123,9 +123,8 @@ void backlight_on(void)
  * conversion, and returns the median. */
 #define ADC ((volatile uint32_t *)0x400D0000u)
 
-/* Fallback settle (~200 us at the 24 MHz boot clock) used only if the
- * EOC flag never asserts — the SARADC runs at <= 1 MHz (TRM), so a
- * conversion is tens of us at most. */
+/* Fallback/conversion floor (~200 us at the 24 MHz boot clock). The SARADC
+ * runs at <= 1 MHz (TRM), so a conversion is tens of us at most. */
 static void adc_settle(void)
 {
     volatile unsigned n = 4800;
@@ -136,19 +135,23 @@ static void adc_settle(void)
 
 static int adc_read_fresh(void)
 {
-    unsigned t = 200000;
+    unsigned t = 4000;
 
-    ADC[2] &= ~0x50u;                    /* SOC=0, clear EOC (int_status) */
-    ADC[2] = (ADC[2] & ~0x47u) | 1u | 0x18u;   /* ch1 + power + SOC start */
-    /* TRM: "poll SARADC_STAS ... whether the conversion is completed" —
-     * STAS bit0 clears when done; CTRL bit6 latches EOC (either proves
-     * completion). Bounded wait keeps a broken flag from hanging. */
-    while ((ADC[1] & 0x1u) != 0u || (ADC[2] & 0x40u) == 0u) {
-        if (--t == 0) {
-            adc_settle();
+    /* ch1 + power + SOC + int_en: per the TRM, int_status (CTRL bit6) is
+     * set at end of conversion ONLY with int_en (bit5) enabled — the
+     * 367066f regression polled that flag with int_en clear, so every
+     * read burned the full poll timeout and the UI crawled (DFIU
+     * ae88365a). */
+    ADC[2] &= ~0x50u;                        /* SOC=0, clear EOC           */
+    ADC[2] = (ADC[2] & ~0x47u) | 1u | 0x38u; /* ch1 | power | SOC | int_en */
+    /* EOC is only a FAST PATH: bounded so unknown flag semantics can
+     * never stall the UI again; adc_settle() is the always-there floor
+     * that guarantees a completed conversion before the read. */
+    while ((ADC[2] & 0x40u) == 0u) {
+        if (--t == 0)
             break;
-        }
     }
+    adc_settle();
     return (int)(ADC[0] & 0x3FFu);
 }
 

@@ -2203,3 +2203,23 @@ Confirmed requirements already satisfied:
 
 All suites pass; `make cfw-img` RESULT: PASS (CRC unchanged, no wire-
 format touched).
+
+## N. Session 2026-10-16 pm8 — 367066f regression (UI softlock) + follow-ups
+
+**DFIU ae88365a (buttons dead / softlock).** Hardware report after
+367066f: vol+- no longer navigates the UI (menus unreachable — softlock),
+power-off does not trigger, USB Storage unreachable. Root cause is the
+keys_adc end-of-conversion poll added in that commit: the TRM sets
+`int_status` (CTRL bit6) at end of conversion **only with `int_en` (bit5)
+enabled**, and the code polled bit6 (plus STAS bit0) without ever setting
+int_en — so every conversion burned the full 200000-iteration poll
+timeout before the settle fallback. At the ~24 MHz boot clock that is
+tens of ms per conversion, ~10 s worst case per keys_adc: the 8-sample
+vol debounce never completed in usable time and the 700-pass power-hold
+needed ~a minute.
+
+**Fix (input task):** enable `int_en` at SOC; EOC poll demoted to a SHORT
+bounded fast path (4000 iterations) with an always-there ~200 us settle
+floor (>= the <=1 MHz SARADC's conversion time), so a read is <= ~1 ms
+regardless of flag semantics — the UI can never crawl on this path again.
+`POWER_HOLD_COUNT` re-tuned 700 -> 400 for the faster pass rate (~2 s).
