@@ -100,15 +100,23 @@ pair — and the pressed-bottom ADC minimum, matching the stock scan
 
 Press model (2026-10-17): a short press is exactly one `PRESS` +
 `RELEASE{long_press=0}`. A held press is `PRESS`, one `LONG` at
-`INPUT_LONG_SCANS` (~0.4 s), then `REPEAT`s while held (only the keys in
+`INPUT_LONG_SCANS` (~1 s), then `REPEAT`s while held (only the keys in
 `INPUT_REPEATS` — vol+/vol-, which double as UI up/down), then
 `RELEASE{long_press=1}`. The repeat accelerates: one per
-`INPUT_REPEAT_SCANS` (~0.1 s), and after `INPUT_FAST_HOLD_SCANS` more of
-holding one per `INPUT_FAST_REPEAT_SCANS` (~0.04 s), so long lists and
+`INPUT_REPEAT_SCANS` (~0.3 s), and after `INPUT_FAST_HOLD_SCANS` more of
+holding one per `INPUT_FAST_REPEAT_SCANS` (~0.1 s), so long lists and
 volume sweeps can be crossed without spam-clicking (BRNOMT-80; the ladder
 table that defines the tiers is in `input.c`). Consumers act on
 `PRESS`/`REPEAT` only — the acceleration is a shorter interval, not a new
 event kind.
+
+The hold ladder counts *scans*, and one scan is one UI pass. That cadence is
+repaint-bound, not fixed: a cursor move in a full-screen list repaints and
+flushes the whole panel (~50 ms — the flush alone is ~217,600 byte writes
+over the GPIO panel bus), while the player screen's band partial redraws
+run much faster. The knobs are therefore tuned for the ~50 ms/pass list
+case above; timing in ms (a clock injected into the service) is the planned
+follow-up so the feel stops depending on what is on screen.
 
 ### 3.4 fs.h
 

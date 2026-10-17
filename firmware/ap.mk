@@ -56,6 +56,7 @@ AP_STARTUP_SRCS := \
 AP_UI_SRCS := \
   firmware/ui/ui.c \
   firmware/ui/settings_schema.c \
+  firmware/ui/settings_view.c \
   firmware/ui/screens/boot_screen.c \
   firmware/ui/screens/menu_screen.c \
   firmware/ui/screens/browser_screen.c \

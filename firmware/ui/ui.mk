@@ -17,6 +17,7 @@ UI_DIR := firmware/ui
 
 UI_SRCS := $(UI_DIR)/ui.c \
            $(UI_DIR)/settings_schema.c \
+           $(UI_DIR)/settings_view.c \
            $(UI_DIR)/screens/boot_screen.c \
            $(UI_DIR)/screens/menu_screen.c \
            $(UI_DIR)/screens/browser_screen.c \

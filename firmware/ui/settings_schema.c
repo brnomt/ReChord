@@ -109,7 +109,7 @@ void settings_view_defaults(rechord_settings_t *s)
     s->tags = 1;           /* on */
     s->cpu_mode = 0;       /* auto */
     s->volume_db = -23;
-    s->browse[0] = '\0';
+    memset(s->browse, 0, sizeof s->browse);   /* whole buffer: no stale tail */
     s->cursor = 0;
 }
 
@@ -221,12 +221,13 @@ void settings_view_from_store(const settings_t *in, rechord_settings_t *out)
 {
     settings_view_defaults(out);
     /* ENUM-typed view fields decode the stored text through the schema's
-     * option tables; direct integers map 1:1 except screen_off (minutes ->
-     * seconds). */
+     * option tables; screen_off / auto_off are the exception (the store keeps
+     * them as plain integers, same unit) and validate by value instead. */
     for (int si = 0; si < SETTING_KEY_COUNT; si++) {
         const setting_schema_t *sc = &setting_schema[si];
         const char *txt = NULL;
         int iv = 0;
+        int by_opt = 0;
         if (strcmp(sc->name, "play") == 0)          { txt = in->play; }
         else if (strcmp(sc->name, "usb") == 0)      { txt = in->usb; }
         else if (strcmp(sc->name, "resume") == 0)   { txt = in->resume; }
@@ -234,12 +235,13 @@ void settings_view_from_store(const settings_t *in, rechord_settings_t *out)
         else if (strcmp(sc->name, "tags") == 0)     { txt = in->tags; }
         else if (strcmp(sc->name, "cpu") == 0)      { txt = in->cpu; }
         else if (strcmp(sc->name, "brightness") == 0) { iv = in->brightness; }
-        else if (strcmp(sc->name, "screen_off") == 0) { iv = in->screen_off_min * 60; }
-        else if (strcmp(sc->name, "auto_off") == 0)   { iv = in->auto_off_min; }
+        else if (strcmp(sc->name, "screen_off") == 0) { iv = in->screen_off_min; by_opt = 1; }
+        else if (strcmp(sc->name, "auto_off") == 0)   { iv = in->auto_off_min;   by_opt = 1; }
         else if (strcmp(sc->name, "volume") == 0)     { iv = in->volume; }
         else if (strcmp(sc->name, "cursor") == 0)     { iv = in->cursor; }
         else if (strcmp(sc->name, "browse") == 0) {
             char *dst = (char *)((char *)out + sc->offset);
+            memset(dst, 0, RECHORD_BROWSE_PATH_MAX);
             snprintf(dst, RECHORD_BROWSE_PATH_MAX, "%s", in->browse);
             continue;
         }
@@ -248,6 +250,10 @@ void settings_view_from_store(const settings_t *in, rechord_settings_t *out)
             *dst = 0;
             for (int i = 0; i < sc->u.e.count; i++)
                 if (strcmp(sc->u.e.opts[i].text, txt) == 0) { *dst = sc->u.e.opts[i].value; break; }
+        } else if (by_opt) {
+            int *dst = (int *)((char *)out + sc->offset);
+            for (int i = 0; i < sc->u.e.count; i++)
+                if (sc->u.e.opts[i].value == iv) { *dst = iv; break; }
         } else {
             int *dst = (int *)((char *)out + sc->offset);
             *dst = iv;
@@ -266,6 +272,10 @@ void settings_view_to_store(const rechord_settings_t *in, settings_t *out)
                      (const char *)in + sc->offset);
             continue;
         }
+        /* The store keeps the two timers as plain integers (not text), and
+         * the view value IS the option value: copy it across. */
+        if (strcmp(sc->name, "screen_off") == 0) { out->screen_off_min = *src; continue; }
+        if (strcmp(sc->name, "auto_off") == 0)   { out->auto_off_min = *src;   continue; }
         if (sc->kind == SETTING_KIND_ENUM) {
             const char *txt = sc->u.e.count > 0 ? sc->u.e.opts[0].text : "";
             for (int i = 0; i < sc->u.e.count; i++)
@@ -277,8 +287,6 @@ void settings_view_to_store(const rechord_settings_t *in, settings_t *out)
             else if (strcmp(sc->name, "tags") == 0)  snprintf(out->tags, sizeof out->tags, "%s", txt);
             else if (strcmp(sc->name, "cpu") == 0)   snprintf(out->cpu, sizeof out->cpu, "%s", txt);
         } else if (strcmp(sc->name, "brightness") == 0) out->brightness = *src;
-        else if (strcmp(sc->name, "screen_off") == 0)   out->screen_off_min = *src / 60;
-        else if (strcmp(sc->name, "auto_off") == 0)     out->auto_off_min = *src;
         else if (strcmp(sc->name, "volume") == 0)       out->volume = *src;
         else if (strcmp(sc->name, "cursor") == 0)       out->cursor = *src;
     }

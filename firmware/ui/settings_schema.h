@@ -30,8 +30,8 @@
 typedef struct rechord_settings {
     int  play_mode;                   /* key "play"       (enum value)      */
     int  brightness;                  /* key "brightness" (0..10)           */
-    int  screen_off_s;                /* key "screen_off" (seconds, 0=off)  */
-    int  auto_off_min;                /* key "auto_off"   (minutes, 0=off)  */
+    int  screen_off_s;                /* key "screen_off" (opt value, minutes; field name is historical) */
+    int  auto_off_min;                /* key "auto_off"   (opt value, minutes, 0=off) */
     int  usb_mode;                    /* key "usb"        (enum value)      */
     int  resume_mode;                 /* key "resume"     (enum value)      */
     int  strip;                       /* key "strip"      (0=off, 1=on)     */
@@ -75,8 +75,8 @@ void settings_view_defaults(rechord_settings_t *s);
 /* Storage<->view adapters (integration 2026-10-09): services/settings.h owns
  * the on-disk `settings_t` (string values); this header owns the UI VIEW
  * (typed enums for the settings screen). Function names are distinct
- * (`settings_view_*`) so both can link in one image. Units: on-disk
- * screen_off is MINUTES (canonical); the view carries SECONDS. */
+ * (`settings_view_*`) so both can link in one image. The target glue lives in
+ * firmware/ui/settings_view.c; the UI host tests substitute it. */
 int  settings_view_load(rechord_settings_t *s);
 int  settings_view_save(const rechord_settings_t *s);
 void settings_view_from_store(const settings_t *in, rechord_settings_t *out);

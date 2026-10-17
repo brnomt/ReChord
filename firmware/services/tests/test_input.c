@@ -239,22 +239,27 @@ static int repeats_over_scans(int scans)
 
 static void test_scan_hold_ladder(void)
 {
-    const int window = 5 * INPUT_REPEAT_SCANS;   /* ~0.5 s per window */
+    /* Two tier-1 intervals: fits in the tier-1 stretch and divides evenly,
+     * so the same window length can be re-used on both tiers. */
+    const int window = 2 * INPUT_REPEAT_SCANS;
+    /* Hold up to one scan before the fast tier: the threshold scan itself
+     * already repeats at the fast interval (held >= INPUT_FAST_HOLD_SCANS). */
+    const int to_fast = INPUT_FAST_HOLD_SCANS - window - 1;
     int i;
 
+    CHECK(to_fast > 0);
     input_mock_clear();
     for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
         (void)input_scan(130, 0);                /* press registers      */
     /* Up to LONG: the marker only, no REPEATs yet. */
     CHECK(repeats_over_scans(INPUT_LONG_SCANS) == 0);
-    /* Tier 1: one REPEAT every INPUT_REPEAT_SCANS (~0.1 s = ~10/s). */
+    /* Tier 1: one REPEAT every INPUT_REPEAT_SCANS (~0.3 s = ~3/s). */
     CHECK(repeats_over_scans(window) == window / INPUT_REPEAT_SCANS);
-    /* Hold on to the fast threshold; still tier 1 all the way there (the
-     * threshold scan itself is a multiple of the tier-1 interval). */
-    CHECK(repeats_over_scans(INPUT_FAST_HOLD_SCANS - window) ==
-          (INPUT_FAST_HOLD_SCANS - window) / INPUT_REPEAT_SCANS);
-    /* Tier 2: the same window now yields ~2.5x the repeats (~0.04 s). */
+    /* Hold on to just below the fast threshold: still tier 1. */
+    CHECK(repeats_over_scans(to_fast) == to_fast / INPUT_REPEAT_SCANS);
+    /* Tier 2: the same window now yields the faster interval (~0.1 s). */
     CHECK(repeats_over_scans(window) == window / INPUT_FAST_REPEAT_SCANS);
+    CHECK(window / INPUT_FAST_REPEAT_SCANS > window / INPUT_REPEAT_SCANS);
     /* A short tap right after the long hold starts from a clean phase. */
     for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
         (void)input_scan(1023, 0);               /* release              */

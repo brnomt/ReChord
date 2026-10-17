@@ -87,24 +87,10 @@ __attribute__((weak)) void rechord_startup_entry(void)
  */
 
 /*
- * settings_view_load / settings_view_save: storage<->view adapters declared
- * in firmware/ui/settings_schema.h.  The UI host tests mock them
- * (firmware/ui/tests/mock_services.c); no target implementation exists yet
- * (it will adapt services/settings.c via settings_view_from_store/to_store
- * once the FAT backend lands).  STUBS: report "no storage" so the settings
- * screen falls back to defaults (see settings_screen_reload).
+ * settings_view_load / settings_view_save: the real target adapters live in
+ * firmware/ui/settings_view.c (linked via firmware/ap.mk); the UI host tests
+ * substitute them in mock_services.c. They used to be weak stubs here.
  */
-__attribute__((weak)) int settings_view_load(void *s)
-{
-    (void)s;
-    return -1;   /* load failed -> screen uses settings_view_defaults */
-}
-
-__attribute__((weak)) int settings_view_save(const void *s)
-{
-    (void)s;
-    return -1;   /* not persisted yet */
-}
 
 /*
  * strchr / strrchr: needed by services/settings.c, theme/theme_file.c and

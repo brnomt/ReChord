@@ -94,18 +94,26 @@ unsigned input_pending(void);
 #define INPUT_DEBOUNCE_SCANS     3
 #define INPUT_DEBOUNCE_SCANS_VOL 8
 
-/* Hold timing, in input_scan() samples (one sample per UI pass). At the
- * observed ~10 ms/pass cadence: LONG at ~0.4 s of hold, one REPEAT every
- * ~0.1 s after that, and — after INPUT_FAST_HOLD_SCANS more of holding —
- * a faster REPEAT every ~0.04 s, so a long list or a volume sweep can be
+/* Hold timing, in input_scan() samples (one sample per UI pass). The pass
+ * rate is repaint-bound, not fixed: a cursor move in a full-screen list
+ * repaints and flushes the whole panel (~50 ms with the GPIO panel bus), so
+ * the knobs are tuned for that ~50 ms/pass case, which is where holding is
+ * used (lists/menus; the player screen redraws only a band and will run
+ * faster). At 50 ms/pass: LONG at ~1 s of hold, one REPEAT every ~0.3 s,
+ * and — after INPUT_FAST_HOLD_SCANS more of holding, i.e. ~1 s later —
+ * a faster REPEAT every ~0.1 s, so a long list or a volume sweep can be
  * crossed without spam-clicking (BRNOMT-80). The ladder itself lives in
- * input.c (add an entry there to add a tier); these are the knobs. */
-#define INPUT_LONG_SCANS        40
-#define INPUT_REPEAT_SCANS      10
-/* Extra hold (past LONG) before the fast tier engages (~1 s). */
-#define INPUT_FAST_HOLD_SCANS   100
-/* Fast-tier repeat interval (~0.04 s/step = 2.5x the first tier). */
-#define INPUT_FAST_REPEAT_SCANS 4
+ * input.c (add an entry there to add a tier); these are the knobs.
+ *
+ * Timing in ms (a clock injected into the service) is the planned follow-up
+ * so the feel stops depending on the pass rate; until then keep these tied
+ * to the 50 ms/pass case. */
+#define INPUT_LONG_SCANS        20
+#define INPUT_REPEAT_SCANS      6
+/* Extra hold (past LONG) before the fast tier engages (~1 s at 50 ms/pass). */
+#define INPUT_FAST_HOLD_SCANS   20
+/* Fast-tier repeat interval (~0.1 s/step = 3x the first tier). */
+#define INPUT_FAST_REPEAT_SCANS 2
 
 /* Which keys auto-repeat while held (the user's hold-to-repeat: the vol
  * keys double as UI up/down). No other key repeats. */

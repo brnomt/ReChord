@@ -2357,28 +2357,35 @@ second more it could navigate even faster through the UI".
 `s_scan_repeat` instead of a modulo of the hold counter — so a step change
 can only make the next REPEAT come earlier, never fire twice at once:
 
-| tier | engages after | REPEAT interval | rate @ ~10 ms/pass |
+| tier | engages after | REPEAT interval | rate @ ~50 ms/pass |
 |---|---|---|---|
-| 1 | LONG (`INPUT_LONG_SCANS` 40, ~0.4 s) | every 10 scans | ~10 steps/s |
-| 2 | +`INPUT_FAST_HOLD_SCANS` (100, ~1 s) | every 4 scans | ~25 steps/s |
+| 1 | LONG (`INPUT_LONG_SCANS` 20, ~1 s) | every 6 scans | ~3 steps/s |
+| 2 | +`INPUT_FAST_HOLD_SCANS` (20, ~1 s) | every 2 scans | ~10 steps/s |
 
 No consumer change: the fast tier emits the same `INPUT_REPEAT` events, so
 menu/browser/settings/player are untouched (they act on PRESS/REPEAT). A
 third tier is one more row in `s_repeat_ladder`.
 
-**Verification:** `test_input` grew ladder coverage (225 checks, 0
-failures): a 50-scan window at tier 1 yields 5 repeats, the same window at
-tier 2 yields 12; SELECT held past the tier boundary still emits PRESS +
-LONG only (no key but vol+/vol- repeats); a short tap after a long hold
-starts from a clean phase (counter reset on press/release). All suites
-green; `make cfw-ap` + `make cfw-img` RESULT: PASS — AP5M CRC
-`0xE4E4FD01`.
+**Verification:** `test_input` grew ladder coverage (199 checks, 0
+failures): two tier-1 intervals' worth of scans at tier 1 yield 2 repeats,
+the same window at tier 2 yields 6; SELECT held past the tier boundary
+still emits PRESS + LONG only (no key but vol+/vol- repeats); a short tap
+after a long hold starts from a clean phase (counter reset on
+press/release). All suites green; `make cfw-ap` + `make cfw-img` RESULT:
+PASS — AP5M CRC `0xE4E4FD01`.
 
-**Tuning note:** the tiers are counts of *scans*, and the scan cadence is
-the UI pass rate (render-bound: ~10 ms idle, slower while playing), so a
-slow pass slows the whole ladder proportionally. If the fast tier feels
-slow in practice, lower `INPUT_FAST_REPEAT_SCANS` (3 = ~33/s); to engage
-it sooner, lower `INPUT_FAST_HOLD_SCANS`.
+**Tuning note (corrected 2026-10-17 after the hardware test).** The tiers
+are counts of *scans*, and a scan is one UI pass; the first cut assumed
+~10 ms/pass. The device says otherwise: holding vol+/- in a listing showed
+no acceleration at all. A cursor move in a full-screen list calls
+`ui_invalidate_all()`, so every step repaints and flushes the whole
+320×170 panel — and the flush alone is ~217,600 `bus_write` byte writes
+over the GPIO panel bus (~45 ms) before draw time. At ~50 ms/pass the old
+knobs put the fast tier ~7 s into the hold: unreachable in practice. The
+knobs above are tuned for the ~50 ms/pass case. This is the fragility of
+counting passes instead of time: timing in ms via a clock injected into
+the input service is the planned follow-up, and the player screen (band
+partial redraws) runs at a different cadence than lists do.
 
 ## R. Session 2026-10-17 (cont.) — AP RAM ceiling found: 0x0304A000 (explains both bricks)
 
@@ -2468,3 +2475,55 @@ volume: the preallocated slack is intentional (fsck would truncate it).
 **Note:** growth is bounded by the file's cluster chain (64 KiB here). For
 more, recreate the file larger; a first-boot init (folder + files created by
 a verified FAT allocator) is still future work.
+
+## T. Session 2026-10-17 (cont.) — first hardware test of §P/§S: two dead paths fixed
+
+**Test result on `0xD9CDCE35` (the §S build):** boots; FLAC + bar + volume
+keys fine; USB read/write fine; **settings changes do not stick** (change
+`play`/`brightness`, BACK, value back to the default); **hold-repeat does
+not accelerate** in a listing. Both are fixed here.
+
+**T1 — settings never reached the service (the adapters were stubs).**
+`settings_view_load/save` were `__attribute__((weak))` stubs in
+`ap_main.c` returning -1: the settings screen asked the "storage" and was
+told "none", so it fell back to defaults, and `settings_save()` was never
+called — the §S backend was dead code on the device. The real glue now
+lives in `firmware/ui/settings_view.c` (its own TU, because the UI host
+tests substitute those two symbols in `mock_services.c`; the target picks
+it up via `ap.mk`/`ui.mk`). **Lesson: a weak stub links fine and silently
+disables a feature — when something "doesn't persist", check the symbol
+actually resolves (`arm-none-eabi-nm` shows `W`), don't assume the
+backend is at fault.**
+
+**T2 — `screen_off`/`auto_off` could never round-trip.** The schema has
+them as ENUM keys (option values 0/10/30/60/120 and 0/5/15/30/60) while the
+store keeps them as plain ints, and `to_store()` routed any ENUM key
+through the text path — so the two timers were written as the *first*
+option's text and the file never matched what the screen showed. The
+`from_store()` side also scaled minutes→seconds (`*60`, and `/60` going
+back) from a stale header comment; the same number is used on both sides.
+Fixed in `ui/settings_schema.c`: both keys copy the int across, and
+`from_store` validates the stored number against the option list (an
+unknown value keeps the default). `settings_view_defaults()` now zeroes the
+whole `browse` buffer (no stale tail), and the header/`integration.md`
+units comment is corrected. New host binary
+`ui/tests/test_settings_view.c` covers the glue over the real converters
+(text↔enum, timers, defaults on load failure, NULL args) — it is what
+caught T2. Suite: 23 checks OK.
+
+**T3 — input ladder retuned for the real pass cadence** (see §P's corrected
+tuning note): `LONG` 40→20, `REPEAT` 10→6, `FAST_HOLD` 100→20,
+`FAST_REPEAT` 4→2 scans, i.e. ~1 s to LONG, ~0.3 s/step, fast tier ~1 s
+later, ~0.1 s/step — all at the measured ~50 ms/pass of a listing.
+
+**Build:** `_bss_end 0x03049794`, bss 284,376 B (unchanged: the adapter
+uses stack), text 110,816 B. All suites green; `make cfw-img` RESULT: PASS
+— AP5M CRC `0x41FE103E`.
+
+**Device check (user), in order:** (1) Settings → change `play` and
+`brightness` → BACK (saves on exit) → power-cycle → values persist, and
+`/.rechord/rechord.cfg` is ~200 bytes of plain text on the PC; do it twice
+to prove the second save works after the shrink. (2) Hold vol+/- in a long
+listing: ~1 s to the first step, ~0.3 s/step, and after ~1 s more it should
+visibly speed up to ~0.1 s/step. (3) Do **not** run a filesystem repair on
+the internal volume (intentional slack).

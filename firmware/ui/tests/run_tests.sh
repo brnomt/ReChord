@@ -21,4 +21,14 @@ $CC $CFLAGS -I.. -I../.. -I../../services -o .work/ui_tests \
     mock_display.c mock_services.c -lm
 
 .work/ui_tests
+
+# The target view<->store glue (settings_view.c) is replaced by the mocks in
+# the binary above, so it gets its own: real glue + real schema converters,
+# with only the settings service I/O stubbed (test_settings_view.c).
+$CC $CFLAGS -I.. -I../.. -I../../services -o .work/settings_view_tests \
+    test_settings_view.c ../settings_view.c ../settings_schema.c \
+    ../../services/settings.c
+
+.work/settings_view_tests
+
 echo "ALL UI TESTS PASSED"
