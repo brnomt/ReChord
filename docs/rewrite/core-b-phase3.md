@@ -30,18 +30,37 @@ need that for phase 3 if 200 MHz decodes in real time.
 
 ## 3. Memory map
 
-| region | address | use |
-|---|---|---|
-| HIGRAM0 | `0x01000000..0x01020000` (128 KiB) | B image + codecs + decode pool |
-| PCM ring | `0x01010000..0x01020000` (64 KiB, current) | decoded PCM (B-internal in phase 3) |
-| control | `0x01020000` (4 KiB) | commands + telemetry (extend `ipc_shared.h`) |
-| file ring | TBD | bytes A→B (see §4) |
+Confirmed by the TRM (`docs/TRM-notes.md:17-18,39-41`): the SoC has **two**
+cores with **separate** SRAM.
 
-- The 192k/16384 file needs ~143 KB, more than HIGRAM0's 128 KiB. Either a
-  streaming FLAC decoder with a smaller window, or B memory beyond HIGRAM0
-  (SYSRAM1 `0x03090000`, 256 KiB) once its B-accessibility is proven.
-- If B both decodes into and renders from the PCM ring, the ring is B-internal
-  and A no longer writes PCM — A only serves file bytes + commands.
+| region | address | owner | use |
+|---|---|---|---|
+| SYSRAM0 (320 KiB) | `0x03000000` | Core 0 (AP) | AP stack + .data/.bss |
+| DRAM (256 KiB) | `0x03050000` | Core 0 (AP) | AP code image (FW_CODE) |
+| **SYSRAM1 (256 KiB)** | **`0x03090000`** | **Core 1 (B)** | **B decode pool + PCM ring** |
+| HIGRAM0 IRAM (128 KiB) | `0x01000000` | Core 1 (B) | B image (code) + file ring |
+| PMU SRAM (64 KiB) | — | shared | control block (`0x01020000`) |
+
+- HIGRAM alone (128 KiB) could **not** hold image + FLAC pool (~56-70 KiB) +
+  the 64 KiB PCM ring — that was the gate for "decode on B". SYSRAM1 is
+  Core 1's own 256 KiB, so B's pool and PCM ring live there.
+- The AP can reach HIGRAM (it already copies the B image to `0x01000000`) but
+  not necessarily SYSRAM1 — so the **A→B file ring stays in HIGRAM**; the
+  **PCM ring + decode pool move to SYSRAM1** (B-only traffic).
+- The 192k/24 file needs a ~143 KB window: SYSRAM1 (256 KiB) can hold it,
+  which makes PIXELATED KISSES potentially reachable in 3d.
+
+### Hardware result (2026-10-17): B does NOT reach SYSRAM1 as assumed
+
+Moving B's stack/.bss to `0x03090000` (`822761d`, image CRC `0x8E087DD6`) made
+playback fail on hardware: "playing" but stuck at 0:00 on every track, i.e.
+the PCM ring never drained — Core B did not run. So a naive `SP = SYSRAM1`
+is wrong. Possibilities: SYSRAM1 needs its own clock/bus gate enabled before
+use (like the CAL core gates), or Core 1 sees it at a different address, or
+it is not Core-1-executable. **REA the reference's B image to see whether it
+touches SRAM beyond HIGHRAM0, and how it is gated, before retrying.** The
+SYSRAM1 relocation was reverted (`bb.ld`/`bb_main.c` back to HIGHRAM stack);
+phase-2 audio works.
 
 ## 4. IPC and the file-service boundary (FS stays on A)
 
