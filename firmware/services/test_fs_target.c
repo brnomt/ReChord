@@ -118,6 +118,33 @@ static void create_phase(void)
             printf("C fill%d ERR\n", i);
     }
     printf("C fill 20\n");
+    /* Append (the media index builds incrementally): create an empty file,
+     * append in three steps -- a short string, then a known payload twice --
+     * and read it back. The chain has to grow across clusters (512-byte
+     * clusters here: 1205 bytes = 3 clusters) and the sector the append point
+     * falls into must keep the bytes before it. */
+    {
+        static unsigned char pay[600];
+        unsigned k;
+
+        for (k = 0; k < 600u; k++)
+            pay[k] = (unsigned char)(k * 17u + 3u);
+        printf("C mkapp %d\n",
+               fs_target_file_create("/SD/.rechord/app", 0u));
+        printf("C ap1 %d\n",
+               fs_target_file_append("/SD/.rechord/app", "hello", 5u));
+        printf("C ap2 %d\n",
+               fs_target_file_append("/SD/.rechord/app", pay, 600u));
+        printf("C ap3 %d\n",
+               fs_target_file_append("/SD/.rechord/app", pay, 600u));
+        printf("C ap0 %d\n",
+               fs_target_file_append("/SD/.rechord/app", "", 0u));
+        printf("C apmiss %d\n",
+               fs_target_file_append("/SD/.rechord/nope", "x", 1u));
+        printf("C apdir %d\n",
+               fs_target_file_append("/SD/EmptyDir", "x", 1u));
+        report("C rapp", "/SD/.rechord/app");
+    }
     printf("C read %d\n", fs_open_read("/SD/.rechord/rechord.cfg") ? 1 : 0);
     report("C rcfg", "/SD/.rechord/rechord.cfg");
     report("C rstate", "/SD/.rechord/state");

@@ -66,4 +66,17 @@ int fs_target_mkdir(const char *path);
 /* Create a file of `bytes` bytes, allocated (and zero-filled) up front. */
 int fs_target_file_create(const char *path, uint32_t bytes);
 
+/* Append `len` bytes at the current end of an existing file, growing its
+ * cluster chain when it has to (this is what an incrementally built file --
+ * the media index -- needs; the rewrite above still refuses to grow). Order
+ * of writes: extend and link the chain, write the data, then patch the 4-byte
+ * dirent size LAST, so an interruption leaks at most the freshly allocated
+ * clusters (fsck recovers them) and the file keeps its previous size. The
+ * sector the append point falls into is read first, and any sector the data
+ * only partly fills is zero-padded, so the result is byte-exact for the range
+ * [0, old_size + len). `len == 0` is a successful no-op. FAT16/FAT32 only;
+ * exFAT and read-only volumes return FS_ERR_UNSUPPORTED, a full volume
+ * FS_ERR_IO. Returns 0 on success. */
+int fs_target_file_append(const char *path, const void *data, uint32_t len);
+
 #endif

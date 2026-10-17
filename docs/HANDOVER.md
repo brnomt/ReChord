@@ -2774,3 +2774,33 @@ the latest flush with real timestamps, not zeros.
 
 **Result on hardware:** confirmed — "LOG funciona" (BRNOMT-88 closed). The
 file is created, reads as text and is refreshed at the flush points.
+
+## Y. Session 2026-10-17 (cont.) — BRNOMT-74 step 1: the append primitive
+
+**Why:** the media index is built incrementally and cannot be held in RAM, so
+it needs to write past the end of a file — and `fs_target_file_rewrite()`
+deliberately refuses to grow (`FS_ERR_UNSUPPORTED`). This is that piece.
+
+- `fs_target_file_append(path, data, len)`: appends at the current size,
+  extending the cluster chain (allocating and linking as needed), writing the
+  data, and patching the dirent LAST (the commit). The sector the append
+  point falls into is read first so the bytes before it survive, and every
+  sector the data only partly fills is zero-padded — the result is byte-exact
+  for [0, old_size + len). `len == 0` is a successful no-op. FAT16/FAT32;
+  exFAT and read-only volumes refused.
+- A file with **no clusters yet** (size 0, e.g. a freshly created index) gets
+  its first cluster written into the dirent by the same commit — the first
+  cut forgot this, and the harness caught it immediately: the chain stayed
+  orphaned and fsck reported "Reclaimed 6 unused clusters (3072 bytes)" for a
+  file whose chain each append had silently started over.
+
+**Verified (host, both filesystems):** create-empty → append 5 B → append
+600 B twice → the file reads back byte-exact (1205 B, FNV checked), the
+kernel agrees through a real mount, `fsck.fat -n` reports nothing unexpected
+(no reclaimed clusters), and the refusals behave (missing file / a directory
+→ FS_ERR_OPEN, zero length → FS_OK).
+
+**Build:** `_bss_end 0x03049324` (unchanged: the append adds no statics),
+text 115,432 B; `make cfw-img` RESULT: PASS — AP5M CRC `0xE0394429`, sha256
+`b0794bf3e2373ca43e7dfc0d3d769323602edb6402e7e8ff32d3f38b668bfba3`.
+All host suites green.

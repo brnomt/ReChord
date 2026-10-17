@@ -1224,3 +1224,125 @@ int fs_target_file_rewrite(const char *path, const void *data, uint32_t len)
     s_sec_vol = 0;                       /* cached sectors are stale now   */
     return FS_OK;
 }
+
+int fs_target_file_append(const char *path, const void *data, uint32_t len)
+{
+    const vol_t *v;
+    uint32_t sec[128];
+    uint32_t first, last, have, need, c, i, done, start, coff, off;
+    int r;
+
+    if (path == 0 || (data == 0 && len > 0))
+        return FS_ERR_ARG;
+    if (len == 0u)
+        return FS_OK;
+    r = resolve(path, &v);
+    if (r != 0 || s_ent.is_dir)
+        return FS_ERR_OPEN;
+    if (v->type == T_EXFAT || v->wr == 0)
+        return FS_ERR_UNSUPPORTED;
+    if (v->spc == 0u)
+        return FS_ERR_IO;
+
+    start = s_ent.size;
+
+    /* What the file owns today, at cluster granularity (a file with no
+     * clusters yet owns none: it grows from here). */
+    first = s_ent.clus;
+    last = 0u;
+    have = 0u;
+    if (first >= 2u) {
+        c = first;
+        for (;;) {
+            uint32_t nx;
+
+            have += v->spc;
+            last = c;
+            nx = fat_next(v, c);
+            if (nx < 2u)
+                break;
+            c = nx;
+        }
+    }
+
+    /* Grow the chain FIRST (an interruption here leaks clusters, which fsck
+     * recovers; the file keeps its previous, valid size until the commit). */
+    need = (start + len + 511u) / 512u;
+    if (need > have) {
+        uint32_t extra = (need - have + v->spc - 1u) / v->spc;
+        uint32_t k;
+
+        for (k = 0; k < extra; k++) {
+            uint32_t nc = alloc_clus(v);
+
+            if (nc < 2u)
+                return FS_ERR_IO;            /* volume full */
+            if (fat_set(v, nc, eoc(v)) != FS_OK)
+                return FS_ERR_IO;
+            if (last >= 2u) {
+                if (fat_set(v, last, nc) != FS_OK)
+                    return FS_ERR_IO;
+            } else {
+                first = nc;
+            }
+            last = nc;
+            for (i = 0; i < v->spc; i++)
+                if (sec_zero(v, clus_lba(v, nc) + i) != FS_OK)
+                    return FS_ERR_IO;
+        }
+        fsi_note(v, last, 1u);
+    }
+
+    /* Write the data at `start`: the sector the append point falls into is
+     * read first (the bytes before it must survive), every sector the data
+     * only partly fills is zero-padded, exactly like the rewrite. */
+    coff = (start / 512u) % v->spc;
+    c = first;
+    for (i = 0; i < start / 512u / v->spc; i++) {
+        c = fat_next(v, c);
+        if (c < 2u)
+            return FS_ERR_IO;                /* chain shorter than size */
+    }
+    done = 0u;
+    off = start % 512u;
+    while (done < len) {
+        uint32_t chunk = len - done;
+
+        if (coff == v->spc) {                /* next cluster */
+            coff = 0u;
+            c = fat_next(v, c);
+            if (c < 2u)
+                return FS_ERR_IO;
+        }
+        if (chunk > 512u - off)
+            chunk = 512u - off;
+        if (v->rd(v->base + clus_lba(v, c) + coff, 1u, sec) != 0)
+            return FS_ERR_IO;
+        memset((uint8_t *)sec + off, 0, 512u - off);
+        memcpy((uint8_t *)sec + off, (const uint8_t *)data + done, chunk);
+        if (v->wr(v->base + clus_lba(v, c) + coff, 1u, sec) != 0)
+            return FS_ERR_IO;
+        done += chunk;
+        off = 0u;
+        coff++;
+    }
+
+    /* Commit: the new size, and the first cluster when the file had none (a
+     * zero-length file owns no clusters until its first append). Both live in
+     * the same dirent sector: +20 is the FAT32 high word, +26 the low one. */
+    if (v->rd(v->base + s_size_lba, 1u, sec) != 0)
+        return FS_ERR_IO;
+    if (s_ent.clus < 2u) {
+        uint8_t *b = (uint8_t *)sec;
+
+        b[s_size_off - 8u] = (uint8_t)(first >> 16);
+        b[s_size_off - 7u] = (uint8_t)(first >> 24);
+        b[s_size_off - 2u] = (uint8_t)first;
+        b[s_size_off - 1u] = (uint8_t)(first >> 8);
+    }
+    sec[s_size_off / 4u] = start + len;
+    if (v->wr(v->base + s_size_lba, 1u, sec) != 0)
+        return FS_ERR_IO;
+    s_sec_vol = 0;                           /* cached sectors are stale */
+    return FS_OK;
+}

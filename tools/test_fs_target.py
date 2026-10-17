@@ -169,6 +169,16 @@ if os.path.exists(EXE) and os.path.exists(mkfs_fat):
         assert c['utf8'] == [str(-4)], c                        # ASCII-only names
         assert c['fill'] == ['20'], c
         assert c['read'] == ['1'], c
+        # Append: grow the chain, keep the bytes before the append point.
+        pay = bytes(((i * 17 + 3) & 0xFF) for i in range(600))
+        want_app = b'hello' + pay + pay
+        assert c['mkapp'] == ['0'], c
+        assert c['ap1'] == ['0'] and c['ap2'] == ['0'] and c['ap3'] == ['0'], c
+        assert c['ap0'] == ['0'], c                 # len 0 is a no-op
+        assert c['apmiss'] != ['0'] and c['apdir'] != ['0'], c
+        assert c['rapp'][0] == str(len(want_app)), c['rapp']
+        assert c['rapp'][1] == f'{fnv(want_app):08x}', c['rapp']
+        assert c['rapp'][2] == str(len(want_app)), c['rapp']
         # The cfg now holds exactly the default text; state is 4096 zeros.
         size_cfg = int(c['rcfg'][0])
         assert 100 < size_cfg < 512, c['rcfg']
@@ -190,8 +200,9 @@ if os.path.exists(EXE) and os.path.exists(mkfs_fat):
                 mnt = re.search(r' at (\S+)', subprocess.check_output(
                     ['udisksctl', 'mount', '-b', dev], text=True)).group(1)
             names = sorted(os.listdir(f'{mnt}/.rechord'))
-            assert names == sorted(['rechord.cfg', 'state', 'LOG'] +
+            assert names == sorted(['rechord.cfg', 'state', 'LOG', 'app'] +
                                    [f'f{i:02d}' for i in range(20)]), names
+            assert open(f'{mnt}/.rechord/app', 'rb').read() == want_app
             body = open(f'{mnt}/.rechord/rechord.cfg', 'rb').read()
             assert len(body) == size_cfg and b'play=' in body and b'\x00' not in body, body[:40]
             assert open(f'{mnt}/.rechord/state', 'rb').read() == bytes(4096)
