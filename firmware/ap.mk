@@ -62,7 +62,8 @@ AP_UI_SRCS := \
   firmware/ui/screens/browser_screen.c \
   firmware/ui/screens/player_screen.c \
   firmware/ui/screens/settings_screen.c \
-  firmware/ui/screens/library_screen.c
+  firmware/ui/screens/library_screen.c \
+  firmware/ui/screens/library_cat_screen.c
 
 # Drivers: the TARGET panel backend + the panel init sequence tables
 # (same set as $(DRIVERS_TARGET_SRCS) in firmware/drivers/drivers.mk,
@@ -97,6 +98,7 @@ AP_SERVICE_SRCS := \
   firmware/services/scratch.c \
   firmware/services/media_db.c \
   firmware/services/media_scan.c \
+  firmware/services/media_query.c \
   firmware/services/fw_update.c \
   firmware/services/fs_target.c \
   firmware/services/rechord_files.c

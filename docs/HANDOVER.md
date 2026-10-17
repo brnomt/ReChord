@@ -3088,3 +3088,36 @@ longer than that. DFIU: incident 26eed982 verified, rule R-e68bf2428377 active.
 
 **Build:** AP5M CRC `0xC49E04C3`, sha256
 `b923a1dfa5594b9cfb655385bd16b1cd0938f168a640d1aec4334aa2d65b6460`.
+
+## AG. Session 2026-10-17 (cont.) — BRNOMT-78: the category screens (v2 + Library menu)
+
+- **`services/media_query.{h,c}`** (new, modular and host-tested): the two
+  queries the screens need, both working out of the SHARED SCRATCH region
+  instead of statics — the AP has ~0.5 KB of .bss margin after the v2 record
+  grew, so this was not optional:
+  - `mq_names_init(cat)` streams the index once, deduplicates into 24-byte
+    cells, sorts (insertion sort; the list is bounded by the scratch) with
+    **"Undefined" first**, and reports a count;
+  - `mq_filter_init(cat, value)` collects the matching record indices once, so
+    paging over a category never re-reads the index; `MQ_ALL`/NULL means the
+    whole library.
+  - Year 0 renders as "Undefined" here, which is where the user's rule actually
+    becomes visible.
+- **`ui/screens/library_screen.c`** is now the Rockbox-style menu: All Songs,
+  Album, Artist, Genre, Year, Label, Album Artist, Composer.
+- **`ui/screens/library_cat_screen.c`** (new): two modes — names, then the
+  songs of the chosen name (title only, 8 rows, page == window, footer
+  counter; SELECT plays and pushes Now Playing; BACK steps back one mode
+  before popping).
+- **Budget win**: the old flat view kept 10 records (2.4 KB) in .bss; the
+  queries use the scratch, so `_bss_end` DROPPED from 0x03049e1c to
+  `0x0304949c` (~2.9 KB of margin again).
+- Tests: `test_media_query` 26 checks (Undefined-first ordering for Album and
+  Year, a year filter, an album filter, All Songs, repeated init, mq_done).
+  Services, UI and player suites green.
+
+**Build:** `_bss_end 0x0304949c`, AP5M CRC `0xC01DEC51`, sha256
+`f3f29baf75c1fe9e9ca424d9e5df6eafee054c54fae30fba8c80bc83431b4387`.
+
+**Device test:** after a rebuild (v2 needs one), Library → Year should show
+`Undefined / 2012 / 2015`, and choosing one lists its songs.

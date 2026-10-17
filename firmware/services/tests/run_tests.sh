@@ -27,5 +27,6 @@ $CC $CFLAGS -I.. -I../.. -o .work/test_media_scan test_media_scan.c ../media_sca
 .work/test_store
 .work/test_scratch
 .work/test_media_db
+.work/test_media_query
 .work/test_media_scan
 echo "ALL SERVICES TESTS PASSED"

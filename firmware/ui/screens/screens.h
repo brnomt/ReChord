@@ -120,7 +120,9 @@ int player_bar_width(int width, uint32_t pos, uint32_t dur);
 
 extern const ui_screen_t settings_screen;
 
-extern const ui_screen_t library_screen;   /* All Tracks, from the index */
+extern const ui_screen_t library_screen;       /* category menu */
+extern const ui_screen_t library_cat_screen;   /* names -> songs  */
+void library_cat_open(int cat);                /* set the category before pushing */
 
 void settings_screen_reload(void);   /* settings_load() into the live copy  */
 void settings_screen_store(void);    /* settings_save() the live copy       */

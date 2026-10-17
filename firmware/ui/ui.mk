@@ -23,7 +23,8 @@ UI_SRCS := $(UI_DIR)/ui.c \
            $(UI_DIR)/screens/browser_screen.c \
            $(UI_DIR)/screens/player_screen.c \
            $(UI_DIR)/screens/settings_screen.c \
-           $(UI_DIR)/screens/library_screen.c
+           $(UI_DIR)/screens/library_screen.c \
+           $(UI_DIR)/screens/library_cat_screen.c
 
 UI_CFLAGS := -std=c99 -Wall -Werror -Os -I$(UI_DIR)
 UI_OBJDIR := $(BUILD_DIR)/ui/objs
