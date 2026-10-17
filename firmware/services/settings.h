@@ -21,11 +21,12 @@
 
 typedef struct { char play[16]; int brightness; int screen_off_min; int auto_off_min; char usb[8]; char resume[8]; char strip[8]; char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor; } settings_t;
 
-/* Config file location: root of the user volume, DOS-style path (format
- * fact from the documented on-device config). Override at compile time if a
- * build needs a different name. */
+/* Config file location: the internal eMMC volume, in the user-visible
+ * .rechord folder (BRNOMT-71). Plain text, so it can be edited/copied from a
+ * PC; on the target it is rewritten IN PLACE (no FAT-table writes) by
+ * settings_store.c. Override at compile time if a build needs another name. */
 #ifndef SETTINGS_PATH
-#define SETTINGS_PATH "\\RECHORD.CFG"
+#define SETTINGS_PATH "/Internal/.rechord/rechord.cfg"
 #endif
 
 /* Return codes. */

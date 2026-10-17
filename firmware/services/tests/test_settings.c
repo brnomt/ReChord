@@ -216,7 +216,8 @@ static void test_missing_file_and_args(void)
 {
     settings_t s;
 
-    (void)remove(".work/RECHORD.CFG");
+    (void)remove(".work/Internal/.rechord/rechord.cfg");
+    (void)remove(".work/RECHORD.CFG");     /* pre-BRNOMT-71 location */
     settings_defaults(&s);
     CHECK(settings_load(&s) == SETTINGS_ERR_OPEN);
     check_sample_values(&s);             /* defaults still applied */
@@ -236,6 +237,16 @@ int main(void)
 
     if (mkdir(".work", 0777) != 0 && errno != EEXIST) {
         printf("FAIL cannot create .work\n");
+        return 1;
+    }
+    /* SETTINGS_PATH lives in the user-visible .rechord folder of the
+     * internal volume (fs_host does not create parent directories). */
+    if (mkdir(".work/Internal", 0777) != 0 && errno != EEXIST) {
+        printf("FAIL cannot create .work/Internal\n");
+        return 1;
+    }
+    if (mkdir(".work/Internal/.rechord", 0777) != 0 && errno != EEXIST) {
+        printf("FAIL cannot create .work/Internal/.rechord\n");
         return 1;
     }
     fs_host_set_root(".work");

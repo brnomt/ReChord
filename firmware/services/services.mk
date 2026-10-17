@@ -17,11 +17,13 @@ SERVICES_COMMON_SRCS := \
 # Sources compiled for the ARM target image.
 SERVICES_TARGET_SRCS := \
   $(SERVICES_COMMON_SRCS) \
+  $(SERVICES_DIR)/settings_store.c \
   $(SERVICES_DIR)/fs_target.c
 
 # Sources compiled for host tests/tools.
 SERVICES_HOST_SRCS := \
   $(SERVICES_COMMON_SRCS) \
+  $(SERVICES_DIR)/settings_fs.c \
   $(SERVICES_DIR)/fs_host.c
 
 SERVICES_INCLUDE_DIRS := $(SERVICES_DIR)

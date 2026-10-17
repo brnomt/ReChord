@@ -18,6 +18,7 @@
 typedef struct {
     char name[12];
     fs_block_read_t rd;
+    fs_block_write_t wr;             /* NULL = read-only volume            */
     uint32_t base;                   /* volume boot sector, device LBA */
     int type;                        /* 0 = not mounted */
     uint32_t fat, data, spc, root, root_secs, nclus;
@@ -47,6 +48,12 @@ static uint32_t s_sec[128], s_sec_lba;
 static const vol_t *s_sec_vol;
 static ent_t s_ent;
 static uint16_t s_u16[256];
+
+/* Where the last dir_read() match keeps its 4-byte size field (the FAT short
+ * entry +28) — the only field the in-place rewrite path patches. exFAT is
+ * refused there: its size lives in the stream entry, covered by the
+ * entry-set checksum. */
+static uint32_t s_size_lba, s_size_off;
 
 static uint32_t le16(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8; }
 static uint32_t le32(const uint8_t *p) { return le16(p) | le16(p + 2) << 16; }
@@ -310,6 +317,9 @@ static int fat_dir_read(cur_t *d, ent_t *e)
         e->size = le32(p + 28);
         if (e->is_dir && e->clus == 0u)      /* ".." to root: not reported */
             continue;
+        s_size_lba = (d->clus == 0u) ? d->v->root + d->sec
+                                     : clus_lba(d->v, d->clus) + d->sec;
+        s_size_off = (d->off - 32u) + 28u;
         return 1;
     }
     return 0;
@@ -578,4 +588,105 @@ long fs_write(fs_file_t *f, const void *buf, unsigned long len)
 {
     (void)f; (void)buf; (void)len;
     return FS_ERR_UNSUPPORTED;
+}
+
+/* ---- in-place writes (no FAT-table writes, no allocation) --------------- */
+
+int fs_target_set_writer(int idx, fs_block_write_t wr)
+{
+    if (idx < 0 || idx >= FS_VOLUMES)
+        return FS_ERR_ARG;
+    s_vol[idx].wr = wr;
+    return FS_OK;
+}
+
+int fs_target_file_rewrite(const char *path, const void *data, uint32_t len)
+{
+    const vol_t *v;
+    uint32_t sec[128];
+    uint32_t c, sectors, done, i;
+    int r;
+
+    if (path == 0 || (data == 0 && len > 0))
+        return FS_ERR_ARG;
+    r = resolve(path, &v);
+    if (r != 0 || s_ent.is_dir)
+        return FS_ERR_OPEN;
+    /* exFAT's file size lives in the stream entry, which is covered by the
+     * entry-set checksum (SetChecksum in the 0x85 entry): patching the size
+     * without recomputing that checksum corrupts the directory (fsck:
+     * "checksum of a file is wrong"). The internal volume is FAT; refuse
+     * exFAT here instead of corrupting it. */
+    if (v->type == T_EXFAT)
+        return FS_ERR_UNSUPPORTED;
+    if (v->wr == 0)
+        return FS_ERR_UNSUPPORTED;       /* read-only volume                */
+    if (len > 0 && s_ent.clus == 0u)
+        return FS_ERR_UNSUPPORTED;       /* no clusters owned: cannot grow  */
+
+    /* Data sectors first (zero-padded), walking the file's own clusters. */
+    sectors = (len + 511u) / 512u;
+
+    /* Pre-flight: the file must ALREADY own enough clusters. A rejected
+     * oversize rewrite must not touch the data at all. The cluster size
+     * differs per volume, and exFAT's NoFatChain files have no chain to
+     * probe — their run length follows the file size — so the two cases are
+     * computed differently. */
+    {
+        uint32_t alloc_sectors;
+
+        if (s_ent.contig) {
+            uint32_t clus_bytes = v->spc * 512u;
+
+            alloc_sectors = ((s_ent.size + clus_bytes - 1u) / clus_bytes) *
+                            v->spc;
+        } else {
+            uint32_t have = 0, probe = s_ent.clus;
+
+            while (have < sectors) {
+                have += v->spc;
+                if (have >= sectors)
+                    break;
+                probe = fat_next(v, probe);
+                if (probe < 2u)
+                    return FS_ERR_UNSUPPORTED;  /* allocation too small     */
+            }
+            alloc_sectors = have;
+        }
+        if (sectors > alloc_sectors)
+            return FS_ERR_UNSUPPORTED;
+    }
+
+    c = s_ent.clus;
+    done = 0;
+    for (i = 0; i < sectors; i++) {
+        uint32_t chunk = len - done;
+
+        if (i > 0u && (i % v->spc) == 0u) {         /* next cluster */
+            c = s_ent.contig ? c + 1u : fat_next(v, c);
+            if (c < 2u)
+                return FS_ERR_UNSUPPORTED;          /* shorter than `len`  */
+        }
+        if (chunk > 512u)
+            chunk = 512u;
+        memset(sec, 0, sizeof sec);
+        memcpy(sec, (const uint8_t *)data + done, chunk);
+        /* clus_lba() is volume-relative; the block I/O contract is absolute
+         * device LBAs (the volume may sit behind an MBR / at s_user). */
+        if (v->wr(v->base + clus_lba(v, c) + i % v->spc, 1u, sec) != 0)
+            return FS_ERR_IO;
+        done += chunk;
+    }
+
+    /* Commit: patch the 4-byte size field in the dirent. This is the only
+     * FS metadata byte this path touches (same narrow pattern the updater's
+     * retire step proves); the FAT table and the directory layout are
+     * untouched and nothing is allocated. */
+    if (v->rd(v->base + s_size_lba, 1u, sec) != 0)
+        return FS_ERR_IO;
+    sec[s_size_off / 4u] = len;
+    if (v->wr(v->base + s_size_lba, 1u, sec) != 0)
+        return FS_ERR_IO;
+    s_sec_vol = 0;                       /* cached sectors are stale now   */
+    return FS_OK;
 }

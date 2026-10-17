@@ -37,14 +37,28 @@ typedef struct { char play[16]; int brightness; int screen_off_min;
     char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor; }
     settings_t;
 
-int  settings_load(settings_t *s);       /* parse \RECHORD.CFG */
-int  settings_save(const settings_t *s); /* serialize back     */
-void settings_defaults(settings_t *s);   /* sane defaults      */
+int  settings_load(settings_t *s);       /* parse the config file  */
+int  settings_save(const settings_t *s); /* serialize it back      */
+void settings_defaults(settings_t *s);   /* sane defaults          */
 ```
 
 Helpers (pure, no I/O): `settings_parse_text(text, s)`,
 `settings_serialize_text(s, buf, cap)` (returns written length or a negative
-code).
+code). The parser/serializer live in `settings.c`; the I/O halves are
+backend files, one per image (same pattern as the fs backend):
+
+| Backend | Image | Save semantics |
+|---|---|---|
+| `settings_fs.c` | host tools/tests | whole-file `fs_open_write`/`fs_write` (create/truncate) |
+| `settings_store.c` | target (AP) | `fs_target_file_rewrite()`: rewrite the existing file's **data sectors** in place + patch its dirent size — no FAT-table writes, no allocation. Missing file ⇒ load returns `SETTINGS_ERR_OPEN` (defaults stay), save returns IO error. |
+
+`SETTINGS_PATH` is `/Internal/.rechord/rechord.cfg` — the user-visible
+`.rechord` folder on the internal eMMC volume (BRNOMT-71), plain text so it
+can be edited/copied from a PC. The file must pre-exist with allocated
+clusters (created once from a PC; a first-boot init is future work). Note:
+a file whose size is smaller than its cluster chain is FAT *slack* — fsck
+offers to truncate it, so do not run a filesystem **repair** on that volume
+unless the config file's allocation may be sacrificed.
 
 Return codes: `SETTINGS_OK 0`, `SETTINGS_ERR_ARG -1`, `SETTINGS_ERR_OPEN -2`
 (file missing — defaults are still applied), `SETTINGS_ERR_IO -3`,

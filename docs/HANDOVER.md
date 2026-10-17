@@ -2417,3 +2417,54 @@ device flash confirms builds under the gate); the older, vaguer envelope rule
 `R-c423c45206d8` is deprecated.
 
 
+
+## S. Session 2026-10-17 (cont.) — settings persistence on the eMMC (BRNOMT-71)
+
+**Where:** `/.rechord/rechord.cfg` on the **internal eMMC volume** (7 GB
+FAT32, user-visible from the PC; `lsblk` shows sda1 covering the whole disk,
+so there is no unallocated tail to use). Plain text, 12-key schema, 64 KiB
+allocation so it can grow. The device only ever rewrites the **data sectors
+of that existing file** and patches its dirent size — no FAT-table writes, no
+allocation, no directory creation. The write class that bricked earlier
+builds stays off this path (§R / DFIU fb41cb15).
+
+**New primitives (`fs_target`):**
+- `fs_target_set_writer(idx, wr)` — optional per-volume block writer (NULL =
+  read-only). The AP wires it to `emmc_write` right after mounting Internal;
+  `emmc_write` itself refuses anything below `s_user` (IDB/firmware area).
+- `fs_target_file_rewrite(path, data, len)` — FAT16/FAT32: pre-flight the
+  allocation (FAT slack allows growth within the chain; exFAT NoFatChain runs
+  follow the size), write the data (zero-padded), patch the 4-byte dirent
+  size, drop the sector cache. Refuses exFAT (its size is covered by the
+  entry-set checksum).
+- **Settings split:** `settings.c` = parser/serializer/defaults;
+  `settings_fs.c` = host whole-file I/O (moved); `settings_store.c` = target
+  read + in-place rewrite. The 2 KiB read buffer left the target with it.
+
+**Verification (host, real filesystems):** `tools/test_fs_target.py` now
+exercises the rewrite against kernel-filled FAT16 / FAT32 (MBR) / exFAT
+images and requires `fsck` clean. It caught three real bugs before any device
+test:
+1. the write path passed **volume-relative** LBAs to the absolute block
+   writer (invisible on superfloppy images, wrong behind an MBR — and the
+   device's volume starts at `s_user`, so it would have failed on hardware);
+2. an oversize rewrite **partially overwrote** the file before discovering
+   the allocation was too small -> pre-flight added;
+3. exFAT's size patch invalidated the **entry-set checksum** (fsck:
+   "checksum of a file is wrong") -> exFAT refused instead of corrupted.
+`test_settings_store.c` covers the target glue (defaults/parse/hand-off/error
+mapping).
+
+**Budget:** the split *freed* 2 KiB: bss 286,408 -> **284,376 B**,
+`_bss_end 0x03049F84 -> 0x03049794` (2,156 B more margin under the
+0x0304A000 gate). text +460 B. All suites green; `make cfw-img` RESULT: PASS
+— AP5M CRC `0xD9CDCE35`.
+
+**Device check (user):** flash, change a setting (e.g. volume), power-cycle ->
+the value persists and `rechord.cfg` on the internal drive shows the new text
+at exactly the text length. Do **not** run a filesystem *repair* on that
+volume: the preallocated slack is intentional (fsck would truncate it).
+
+**Note:** growth is bounded by the file's cluster chain (64 KiB here). For
+more, recreate the file larger; a first-boot init (folder + files created by
+a verified FAT allocator) is still future work.

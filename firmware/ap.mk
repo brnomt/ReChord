@@ -88,6 +88,7 @@ AP_AUDIO_SRCS := \
 # $(SERVICES_TARGET_SRCS) in firmware/services/services.mk).
 AP_SERVICE_SRCS := \
   firmware/services/settings.c \
+  firmware/services/settings_store.c \
   firmware/services/log.c \
   firmware/services/input.c \
   firmware/services/store.c \

@@ -44,6 +44,11 @@ static void emmc_probe(void)
                  (unsigned)(s_user = user));
     if (s_user)
         fs_target_mount(0, "Internal", emmc_read, s_user);
+    /* In-place file rewrites (settings now, the media index later) are only
+     * allowed on this volume, block-level, from the user-volume floor up —
+     * see fs_target_file_rewrite() (BRNOMT-71). */
+    if (s_user)
+        (void)fs_target_set_writer(0, emmc_write);
 }
 
 static const char *emmc_text(void) { return s_emmc; }
