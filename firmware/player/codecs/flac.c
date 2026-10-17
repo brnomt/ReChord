@@ -450,7 +450,8 @@ static int flac_decode(void *vst, int32_t *pcm, int max_frames)
         return CODEC_ERR_STATE;
     /* s32 output is left-justified to 32 bits (dr_flac shifts by 32-bps),
      * which is exactly the internal pipeline format: no re-scaling here. */
-    got = drflac_read_pcm_frames_s32(st->f, (size_t)max_frames, pcm);
+    got = drflac_read_pcm_frames_s32(st->f, (size_t)max_frames,
+                                     (drflac_int32 *)pcm);
     return (int)got;                     /* 0 == EOF (codec contract)      */
 }
 

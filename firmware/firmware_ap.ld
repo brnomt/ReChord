@@ -48,7 +48,7 @@ MEMORY
        Length mirrors the reference's resident span (its row 0 ends at
        0x030771D4); the hard payload limit is 0x56AB8 (0x57068 minus the
        0x5B0 prefix) which is far above. */
-    FW_CODE (rx)  : ORIGIN = 0x03050000, LENGTH = 0x00027820
+    FW_CODE (rx)  : ORIGIN = 0x03050000, LENGTH = 0x0003C000
 
     /* FW_RAM: initialized data + bss.  Starts at the top of the main stack
        (SP = 0x03004000); the 16 KiB BELOW 0x03004000 is the stack zone

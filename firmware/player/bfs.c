@@ -25,7 +25,11 @@ static codec_io_t *s_io;
 
 static void dmb(void)
 {
+#if defined(__arm__) || defined(__thumb__)
     __asm__ volatile("dmb" ::: "memory");
+#else
+    __asm__ volatile("" ::: "memory");   /* host tests: compiler barrier */
+#endif
 }
 
 int bfs_open(const char *path)
@@ -109,7 +113,7 @@ void bfs_poll(void)
         if (n > REFILL_CHUNK)
             n = REFILL_CHUNK;
 
-        got = cio_read(s_io, (void *)(IPC_FILE_BASE + pos), (long)n);
+        got = cio_read(s_io, (void *)(uintptr_t)(IPC_FILE_BASE + pos), (long)n);
         if (got < 0) {
             CTRL[IPC_F_OPEN] = 0;       /* surface the error to B */
             dmb();

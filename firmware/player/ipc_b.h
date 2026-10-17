@@ -66,6 +66,8 @@ typedef struct
                                  4 = 100 MHz (negotiated steady state)  */
     int           busy_pct;   /* B core load estimate                   */
     int           volume_db;  /* volume currently applied by the B core */
+    int           b_eof;      /* phase 3c: B's decoder drained          */
+    int           b_error;    /* phase 3c: B reported a codec error     */
 } ipc_b_status_t;
 
 /*
@@ -168,5 +170,18 @@ int ipc_b_flush(void);
  * supervisor updates its expected length with `duration_ms`. cmd_arg0.
  * Returns non-negative on acceptance. */
 int ipc_b_track_change(long duration_ms);
+
+/* ---- phase 3c: decode on Core B ---- */
+
+/* 1 when Core B is decoding (it is the PCM-ring producer; the AP must not
+ * call ipc_b_ring_fill()). 0 on the host mock and when the handoff failed. */
+int ipc_b_b_decodes(void);
+
+/* 1 when Core B's decoder has drained the track (end of stream). */
+int ipc_b_b_eof(void);
+
+/* Ask Core B to reposition the (B-side) decoder. No-op when B is not the
+ * producer. Only legal while running/paused. */
+int ipc_b_seek(long ms);
 
 #endif /* RECHORD_IPC_B_H */

@@ -13,7 +13,8 @@ mkdir -p .work
 # the three codecs + mock codec). minimp3/dr_flac come in through the
 # adapter TUs' header includes (no separate build entries).
 PLAYER_SRCS="../player.c ../codecs/codec_registry.c ../codecs/wav.c \
-             ../codecs/mp3.c ../codecs/flac.c ../tags.c ../ipc_b_mock.c"
+             ../codecs/mp3.c ../codecs/flac.c ../tags.c ../ipc_b_mock.c \
+             ../bfs.c"
 
 # The shared codec_io dispatch wrappers now live in codec_io.c; both backends
 # (codec_io_stdio.c for host tests, codec_io_fs.c for the on-device FS path)

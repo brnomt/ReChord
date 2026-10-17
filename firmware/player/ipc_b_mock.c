@@ -219,3 +219,21 @@ int ipc_b_track_change(long duration_ms)
         g_state = IPC_B_RUNNING;
     return 0;
 }
+
+/* Phase 3c: the host mock always plays the AP-decode model (the mock codec
+ * produces), so Core B is never the producer here. */
+int ipc_b_b_decodes(void)
+{
+    return 0;
+}
+
+int ipc_b_b_eof(void)
+{
+    return 0;
+}
+
+int ipc_b_seek(long ms)
+{
+    (void)ms;
+    return 0;
+}

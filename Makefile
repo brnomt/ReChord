@@ -61,14 +61,33 @@ BB_CORE_ELF  := $(BB_CORE_DIR)/bb_core.elf
 BB_CORE_BIN  := $(BB_CORE_DIR)/bb_core.bin
 BB_CORE_BLOB := $(BB_CORE_DIR)/bb_core_blob.o
 
-$(BB_CORE_ELF): firmware/bb/bb_main.c firmware/bb/bcio.c \
-                firmware/player/codec_io.c firmware/player/ipc_shared.h \
-                firmware/bb/bb.ld
+# Phase 3c: Core B decodes. It links our codecs + registry-free descriptors +
+# tags + the shared workbuf (decode pool) + codec_io over the A file ring.
+BB_INC := -Ifirmware -Ifirmware/libc -Ifirmware/services -Ifirmware/player \
+          -Ifirmware/drivers
+
+BB_CORE_SRCS := \
+  firmware/bb/bb_main.c \
+  firmware/bb/bcio.c \
+  firmware/player/codec_io.c \
+  firmware/player/codecs/flac.c \
+  firmware/player/codecs/mp3.c \
+  firmware/player/codecs/wav.c \
+  firmware/player/tags.c \
+  firmware/services/workbuf.c \
+  firmware/libc/mem.c \
+  firmware/libc/str.c
+
+$(BB_CORE_ELF): $(BB_CORE_SRCS) firmware/player/ipc_shared.h firmware/bb/bb.ld
 	@$(MKDIR_P) $(BB_CORE_DIR)
 	$(CC) -mcpu=cortex-m3 -mthumb -Os -ffreestanding -fno-builtin \
-	    -nostdlib -ffunction-sections -fdata-sections -Ifirmware/player \
-	    -T firmware/bb/bb.ld firmware/bb/bb_main.c firmware/bb/bcio.c \
-	    firmware/player/codec_io.c -lgcc -o $@
+	    -nostdlib -ffunction-sections -fdata-sections -fcommon \
+	    -Wno-incompatible-pointer-types -Wno-int-conversion \
+	    -Wno-implicit-function-declaration -Wno-implicit-int \
+	    -Wno-builtin-declaration-mismatch -Wno-return-mismatch \
+	    -Wno-return-type -Wno-unused-parameter -Wno-unused-variable \
+	    $(BB_INC) -include firmware/rockchip/include/armcc_compat.h \
+	    -T firmware/bb/bb.ld $(BB_CORE_SRCS) -lgcc -o $@
 
 $(BB_CORE_BIN): $(BB_CORE_ELF)
 	$(OBJCOPY) -O binary $< $@

@@ -4,24 +4,22 @@
  * Memory map per the vendor B-core scatter file
  * (community/sdks/.../Scatter/B_Core.sct): Core 1 runs code from HIGHRAM0
  * (the AP copies the image to 0x01000000 and releases CAL_CORE_SRST), and its
- * DATA / STACK live in the region from 0x01020000 upward (HRAM_DATA_BASE =
- * 0x01020000, size 0x40000 = 256 KiB, up to HIFIACC at 0x01060000). Core B
- * already proves it can reach that region: it reads the control block at
- * 0x01020000 every poll in phase 2. (Pointing B's SP at SYSRAM1 0x03090000
- * made B fault; see docs/rewrite/core-b-phase3.md.)
+ * DATA / STACK live in 0x01020000..0x01060000 (HRAM_DATA_BASE = 0x01020000,
+ * size 0x40000 = 256 KiB, up to HIFIACC at 0x01060000). Core B proves it can
+ * reach that region: it accesses the control block at 0x01020000 in phase 2.
  *
- *   0x01000000..0x01010000   BCODE   (64 KiB) vectors + code + rodata + .data LMA
- *   0x01010000..0x01020000   PCM ring (owned by B)
- *   0x01020000..0x01021000   control block (shared with the AP)
- *   0x01021000..0x01029000   A->B file ring (shared with the AP)
- *   0x01031000..0x01060000   BB_RAM  (188 KiB) .data + .bss + stack
+ *   0x01000000..0x01020000   BCODE   (128 KiB) vectors + code + rodata + .data LMA
+ *   0x01020000..0x01021000   control block (shared)
+ *   0x01021000..0x01029000   A->B file ring (shared)
+ *   0x01030000..0x01040000   PCM ring (phase 3c)
+ *   0x01040000..0x01060000   BB_RAM  (128 KiB) .data + .bss (decode pool) + stack
  */
 ENTRY(bb_reset)
 
 MEMORY
 {
-    BCODE  (rx) : ORIGIN = 0x01000000, LENGTH = 0x00010000   /* < PCM ring */
-    BB_RAM (rw) : ORIGIN = 0x01031000, LENGTH = 0x0002F000   /* < 0x01060000 */
+    BCODE  (rx) : ORIGIN = 0x01000000, LENGTH = 0x00020000   /* HIGHRAM0 */
+    BB_RAM (rw) : ORIGIN = 0x01040000, LENGTH = 0x00020000   /* < 0x01060000 */
 }
 
 SECTIONS

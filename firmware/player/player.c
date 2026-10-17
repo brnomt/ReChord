@@ -15,6 +15,7 @@
 #include "codec.h"
 #include "codecs/codec_registry.h"
 #include "ipc_b.h"
+#include "bfs.h"
 #include "rg_math.h"
 #include "tags.h"
 
@@ -554,7 +555,10 @@ int player_seek(long ms)
     /* Buffered PCM is at the old position — drop it. The flush also
      * zeroes the sink-side consumed counter, keeping
      * player_get_position_ms() exact. */
-    ipc_b_flush();
+    if (ipc_b_b_decodes())
+        ipc_b_seek(ms);         /* B owns the decoder: reposition it too */
+    else
+        ipc_b_flush();
     return PLAYER_OK;
 }
 
@@ -678,6 +682,17 @@ int player_process(void)
         return PLAYER_ERR;
     }
 
+    if (ipc_b_b_decodes()) {
+        /* Phase 3c: Core B decodes. Keep serving its file reads and end the
+         * track when B's decoder drains (the ring then empties behind it). */
+        bfs_poll();
+        if (st.b_error) {
+            do_error();
+            return PLAYER_ERR;
+        }
+        if (st.b_eof)
+            g.eof = 1;
+    } else {
     frame_b = g.fmt.channels * 4;   /* int32 left-justified per sample */
     for (i = 0; i < PLAYER_PUMP_ROUNDS; i++) {
         if (g.eof)
@@ -756,6 +771,8 @@ int player_process(void)
             g.emitted_samples -= (got - filled);
         }
     }
+
+    } /* else: AP decodes (phase-2 fallback) */
 
     /* End of track: decoder drained AND the sink consumed everything. */
     if (g.eof && st.ring_wr == st.ring_rd) {
