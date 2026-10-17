@@ -50,17 +50,34 @@ cores with **separate** SRAM.
 - The 192k/24 file needs a ~143 KB window: SYSRAM1 (256 KiB) can hold it,
   which makes PIXELATED KISSES potentially reachable in 3d.
 
-### Hardware result (2026-10-17): B does NOT reach SYSRAM1 as assumed
+### CORRECTED map (2026-10-17): use the SDK's B_Core.sct, not SYSRAM1
 
-Moving B's stack/.bss to `0x03090000` (`822761d`, image CRC `0x8E087DD6`) made
-playback fail on hardware: "playing" but stuck at 0:00 on every track, i.e.
-the PCM ring never drained — Core B did not run. So a naive `SP = SYSRAM1`
-is wrong. Possibilities: SYSRAM1 needs its own clock/bus gate enabled before
-use (like the CAL core gates), or Core 1 sees it at a different address, or
-it is not Core-1-executable. **REA the reference's B image to see whether it
-touches SRAM beyond HIGHRAM0, and how it is gated, before retrying.** The
-SYSRAM1 relocation was reverted (`bb.ld`/`bb_main.c` back to HIGHRAM stack);
-phase-2 audio works.
+The vendor B-core scatter file (`community/sdks/.../Scatter/B_Core.sct`) is
+authoritative and contradicts the SYSRAM1 guess:
+
+```
+HRAM_CODE_BASE 0x00000000   HRAM_DATA_BASE 0x01020000
+HRAM_CODE_SIZE 0x00020000   HRAM_DATA_SIZE 0x00040000   (to HIFIACC 0x01060000)
+```
+
+So Core 1 runs code from HIGHRAM0 and keeps its **data + stack in
+`0x01020000`..`0x01060000` (256 KiB)**, NOT in SYSRAM1. And Core B already
+proves it reaches that region — it reads the control block at `0x01020000`
+every poll in phase 2.
+
+**Layout now used** (bb.ld + ipc_shared.h):
+
+| range | use |
+|---|---|
+| `0x01000000..0x01010000` | B code (64 KiB) + .data LMA |
+| `0x01010000..0x01020000` | PCM ring (B) |
+| `0x01020000..0x01021000` | control block (shared) |
+| `0x01021000..0x01029000` | A→B file ring (shared) |
+| `0x01031000..0x01060000` | B .data + .bss (pool) + stack |
+
+Negative result kept for the record: `822761d` put B's SP at `0x03090000`
+and broke playback (stuck at 0:00) — SYSRAM1 is not Core-1-reachable as
+assumed; reverted in `cb95438`.
 
 ## 4. IPC and the file-service boundary (FS stays on A)
 

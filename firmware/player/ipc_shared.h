@@ -47,9 +47,10 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_SH_PAUSE      2u
 
 /* ---- file service (phase 3): A owns the FS and streams a file to B ---- */
-/* Layout: file ring 0x01008000..0x01010000 (32 KiB), B stack grows down from
- * 0x01008000, PCM ring 0x01010000..0x01020000, control at 0x01020000. */
-#define IPC_FILE_BASE     0x01008000u
+/* Layout of the B data region (0x01020000..0x01060000, per the vendor
+ * B_Core.sct): control block 0x01020000..0x01021000, file ring
+ * 0x01021000..0x01029000, B .data/.bss/stack above 0x01031000. */
+#define IPC_FILE_BASE     0x01021000u
 #define IPC_FILE_BYTES    (32u * 1024u)
 #define IPC_FILE_MASK     (IPC_FILE_BYTES - 1u)
 
@@ -66,7 +67,9 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_F_SEEK_ACK 17u   /* A: copies SEQ once the seek is applied    */
 #define IPC_F_COUNT    18u
 
-_Static_assert(IPC_FILE_BASE + IPC_FILE_BYTES <= IPC_RING_BASE,
-               "file ring must sit below the PCM ring");
+_Static_assert(IPC_FILE_BASE >= IPC_SHARED_BASE + 0x1000u,
+               "file ring must sit above the 4 KiB control block");
+_Static_assert(IPC_FILE_BASE + IPC_FILE_BYTES <= 0x01031000u,
+               "file ring must stay below B's .data/.bss region");
 
 #endif /* RECHORD_IPC_SHARED_H */
