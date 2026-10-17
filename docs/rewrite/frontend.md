@@ -74,8 +74,8 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
 | `screens/screens.h` | Public API of all screens (control functions + state introspection) |
 | `screens/boot_screen.c` | ReChord branding (own wordmark rendering, 1 px weight pass), version, divider, printf-style status lines at 12 px pitch (id × 12 px contract) |
 | `screens/menu_screen.c` | Generic list menu (title + scrollable items + selection + right-aligned values) AND the shared navigation/rendering helpers (`menu_view_move`, `menu_draw`, `menu_draw_item`) reused by the other lists |
-| `screens/browser_screen.c` | File browser over `fs_list_dir()` (names + counts only): window = one visible page fetched at the view top, cursor clamping, enter-dir/back path handling clamped at a configured root, footer counts |
-| `screens/player_screen.c` | Now-playing skeleton: track title, progress bar, times, volume bar (-60..0 dB), play/pause toggle |
+| `screens/browser_screen.c` | File browser over `fs_list_dir()`: window = one visible page fetched at the view top, cursor clamping, enter-dir/back path handling clamped at a configured root, footer counts. Files are listed by their tag title with the artist right-aligned (`player_read_meta()` once per fetched page, never in draw); untagged files keep the filename |
+| `screens/player_screen.c` | Now-playing skeleton: track title, artist - album line (tag values, omitted when absent), progress bar, times, volume bar (-60..0 dB), play/pause toggle |
 | `screens/settings_screen.c` | Binds the 12 schema keys to a menu (label = key name, value = formatted config value), SELECT cycles values, BACK saves via `settings_save()` |
 | `internal/hal.h` | The single include door to display + services |
 | `internal/shims/*.h` | **TEMPORARY** forward headers (`display.h`, `input.h`, `settings.h`, `log.h`, `fs.h`) — declarations only, delete when the real headers land |

@@ -48,8 +48,11 @@ typedef struct
 {
     char title[64];
     char artist[64];
+    char album[64];
+    char genre[32];
     char path[128];
-    int  track_no;
+    int  track_no;              /* player's open-sequence counter (not ID3) */
+    int  tag_track_no;          /* TRCK / TRACKNUMBER tag, 0 = unknown      */
     long duration_ms;
 
     /* Gapless trim (codec gapless query, 0/0 if not gapless-aware). The
@@ -120,6 +123,14 @@ int   player_register_codec(const char *ext, const codec_t *codec);
 
 /* Append `path` to the next-track queue (FIFO, PLAYER_QUEUE_LEN deep). */
 int   player_enqueue(const char *path);
+
+/* Text tags for a file WITHOUT opening it as a track — for listings (the file
+ * browser reads the visible page) and for the scan a future metadata index
+ * runs. Reads only the container header through codec_io, so no decoder state
+ * is touched. `out` is zeroed first; returns PLAYER_OK when at least one
+ * field was parsed, PLAYER_ERR otherwise (no tags, unsupported container,
+ * unreadable file). */
+int   player_read_meta(const char *path, codec_meta_t *out);
 
 /* Pump one streaming step: refill the ipc_b ring from the codec and run
  * end-of-track/auto-advance bookkeeping. Call periodically (UI loop / the

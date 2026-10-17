@@ -40,12 +40,66 @@ static void ev_clear(void)
     ev_n = 0;
 }
 
+/* Write a minimal ID3v2.3 file (one TIT2 frame + a few "audio" bytes) for
+ * the listing reader, which must never need the audio part. */
+static int write_tagged_mp3(const char *path, const char *title)
+{
+    unsigned char buf[128];
+    unsigned int sz;
+    long tlen = (long)strlen(title);
+    long body = 1 + tlen;               /* encoding byte + text */
+    long n;
+
+    FILE *f = fopen(path, "wb");
+    if (f == 0)
+        return -1;
+
+    buf[0] = 'I'; buf[1] = 'D'; buf[2] = '3';
+    buf[3] = 3; buf[4] = 0; buf[5] = 0;         /* v2.3, no flags */
+    buf[6] = buf[7] = buf[8] = buf[9] = 0;      /* size, patched below */
+    n = 10;
+    memcpy(buf + n, "TIT2", 4); n += 4;
+    buf[n++] = (unsigned char)(body >> 24);
+    buf[n++] = (unsigned char)(body >> 16);
+    buf[n++] = (unsigned char)(body >> 8);
+    buf[n++] = (unsigned char)(body);
+    buf[n++] = 0; buf[n++] = 0;                 /* frame flags */
+    buf[n++] = 0;                               /* encoding: Latin-1 */
+    memcpy(buf + n, title, (size_t)tlen); n += tlen;
+    sz = (unsigned int)(n - 10);
+    buf[6] = (unsigned char)((sz >> 21) & 0x7F);
+    buf[7] = (unsigned char)((sz >> 14) & 0x7F);
+    buf[8] = (unsigned char)((sz >> 7) & 0x7F);
+    buf[9] = (unsigned char)(sz & 0x7F);
+
+    if (fwrite(buf, 1, (size_t)n, f) != (size_t)n ||
+        fwrite("AUDIOBYTES", 1, 10, f) != 10) {
+        fclose(f);
+        return -1;
+    }
+    fclose(f);
+    return 0;
+}
+
+static int write_untagged_file(const char *path)
+{
+    FILE *f = fopen(path, "wb");
+    if (f == 0)
+        return -1;
+    if (fwrite("NOT A TAG AT ALL", 1, 16, f) != 16) {
+        fclose(f);
+        return -1;
+    }
+    fclose(f);
+    return 0;
+}
+
 int main(void)
 {
     mock_codec_cfg_t cfg;
     track_info_t ti;
     long pos, prev;
-    int i, rc;
+    int i, rc, seq_before;
 
     player_init();
     player_set_callback(on_event, 0);
@@ -243,6 +297,70 @@ int main(void)
     CHECK(player_get_state() == PLAYER_PLAYING, "still playing");
     ipc_b_mock_set_frames_per_tick(256);    /* restore the mock default */
     CHECK_EQI(player_stop(), PLAYER_OK, "stop long track");
+
+    TEST("track tags: tag values win, the filename is the fallback");
+    seq_before = ti.track_no;              /* the playhead test's track */
+    memset(&cfg, 0, sizeof cfg);
+    cfg.total_frames = 44100;
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    snprintf(cfg.meta_title, sizeof cfg.meta_title, "Tagged Title");
+    snprintf(cfg.meta_artist, sizeof cfg.meta_artist, "Tagged Artist");
+    snprintf(cfg.meta_album, sizeof cfg.meta_album, "Tagged Album");
+    snprintf(cfg.meta_genre, sizeof cfg.meta_genre, "Tagged Genre");
+    cfg.meta_track = 7;
+    mock_codec_configure(&cfg);
+    CHECK_EQI(player_open("filename-fallback.mock"), PLAYER_OK, "open tagged");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "track info available");
+    CHECK(strcmp(ti.title, "Tagged Title") == 0, "title from the tag");
+    CHECK(strcmp(ti.artist, "Tagged Artist") == 0, "artist from the tag");
+    CHECK(strcmp(ti.album, "Tagged Album") == 0, "album from the tag");
+    CHECK(strcmp(ti.genre, "Tagged Genre") == 0, "genre from the tag");
+    CHECK_EQI(ti.tag_track_no, 7, "tag track number");
+    CHECK_EQI(ti.track_no, seq_before + 1,
+              "tag track number does not touch the open-sequence counter");
+
+    memset(&cfg, 0, sizeof cfg);
+    cfg.total_frames = 44100;
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+    CHECK_EQI(player_open("filename-fallback.mock"), PLAYER_OK,
+              "open untagged");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "track info available");
+    CHECK(strcmp(ti.title, "filename-fallback") == 0,
+          "no tags -> title from the filename");
+    CHECK_EQI(ti.artist[0], 0, "no tags -> artist empty");
+    CHECK_EQI(ti.album[0], 0, "no tags -> album empty");
+    CHECK_EQI(ti.tag_track_no, 0, "no tags -> tag track number 0");
+
+    TEST("player_read_meta: header-only read for listings");
+    {
+        codec_meta_t m;
+
+        CHECK_EQI(write_tagged_mp3("/tmp/rechord_player_meta.mp3",
+                                   "Listing Title"), 0, "fixture written");
+        CHECK_EQI(write_untagged_file("/tmp/rechord_player_notag.mp3"), 0,
+                  "untagged fixture written");
+        memset(&m, 0x5A, sizeof m);
+        CHECK_EQI(player_read_meta("/tmp/rechord_player_meta.mp3", &m),
+                  PLAYER_OK, "tagged file -> PLAYER_OK");
+        CHECK(strcmp(m.title, "Listing Title") == 0, "title read");
+        CHECK_EQI(m.artist[0], 0, "absent tag stays empty");
+        CHECK_EQI(m.genre[0], 0, "absent genre stays empty");
+        CHECK_EQI(player_read_meta("/tmp/rechord_player_notag.mp3", &m),
+                  PLAYER_ERR, "untagged file -> PLAYER_ERR");
+        CHECK_EQI(m.title[0], 0, "no tags -> out zeroed");
+        CHECK_EQI(player_read_meta("/tmp/rechord_player_meta_missing.mp3", &m),
+                  PLAYER_ERR, "missing file -> PLAYER_ERR");
+        CHECK_EQI(player_read_meta("/tmp/rechord_player_meta.mp3", 0),
+                  PLAYER_ERR, "NULL out -> PLAYER_ERR");
+        CHECK_EQI(player_read_meta(0, &m), PLAYER_ERR, "NULL path -> PLAYER_ERR");
+        remove("/tmp/rechord_player_meta.mp3");
+        remove("/tmp/rechord_player_notag.mp3");
+    }
 
     if (failures == 0)
         printf("test_player_state: ALL PASS\n");

@@ -208,6 +208,28 @@ had the cast; `mp3.c` (Xing duration, CBR total_samples, seek), `flac.c`
 (duration, seek frame) and `player.c` (`player_get_position_ms`) now match
 it. Cover with a >48 s fixture whenever adding a conversion.
 
+**Text tags (2026-10-17, BRNOMT-78 pt.1 — HANDOVER §Q):** the container tag
+block yields both ReplayGain and text metadata in ONE header pass:
+- `tags.h` owns the readers: `tags_read_id3v2()` (v2.3/v2.4 frames
+  `TIT2/TPE1/TALB/TCON/TRCK` + `TXXX` REPLAYGAIN_*) and
+  `tags_read_vorbis()` (spec layout `vendor + count + entries`; keys
+  `TITLE/ARTIST/ALBUM/GENRE/TRACKNUMBER` + `REPLAYGAIN_*`). Bounded stack
+  buffers, no allocation, per-field truncation; unsupported layouts
+  (ID3v2.2, unsync/extended headers, frame modifiers) report "no tags"
+  instead of being misparsed.
+- `tags_read_file()` / `player_read_meta()` read a file's tag header
+  WITHOUT opening it as a track — the seam a listing (file browser) or a
+  metadata index uses.
+- Codecs expose the parsed text through the optional `codec_t.meta` hook
+  (`codec_meta_t`); `player.c` fills `track_info_t` from it, with the
+  filename heuristic as the fallback (missing/malformed tags are never
+  fatal).
+- **Vorbis vendor fix:** the pre-2026-10-17 reader treated the block body's
+  first u32 as the comment count, but that field is the vendor LENGTH
+  (the count comes after the vendor string) — so ReplayGain never worked on
+  real FLAC files, only on the vendor-less fixtures. Fixtures now follow the
+  spec layout and a test pins that a vendor-less block parses nothing.
+
 ## 5. Files
 
 ```
@@ -245,7 +267,8 @@ API summary (other workstreams code against `player.h`):
 | `player_seek(ms)` / `player_next()` | navigation |
 | `player_get_state()` / `player_get_position_ms()` | `PLAYER_STOPPED/PLAYING/PAUSED/ERROR`, ms |
 | `player_set_volume(db)` / `player_get_volume()` | volume in dB (clamped -60..+20), forwarded to B |
-| `player_get_track(track_info_t*)` | title/artist/path/track_no/duration_ms |
+| `player_get_track(track_info_t*)` | title/artist/album/genre (tags, filename fallback), path, `track_no` (open sequence), `tag_track_no`, duration_ms |
+| `player_read_meta(path, codec_meta_t*)` | header-only tag read for listings/indexing (no track open) |
 | `player_set_callback(fn, user)` | UI event hook |
 | `player_register_codec(ext, codec)` | codec registry (mock injection for tests) |
 | `player_enqueue(path)` | fill the next-track queue |
@@ -287,9 +310,10 @@ IPC summary (`ipc_b.h`): `ipc_b_start(track)`, `ipc_b_stop()`,
 4. **Vendor minimp3 + dr_flac** per §4 (paths and licenses above), then
    flip `codec_mp3_stub.c`/`codec_flac_stub.c` to real adapters and pin
    versions. Host-measure decode budget first.
-5. **Metadata**: `track_info_t.title/artist` currently come from the
-   filename heuristic; parse ID3v2 (mp3) / Vorbis comments (flac) /
-   RIFF LIST-INFO (wav) in the adapters when they land.
+5. **Metadata**: ID3v2 (mp3) and Vorbis comments (flac) are parsed (tags.h,
+   `codec_t.meta`, `player_read_meta()`; filename fallback remains for
+   untagged files). Still open: WAV RIFF LIST-INFO, ID3v1-only fallback, Ogg
+   comments, and the metadata *index* (BRNOMT-74) that a library view needs.
 6. **WAV edge formats** (explicitly out of the current subset):
    WAVE_FORMAT_EXTENSIBLE, 24/32-bit PCM, RIFX. Add when a real need
    shows up; rejection is clean (`UNSUPPORTED`) today.

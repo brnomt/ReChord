@@ -55,5 +55,12 @@ int         mock_player_volume_db(void);   /* last player_set_volume() dB   */
 void        mock_player_set_state(int state);
 void        mock_player_set_position(long ms);
 void        mock_player_set_track_present(int present); /* get_track OK?     */
+/* tags player_get_track() reports (Now Playing artist/album line); empty
+ * strings = untagged. */
+void        mock_player_set_tags(const char *artist, const char *album);
+/* scripted player_read_meta() responses for the browser's visible page:
+ * register the tags of one path (unknown paths report PLAYER_ERR). */
+void        mock_player_set_meta(const char *path, const char *title,
+                                 const char *artist);
 
 #endif /* RECHORD_UI_MOCK_SERVICES_H */

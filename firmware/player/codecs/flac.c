@@ -229,6 +229,7 @@ typedef struct
     long            total_samples;      /* -1 unknown                       */
     long            duration_ms;        /* -1 unknown                       */
     codec_replaygain_t rg;
+    codec_meta_t    meta;               /* Vorbis comments (may be empty)   */
 } flac_state_t;
 
 _Static_assert(sizeof(flac_state_t) <= PLAYER_CODEC_STATE_MAX,
@@ -244,7 +245,8 @@ static unsigned be24(const unsigned char *p)
 /* Walk the metadata chain: RG comments -> out; SEEKTABLE bytes summed;
  * STREAMINFO yields max-block and channels for the budget check. Returns 0
  * on success, <0 if the stream is not a parseable FLAC. */
-static int flac_prescan(codec_io_t *io, codec_replaygain_t *rg,
+static int flac_prescan(codec_io_t *io, codec_meta_t *meta,
+                        codec_replaygain_t *rg,
                         unsigned long *seektable_bytes, unsigned *max_block,
                         unsigned *channels)
 {
@@ -276,7 +278,7 @@ static int flac_prescan(codec_io_t *io, codec_replaygain_t *rg,
         if (pos < 0)
             return -1;
         if (type == 4) {
-            (void)tags_replaygain_vorbis(io, pos, (long)len, rg);
+            (void)tags_read_vorbis(io, pos, (long)len, meta, rg);
         } else if (type == 6) {
             *seektable_bytes += len;
         }
@@ -317,7 +319,6 @@ static int flac_would_fit(unsigned max_block, unsigned channels,
 static int flac_open(void *vst, const char *path)
 {
     flac_state_t *st = (flac_state_t *)vst;
-    codec_replaygain_t rg;
     unsigned long seektable_bytes = 0;
     unsigned max_block = 0;
     unsigned scan_channels = 0;
@@ -331,9 +332,10 @@ static int flac_open(void *vst, const char *path)
     st->f = 0;
     st->total_samples = -1;
     st->duration_ms = -1;
-    memset(&rg, 0, sizeof rg);
+    memset(&st->rg, 0, sizeof st->rg);
+    memset(&st->meta, 0, sizeof st->meta);
 
-    if (flac_prescan(st->io, &rg, &seektable_bytes, &max_block,
+    if (flac_prescan(st->io, &st->meta, &st->rg, &seektable_bytes, &max_block,
                      &scan_channels) != 0) {
         cio_close(st->io);
         st->io = 0;
@@ -395,7 +397,6 @@ static int flac_open(void *vst, const char *path)
          * as a bogus few-seconds length (BRNOMT-65). */
         st->duration_ms = (long)(((int64_t)st->total_samples * 1000) /
                                  st->rate);
-    st->rg = rg;
     return CODEC_OK;
 }
 
@@ -485,6 +486,19 @@ static int flac_tags(void *vst, codec_replaygain_t *out)
     return CODEC_OK;
 }
 
+/* Vorbis-comment text metadata (TITLE/ARTIST/ALBUM/GENRE/TRACKNUMBER),
+ * parsed by the same prescan pass that reads the REPLAYGAIN_* comments.
+ * Empty fields mean "no such tag". */
+static int flac_meta(void *vst, codec_meta_t *out)
+{
+    flac_state_t *st = (flac_state_t *)vst;
+
+    if (st == 0 || out == 0)
+        return CODEC_ERR_STATE;
+    *out = st->meta;
+    return CODEC_OK;
+}
+
 const codec_t codec_flac =
 {
     "flac",
@@ -497,5 +511,6 @@ const codec_t codec_flac =
     (int)sizeof(flac_state_t),
     flac_format,
     flac_gapless,
-    flac_tags
+    flac_tags,
+    flac_meta
 };

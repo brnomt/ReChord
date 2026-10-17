@@ -69,6 +69,7 @@ typedef struct
     long            total_samples;      /* -1 unknown                       */
     long            duration_ms;        /* -1 unknown                       */
     codec_replaygain_t rg;
+    codec_meta_t    meta;               /* ID3v2 text frames (may be empty) */
     mp3dec_t        dec;                /* 6668 B: must be the big tail    */
 } mp3_state_t;
 
@@ -305,6 +306,7 @@ static int mp3_open(void *vst, const char *path)
     s_win_eof = 0;
     s_res_frames = s_res_i = 0;
     memset(&st->rg, 0, sizeof st->rg);
+    memset(&st->meta, 0, sizeof st->meta);
     st->have_xing = st->have_toc = st->lame = 0;
     st->xing_frames = st->xing_bytes = 0;
     st->delay_s = st->pad_s = 0;
@@ -337,7 +339,7 @@ static int mp3_open(void *vst, const char *path)
             st->io = 0;
             return CODEC_ERR_FORMAT;
         }
-        (void)tags_replaygain_id3v2(st->io, &st->rg);
+        (void)tags_read_id3v2(st->io, &st->meta, &st->rg);
     }
 
     /* ID3v1 tail (length only; CBR duration) */
@@ -533,6 +535,18 @@ static int mp3_tags(void *vst, codec_replaygain_t *out)
     return CODEC_OK;
 }
 
+/* ID3v2 text metadata (TIT2/TPE1/TALB/TCON/TRCK), parsed with the same pass
+ * that reads the ReplayGain TXXX frames. Empty fields mean "no such tag". */
+static int mp3_meta(void *vst, codec_meta_t *out)
+{
+    mp3_state_t *st = (mp3_state_t *)vst;
+
+    if (st == 0 || out == 0)
+        return CODEC_ERR_STATE;
+    *out = st->meta;
+    return CODEC_OK;
+}
+
 const codec_t codec_mp3 =
 {
     "mp3",
@@ -545,5 +559,6 @@ const codec_t codec_mp3 =
     (int)sizeof(mp3_state_t),
     mp3_format,
     mp3_gapless,
-    mp3_tags
+    mp3_tags,
+    mp3_meta
 };

@@ -2380,3 +2380,62 @@ slow pass slows the whole ladder proportionally. If the fast tier feels
 slow in practice, lower `INPUT_FAST_REPEAT_SCANS` (3 = ~33/s); to engage
 it sooner, lower `INPUT_FAST_HOLD_SCANS`.
 
+## Q. Session 2026-10-17 (cont.) — real tag metadata (BRNOMT-78 pt.1)
+
+**Task:** BRNOMT-78 asks for library browsing by metadata (All Tracks /
+Album / Artist / Genre across all subfolders). Sizing it first: the library
+is **1000+ tracks**, the AP has a hard .bss ceiling at `0x0304C000`
+(`firmware_ap.ld:152` ASSERT; measured headroom 8.1 KiB before this change),
+and **neither flash nor SD writes exist yet** (71; the FAT-write path is
+parked on `feat/config-persistence` after the brick) — so nothing can be
+cached to disk. A 1000+ track index does not fit in RAM, and a re-scan per
+view is the only non-persisted alternative. **Decision (user's): land the
+tag layer now; the four views wait for the persisted index (BRNOMT-74).**
+
+**What landed:**
+- `tags.c/h`: text metadata + ReplayGain from ONE header pass.
+  - ID3v2.3/2.4: `TIT2/TPE1/TALB/TCON/TRCK` + `TXXX` REPLAYGAIN_*.
+  - Vorbis comments: `TITLE/ARTIST/ALBUM/GENRE/TRACKNUMBER` + RG keys.
+  - Bounded stack buffers (128 B slab, fields 64/32 B), no allocation, no
+    big statics. Unsupported layouts (ID3v2.2, unsync/extended headers,
+    frame modifiers) report "no tags" instead of being misparsed; UTF-16
+    text is narrow-decoded (the 8x8 font is ASCII-only).
+  - `tags_read_file()` = header-only read by extension (mp3 → ID3v2,
+    flac → metadata-chain walk) with no codec/decoder state.
+- `codec.h`: `codec_meta_t` + optional `codec_t.meta` hook; mp3/flac fill it
+  in the pass they already ran for ReplayGain (no extra I/O). WAV has no
+  tag hook (RIFF LIST-INFO is a later item).
+- `player.h/.c`: `track_info_t` gains `album[64]`, `genre[32]`,
+  `tag_track_no` (kept apart from `track_no`, the open-sequence counter);
+  tag values win, `title_from_path()` stays the fallback.
+  `player_read_meta(path, codec_meta_t*)` is the listing/index seam.
+- UI: Now Playing draws `artist - album` on a dim line between the title
+  and the state (omitted when untagged); the file browser lists files by
+  tag title with the artist right-aligned, reading the visible page's tags
+  once per fetch (never in draw), untagged files keep the filename.
+
+**Bug found on the same path (fixed): Vorbis vendor field.** The old
+`tags_replaygain_vorbis()` read the block body's first u32 as the comment
+**count**, but the spec layout is `vendor_length + vendor + count +
+entries` — and `flac.c` passes the block-body offset. On real files the
+"count" was the vendor length, so the walk died: **ReplayGain never worked
+on real FLAC files**, only on the synthetic fixtures that omitted the
+vendor field (a test now pins that a vendor-less block parses nothing).
+Fixtures moved to the spec layout.
+
+**RAM:** bss 286,408 → 288,216 B (+1,808: browser row-tag cache 1.5 KiB,
+codec/track meta fields ~0.4 KiB); `_bss_end 0x0304A694`, still 6,508 B
+below the ceiling.
+
+**Verification:** tag tests (v2.3/v2.4/UTF-16/truncation/vendor cases),
+codec meta hooks, `track_info` tag fill + fallback, `player_read_meta()`
+ok/untagged/missing/NULL, browser tag rows + Now Playing meta line
+(ui 270 checks), services 225, drivers, modules — all green.
+`make cfw-ap` + `make cfw-img` RESULT: PASS — AP5M CRC `0xC4B70FD8`.
+
+**Device check (user):** play a tagged MP3 and a tagged FLAC → Now Playing
+shows title / `artist - album`; browse a folder → files listed by title with
+the artist; an untagged file still shows its filename. ReplayGain on real
+FLACs can now work for the first time (audible once the RG mode has a UI).
+
+

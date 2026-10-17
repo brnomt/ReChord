@@ -101,7 +101,8 @@ const browser_state_t *browser_screen_state(void);
 
 extern const ui_screen_t player_screen;
 
-void player_screen_set_track(const char *title, uint32_t duration_s);
+void player_screen_set_track(const char *title, const char *artist,
+                             const char *album, uint32_t duration_s);
 void player_screen_set_position(uint32_t position_s);
 void player_screen_set_volume(int volume_db);   /* -60..0 dB */
 void player_screen_set_playing(bool playing);

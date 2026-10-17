@@ -163,3 +163,51 @@ void test_browser_pagination(void)
     CHECK(mock_display_text_find("cannot open (-4)") >= 0);
     CHECK(mock_display_text_find("f00") >= 0);   /* file name as title    */
 }
+
+/* Tag-aware listing and Now Playing (BRNOMT-78 pt.1): files list their tag
+ * title with the artist right-aligned, untagged files and directories keep
+ * their names, and Now Playing shows "artist - album" when the track has
+ * tags. */
+void test_browser_tags(void)
+{
+    input_event_t e;
+
+    ui_init();
+    mock_display_reset();
+    mock_services_reset();
+
+    mock_fs_add_dir("/m");
+    mock_fs_add_entry("/m", "plain.mp3", 0);
+    mock_fs_add_entry("/m", "tagged.flac", 0);
+    mock_player_set_meta("/m/tagged.flac", "Blue Monday", "New Order");
+
+    browser_screen_set_root("/m");
+    CHECK(ui_push_screen(&browser_screen));
+    ui_render();
+    CHECK(mock_display_text_find("Blue Monday") >= 0);  /* tag title      */
+    CHECK(mock_display_text_find("New Order") >= 0);    /* artist column  */
+    CHECK(mock_display_text_find("plain.mp3") >= 0);    /* no tags: name  */
+
+    /* Now Playing for the tagged file: title from the tag + artist - album */
+    mock_player_set_tags("New Order", "Power, Corruption & Lies");
+    e = ev(KEY_DOWN);
+    ui_handle_event(&e);                                /* onto tagged.flac */
+    e = ev(KEY_SELECT);
+    ui_handle_event(&e);
+    ui_render();
+    CHECK(mock_display_text_find("Blue Monday") >= 0);  /* tag title       */
+    CHECK(mock_display_text_find("New Order - Power") >= 0);
+    e = ev(KEY_BACK);
+    ui_handle_event(&e);
+
+    /* Untagged file: filename as title, no artist/album line. */
+    mock_player_set_tags("", "");
+    e = ev(KEY_UP);
+    ui_handle_event(&e);                                /* onto plain.mp3  */
+    e = ev(KEY_SELECT);
+    ui_handle_event(&e);
+    mock_display_reset();              /* drop the tagged render's records  */
+    ui_render();
+    CHECK(mock_display_text_find("plain.mp3") >= 0);
+    CHECK(mock_display_text_find(" - ") < 0);
+}

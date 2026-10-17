@@ -111,13 +111,24 @@ static void put_streaminfo(bw_t *w, unsigned long total)
 static void put_vorbis_comment(bw_t *w)
 {
     static const char *entries[] = {
+        "TITLE=Golden Sine",
+        "ARTIST=ReChord Test",
+        "ALBUM=Fixtures",
+        "GENRE=Test",
+        "TRACKNUMBER=7",
         "REPLAYGAIN_TRACK_GAIN=-6.0 dB",
         "REPLAYGAIN_TRACK_PEAK=0.500000",
     };
+    static const char *vendor = "reference libFLAC 1.3.2 20170101";
     unsigned count = (unsigned)(sizeof entries / sizeof entries[0]);
-    unsigned i;
+    unsigned i, vlen = (unsigned)strlen(vendor);
     long len;
 
+    /* Spec layout: vendor_length + vendor + count + entries (the count is
+     * NOT the first u32 of the block body — HANDOVER §Q). */
+    put32le(w, vlen);
+    memcpy(w->b + w->n, vendor, (size_t)vlen);
+    w->n += vlen;
     put32le(w, count);
     for (i = 0; i < count; i++) {
         len = (long)strlen(entries[i]);
@@ -179,6 +190,7 @@ static void test_flac_golden(void)
     codec_format_t fmt;
     codec_gapless_t gap;
     codec_replaygain_t rg;
+    codec_meta_t meta;
     void *st;
     int16_t pcm[TOTAL * 2];
     long got, total = 0, i;
@@ -231,6 +243,15 @@ static void test_flac_golden(void)
     CHECK_EQI(rg.track_gain_tenth_db, -60, "RG track gain -6.0 dB => -60");
     CHECK(rg.track_peak_q15 >= 16383 && rg.track_peak_q15 <= 16385,
           "RG track peak 0.5");
+
+    /* Text metadata through the same pre-scan pass (spec Vorbis layout). */
+    memset(&meta, 0, sizeof meta);
+    CHECK_EQI(codec_flac.meta(st, &meta), 0, "meta()");
+    CHECK(strcmp(meta.title, "Golden Sine") == 0, "meta: TITLE");
+    CHECK(strcmp(meta.artist, "ReChord Test") == 0, "meta: ARTIST");
+    CHECK(strcmp(meta.album, "Fixtures") == 0, "meta: ALBUM");
+    CHECK(strcmp(meta.genre, "Test") == 0, "meta: GENRE");
+    CHECK_EQI(meta.track, 7, "meta: TRACKNUMBER");
 
     /* Lossless decode: every sample must equal the generator. Each decode
      * call fills pcm from offset 0; `total` tracks the global frame index. */

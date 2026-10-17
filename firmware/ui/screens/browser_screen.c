@@ -25,6 +25,18 @@
 static browser_state_t s_state;
 static char            s_root[BROWSER_PATH_MAX];
 
+/* Per-row tag cache for the fetched window: files are listed by their tag
+ * title with the artist right-aligned; a row without tags keeps the plain
+ * filename. The read is a header-only pass per file (player_read_meta), done
+ * once per fetch — never inside draw(). */
+typedef struct {
+    char title[64];
+    char artist[64];
+    int  have;
+} browser_row_meta_t;
+
+static browser_row_meta_t s_row_meta[BROWSER_WINDOW];
+
 /* ---- listing / window -------------------------------------------------- */
 
 static int browser_page(void)
@@ -46,6 +58,42 @@ static void browser_clamp_view(void)
         s_state.top = 0;
 }
 
+/* Fill the row tag cache for the fetched window (files only). */
+static void browser_read_tags(void)
+{
+    uint32_t i;
+
+    for (i = 0; i < (uint32_t)BROWSER_WINDOW; i++) {
+        codec_meta_t m;
+        char full[BROWSER_PATH_MAX + 2];
+        size_t len, nlen;
+
+        s_row_meta[i].have = 0;
+        s_row_meta[i].title[0] = '\0';
+        s_row_meta[i].artist[0] = '\0';
+        if (i >= s_state.win_count || s_state.window[i].is_dir)
+            continue;
+
+        /* "<path>/<name>", the same bounded build the SELECT path uses. */
+        len = strlen(s_state.path);
+        nlen = strlen(s_state.window[i].name);
+        if (len + nlen + 2 > sizeof(full))
+            continue;
+        memcpy(full, s_state.path, len);
+        if (len == 0 || full[len - 1] != '/')
+            full[len++] = '/';
+        memcpy(full + len, s_state.window[i].name, nlen + 1);
+
+        if (player_read_meta(full, &m) != PLAYER_OK || m.title[0] == '\0')
+            continue;               /* untagged: keep the filename */
+        snprintf(s_row_meta[i].title, sizeof s_row_meta[i].title, "%s",
+                 m.title);
+        snprintf(s_row_meta[i].artist, sizeof s_row_meta[i].artist, "%s",
+                 m.artist);
+        s_row_meta[i].have = 1;
+    }
+}
+
 static void browser_fetch_window(void)
 {
     uint32_t got = 0;
@@ -59,11 +107,13 @@ static void browser_fetch_window(void)
         s_state.win_count = 0;
         s_state.total = 0;
         s_state.mounted = true;
+        browser_read_tags();            /* clears the row cache */
         return;
     }
     s_state.win_count = got;
     s_state.total = total;
     s_state.mounted = true;
+    browser_read_tags();
     browser_clamp_view();
 }
 
@@ -205,6 +255,9 @@ static void browser_screen_draw(void)
         if (ent->is_dir) {
             snprintf(label, sizeof(label), "%s/", ent->name);
             menu_draw_item(y, label, NULL, selected);
+        } else if (s_row_meta[widx].have) {
+            menu_draw_item(y, s_row_meta[widx].title,
+                           s_row_meta[widx].artist, selected);
         } else {
             menu_draw_item(y, ent->name, NULL, selected);
         }
@@ -268,7 +321,7 @@ static void browser_screen_handle_event(const input_event_t *ev)
                 player_screen_set_status(NULL);
                 if (player_get_track(&ti) == PLAYER_OK)
                     player_screen_set_track(
-                        ti.title,
+                        ti.title, ti.artist, ti.album,
                         ti.duration_ms > 0
                             ? (uint32_t)(ti.duration_ms / 1000) : 0);
                 (void)player_play();
@@ -287,7 +340,7 @@ static void browser_screen_handle_event(const input_event_t *ev)
                              flac_diag_channels, flac_diag_block);
                 else
                     snprintf(eb, sizeof eb, "cannot open (%d)", rc);
-                player_screen_set_track(ent->name, 0);
+                player_screen_set_track(ent->name, 0, 0, 0);
                 player_screen_set_status(
                     rc == PLAYER_ERR_UNSUPPORTED ? eb : eb);
                 log_printf("browser: open '%s' failed (%d) rsn=%d blk=%u ch=%u st=%lu",

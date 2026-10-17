@@ -15,6 +15,7 @@
 #include "codecs/codec_registry.h"
 #include "ipc_b.h"
 #include "rg_math.h"
+#include "tags.h"
 
 #define PLAYER_QUEUE_LEN        8     /* next-track queue depth           */
 #define PLAYER_PUMP_FRAMES      512   /* decode staging buffer (frames)   */
@@ -188,6 +189,17 @@ int player_enqueue(const char *path)
     return PLAYER_OK;
 }
 
+/* Tag read for listings (file browser, and the scan a metadata index runs):
+ * header-only, no codec state, no PCM. Zeroes `out` first, so callers can
+ * use whatever the reader leaves even when it finds nothing. */
+int player_read_meta(const char *path, codec_meta_t *out)
+{
+    if (out == 0)
+        return PLAYER_ERR;
+    return (tags_read_file(path, out, 0) & TAG_HAVE_META) ? PLAYER_OK
+                                                          : PLAYER_ERR;
+}
+
 /* ---- track lifecycle ---- */
 
 /* Close the current codec WITHOUT touching the B core (no ipc_b_stop).
@@ -303,7 +315,35 @@ static int open_codec_only(const char *path)
     g.track.total_samples = g.total_samples;
     str_copy(g.track.path, (unsigned)sizeof(g.track.path), path);
     title_from_path(g.track.title, (unsigned)sizeof(g.track.title), path);
-    g.track.artist[0] = '\0';   /* TODO: ID3/Vorbis tags (mp3/flac) */
+
+    /* Text tags (ID3v2 / Vorbis comments): the codec parsed them with the
+     * header walk it already does, so this costs no extra I/O. Tag values
+     * win; the filename heuristic above stays the fallback, and a missing
+     * or malformed tag simply leaves the fields empty. */
+    g.track.artist[0] = '\0';
+    g.track.album[0] = '\0';
+    g.track.genre[0] = '\0';
+    g.track.tag_track_no = 0;
+    if (g.codec != 0 && g.codec->meta != 0) {
+        codec_meta_t m;
+
+        mem_zero(&m, (unsigned)sizeof(m));
+        if (g.codec->meta(codec_state(), &m) == 0) {
+            if (m.title[0])
+                str_copy(g.track.title, (unsigned)sizeof(g.track.title),
+                         m.title);
+            if (m.artist[0])
+                str_copy(g.track.artist, (unsigned)sizeof(g.track.artist),
+                         m.artist);
+            if (m.album[0])
+                str_copy(g.track.album, (unsigned)sizeof(g.track.album),
+                         m.album);
+            if (m.genre[0])
+                str_copy(g.track.genre, (unsigned)sizeof(g.track.genre),
+                         m.genre);
+            g.track.tag_track_no = m.track;
+        }
+    }
     g.track_valid = 1;
 
     recalc_rg_gain();   /* cache Q16 gain for the open track */

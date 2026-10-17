@@ -22,7 +22,14 @@
 #define PLAYER_VOL_Y    122
 #define PLAYER_VOL_H    6
 
+/* Row positions (12 px pitch): title / artist+album / state, then the bar. */
+#define PLAYER_TITLE_Y  32
+#define PLAYER_META_Y   44
+#define PLAYER_STATE_Y  56
+
 static char     s_title[PLAYER_TITLE_MAX];
+static char     s_artist[PLAYER_TITLE_MAX];
+static char     s_album[PLAYER_TITLE_MAX];
 static uint32_t s_duration_s;
 static uint32_t s_position_s;
 static int      s_volume_db;   /* -60..0 */
@@ -66,6 +73,7 @@ static void draw_bar(int y, int h, int fill_w)
 static void player_screen_draw(void)
 {
     char line[PLAYER_TITLE_MAX + 16];
+    char meta_line[2 * PLAYER_TITLE_MAX + 8];
     char t_now[16];
     char t_end[16];
     int  vol_w;
@@ -80,14 +88,26 @@ static void player_screen_draw(void)
 
     /* track title (truncated to fit one line) */
     snprintf(line, sizeof(line), "%s", s_title);
-    display_draw_text(THEME_PAD, 32 + THEME_TEXT_YOFF, line,
+    display_draw_text(THEME_PAD, PLAYER_TITLE_Y + THEME_TEXT_YOFF, line,
                       THEME_COLOR_FG, THEME_COLOR_BG);
+
+    /* artist / album line (tags; absent for untagged files) */
+    if (s_artist[0] || s_album[0]) {
+        if (s_artist[0] && s_album[0])
+            snprintf(meta_line, sizeof(meta_line), "%s - %s", s_artist,
+                     s_album);
+        else
+            snprintf(meta_line, sizeof(meta_line), "%s",
+                     s_artist[0] ? s_artist : s_album);
+        display_draw_text(THEME_PAD, PLAYER_META_Y + THEME_TEXT_YOFF,
+                          meta_line, THEME_COLOR_DIM, THEME_COLOR_BG);
+    }
 
     /* play state (or a status line: unsupported file, no renderer, ...) */
     {
         const char *state_line = s_status[0] ? s_status
                                              : (s_playing ? "Playing" : "Paused");
-        display_draw_text(THEME_PAD, 48 + THEME_TEXT_YOFF, state_line,
+        display_draw_text(THEME_PAD, PLAYER_STATE_Y + THEME_TEXT_YOFF, state_line,
                           s_status[0] ? THEME_COLOR_WARM
                                       : (s_playing ? THEME_COLOR_WARM
                                                    : THEME_COLOR_DIM),
@@ -158,7 +178,7 @@ static void player_screen_on_enter(void)
         player_screen_set_status("nothing playing");
         return;
     }
-    player_screen_set_track(ti.title,
+    player_screen_set_track(ti.title, ti.artist, ti.album,
                             ti.duration_ms > 0
                                 ? (uint32_t)(ti.duration_ms / 1000) : 0);
     player_screen_set_volume(player_get_volume());
@@ -173,9 +193,12 @@ const ui_screen_t player_screen = {
     player_screen_handle_event,
 };
 
-void player_screen_set_track(const char *title, uint32_t duration_s)
+void player_screen_set_track(const char *title, const char *artist,
+                             const char *album, uint32_t duration_s)
 {
     snprintf(s_title, sizeof(s_title), "%s", title ? title : "");
+    snprintf(s_artist, sizeof(s_artist), "%s", artist ? artist : "");
+    snprintf(s_album, sizeof(s_album), "%s", album ? album : "");
     s_duration_s = duration_s;
     s_position_s = 0;
     ui_invalidate_all();
@@ -202,13 +225,15 @@ void player_screen_set_volume(int volume_db)
 void player_screen_set_playing(bool playing)
 {
     s_playing = playing;
-    ui_invalidate(0, 48, DISPLAY_W - 1, 48 + THEME_LINE_H);
+    ui_invalidate(0, PLAYER_STATE_Y, DISPLAY_W - 1,
+                  PLAYER_STATE_Y + THEME_LINE_H);
 }
 
 void player_screen_set_status(const char *msg)
 {
     snprintf(s_status, sizeof(s_status), "%s", msg ? msg : "");
-    ui_invalidate(0, 48, DISPLAY_W - 1, 48 + THEME_LINE_H);
+    ui_invalidate(0, PLAYER_STATE_Y, DISPLAY_W - 1,
+                  PLAYER_STATE_Y + THEME_LINE_H);
 }
 
 /* Pulled from the app loop every pass: updates position + play state from

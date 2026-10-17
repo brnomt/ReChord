@@ -81,7 +81,20 @@ static long put_txxx(bw_t *w, const char *desc, const char *value)
     return body + 10;
 }
 
-/* ID3v2.3 header (10 B) + two TXXX frames. Returns tag length. */
+/* One ID3v2.3 text frame: encoding byte + text (no NUL, per spec). */
+static void put_text_frame(bw_t *w, const char *id, const char *text)
+{
+    long len = (long)strlen(text);
+
+    memcpy(w->b + w->n, id, 4); w->n += 4;
+    put32be(w, (unsigned)(len + 1));   /* body = encoding byte + text */
+    put8(w, 0); put8(w, 0);            /* flags */
+    put8(w, 0);                        /* encoding: ISO-8859-1 */
+    memcpy(w->b + w->n, text, (size_t)len); w->n += len;
+}
+
+/* ID3v2.3 header (10 B) + two TXXX frames + the text frames. Returns tag
+ * length. */
 static long put_id3v2(bw_t *w)
 {
     long body_start = w->n;
@@ -92,6 +105,11 @@ static long put_id3v2(bw_t *w)
     put8(w, 0); put8(w, 0); put8(w, 0); put8(w, 0); /* size placeholder */
     put_txxx(w, "REPLAYGAIN_TRACK_GAIN", "-4.0 dB");
     put_txxx(w, "REPLAYGAIN_TRACK_PEAK", "0.500000");
+    put_text_frame(w, "TIT2", "Xing Test Song");
+    put_text_frame(w, "TPE1", "ReChord Bot");
+    put_text_frame(w, "TALB", "Fixture Album");
+    put_text_frame(w, "TCON", "Test");
+    put_text_frame(w, "TRCK", "5/12");
     body = w->n - (body_start + 10);
     w->b[body_start + 6] = (unsigned char)((body >> 21) & 0x7F);
     w->b[body_start + 7] = (unsigned char)((body >> 14) & 0x7F);
@@ -206,6 +224,7 @@ static void test_xing_file(void)
     codec_format_t fmt;
     codec_gapless_t gap;
     codec_replaygain_t rg;
+    codec_meta_t meta;
     void *st;
     long frames;
     int bad = 0;
@@ -248,6 +267,15 @@ static void test_xing_file(void)
     CHECK_EQI(rg.track_gain_tenth_db, -40, "RG track gain -4.0 dB => -40");
     CHECK(rg.track_peak_q15 >= 16383 && rg.track_peak_q15 <= 16385,
           "RG track peak 0.5");
+
+    /* Text metadata from the same ID3v2 pass. */
+    memset(&meta, 0, sizeof meta);
+    CHECK_EQI(codec_mp3.meta(st, &meta), 0, "meta()");
+    CHECK(strcmp(meta.title, "Xing Test Song") == 0, "meta: TIT2");
+    CHECK(strcmp(meta.artist, "ReChord Bot") == 0, "meta: TPE1");
+    CHECK(strcmp(meta.album, "Fixture Album") == 0, "meta: TALB");
+    CHECK(strcmp(meta.genre, "Test") == 0, "meta: TCON");
+    CHECK_EQI(meta.track, 5, "meta: TRCK \"5/12\" -> 5");
 
     frames = decode_all(&codec_mp3, st, 1, &bad);
     CHECK_EQI(frames, (long)NAUDIO * SPF,

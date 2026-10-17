@@ -259,6 +259,19 @@ static int  s_pl_state = PLAYER_STOPPED;
 static long s_pl_pos_ms;
 static int  s_pl_present;               /* player_get_track() has a track?  */
 static char s_pl_path[160];
+static char s_pl_artist[64];
+static char s_pl_album[64];
+
+/* Scripted tags for player_read_meta() (the browser reads the visible page). */
+#define MOCK_META_MAX 8
+typedef struct {
+    char path[160];
+    char title[64];
+    char artist[64];
+} mock_meta_t;
+
+static mock_meta_t s_meta[MOCK_META_MAX];
+static int         s_meta_count;
 
 void mock_player_reset(void)
 {
@@ -271,6 +284,9 @@ void mock_player_reset(void)
     s_pl_pos_ms = 0;
     s_pl_present = 0;
     s_pl_path[0] = '\0';
+    s_pl_artist[0] = '\0';
+    s_pl_album[0] = '\0';
+    s_meta_count = 0;
 }
 
 void mock_player_set_open_rc(int rc)
@@ -316,6 +332,46 @@ void mock_player_set_position(long ms)
 void mock_player_set_track_present(int present)
 {
     s_pl_present = present ? 1 : 0;
+}
+
+void mock_player_set_tags(const char *artist, const char *album)
+{
+    snprintf(s_pl_artist, sizeof s_pl_artist, "%s", artist ? artist : "");
+    snprintf(s_pl_album, sizeof s_pl_album, "%s", album ? album : "");
+}
+
+void mock_player_set_meta(const char *path, const char *title,
+                          const char *artist)
+{
+    if (path == 0 || s_meta_count >= MOCK_META_MAX)
+        return;
+    snprintf(s_meta[s_meta_count].path, sizeof s_meta[s_meta_count].path,
+             "%s", path);
+    snprintf(s_meta[s_meta_count].title, sizeof s_meta[s_meta_count].title,
+             "%s", title ? title : "");
+    snprintf(s_meta[s_meta_count].artist, sizeof s_meta[s_meta_count].artist,
+             "%s", artist ? artist : "");
+    s_meta_count++;
+}
+
+/* Header-only tag read for the browser's visible page. */
+int player_read_meta(const char *path, codec_meta_t *out)
+{
+    int i;
+
+    if (out == NULL)
+        return PLAYER_ERR;
+    memset(out, 0, sizeof *out);
+    if (path == 0)
+        return PLAYER_ERR;
+    for (i = 0; i < s_meta_count; i++) {
+        if (strcmp(s_meta[i].path, path) == 0) {
+            snprintf(out->title, sizeof out->title, "%s", s_meta[i].title);
+            snprintf(out->artist, sizeof out->artist, "%s", s_meta[i].artist);
+            return PLAYER_OK;
+        }
+    }
+    return PLAYER_ERR;                  /* untagged / unknown: no meta */
 }
 
 int player_open(const char *path)
@@ -394,9 +450,30 @@ int player_get_track(track_info_t *out)
     for (i = 0; base[i] && i + 1 < sizeof out->title; i++)
         out->title[i] = base[i];
     out->title[i] = '\0';
+    /* The player module fills the title from the tag when the file has one;
+     * honour the scripted meta table here so Now Playing tests see it. */
+    {
+        int k;
+
+        for (k = 0; k < s_meta_count; k++) {
+            if (strcmp(s_meta[k].path, s_pl_path) == 0 &&
+                s_meta[k].title[0]) {
+                for (i = 0; s_meta[k].title[i] && i + 1 < sizeof out->title; i++)
+                    out->title[i] = s_meta[k].title[i];
+                out->title[i] = '\0';
+                break;
+            }
+        }
+    }
     for (i = 0; s_pl_path[i] && i + 1 < sizeof out->path; i++)
         out->path[i] = s_pl_path[i];
     out->path[i] = '\0';
+    for (i = 0; s_pl_artist[i] && i + 1 < sizeof out->artist; i++)
+        out->artist[i] = s_pl_artist[i];
+    out->artist[i] = '\0';
+    for (i = 0; s_pl_album[i] && i + 1 < sizeof out->album; i++)
+        out->album[i] = s_pl_album[i];
+    out->album[i] = '\0';
 
     out->duration_ms = 120000;          /* canned 2 min */
     out->track_no = 1;
