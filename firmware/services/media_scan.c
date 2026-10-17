@@ -95,6 +95,34 @@ static void base_title(const char *name, char *out, size_t cap)
     out[n] = '\0';
 }
 
+/* Category value normalisation (the user's rule): a field that cannot be shown
+ * as-is -- empty, spaces only, or carrying control characters -- becomes
+ * "Undefined". The views group on that string, so there is no blank row and no
+ * garbage, and the sort can put it first. */
+static void norm_field(char *dst, size_t cap, const char *src)
+{
+    size_t i = 0, n = 0;
+
+    if (src != 0) {
+        while (src[i] == ' ' || src[i] == '\t')
+            i++;
+        while (src[i] != '\0' && n + 1u < cap) {
+            unsigned char c = (unsigned char)src[i++];
+
+            if (c < 0x20u)
+                break;
+            dst[n++] = (char)c;
+        }
+        while (n > 0 && (dst[n - 1u] == ' ' || dst[n - 1u] == '\t'))
+            n--;
+    }
+    if (n == 0u) {
+        copy_field(dst, cap, "Undefined");
+        return;
+    }
+    dst[n] = '\0';
+}
+
 static int add_file(const char *rel)
 {
     media_rec_t r;
@@ -113,10 +141,14 @@ static int add_file(const char *rel)
     if (meta.title[0] == '\0')
         base_title(base, base, sizeof base);
     copy_field(r.title, sizeof r.title, meta.title[0] ? meta.title : base);
-    copy_field(r.artist, sizeof r.artist, meta.artist);
-    copy_field(r.album, sizeof r.album, meta.album);
-    copy_field(r.genre, sizeof r.genre, meta.genre);
+    norm_field(r.artist, sizeof r.artist, meta.artist);
+    norm_field(r.album, sizeof r.album, meta.album);
+    norm_field(r.album_artist, sizeof r.album_artist, meta.album_artist);
+    norm_field(r.composer, sizeof r.composer, meta.composer);
+    norm_field(r.genre, sizeof r.genre, meta.genre);
+    norm_field(r.label, sizeof r.label, meta.label);
     r.track_no = (uint16_t)(meta.track > 0 ? meta.track : 0);
+    r.year = (uint16_t)(meta.year >= 1000 && meta.year <= 9999 ? meta.year : 0);
     return media_db_add(&r);
 }
 

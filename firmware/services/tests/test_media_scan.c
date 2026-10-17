@@ -80,6 +80,16 @@ int main(void)
     CHECK(media_db_get(1, &r) == FS_OK);
     CHECK(strcmp(r.path, "SD/Second.flac") == 0);
     CHECK(strcmp(r.title, "Second") == 0);
+    /* No tags on these files: every category field is the "Undefined" group,
+     * never an empty string, and the year is 0 (the views render it as
+     * "Undefined" too). */
+    CHECK(strcmp(r.artist, "Undefined") == 0);
+    CHECK(strcmp(r.album, "Undefined") == 0);
+    CHECK(strcmp(r.album_artist, "Undefined") == 0);
+    CHECK(strcmp(r.composer, "Undefined") == 0);
+    CHECK(strcmp(r.genre, "Undefined") == 0);
+    CHECK(strcmp(r.label, "Undefined") == 0);
+    CHECK(r.year == 0);
     media_db_close();
 
     /* Abort: nothing is committed, the previous index stays current. The

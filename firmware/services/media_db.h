@@ -29,22 +29,29 @@
 #define MEDIA_DB_B      "/Internal/.rechord/INDEX.B"
 
 #define MEDIA_MAGIC     0x4D444231u   /* "MDB1" */
-#define MEDIA_VERSION   1u
+#define MEDIA_VERSION   2u
 #define MEDIA_HDR_BYTES 512u
-#define MEDIA_REC_BYTES 184u
-
 #define MEDIA_PATH_MAX  80
+#define MEDIA_TEXT_MAX  24
 
 typedef struct media_rec {
     char     path[MEDIA_PATH_MAX];  /* "SD/Music/Album/01 Title.flac" */
     char     title[32];
-    char     artist[24];
-    char     album[24];
+    char     artist[MEDIA_TEXT_MAX];
+    char     album[MEDIA_TEXT_MAX];
+    char     album_artist[MEDIA_TEXT_MAX];
+    char     composer[MEDIA_TEXT_MAX];
     char     genre[16];
+    char     label[16];
     uint16_t track_no;
-    uint16_t _pad0;
+    uint16_t year;                  /* 0 = unknown -> the views show "Undefined" */
     uint32_t duration_ms;
 } media_rec_t;
+
+/* The record size is derived, never written by hand: the header stores it and
+ * the reader rejects a mismatch (that is the format-version check in practice). */
+#define MEDIA_REC_BYTES ((uint32_t)sizeof(media_rec_t))
+_Static_assert(sizeof(media_rec_t) <= 256u, "media_rec_t grew too far");
 
 typedef struct media_hdr {
     uint32_t magic;
