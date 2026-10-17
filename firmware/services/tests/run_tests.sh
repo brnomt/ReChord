@@ -17,7 +17,7 @@ $CC $CFLAGS -I.. -o .work/test_fs      test_fs.c      ../fs_host.c
 $CC $CFLAGS -I.. -o .work/test_store   test_store.c   ../store.c
 $CC $CFLAGS -I.. -o .work/test_scratch test_scratch.c ../scratch.c
 $CC $CFLAGS -I.. -o .work/test_media_db test_media_db.c ../media_db.c ../scratch.c ../fs_host.c
-$CC $CFLAGS -I.. -I../.. -o .work/test_media_scan test_media_scan.c ../media_scan.c ../media_db.c ../scratch.c ../fs_host.c ../../player/tags.c ../../player/codec_io.c ../../player/codec_io_stdio.c
+$CC $CFLAGS -I.. -I../.. -o .work/test_media_scan test_media_scan.c ../media_scan.c ../media_db.c ../scratch.c ../fs_host.c ../log.c ../../player/tags.c ../../player/codec_io.c ../../player/codec_io_stdio.c
 
 .work/test_settings
 .work/test_settings_store

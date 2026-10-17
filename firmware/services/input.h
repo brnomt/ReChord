@@ -119,7 +119,12 @@ unsigned input_pending(void);
  * the slowest real pass), so repeats keep working either way. */
 void input_set_clock(unsigned (*ms)(void));
 #define INPUT_FALLBACK_MS_PER_SCAN 80
-#define INPUT_CLOCK_STUCK_SCANS     3
+/* Equal readings before the clock is declared dead. A SAMPLED millisecond
+ * clock legitimately repeats when two scans land in the same millisecond
+ * (the playing loop runs several passes per ms), so this must be well above
+ * that: 3 was declaring the freshly-working SysTick clock dead and dropping
+ * the ladder back to scan timing. A truly dead clock stays 0 for this long. */
+#define INPUT_CLOCK_STUCK_SCANS     64
 
 /* Which keys auto-repeat while held (the user's hold-to-repeat: the vol
  * keys double as UI up/down). No other key repeats. */
