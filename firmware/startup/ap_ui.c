@@ -220,9 +220,9 @@ static void power_off(void)
     board_power_off();
 }
 
-/* MSC session, run on demand from the "USB storage" menu entry (the cable
- * edge opens the CDC console instead): expose the user volume (LUN 0) and
- * the SD card (LUN 1, read-only) until eject/unplug/power key. */
+/* MSC session: expose the user volume (LUN 0) and the SD card (LUN 1,
+ * read-only) until eject/unplug/power key. Runs from the "USB storage"
+ * menu entry AND automatically on the cable (VBUS) edge. */
 static void usb_session(void)
 {
     const usb_lun_t luns[2] = {
@@ -459,8 +459,8 @@ static void cdc_exec(char *ln)
     }
 }
 
-/* Cable plugged in: default USB mode = the CDC-ACM console (the "USB
- * storage" menu entry runs MSC on demand). Returns on POWER or unplug,
+/* CDC-ACM diagnostic console, from the "USB console" menu entry (the
+ * cable edge opens USB storage instead). Returns on POWER or unplug,
  * then tears the core down so the next mode starts from a host-visible
  * disconnect instead of stale endpoint state. */
 static void usb_console_run(void)
@@ -566,11 +566,11 @@ void ap_ui_loop(void)
             ui_invalidate_all();
         }
 
-        /* VBUS edge: the CDC-ACM console is the default cable action —
-         * MSC no longer hijacks the DWC2 core; it runs from the "USB
-         * storage" menu entry when actually wanted. */
+        /* VBUS edge: plugging the cable opens USB STORAGE right away (the
+         * pre-CDC behaviour the user expects). The CDC console stays on
+         * the "USB console" menu entry. */
         if (cable && !s_cable)
-            usb_console_run();
+            usb_storage_run();
         s_cable = cable;
 
         /* power-hold: debounced (see power_hold_step); ~2 s of held power
