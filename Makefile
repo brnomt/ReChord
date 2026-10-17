@@ -53,6 +53,28 @@ CFW_BUILD_DIR := build/cfw
 CFW_OBJS := $(patsubst %.c,$(CFW_BUILD_DIR)/objs/%.o,$(AP_SRCS))
 CFW_ELF := $(CFW_BUILD_DIR)/rechord_ap.elf
 
+# ---- Core B heartbeat image (BRNOMT-68 phase 1) --------------------------
+# Flat image linked at HIGHRAM0 0x01000000, embedded in the AP as a rodata
+# blob and copied by ap_core_b_start(). See docs/re/core-b-bringup.md.
+BB_CORE_DIR  := $(CFW_BUILD_DIR)/bbcore
+BB_CORE_ELF  := $(BB_CORE_DIR)/bb_core.elf
+BB_CORE_BIN  := $(BB_CORE_DIR)/bb_core.bin
+BB_CORE_BLOB := $(BB_CORE_DIR)/bb_core_blob.o
+
+$(BB_CORE_ELF): firmware/bb/bb_main.c firmware/bb/bb.ld
+	@$(MKDIR_P) $(BB_CORE_DIR)
+	$(CC) -mcpu=cortex-m3 -mthumb -Os -ffreestanding -fno-builtin \
+	    -nostdlib -ffunction-sections -fdata-sections \
+	    -T firmware/bb/bb.ld firmware/bb/bb_main.c -lgcc -o $@
+
+$(BB_CORE_BIN): $(BB_CORE_ELF)
+	$(OBJCOPY) -O binary $< $@
+
+$(BB_CORE_BLOB): $(BB_CORE_BIN)
+	cd $(BB_CORE_DIR) && $(OBJCOPY) -I binary -O elf32-littlearm -B arm \
+	    --rename-section .data=.rodata,alloc,load,readonly,data,contents \
+	    bb_core.bin bb_core_blob.o
+
 cfw-ap: $(CFW_ELF)
 	@echo "CFW AP ELF: $(CFW_ELF)"
 
@@ -60,9 +82,9 @@ $(CFW_BUILD_DIR)/objs/%.o: %.c
 	@$(MKDIR_P) $(dir $@)
 	$(CC) $(AP_CFLAGS) -c $< -o $@
 
-$(CFW_ELF): $(CFW_OBJS) $(AP_LDSCRIPT)
+$(CFW_ELF): $(CFW_OBJS) $(AP_LDSCRIPT) $(BB_CORE_BLOB)
 	@$(MKDIR_P) $(dir $@)
-	$(CC) $(AP_LDFLAGS) $(CFW_OBJS) $(AP_LDLIBS) -o $@
+	$(CC) $(AP_LDFLAGS) $(CFW_OBJS) $(BB_CORE_BLOB) $(AP_LDLIBS) -o $@
 
 # Our fw1 + stock section_3 (until the BB module milestone), CRC recomputed.
 # HARD GATE in tools/pack_fw1.py: no scatter row below 0x03004000 (ROM-owned

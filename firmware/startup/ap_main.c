@@ -22,6 +22,7 @@
 #include "drivers/panel_io.h"
 #include "drivers/display.h"
 #include "drivers/cru_pll.h"   /* AP core clock: 24 MHz -> 200 MHz */
+#include "drivers/core_b.h"    /* BRNOMT-68 phase 1: Core B heartbeat */
 #include "ui/theme.h"       /* THEME_* geometry + palette (theme module) */
 
 void ap_ui_loop(void);   /* ap_ui.c */
@@ -31,6 +32,7 @@ uint32_t Main(void)
     uint16_t bg = THEME_COLOR_BG;
     uint16_t fg = THEME_COLOR_FG;
     const theme_t *th = theme_get();
+    int b_rc;
 
     /* The stock/reference boot raises the AP from the 24 MHz oscillator to
      * the APLL at 200 MHz here (pclk 50 MHz). Everything below — and the
@@ -38,6 +40,10 @@ uint32_t Main(void)
     ap_clock_set_200mhz();
 
     display_init();
+
+    /* BRNOMT-68 phase 1: start Core B with our heartbeat image. Failure is
+     * non-blocking (the AP keeps running; audio is unchanged). */
+    b_rc = ap_core_b_start();
 
     /* Fill the whole screen (inclusive coordinates per display.h). */
     display_fill_rect(0, 0, DISPLAY_W - 1, DISPLAY_H - 1, bg);
@@ -51,8 +57,13 @@ uint32_t Main(void)
     display_draw_text(THEME_PAD, THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF,
                       th->name, fg, bg);
 
-    /* Make both lines visible on the panel. */
-    display_flush_rows(0, THEME_TITLE_H + THEME_PAD + THEME_LINE_H);
+    /* Third line: Core B heartbeat result (BRNOMT-68 phase 1 gate). */
+    display_draw_text(THEME_PAD,
+                      THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + THEME_LINE_H,
+                      b_rc == 0 ? "Core B: ready" : "Core B: no", fg, bg);
+
+    /* Make the lines visible on the panel. */
+    display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 2 * THEME_LINE_H);
 
 #ifdef AP_TRIAL
     /* trial vehicle (firmware/hook/trial_entry.c): hand back to the host fw */

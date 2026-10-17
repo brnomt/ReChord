@@ -3268,3 +3268,30 @@ Ported the reference's 200 MHz APLL switch (`ap_clock_set_200mhz()` in
 `1c390e4682f06551643fbd96d24b32495665549c3b8f8d50484e6dfaa309c084`.
 **Status: NOT hardware-tested yet.** If it boots, verify UI snappiness, 96k FLAC
 (no stutter), and that the DAC/panel still work.
+
+## AM. Session 2026-10-17 (cont.) — BRNOMT-68 phase 0/1: Core B bring-up
+
+**Phase 0 (REA, `docs/re/core-b-bringup.md`):** the reference does NOT start
+Core B from section_3. It copies a flat image to **HIGHRAM0 `0x01000000`** and
+releases **`CAL_CORE_SRST`** (`CRU+0xCC` `0x00040004` assert -> `0x00040000`
+release), clears the shared block `0x01020000`, then requires
+`B2A_CMD(0)==1` and `shared[0]==0x00EFBEEF`. Init: PMU high-domain power-up +
+gates (`HCLK_CAL_CORE=2`, `HDRAM0..7`, `HIRAM0..3`, `HIRAM_INTERFACE=72`,
+`HCLK_HIGH*`, `PCLK_MAILBOX=146`) + `HIGHRAM0_SRST` release.
+
+**Phase 1 (this build):** our own 52-byte Core B heartbeat image
+(`firmware/bb/{bb_main.c,bb.ld}`, linked at `0x01000000`, SP `0x01020000`,
+Thumb reset), embedded in fw1 as a rodata blob (`objcopy -I binary`) and
+started by `ap_core_b_start()` (`firmware/drivers/core_b.c`). It writes `'BRDY'`
++ a counter into `shared[0..1]`; the AP polls with a ~200 ms timeout and shows
+**"Core B: ready/no"** on the splash. Non-blocking: on failure the AP boots and
+audio is unchanged.
+
+**Build:** `_bss_end 0x030498b8`, AP5M CRC `0x0E9B5589`, sha256
+`e3d5ae7489333cef15f4ee43d20769b3d1e937359c9e759cca220400a368dd89`.
+**Status: NOT hardware-tested.** Gate: if the splash says "Core B: ready",
+Core B runs our code -> proceed to Phase 2 (B renders the ring + I2S).
+
+Note: this does **not** make the firmware independent of the stock IMG yet —
+the flash image is still built on the stock container with section_3
+preserved; a custom section_3 is the `apbb-experimental` brick path (later).

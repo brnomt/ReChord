@@ -78,6 +78,7 @@ AP_DRIVER_SRCS := \
   firmware/drivers/usb_msc_rknanoc.c \
   firmware/drivers/usb_cdc_rknanoc.c \
   firmware/drivers/cs43131.c \
+  firmware/drivers/core_b.c \
   firmware/drivers/cru_pll.c \
   firmware/drivers/rknano_i2s.c
 
