@@ -100,6 +100,12 @@ int mq_names_init(int cat)
     s_cells = scratch_claim(SCRATCH_OWNER_INDEX);
     if (s_cells == 0)
         return FS_ERR_IO;
+    /* The module owns the index lifetime: without this the screens would have
+     * to remember media_db_open(), and forgetting it reads as "empty index". */
+    if (media_db_open() != FS_OK) {
+        mq_done();
+        return FS_ERR_OPEN;
+    }
     s_cap = SCRATCH_BYTES / MQ_CELL;
     s_count = 0;
     s_truncated = 0;
@@ -156,6 +162,10 @@ int mq_filter_init(int cat, const char *value)
     s_idx = scratch_claim(SCRATCH_OWNER_INDEX);
     if (s_idx == 0)
         return FS_ERR_IO;
+    if (media_db_open() != FS_OK) {
+        mq_done();
+        return FS_ERR_OPEN;
+    }
     s_cap = SCRATCH_BYTES / sizeof s_idx[0];
     s_count = 0;
     s_truncated = 0;
@@ -199,6 +209,7 @@ int mq_filter_get(unsigned i, media_rec_t *out)
 
 void mq_done(void)
 {
+    media_db_close();
     if (s_cells != 0 || s_idx != 0) {
         scratch_release(SCRATCH_OWNER_INDEX);
         s_cells = 0;

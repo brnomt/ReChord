@@ -53,8 +53,6 @@ int main(void)
     add("C1", "Undefined", 2015, "Amy");
     add("D1", "Blue", 0, "Zed");          /* year 0 -> the Undefined group */
     CHECK(media_db_end() == FS_OK);
-    CHECK(media_db_open() == FS_OK);
-    CHECK(media_db_count() == 5);
 
     /* Album names: Undefined first, then the rest sorted. */
     CHECK(mq_names_init(MQ_ALBUM) == 0);
@@ -91,7 +89,11 @@ int main(void)
 
     mq_done();
     CHECK(mq_names_count() == 0 && mq_filter_count() == 0);
-    media_db_close();
+    /* No index at all -> the queries report it instead of an empty list. */
+    (void)remove(".work/Internal/.rechord/INDEX.A");
+    (void)remove(".work/Internal/.rechord/INDEX.B");
+    CHECK(mq_names_init(MQ_ALBUM) == FS_ERR_OPEN);
+    CHECK(mq_names_count() == 0);
 
     if (s_failures == 0)
         printf("test_media_query: %d checks, OK\n", s_checks);
