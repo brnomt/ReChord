@@ -159,6 +159,7 @@ int ipc_b_start(const ipc_b_track_t *track)
         }
     }
     audio_output_start(&g_ring);
+    audio_output_fade_in();               /* FUN_03055f48 ramp to user lvl */
 
     g_state = IPC_B_RUNNING;
     return 0;
@@ -171,6 +172,7 @@ int ipc_b_stop(void)
     sh->cmd = IPC_B_CMD_STOP;
     target_doorbell();
     sh->state = IPC_B_OFF;                /* "B off"                      */
+    audio_output_fade_out();              /* stock pause path: fade first */
     audio_output_hold(1);                 /* stop the feeder before reset */
     audio_output_detach();
     rb_reset(&g_ring);
@@ -192,8 +194,14 @@ int ipc_b_pause(int paused)
 
     g_paused = paused ? 1 : 0;
     /* Held: the TX IRQ stops draining (FIFO runs out -> silence). Resume
-     * re-arms it; any ring data that arrived while paused plays then. */
+     * re-arms it; any ring data that arrived while paused plays then.
+     * The fades are the stock FUN_03056e54 pause pattern: ramp to mute
+     * before the hold, back to the user level on resume — no click. */
+    if (g_paused)
+        audio_output_fade_out();
     audio_output_hold(g_paused);
+    if (!g_paused)
+        audio_output_fade_in();
     sh->cmd = paused ? IPC_B_CMD_PAUSE : IPC_B_CMD_RESUME;
     target_doorbell();
     return 0;

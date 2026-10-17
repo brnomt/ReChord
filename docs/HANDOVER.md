@@ -2244,3 +2244,30 @@ do not merge it until the brick is explained). Prime suspects: the FAT
 write path on real media (sd_write first use / root dirent or FAT
 corruption halting mount loops), or RAM/link pressure from the new
 statics (the config-logging brick died on the FW_RAM window).
+
+**Playback polish (DFIU fa3968cd resolved; UI lag + track-change click):**
+the popped build boots and the buttons work (A/B-confirmed in DFIU
+fa3968cd — the config/persistence feature set caused the brick; it lives
+on `feat/config-persistence` and must not return until the mechanism is
+explained there). Two follow-up fixes on main:
+
+1. **UI lag while music plays** — the playing loop still ran 8
+   `keys_adc()` + `input_scan()` per pass (a leftover from when
+   `player_process()` blocked ~90 ms). With the ring+IRQ feeder it is
+   non-blocking, so that was 8 SARADC scans + 8 debounce samples per
+   pass of pure latency. Keys/power are sampled once per pass (the outer
+   loop already did); the pump loop pumps only.
+2. **Crackle on track/item change** — stream teardown was raw (no mute
+   fade) and every change re-ran the FULL bring-up (I2S reset + ~200 ms
+   of init delays) even for same-format tracks. Now the stock's
+   transition pattern is in place: `audio_output_fade_out()` /
+   `fade_in()` (= FUN_03055f48 / FUN_03056e54 ramp-to-mute before
+   stop/pause, back to the user level on resume), and
+   `audio_output_configure()` takes the stock FUN_03056550 early-exit
+   for same-format re-opens (registers untouched — format changes still
+   run the full verified sequence). `audio_output_set_volume_db()` also
+   caches pre-DAC volume (UI volume before the first track would i2c-
+   wait-spike otherwise).
+
+Both verified host-side (player + services + UI suites pass; `make
+cfw-img` RESULT: PASS).

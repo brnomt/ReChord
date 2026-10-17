@@ -42,6 +42,22 @@ static volatile long s_frames_played;
  * level (the stock ramps 0xFF -> its user level for the same reason). */
 static uint8_t s_volume_atten;
 
+/* Current user volume in dB*1 (for fade_in() and the pre-DAC cache). */
+static int s_volume_db;
+
+/* Set once configure() completed the verified bring-up. Before that the
+ * CS43131 is unpowered and the I2C0 bus is uninitialised: a volume write
+ * would spin in i2c_wait timeouts for seconds (the UI can set volume
+ * before any track exists). The cached level is applied by the first
+ * configure()'s unmute ramp instead. */
+static int s_dac_ready;
+
+/* Last configured format — the stock FUN_03056550 early-exit: a re-open
+ * at the SAME format keeps the DAC/I2S state instead of re-running the
+ * bring-up (no I2S reset, no ~200 ms of init delays, no click). */
+static audio_format_t s_fmt;
+static int s_fmt_valid;
+
 /* Ring pull for the IRQ feeder: one packed int16 pair per stereo frame. */
 static int ao_ring_pull(uint32_t *word, void *user)
 {
@@ -218,13 +234,32 @@ static int ao_configure_rate(uint32_t rate_hz)
 
 int audio_output_configure(const audio_format_t *fmt)
 {
+    int rc;
+
     if (fmt == 0 || fmt->sample_rate == 0)
         return DAC_ERR_ARG;
     if (fmt->bits != 16)                 /* 24/32-bit plumbed, not built   */
         return DAC_ERR_ARG;
     if (fmt->channels < 1 || fmt->channels > 2)
         return DAC_ERR_ARG;
-    return ao_configure_rate(fmt->sample_rate);
+
+    /* Stock FUN_03056550 early-exit: same-format re-open keeps the
+     * DAC/I2S state (registers untouched; format changes take the full
+     * verified sequence). This is what makes track changes click-free
+     * and fast. */
+    if (s_dac_ready && s_fmt_valid &&
+        s_fmt.sample_rate == fmt->sample_rate &&
+        s_fmt.channels == fmt->channels &&
+        s_fmt.bits == fmt->bits)
+        return DAC_OK;
+
+    rc = ao_configure_rate(fmt->sample_rate);
+    if (rc == DAC_OK) {
+        s_dac_ready = 1;
+        s_fmt = *fmt;
+        s_fmt_valid = 1;
+    }
+    return rc;
 }
 
 int audio_output_start(ringbuf_t *pcm_ring)
@@ -268,18 +303,43 @@ void audio_output_clear_played(void)
 void audio_output_power_off(void)
 {
     dac_output_off();
+    s_dac_ready = 0;
+    s_fmt_valid = 0;
+}
+
+void audio_output_fade_out(void)
+{
+    if (!s_dac_ready)
+        return;
+    dac_volume_ramp(s_volume_atten, 0xFF);   /* FUN_03055f48(user, 0xff)  */
+    s_volume_atten = 0xFF;
+}
+
+void audio_output_fade_in(void)
+{
+    if (!s_dac_ready)
+        return;
+    dac_volume_ramp(s_volume_atten, ao_volume_atten_code(s_volume_db));
+    s_volume_atten = ao_volume_atten_code(s_volume_db);
 }
 
 void audio_output_set_volume_db(int db)
 {
+    uint8_t code = ao_volume_atten_code(db);
+
     /* dB -> PCM_VOLUME codes via the pure integer mapping
      * (audio_hal.h ao_volume_atten_code: 2 codes per dB, 0x00 = 0 dB,
      * 0xFF = -127.5 dB — datasheet volume decode; positive dB clamps at
      * 0). Ramp, don't jump: PCM_SZC soft ramp is enabled (0x09 0003 =
      * 0xEC) and the stock volume path (FUN_03055f48) is a soft ramp to
      * the user level — this is that setter. */
-    dac_volume_ramp(s_volume_atten, ao_volume_atten_code(db));
-    s_volume_atten = ao_volume_atten_code(db);
+    s_volume_db = db;
+    if (!s_dac_ready) {
+        s_volume_atten = code;   /* cached -> first configure() unmute ramp */
+        return;
+    }
+    dac_volume_ramp(s_volume_atten, code);
+    s_volume_atten = code;
 }
 
 int audio_output_feed_blocking(const int16_t *pcm, int frames)

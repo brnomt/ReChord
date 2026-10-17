@@ -58,6 +58,14 @@ void audio_output_clear_played(void);
  * pad Hi-Z) — the verified dac_output_off sequence. */
 void audio_output_power_off(void);
 
+/* Click-free transitions (stock FUN_03055f48 / FUN_03056e54 pattern):
+ * fade the PCM volume to mute before tearing the stream down (stop /
+ * pause) and back to the user level when it resumes. Ramping is the
+ * stock's 6-code / 2 ms software sequence on top of the PCM_SZC soft
+ * ramp. No-op when the DAC is not up. */
+void audio_output_fade_out(void);
+void audio_output_fade_in(void);
+
 /* User volume -> CS43131 PCM_VOLUME attenuation (0.5 dB/step), applied
  * with the stock's click-free soft ramp (= FUN_03055f48 to the user
  * level). `db` is dB*1 attenuation: 0 = 0 dB (max), negative attenuates
