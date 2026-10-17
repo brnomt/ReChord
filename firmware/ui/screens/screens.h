@@ -104,6 +104,7 @@ extern const ui_screen_t player_screen;
 void player_screen_set_track(const char *title, uint32_t duration_s);
 void player_screen_set_position(uint32_t position_s);
 void player_screen_set_volume(int volume_db);   /* -60..0 dB */
+void player_screen_set_format(int bits, long sample_rate);  /* stream format */
 void player_screen_set_playing(bool playing);
 /* Status line ("unsupported format", "no audio renderer", ...); NULL/"" clears. */
 void player_screen_set_status(const char *msg);

@@ -314,6 +314,8 @@ static int open_codec_only(const char *path)
     g.track.gapless_delay = g.gapless.delay_samples;
     g.track.gapless_padding = g.gapless.padding_samples;
     g.track.total_samples = g.total_samples;
+    g.track.bits = g.fmt.bits;
+    g.track.sample_rate = g.fmt.sample_rate;
     str_copy(g.track.path, (unsigned)sizeof(g.track.path), path);
     title_from_path(g.track.title, (unsigned)sizeof(g.track.title), path);
 

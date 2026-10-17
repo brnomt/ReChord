@@ -69,6 +69,10 @@ typedef struct
     int  replaygain_album_gain_tenth_db;
     int  replaygain_track_peak_q15;    /* 0..32767 = 0..1.0               */
     int  replaygain_album_peak_q15;
+
+    /* Stream format of the open track (for the Now-playing line). */
+    int  bits;                  /* source depth: 16/24/32 */
+    long sample_rate;           /* Hz                     */
 } track_info_t;
 
 /* Player states (player_get_state()). */

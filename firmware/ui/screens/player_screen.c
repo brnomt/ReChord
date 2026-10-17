@@ -26,6 +26,8 @@ static char     s_title[PLAYER_TITLE_MAX];
 static uint32_t s_duration_s;
 static uint32_t s_position_s;
 static int      s_volume_db;   /* -60..0 */
+static int      s_bits;        /* source bit depth (0 = unknown) */
+static long     s_rate;        /* sample rate Hz (0 = unknown) */
 static bool     s_playing;
 static char     s_status[40];  /* non-empty: shown instead of Playing/Paused */
 
@@ -103,6 +105,19 @@ static void player_screen_draw(void)
     display_draw_text(THEME_PAD, PLAYER_BAR_Y + PLAYER_BAR_H + 4,
                       line, THEME_COLOR_DIM, THEME_COLOR_BG);
 
+    /* stream format, right-aligned on the time line: e.g. "24b/96.0k" */
+    if (s_bits > 0 && s_rate > 0) {
+        char f[24];
+        long k10 = s_rate / 100;      /* tenths of kHz, no float printf */
+        int  flen;
+
+        snprintf(f, sizeof(f), "%db/%ld.%ldk", s_bits, k10 / 10, k10 % 10);
+        flen = (int)strlen(f);
+        display_draw_text(DISPLAY_W - THEME_PAD - THEME_TEXT_W(flen),
+                          PLAYER_BAR_Y + PLAYER_BAR_H + 4,
+                          f, THEME_COLOR_DIM, THEME_COLOR_BG);
+    }
+
     /* volume bar (-60..0 dB maps to 0..full width) */
     display_draw_text(THEME_PAD, PLAYER_VOL_Y - THEME_LINE_H + 2,
                       "Volume", THEME_COLOR_DIM, THEME_COLOR_BG);
@@ -162,6 +177,7 @@ static void player_screen_on_enter(void)
                             ti.duration_ms > 0
                                 ? (uint32_t)(ti.duration_ms / 1000) : 0);
     player_screen_set_volume(player_get_volume());
+    player_screen_set_format(ti.bits, ti.sample_rate);
     player_screen_set_playing(player_get_state() == PLAYER_PLAYING);
 }
 
@@ -197,6 +213,16 @@ void player_screen_set_volume(int volume_db)
     s_volume_db = volume_db;
     ui_invalidate(0, PLAYER_VOL_Y - THEME_LINE_H,
                   DISPLAY_W - 1, PLAYER_VOL_Y + PLAYER_VOL_H);
+}
+
+void player_screen_set_format(int bits, long sample_rate)
+{
+    if (bits == s_bits && sample_rate == s_rate)
+        return;
+    s_bits = bits;
+    s_rate = sample_rate;
+    ui_invalidate(0, PLAYER_BAR_Y + PLAYER_BAR_H + 4, DISPLAY_W - 1,
+                  PLAYER_BAR_Y + PLAYER_BAR_H + 4 + THEME_LINE_H);
 }
 
 void player_screen_set_playing(bool playing)
@@ -235,6 +261,7 @@ void player_screen_refresh(void)
     pos = (uint32_t)(player_get_position_ms() / 1000);
     if (pos != s_position_s)
         player_screen_set_position(pos);
+    player_screen_set_format(ti.bits, ti.sample_rate);
     if ((st == PLAYER_PLAYING) != s_playing)
         player_screen_set_playing(st == PLAYER_PLAYING);
 }
