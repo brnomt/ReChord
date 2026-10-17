@@ -112,4 +112,9 @@ int fs_patch(const char *path, uint32_t off, const void *buf, uint32_t len);
  * FS_ERR_*. */
 int fs_append(const char *path, const void *buf, uint32_t len);
 
+/* Truncate the file at <path> to zero bytes (creating it when missing). Used
+ * to start a fresh build in the inactive index slot. Returns FS_OK or
+ * FS_ERR_*. */
+int fs_truncate(const char *path);
+
 #endif /* RECHORD_SERVICES_FS_H */

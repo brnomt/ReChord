@@ -21,6 +21,7 @@
 #include "fs_target.h"
 #include "settings.h"
 
+#include "media_db.h"
 #include "rechord_files.h"
 
 /* The cfg is created with room to grow (the in-place rewrite keeps the file's
@@ -104,5 +105,11 @@ int rechord_files_init(void)
 
     if (ensure_file(RECHORD_STATE, STATE_BYTES, k_state_template) != FS_OK)
         return FS_ERR_IO;
-    return ensure_file(RECHORD_LOG, LOG_BYTES, k_log_template);
+    if (ensure_file(RECHORD_LOG, LOG_BYTES, k_log_template) != FS_OK)
+        return FS_ERR_IO;
+    /* The media index slots: empty until the first scan (they are binary, so
+     * no text header), created here so a build always has a file to target. */
+    if (ensure_file(MEDIA_DB_A, 0u, 0) != FS_OK)
+        return FS_ERR_IO;
+    return ensure_file(MEDIA_DB_B, 0u, 0);
 }

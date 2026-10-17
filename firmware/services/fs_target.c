@@ -1402,3 +1402,12 @@ int fs_patch(const char *path, uint32_t off, const void *buf, uint32_t len)
 {
     return fs_target_file_patch(path, off, buf, len);
 }
+
+int fs_truncate(const char *path)
+{
+    int r = fs_target_file_rewrite(path, "", 0u);
+
+    if (r != FS_OK)
+        return r;
+    return FS_OK;
+}

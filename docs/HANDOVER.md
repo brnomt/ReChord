@@ -2866,3 +2866,38 @@ devices, unrelated to the device* (several in this session), so udisksd/GVFS
 
 **Build:** `_bss_end 0x0304932c` (unchanged), AP5M CRC `0xD46C21D7`, sha256
 `2da04860969c649431b1a1dd9acf8aa6ce21ff243b3a01019b599e006cc53ff6`.
+
+## AB. Session 2026-10-17 (cont.) — BRNOMT-74 step 4: the index core
+
+**Format (see media_db.h):** two slots, one file each (`/.rechord/INDEX.A`,
+`INDEX.B`), each holding `[512-byte header][fixed 184-byte records]`. A record
+is the volume-relative path (80), title (32), artist (24), album (24), genre
+(16), track number and duration — small by design: this is a browse index, not
+a tag database. Record `i` sits at a computed offset, so paging needs no
+parsing.
+
+**Commit story:** a build targets the slot that is **not current**, truncates
+it, appends the records in chunks (through the shared 32 KiB scratch, so RAM is
+bounded), and finally patches the header in with `fs_patch()` — one sector, the
+commit. An interrupted build therefore leaves the previous index untouched; the
+reader picks the valid header with the highest sequence number, and the header's
+CRC (over the records, verified on open) catches a damaged index instead of
+serving garbage.
+
+**Primitives this needed** (`fs_append`, `fs_patch`, `fs_truncate`, all with
+host backends so the index is host-testable). The target harness caught a real
+bug in the first cut of the range writer: it zero-padded the rest of every
+partially filled sector, right for an append but destructive for a patch.
+
+**Done:** the core builds, commits, reads back and flips slots on rebuild; a
+corrupt newest slot falls back to the older one, both corrupt means "no index".
+`test_media_db` (25 checks) covers all of it. `rechord_files_init()` now also
+creates the two (empty) slots so a build always has a target.
+
+**Not yet (next):** the scanner (walk the volumes, read tags, feed
+`media_db_add`) and the "Rebuild index" menu entry with progress — until then
+the index exists but nothing fills it.
+
+**Build:** `_bss_end 0x030493ac` (283,372 B), text 119,660 B; AP5M CRC
+`0x1D28DDCD`, sha256
+`5782a2574a1f5499732c16a0af194fe46c9922d09c0273025ce95d48fa96680f`.

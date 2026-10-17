@@ -288,6 +288,16 @@ int fs_patch(const char *path, uint32_t off, const void *buf, uint32_t len)
     return n == (long)len ? FS_OK : FS_ERR_IO;
 }
 
+int fs_truncate(const char *path)
+{
+    fs_file_t *f = open_with_mode(path, "wb");
+
+    if (f == NULL)
+        return FS_ERR_OPEN;
+    fs_close(f);
+    return FS_OK;
+}
+
 int fs_append(const char *path, const void *buf, uint32_t len)
 {
     fs_file_t *f;
