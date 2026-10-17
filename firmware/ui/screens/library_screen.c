@@ -16,7 +16,11 @@
 
 #include "../../services/media_db.h"
 
-#define LIB_ROWS 8             /* one visible page of records kept in RAM; 8 x 184 B keeps the .bss margin under the 0x0304A000 gate */
+/* One page = one window: 10 rows of 12 px from THEME_MENU_TOP end at y=136,
+ * clear of the footer row at DISPLAY_H - THEME_ITEM_H (158), and 10 records x
+ * 184 B keeps the .bss margin under the 0x0304A000 gate. (menu_page_size()
+ * counts the footer row too, so it must not be used for the window.) */
+#define LIB_ROWS 10
 
 typedef struct {
     int          top;          /* first visible record */
@@ -62,7 +66,7 @@ static void lib_on_exit(void)
 
 static void lib_draw(void)
 {
-    int rows = menu_page_size();
+    int rows = LIB_ROWS;
     int row;
     char footer[32];
 
@@ -84,9 +88,10 @@ static void lib_draw(void)
         if (abs_idx >= (int)s_lib.total || widx < 0 || widx >= s_lib.win_n)
             break;
         r = &s_lib.win[widx];
+        /* Title only: at 320 px the artist column was truncated mid-word.
+         * The full tags are in Now Playing. */
         menu_draw_item(THEME_MENU_TOP + row * THEME_ITEM_H,
-                       r->title, r->artist[0] ? r->artist : NULL,
-                       abs_idx == s_lib.cursor);
+                       r->title, NULL, abs_idx == s_lib.cursor);
     }
     snprintf(footer, sizeof footer, "%u / %u",
              (unsigned)(s_lib.cursor + 1), (unsigned)s_lib.total);
@@ -111,6 +116,7 @@ static void lib_play(const media_rec_t *r)
                                     ti.duration_ms > 0
                                         ? (uint32_t)(ti.duration_ms / 1000) : 0);
         (void)player_play();
+        ui_push_screen(&player_screen);   /* asking for a track means seeing it */
     } else {
         player_screen_set_status("cannot open track");
     }
@@ -118,7 +124,7 @@ static void lib_play(const media_rec_t *r)
 
 static void lib_handle_event(const input_event_t *ev)
 {
-    int rows = menu_page_size();
+    int rows = LIB_ROWS;
 
     switch (ev->type) {
     case KEY_UP:

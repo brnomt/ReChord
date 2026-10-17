@@ -2961,3 +2961,16 @@ and logs the outcome (`index: rebuild ok, N tracks` / `index: rebuild rc N
 (previous index kept)`), so the next session's LOG carries the number.
 Reported by the user: ~800 files indexed, row said 0. The All Tracks view was
 unaffected (it opens the index itself, no cache).
+
+### AD.2 Library layout: rows vs the footer, and the artist column (user report)
+
+On hardware the All Tracks list drew its lower rows blank/overlapped and the
+artist column was truncated mid-word. Two causes: the view sized its rows from
+`menu_page_size()` — which is a *menu* helper that counts the footer row — while
+the fetched window was smaller, and it put a second text column on a 320 px
+panel. Now: `LIB_ROWS 10` (rows end at y=136, the footer row starts at 158),
+page == window, title only (full tags live in Now Playing), and SELECT on a
+track pushes Now Playing instead of only starting playback. DFIU records it as
+`1df69d31` / rule candidate `R-1ddae0f0c00b`: *every list on the 320x170 panel
+sizes its rows from the footer-safe area, keeps page == window, and adds no
+column that cannot fit the width.*
