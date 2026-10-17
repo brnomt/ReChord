@@ -293,6 +293,7 @@ int ipc_b_ring_fill(const int32_t *pcm, int frames)
 
     wr += (uint32_t)frames * 8u;
     sh_set(IPC_SH_WR, wr);      /* publish after the data (DMB inside) */
+    rknano_i2s_kick();          /* re-arm the feeder (it masks when dry) */
     return frames;
 }
 
