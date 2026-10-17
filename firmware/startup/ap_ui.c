@@ -137,7 +137,9 @@ static void power_off(void);
  * while the UI is busy — e.g. during playback) restarted the ~2 s count
  * and power-off never triggered. Debounce the level first (3 consecutive
  * samples), then count; `>=` also makes the threshold immune to skips. */
-#define POWER_HOLD_COUNT   700u   /* ~2 s of loop passes (calibrated) */
+#define POWER_HOLD_COUNT   400u   /* ~2 s of loop passes (re-tuned after
+                                   * the keys_adc latency fix; pass rate
+                                   * is render-bound, not clock-based) */
 #define POWER_DEBOUNCE     3
 static int s_power_level;         /* debounced power-key level (0/1) */
 static int s_power_stable;
