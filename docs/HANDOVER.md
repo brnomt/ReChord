@@ -3330,3 +3330,28 @@ crackles**; 44.1/16 is unchanged; the UI stays fluid, only slightly heavier at
 88.2k (the AP still decodes). The 192k/24 file (max_block 16384) still does not
 open: its dr_flac window needs ~143 KB but the workbuf region is 80896 B (the
 documented 705/706 limit) — a separate decoder/memory item, not this phase.
+
+## AO. Session 2026-10-17 (cont.) — BRNOMT-68 phase 3c: Core B decodes (HW-verified)
+
+Core B now owns the DECODE. `firmware/bb/bb_main.c` opens the codec (the AP
+passes the id), reads the track through `bcio.c` over the A→B file ring and is
+the PCM-ring PRODUCER. The AP keeps the DAC/I2S bring-up, serves the track with
+`bfs_open`/`bfs_poll`, and drains the ring in its TX ISR (`ipc_b_target.c`
+`shared_pull`). B re-arms that IRQ (`I2S_INTCR` bit0) after every push — the AP
+ISR masks the source when the ring goes dry. Because B no longer depends on the
+AP pumping, AP-side UI/library work cannot starve the audio.
+
+Memory (vendor `B_Core.sct`): B code in HIGHRAM0 `0x01000000..0x01020000`
+(blob ~65 KiB embedded in fw1, so FW_CODE grew to `0x3C000`); PCM ring
+`0x01030000`; file ring `0x01021000`; B data/pool/stack `0x01040000..0x01060000`.
+Earlier attempt that put B's stack in SYSRAM1 `0x03090000` FAILED on hardware
+(hung at 0:00) — SYSRAM1 is not Core-1-reachable; reverted.
+
+Fallback: if B does not ACK the OPEN handshake the AP decodes exactly as phase 2.
+Not in v1: ReplayGain/gapless trim on B (RG default OFF; gapless loses the
+sample-accurate join). Seek is forwarded to B via `ipc_b_seek()`.
+
+**Hardware result (user, CRC `0x88C41346`):** 16/44.1 and 96k/24 (Hyperdrama)
+play with no crackles; UI fluid; a slight lag remains (minor). The Library →
+All Songs cut is gone at the root. AP5M CRC `0x88C41346`, `_bss_end 0x030418c8`;
+host player tests pass.

@@ -122,3 +122,33 @@ One core does decode + render; they must interleave:
 - **No mixing**: one sub-phase per flash.
 - `_bss_end` < `0x0304A000`; debrick via maskrom (`docs/DEBRICK-LINUX.md`).
 - Clean-room: protocol facts only; all code compiled from this tree.
+
+## 8. Phase 3c implemented (2026-10-17)
+
+- **Core B decodes.** `firmware/bb/bb_main.c` opens the codec by id (the AP
+  passes it in `IPC_C_ARG`), reads the track through `bcio.c` over the A→B file
+  ring, and is the PCM-ring PRODUCER (writes `IPC_SH_WR`). After each push it
+  re-arms the AP's TX-empty IRQ (`I2S_INTCR` bit0) because the AP ISR masks the
+  source when it finds the ring dry.
+- **The AP keeps the DAC/I2S bring-up and the feeder.** `ipc_b_target.c`'s
+  `shared_pull` drains the ring in the TX ISR (consumer); the AP serves the
+  track with `bfs_open`/`bfs_poll` and no longer decodes while B is up
+  (`player.c`: `ipc_b_b_decodes()`). So library/UI work can no longer starve
+  the audio — the Library→All Songs cut is gone at the root.
+- **Fallback.** If B does not ACK the OPEN handshake, the AP decodes exactly as
+  phase 2 (`ipc_b_ring_fill`); audio never breaks because of the handoff.
+- **Memory.** B code in HIGHRAM0 `0x01000000..0x01020000` (blob ~65 KiB,
+  embedded in fw1 — FW_CODE enlarged to `0x3C000`); PCM ring `0x01030000`; file
+  ring `0x01021000`; B data/pool/stack `0x01040000..0x01060000`.
+- **Not in v1:** ReplayGain/gapless trim on B (RG default is OFF; gapless loses
+  sample-accurate joins → a small gap between tracks). Seek is forwarded to B
+  via `ipc_b_seek()`.
+- AP5M CRC `0x57853181`, `_bss_end 0x030418c8`; host player tests still pass.
+  (Final build `0x88C41346` adds the AP-fallback kick in `ipc_b_ring_fill`.)
+
+### Hardware verified (2026-10-17)
+
+User flashed `0x88C41346`: 16/44.1 and 96k/24 (Hyperdrama) play with **no
+crackles**, UI fluid; a **slight lag remains** (minor, accepted). The
+Library → All Songs audio cut is **gone at the root** (B no longer depends on
+the AP pumping). BRNOMT-68 can be closed as far as this phase goes.
