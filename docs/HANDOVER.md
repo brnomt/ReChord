@@ -3121,3 +3121,15 @@ longer than that. DFIU: incident 26eed982 verified, rule R-e68bf2428377 active.
 
 **Device test:** after a rebuild (v2 needs one), Library → Year should show
 `Undefined / 2012 / 2015`, and choosing one lists its songs.
+
+## AH. Hand-off — next session starts with FLAC 24/32-bit + 384 kHz (BRNOMT-89)
+
+The complete, self-contained brief lives in **`docs/NEXT-SESSION-FLAC-HIRES.md`**:
+goal, the measured state of the audio path, what the CS43131 datasheet already
+answers (clock-divider tables, `ASP_SPSIZE`), the four increments, build/flash/
+test commands, fixtures, the rules the codebase enforces, reading order, the
+state at hand-off and the open questions. A fresh session can start from that
+file alone.
+
+Last state: `master` pushed, image `0x240B05BE` verified on hardware (index +
+categories + SysTick clock all working), `_bss_end 0x0304949c`.
