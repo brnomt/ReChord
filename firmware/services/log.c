@@ -15,10 +15,21 @@ static unsigned s_head;          /* index of the oldest buffered line */
 static unsigned s_count;         /* lines currently buffered */
 static unsigned long s_dropped;  /* lines dropped since last good flush */
 static log_clock_fn s_clock;     /* ms tick source; NULL = frozen at 0 */
+static log_write_fn s_writer;    /* whole-file writer; NULL = stdio append */
+
+/* Assembly buffer for the writer path. Sized to the ring plus the drop note,
+ * so it is bounded by LOG_BUFFER_LINES: on the target that constant is
+ * smaller, which keeps this (and the ring) inside the .bss budget. */
+static char s_text[LOG_BUFFER_LINES * LOG_LINE_MAX + 64];
 
 void log_init(log_clock_fn clock_ms)
 {
     s_clock = clock_ms;
+}
+
+void log_set_writer(log_write_fn wr)
+{
+    s_writer = wr;
 }
 
 unsigned long log_dropped(void)
@@ -97,6 +108,34 @@ static int write_line(fs_file_t *f, const char *line)
     return FS_OK;
 }
 
+/* Assemble the pending ring (and the drop note) into s_text. Returns the
+ * length, or LOG_ERR_IO when it does not fit (the buffer is sized so it
+ * always does). */
+static int assemble(void)
+{
+    unsigned i, len = 0;
+
+    for (i = 0; i < s_count; i++) {
+        int n = snprintf(s_text + len, sizeof s_text - len, "%s\n",
+                         s_lines[(s_head + i) % (unsigned)LOG_BUFFER_LINES]);
+
+        if (n < 0 || (unsigned)n >= sizeof s_text - len)
+            return LOG_ERR_IO;
+        len += (unsigned)n;
+    }
+    if (s_dropped > 0) {
+        unsigned long ms = now_ms();
+        int n = snprintf(s_text + len, sizeof s_text - len,
+                         "%lu.%03lu log: %lu lines dropped (buffer full)\n",
+                         ms / 1000UL, ms % 1000UL, s_dropped);
+
+        if (n < 0 || (unsigned)n >= sizeof s_text - len)
+            return LOG_ERR_IO;
+        len += (unsigned)n;
+    }
+    return (int)len;
+}
+
 int log_flush(const char *tag)
 {
     fs_file_t *f;
@@ -106,6 +145,21 @@ int log_flush(const char *tag)
     if (tag != NULL) {
         /* Flush markers follow the same line format as everything else. */
         log_printf("log flush (%s)", tag);
+    }
+
+    if (s_writer != NULL) {
+        /* Target path: one whole-file rewrite (the log file lives in the
+         * device's own folder and is created at first boot). */
+        int len = assemble();
+
+        if (len < 0)
+            return LOG_ERR_IO;           /* keep the buffer for the retry */
+        if (s_writer(LOG_PATH, s_text, (unsigned)len) != 0)
+            return LOG_ERR_IO;
+        s_head = 0;
+        s_count = 0;
+        s_dropped = 0;
+        return LOG_OK;
     }
 
     f = fs_open_append(LOG_PATH);

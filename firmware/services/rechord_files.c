@@ -25,12 +25,27 @@
 
 /* The cfg is created with room to grow (the in-place rewrite keeps the file's
  * clusters and only patches the size), so the user editing it later cannot
- * run the device out of space for its own settings. state is small on
- * purpose: it is rewritten often. */
+ * run the device out of space for its own settings. state and LOG are small
+ * on purpose: both are rewritten by the device. */
 #define CFG_BYTES   (64u * 1024u)
 #define STATE_BYTES (4u * 1024u)
+#define LOG_BYTES   (32u * 1024u)
 
-static int ensure_file(const char *path, uint32_t bytes)
+/* Written into a freshly created file so it reads as text instead of a block
+ * of zeros. The device replaces the content on its next write. */
+static const char k_state_template[] =
+    "# ReChord runtime state -- written by the device, not by hand\n"
+    "# track=<full path of the last played file>\n"
+    "# pos_ms=<position inside it>\n"
+    "# folder=<browser folder>\n"
+    "# row=<browser row>\n";
+
+static const char k_log_template[] =
+    "# ReChord log -- rewritten on every flush (USB storage / power off),\n"
+    "# so it holds the lines of the latest one. Timestamps are seconds\n"
+    "# since boot.\n";
+
+static int ensure_file(const char *path, uint32_t bytes, const char *template_text)
 {
     fs_file_t *f = fs_open_read(path);
 
@@ -38,7 +53,19 @@ static int ensure_file(const char *path, uint32_t bytes)
         fs_close(f);
         return FS_OK;                    /* exists: never touched again */
     }
-    return fs_target_file_create(path, bytes);
+    if (fs_target_file_create(path, bytes) != FS_OK)
+        return FS_ERR_IO;
+    if (template_text != 0) {
+        unsigned len = (unsigned)strlen(template_text);
+
+        if (len > 0u) {
+            int r = fs_target_file_rewrite(path, template_text, len);
+
+            if (r != FS_OK)
+                return r;
+        }
+    }
+    return FS_OK;
 }
 
 int rechord_files_init(void)
@@ -56,7 +83,7 @@ int rechord_files_init(void)
         return r;
 
     len = 0;
-    r = ensure_file(RECHORD_CFG, CFG_BYTES);
+    r = ensure_file(RECHORD_CFG, CFG_BYTES, 0);
     if (r != FS_OK)
         return r;
 
@@ -75,5 +102,7 @@ int rechord_files_init(void)
             (void)fs_target_file_rewrite(RECHORD_CFG, text, (uint32_t)len);
     }
 
-    return ensure_file(RECHORD_STATE, STATE_BYTES);
+    if (ensure_file(RECHORD_STATE, STATE_BYTES, k_state_template) != FS_OK)
+        return FS_ERR_IO;
+    return ensure_file(RECHORD_LOG, LOG_BYTES, k_log_template);
 }

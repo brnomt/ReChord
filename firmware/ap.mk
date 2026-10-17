@@ -167,6 +167,7 @@ AP_CFLAGS := $(AP_ARCH_FLAGS) -Os -Wall \
   -Wno-return-mismatch -Wno-int-conversion -Wno-return-type \
   -ffunction-sections -fdata-sections -MMD -MP -fcommon \
   -DRECHORD_AP_BUILD \
+  "-DLOG_BUFFER_LINES=12" \
   $(addprefix -I,$(AP_INCLUDE_DIRS)) \
   -include firmware/rockchip/include/armcc_compat.h
 

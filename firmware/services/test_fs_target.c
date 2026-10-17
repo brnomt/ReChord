@@ -90,15 +90,18 @@ static void create_phase(void)
            fs_target_file_create("/SD/.rechord/rechord.cfg", 64u * 1024u));
     printf("C state %d\n",
            fs_target_file_create("/SD/.rechord/state", 4096u));
+    printf("C log %d\n",
+           fs_target_file_create("/SD/.rechord/LOG", 32u * 1024u));
     /* The initializer writes the defaults into the fresh (all-zero) cfg. */
     printf("C put %d\n",
            fs_target_file_rewrite("/SD/.rechord/rechord.cfg", text,
                                   (uint32_t)len));
     /* Idempotency: a second pass must create nothing and change nothing. */
-    printf("C again %d %d %d\n",
+    printf("C again %d %d %d %d\n",
            fs_target_mkdir("/SD/.rechord"),
            fs_target_file_create("/SD/.rechord/rechord.cfg", 64u * 1024u),
-           fs_target_file_create("/SD/.rechord/state", 4096u));
+           fs_target_file_create("/SD/.rechord/state", 4096u),
+           fs_target_file_create("/SD/.rechord/LOG", 32u * 1024u));
     /* Refusals: an existing DIRECTORY is not a file, and vice versa; a name
      * with a non-ASCII byte is refused by the LFN writer. */
     printf("C clash %d\n",

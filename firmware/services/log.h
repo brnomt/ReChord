@@ -19,10 +19,10 @@
 
 #include <stdarg.h>
 
-/* Log file location: root of the user volume (drop-in name for tooling that
- * pulls the device log). Override at compile time if needed. */
+/* Log file location: the device's own folder on the internal volume (created
+ * on first boot by rechord_files_init). Override at compile time if needed. */
 #ifndef LOG_PATH
-#define LOG_PATH "\\ECHOLOG.TXT"
+#define LOG_PATH "/Internal/.rechord/LOG"
 #endif
 
 /* Ring capacity (lines). Tune per build; keep small for the 64 KiB-class RAM
@@ -46,6 +46,14 @@ typedef unsigned long (*log_clock_fn)(void);
 
 /* Install the ms clock source (NULL = frozen at 0.000). */
 void log_init(log_clock_fn clock_ms);
+
+/* Optional whole-file writer: when set, log_flush() assembles the pending
+ * lines and hands them over in ONE call (the target rewrites the log file in
+ * place — it has no append — so the file always holds the last flush), and
+ * the buffer is cleared only if the writer reports success. Without a writer
+ * the stdio append path is used (host tools/tests). Returns 0 on success. */
+typedef int (*log_write_fn)(const char *path, const char *text, unsigned len);
+void log_set_writer(log_write_fn wr);
 
 /* Format one timestamped line into the ring buffer. Overflows are dropped
  * and counted (see log_dropped()). */

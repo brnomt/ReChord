@@ -2734,3 +2734,40 @@ created preallocated at 64 KiB, which is what the device does today.
 ~2.1 KB of headroom left, so the allocator fits comfortably. AP5M CRC
 `0x3A766B50`, sha256
 `83afe185ec760ca58d8bbb28271ea497e694f8a6b620ab4ef1d65f1fd78aecbc`.
+
+## X. Session 2026-10-17 (cont.) — the device's own log file
+
+**Request:** the config + logging work was "casi": what was missing is a log
+file in `/.rechord` (and `state`/`LOG` read as blocks of zeros, i.e. as
+binaries, which is unhelpful for a file the user is meant to read).
+
+- `rechord_files_init()` now creates `/.rechord/LOG` (32 KiB) and writes a
+  short text header into every freshly created `state`/`LOG`, so both read as
+  text from the PC. The device replaces the content on its next write.
+- `log.h` / `log.c`: `LOG_PATH` moved to `/Internal/.rechord/LOG`, and
+  `log_flush()` gained an optional whole-file writer (`log_set_writer`). With
+  one installed, the target assembles the pending ring and rewrites the file
+  in ONE call (`fs_target_file_rewrite` — this backend has no append, so the
+  file always holds the latest flush); without one the stdio append path
+  stays for the host tests (35 checks, unchanged apart from the path).
+- The target's ring is 12 lines (`-DLOG_BUFFER_LINES=12` in the Makefile's
+  AP_CFLAGS, which is where the effective flags live — ap.mk's copy is not
+  what compiles the image) so the ring plus the assembly buffer fit: that
+  **freed 1.2 KiB** of `.bss` (`_bss_end 0x030497e4 → 0x03049324`, ~3.2 KB of
+  headroom now). A flag change needs a clean object dir: make does not track
+  flags, and the stale `log.o` overflowed the gate on the first try (the
+  linker refused the build, exactly as designed).
+- Flush points: entering USB storage (the menu entry *and* the cable edge),
+  so the log is readable the moment the user plugs in, and before the
+  power-hold shutdown. `ap_ui` also feeds the DWT clock to `log_init()`, so
+  lines carry real timestamps instead of `0.000`.
+- Harness: the create phase covers `LOG` too (four-way idempotency); FAT16
+  and FAT32 both stay `fsck`-clean.
+
+**Build:** `_bss_end 0x03049324` (283,236 B), text 115,276 B. All host suites
+green; `make cfw-img` RESULT: PASS — AP5M CRC `0x38394815`, sha256
+`fc0b7aa6ac09a095064fd4783208edf4fac45895a6e768f753cefee631ffbc99`.
+
+**Device check (user):** boot once (LOG appears with its 3 text lines), then
+plug the USB cable in and open `/.rechord/LOG`: it should hold the lines of
+the latest flush with real timestamps, not zeros.

@@ -33,14 +33,20 @@ static unsigned long mock_clock(void)
     return s_now_ms;
 }
 
+/* LOG_PATH lives in the user-visible .rechord folder of the internal volume
+ * (fs_host does not create parent directories). */
+static const char *k_log_file = ".work/Internal/.rechord/LOG";
+
 static void log_file_reset(void)
 {
-    (void)remove(".work/ECHOLOG.TXT");
+    (void)mkdir(".work/Internal", 0777);
+    (void)mkdir(".work/Internal/.rechord", 0777);
+    (void)remove(k_log_file);
 }
 
 static void read_log(char *buf, unsigned long cap)
 {
-    FILE *fp = fopen(".work/ECHOLOG.TXT", "rb");
+    FILE *fp = fopen(k_log_file, "rb");
     long n;
 
     CHECK(fp != NULL);

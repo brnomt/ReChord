@@ -15,6 +15,7 @@
 #include "drivers/rknano_i2s.h"
 #include "services/fs_target.h"
 #include "services/fw_update.h"
+#include "services/log.h"
 #include "services/rechord_files.h"
 #include "services/input.h"
 #include "player.h"
@@ -51,6 +52,23 @@ static void ap_clock_init(void)
     AP_DEMCR |= 1u << 24;            /* TRCENA: enable the debug block  */
     AP_DWT_CTRL |= 1u;               /* CYCCNTENA: start the cycle count */
     input_set_clock(ap_ms);
+    log_init((log_clock_fn)ap_ms);
+}
+
+/* The log file lives in the device's own folder and is rewritten in place
+ * (this backend has no append): one flush = the recent ring, one write. */
+static int log_write_file(const char *path, const char *text, unsigned len)
+{
+    return fs_target_file_rewrite(path, text, len) == FS_OK ? 0 : -1;
+}
+
+/* USB storage exposes the volume to the PC: flush the log first so the user
+ * can read what just happened. */
+static void usb_storage_run(void);
+static void usb_storage_entry(void)
+{
+    (void)log_flush("usb");
+    usb_storage_run();
 }
 
 /* Read-only eMMC probe for the root menu: size and user volume start. */
@@ -76,6 +94,8 @@ static void emmc_probe(void)
      * see fs_target_file_rewrite() (BRNOMT-71). */
     if (s_user)
         (void)fs_target_set_writer(0, emmc_write);
+    if (s_user)
+        log_set_writer(log_write_file);
     /* First boot: create /.rechord (cfg + state) when missing. Idempotent, so
      * it runs on every boot and never touches what is already there. */
     if (s_user)
@@ -571,7 +591,7 @@ static void usb_storage_run(void)
 static const menu_item_t k_root_items[] = {
     { "DAC test",    NULL,      dac_test_run },
     { "USB console", NULL,      usb_console_run },
-    { "USB storage", NULL,      usb_storage_run },
+    { "USB storage", NULL,      usb_storage_entry },
     { "Files",       NULL,      open_files },
     { "Now Playing", NULL,      open_player },
     { "Settings",    NULL,      open_settings },
@@ -619,13 +639,14 @@ void ap_ui_loop(void)
          * pre-CDC behaviour the user expects). The CDC console stays on
          * the "USB console" menu entry. */
         if (cable && !s_cable)
-            usb_storage_run();
+            usb_storage_entry();
         s_cable = cable;
 
         /* power-hold: debounced (see power_hold_step); ~2 s of held power
          * turns the device off. Flush any pending settings write first. */
         if (power_hold_step(power)) {
             settings_screen_store();
+            (void)log_flush("power");
             power_off();
         }
 

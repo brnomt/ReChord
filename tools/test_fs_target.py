@@ -190,7 +190,7 @@ if os.path.exists(EXE) and os.path.exists(mkfs_fat):
                 mnt = re.search(r' at (\S+)', subprocess.check_output(
                     ['udisksctl', 'mount', '-b', dev], text=True)).group(1)
             names = sorted(os.listdir(f'{mnt}/.rechord'))
-            assert names == sorted(['rechord.cfg', 'state'] +
+            assert names == sorted(['rechord.cfg', 'state', 'LOG'] +
                                    [f'f{i:02d}' for i in range(20)]), names
             body = open(f'{mnt}/.rechord/rechord.cfg', 'rb').read()
             assert len(body) == size_cfg and b'play=' in body and b'\x00' not in body, body[:40]

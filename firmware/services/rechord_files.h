@@ -10,11 +10,13 @@
 #define RECHORD_DIR     "/Internal/.rechord"
 #define RECHORD_CFG     "/Internal/.rechord/rechord.cfg"
 #define RECHORD_STATE   "/Internal/.rechord/state"
+#define RECHORD_LOG     "/Internal/.rechord/LOG"
 
 /* First-boot layout: create /.rechord, rechord.cfg (with the default
- * configuration written) and state when they are missing; existing files are
- * left exactly as they are. Returns 0, or an FS_ERR_* code when the volume is
- * missing or the creation failed. */
+ * configuration written), state and LOG (each with a short text header, so
+ * they read as text rather than as blocks of zeros) when they are missing;
+ * existing files are left exactly as they are. Returns 0, or an FS_ERR_* code
+ * when the volume is missing or the creation failed. */
 int rechord_files_init(void);
 
 #endif /* RECHORD_SERVICES_RECHORD_FILES_H */
