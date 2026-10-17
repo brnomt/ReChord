@@ -84,7 +84,7 @@ static void put_meta_hdr(bw_t *w, int last, int type, unsigned len)
     put8(w, len);
 }
 
-static void put_streaminfo(bw_t *w)
+static void put_streaminfo(bw_t *w, unsigned long total)
 {
     /* 34 bytes */
     put16be(w, BLOCKSIZE);              /* min block size                  */
@@ -96,11 +96,11 @@ static void put_streaminfo(bw_t *w)
     put8(w, RATE >> 4);                                         /* 12     */
     put8(w, ((RATE & 0x0F) << 4) | (1 << 1) | (15 >> 4));       /* 16     */
     put8(w, ((15 & 0x0F) << 4) |
-            (unsigned)(((unsigned long)TOTAL >> 32) & 0xF));
-    put8(w, (TOTAL >> 24) & 0xFF);
-    put8(w, (TOTAL >> 16) & 0xFF);
-    put8(w, (TOTAL >> 8) & 0xFF);
-    put8(w, TOTAL & 0xFF);
+            (unsigned)(((unsigned long)total >> 32) & 0xF));
+    put8(w, (total >> 24) & 0xFF);
+    put8(w, (total >> 16) & 0xFF);
+    put8(w, (total >> 8) & 0xFF);
+    put8(w, total & 0xFF);
     {
         int i;
         for (i = 0; i < 16; i++)        /* md5: zeros = unknown/unchecked  */
@@ -188,7 +188,7 @@ static void test_flac_golden(void)
 
     put8(&w, 'f'); put8(&w, 'L'); put8(&w, 'a'); put8(&w, 'C');
     put_meta_hdr(&w, 0, 0, 34);        /* STREAMINFO (not last)            */
-    put_streaminfo(&w);
+    put_streaminfo(&w, TOTAL);
     {
         long before = w.n;
         long clen;
@@ -268,6 +268,54 @@ static void test_flac_golden(void)
     remove(path);
 }
 
+/* A real >48 s file's header: 5,000,000 frames @ 44.1 kHz = 113.4 s. The
+ * target's 32-bit `long` wraps in samples*1000 past ~48 s — that is how Now
+ * Playing showed bogus few-seconds lengths (BRNOMT-65), so the exact
+ * 113378 ms here is the regression guard. The body deliberately stays one
+ * block: the reported length comes from STREAMINFO, not from the body. */
+#define LONG_TOTAL 5000000UL
+
+static void test_flac_long_duration(void)
+{
+    static unsigned char buf[32768];
+    bw_t w = { buf, 0 };
+    char path[] = "/tmp/rechord_codec_flac_long.flac";
+    codec_format_t fmt;
+    void *st;
+
+    TEST("flac: 113 s STREAMINFO total reports its exact duration");
+
+    put8(&w, 'f'); put8(&w, 'L'); put8(&w, 'a'); put8(&w, 'C');
+    put_meta_hdr(&w, 1, 0, 34);        /* STREAMINFO (last)                */
+    put_streaminfo(&w, LONG_TOTAL);
+    put_verbatim_frame(&w);
+
+    if (write_file(path, buf, w.n) != 0) {
+        printf("  FAIL: cannot write fixture\n");
+        failures++;
+        return;
+    }
+
+    st = calloc(1, PLAYER_CODEC_STATE_MAX);
+    if (!st) { printf("  FAIL: alloc\n"); failures++; return; }
+
+    CHECK_EQI(codec_flac.open(st, path), 0, "open: long-total FLAC");
+    memset(&fmt, 0, sizeof fmt);
+    CHECK_EQI(codec_flac.format(st, &fmt), 0, "format()");
+    CHECK_EQI(fmt.sample_rate, RATE, "sample rate 44100");
+    CHECK_EQI(fmt.total_samples, (long)LONG_TOTAL,
+              "total_samples from STREAMINFO");
+    CHECK_EQI(codec_flac.duration_ms(st),
+              (long)(((int64_t)LONG_TOTAL * 1000) / RATE),
+              "duration = 113378 ms (past the 32-bit wrap point)");
+    CHECK(codec_flac.duration_ms(st) > 48000,
+          "length is not the wrapped few-seconds value");
+
+    codec_flac.close(st);
+    free(st);
+    remove(path);
+}
+
 static void test_flac_reject(void)
 {
     static unsigned char junk[64];
@@ -293,6 +341,7 @@ static void test_flac_reject(void)
 int main(void)
 {
     test_flac_golden();
+    test_flac_long_duration();
     test_flac_reject();
     if (failures == 0) {
         printf("test_codec_flac: OK\n");

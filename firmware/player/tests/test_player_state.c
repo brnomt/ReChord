@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "../player.h"
+#include "ipc_b_mock.h"
 #include "mock_codec.h"
 #include "test_util.h"
 
@@ -214,6 +215,34 @@ int main(void)
     mock_codec_configure(&cfg);
     CHECK_EQI(player_open("again.mock"), PLAYER_OK, "good open recovers");
     CHECK_EQI(player_get_state(), PLAYER_STOPPED, "back to STOPPED");
+
+    TEST("playhead exact past the 32-bit wrap point (5-minute track)");
+    /* BRNOMT-66: frames*1000 wrapped the target's 32-bit `long` after ~49 s,
+     * so the playhead went negative (huge elapsed time, bar at full). The
+     * playhead must stay exact for the whole track. */
+    cfg.total_frames = 44100L * 300;   /* 5 min @ 44100 Hz stereo */
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+    ipc_b_mock_set_frames_per_tick(8192);   /* drain fast (~185 ms/pass) */
+    CHECK_EQI(player_open("long.mock"), PLAYER_OK, "open 5-minute track");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "long track info");
+    CHECK_EQI(ti.duration_ms, 300000, "duration 300 s");
+    CHECK_EQI(player_play(), PLAYER_OK, "play long track");
+
+    for (i = 0; i < 4000 && player_get_position_ms() < 50000; i++)
+        (void)player_process();
+    pos = player_get_position_ms();
+    CHECK(pos >= 50000, "playhead reached 50 s (was the wrap point)");
+    CHECK(pos < 60000, "playhead is sane, not the wrapped value");
+    prev = pos;
+    for (i = 0; i < 10; i++)
+        (void)player_process();
+    CHECK(player_get_position_ms() > prev, "playhead keeps advancing");
+    CHECK(player_get_state() == PLAYER_PLAYING, "still playing");
+    ipc_b_mock_set_frames_per_tick(256);    /* restore the mock default */
+    CHECK_EQI(player_stop(), PLAYER_OK, "stop long track");
 
     if (failures == 0)
         printf("test_player_state: ALL PASS\n");

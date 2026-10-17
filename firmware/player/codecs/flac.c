@@ -390,7 +390,11 @@ static int flac_open(void *vst, const char *path)
         return CODEC_ERR_FORMAT;
     }
     if (st->total_samples > 0)
-        st->duration_ms = st->total_samples * 1000 / st->rate;
+        /* int64 math: samples*1000 overflows 32-bit `long` past ~48 s at
+         * 44.1 kHz, and the wrapped (often negative) value reached the UI
+         * as a bogus few-seconds length (BRNOMT-65). */
+        st->duration_ms = (long)(((int64_t)st->total_samples * 1000) /
+                                 st->rate);
     st->rg = rg;
     return CODEC_OK;
 }
@@ -419,7 +423,9 @@ static int flac_seek(void *vst, long ms)
         ms = 0;
     if (st->duration_ms > 0 && ms > st->duration_ms)
         ms = st->duration_ms;
-    frame = (st->rate > 0) ? (long)ms * st->rate / 1000 : 0;
+    /* int64 math: ms*rate overflows 32-bit `long` past ~48 s at 44.1 kHz. */
+    frame = (st->rate > 0)
+        ? (long)(((int64_t)ms * st->rate) / 1000) : 0;
     if (!drflac_seek_to_pcm_frame(st->f, (drflac_uint64)frame))
         return CODEC_ERR_IO;
     return CODEC_OK;

@@ -533,7 +533,10 @@ long player_get_position_ms(void)
 
     pos = g.base_ms;
     if (g.fmt.sample_rate > 0)
-        pos += (g.frames_consumed * 1000) / g.fmt.sample_rate;
+        /* int64 math: frames*1000 wraps a 32-bit `long` after ~49 s at
+         * 44.1 kHz, which pushed the playhead negative -> the Now Playing
+         * bar slammed to full and the elapsed time went huge (BRNOMT-66). */
+        pos += (long)(((int64_t)g.frames_consumed * 1000) / g.fmt.sample_rate);
     return pos;
 }
 

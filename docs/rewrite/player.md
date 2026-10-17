@@ -198,6 +198,16 @@ hardware side is the `audio_output` HAL (docs/rewrite/audio.md §6).
 **Opus is a reserved drop-in slot**: porting it means adding
 `codecs/opus/` + one `codec_opus.c` descriptor — zero core changes.
 
+**Time math is 64-bit (2026-10-17, HANDOVER §O):** on the target `long` is
+32 bits, so every ms <-> samples/frames conversion needs an `int64_t`
+intermediate (`(long)(((int64_t)samples * 1000) / rate)`). A 32-bit product
+already wraps above ~48 s at 44.1 kHz, and the wrapped (often negative)
+result is what Now Playing showed as a bogus "0:02"/"0:19" track length
+while playback itself stayed correct (BRNOMT-65/66). `codecs/wav.c` always
+had the cast; `mp3.c` (Xing duration, CBR total_samples, seek), `flac.c`
+(duration, seek frame) and `player.c` (`player_get_position_ms`) now match
+it. Cover with a >48 s fixture whenever adding a conversion.
+
 ## 5. Files
 
 ```

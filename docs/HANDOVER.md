@@ -2285,3 +2285,65 @@ the ~10 ms UI pass cadence). test_input grew hold coverage (220 checks).
 Note: this supersedes the old "hold: no repeat" contract in the input
 tests; playback/UI confirmed crack-free on the previous build
 (CRC 0xC0ACE53A).
+
+## O. Session 2026-10-17 — Now Playing timestamp/bar: 32-bit `long` time math
+
+**Symptom** (Linear BRNOMT-65 + BRNOMT-66, both filed from device testing
+of the 4d15172-era build): most songs showed a duration of a few seconds on
+the Now Playing screen ("2 or 19 seconds"), playback itself fine; the
+progress bar misbehaved because of it (it is drawn from position/duration).
+
+**Root cause:** the target's `long` is 32 bits (Cortex-M3 — the host test
+suite runs 64-bit `long`, which is why it always passed), and every
+millisecond conversion was written with a 32-bit product:
+
+| Site | Expression | Wraps above |
+|---|---|---|
+| `codecs/mp3.c` Xing duration | `total_samples * 1000 / rate` | ~48.7 s @ 44.1 kHz |
+| `codecs/mp3.c` CBR `total_samples` | `rate * duration_ms / 1000` | ~48.7 s |
+| `codecs/flac.c` duration | `total_samples * 1000 / rate` | ~48.7 s |
+| `codecs/flac.c` seek frame | `ms * rate / 1000` | ~48.7 s |
+| `player.c` playhead | `frames_consumed * 1000 / sample_rate` | ~48.7 s |
+
+The wrapped product lands negative (the player clamps the length to 0, so
+the screen reads "0:00") or a small positive value — exactly the observed
+few-second lengths. Both are display-only: nothing on the audio path uses
+`duration_ms` (the sink streams the ring; the gapless trim uses the codec's
+`total_samples`, and the player re-derives that from `duration_ms` only when
+the codec reports <= 0). The playhead wrap was the bar half of the bug: past
+~49 s it went negative -> huge elapsed time + bar at full.
+
+**Diagnostic shortcut** — what the bug displayed for a 44.1 kHz track
+(target wrap + the player's negative clamp):
+
+```
+3:17 -> 0:02     3:30 -> 0:15     4:00 -> 0:45
+3:34 -> 0:19     3:45 -> 0:30     4:55 -> 0:02
+```
+
+**Fix:** `int64_t` intermediate at all five sites. `codecs/wav.c` already
+did this ("int64 math: ms * rate overflows 32-bit `long` on the target") —
+mp3/flac/player.c now match. No behavior change for values that never
+wrapped.
+
+**Verification (target toolchain, not the host — the host cannot show it):**
+
+1. Probe with `arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb -Os`:
+   `(2304000L * 1000) / 44100` warns *"integer overflow in expression of
+   type 'long int' results in '-1990967296'"* and the assert on it fails —
+   with the int64 form all seven fixed expressions assert clean.
+2. New host fixtures past the wrap point: mp3 3000-frame Xing file
+   (78367 ms), flac 5,000,000-frame STREAMINFO (113378 ms), player playhead
+   on a 5-minute mock track (reaches 50 s sane instead of wrapping).
+3. All suites green (player, ui 262, drivers, modules, services 220);
+   `make cfw-ap` + `make cfw-img` RESULT: PASS — 5 MB image
+   `build/ReChord_AP5M.IMG`, CRC `0x4D1ED427` (previous build:
+   `0xC0ACE53A`).
+4. Codegen A/B on the shipped objects: `smull` (32x32->64) in
+   `player_get_position_ms` 0 -> 1, `mp3_open` 0 -> 2, `flac_open` 0 -> 1 —
+   the pre-fix image did the whole conversion in 32-bit registers.
+
+**Rule for the next codec/player/DSP change:** every ms <-> samples
+conversion on this target needs the `int64_t` intermediate, and a >48 s
+fixture in the test whenever a new one is added (docs/rewrite/player.md §4).
+

@@ -393,16 +393,21 @@ static int mp3_open(void *vst, const char *path)
     s_win_pos = off + (st->have_xing ? fi.frame_bytes : 0);
     mp3dec_init(&st->dec);               /* fresh state for the audio */
 
-    /* duration: Xing (exact frames) > CBR estimate > unknown */
+    /* duration: Xing (exact frames) > CBR estimate > unknown.
+     * int64 math: samples*1000 overflows 32-bit `long` past ~48 s at
+     * 44.1 kHz, and the wrapped (often negative) value reached the UI as a
+     * bogus few-seconds length (BRNOMT-65). */
     if (st->have_xing && st->xing_frames > 0 && st->rate > 0) {
         st->total_samples = (long)st->xing_frames * st->spf;
-        st->duration_ms = st->total_samples * 1000 / st->rate;
+        st->duration_ms = (long)(((int64_t)st->total_samples * 1000) /
+                                 st->rate);
     } else if (st->bitrate > 0) {
         long audio = st->file_size_audio - st->tag_end;
         if (audio < 0)
             audio = 0;
         st->duration_ms = audio * 8 / st->bitrate; /* bytes*8/kbps = ms */
-        st->total_samples = (long)st->rate * st->duration_ms / 1000;
+        st->total_samples = (long)(((int64_t)st->rate * st->duration_ms) /
+                                   1000);
     }
     return CODEC_OK;
 }
@@ -450,7 +455,7 @@ static int mp3_seek(void *vst, long ms)
         ms = st->duration_ms;
 
     if (st->have_toc && st->xing_bytes > 0 && st->duration_ms > 0) {
-        long pct = ms * 100 / st->duration_ms;
+        long pct = (long)(((int64_t)ms * 100) / st->duration_ms);
         if (pct > 99)
             pct = 99;
         target += (long)((unsigned long)st->toc[pct] *
@@ -459,7 +464,8 @@ static int mp3_seek(void *vst, long ms)
         long audio = st->file_size_audio - st->tag_end;
         if (audio < 0)
             audio = 0;
-        target += audio * ms / st->duration_ms;
+        /* int64 math: bytes*ms overflows 32-bit `long` on the target. */
+        target += (long)(((int64_t)audio * ms) / st->duration_ms);
     }
     if (target > st->file_size_audio)
         target = st->file_size_audio;

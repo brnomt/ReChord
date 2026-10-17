@@ -265,6 +265,56 @@ static void test_xing_file(void)
     rm_fix(path);
 }
 
+/* A real 78.4 s file (3000 frames @ 44.1 kHz). The target's 32-bit `long`
+ * wraps in samples*1000 here — the naive form reported a bogus few-seconds
+ * length on Now Playing (BRNOMT-65) instead of the true 78367 ms. */
+#define LONG_FRAMES 3000
+
+static void test_xing_long_duration(void)
+{
+    static unsigned char buf[(LONG_FRAMES + 1) * FRAME_BYTES];
+    bw_t w = { buf, 0 };
+    char path[] = "/tmp/rechord_codec_mp3_long.mp3";
+    codec_format_t fmt;
+    long frames;
+    void *st;
+    int bad = 0;
+    int i;
+
+    TEST("mp3: 78 s Xing file reports its exact length");
+    put_xing_frame(&w, LONG_FRAMES, (LONG_FRAMES + 1) * FRAME_BYTES);
+    for (i = 0; i < LONG_FRAMES; i++)
+        put_silent_frame(&w);
+    if (write_file(path, buf, w.n) != 0) {
+        printf("  FAIL: cannot write fixture\n");
+        failures++;
+        return;
+    }
+
+    st = calloc(1, PLAYER_CODEC_STATE_MAX);
+    if (!st) { printf("  FAIL: alloc\n"); failures++; return; }
+
+    CHECK_EQI(codec_mp3.open(st, path), 0, "open: long Xing file");
+    memset(&fmt, 0, sizeof fmt);
+    CHECK_EQI(codec_mp3.format(st, &fmt), 0, "format()");
+    CHECK_EQI(fmt.total_samples, (long)LONG_FRAMES * SPF,
+              "total_samples = frames*spf");
+    CHECK_EQI(codec_mp3.duration_ms(st),
+              (long)(((int64_t)LONG_FRAMES * SPF * 1000) / RATE),
+              "duration = 78367 ms (past the 32-bit wrap point)");
+    CHECK(codec_mp3.duration_ms(st) > 48000,
+          "length is not the wrapped few-seconds value");
+
+    frames = decode_all(&codec_mp3, st, 1, &bad);
+    CHECK_EQI(frames, (long)LONG_FRAMES * SPF, "decoded the whole file");
+    CHECK_EQI(bad, 0, "silent frames decode to zero");
+    CHECK_EQI(codec_mp3.seek(st, 60000), 0, "seek(60 s) works");
+
+    codec_mp3.close(st);
+    free(st);
+    rm_fix(path);
+}
+
 static void test_cbr_file(void)
 {
     static unsigned char buf[8192];
@@ -329,6 +379,7 @@ static void test_reject(void)
 int main(void)
 {
     test_xing_file();
+    test_xing_long_duration();
     test_cbr_file();
     test_reject();
     if (failures == 0) {
