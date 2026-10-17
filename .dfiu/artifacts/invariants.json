@@ -2,6 +2,37 @@
   "project": "ReChord",
   "rules": [
     {
+      "action": "Before adding statics to the AP, check _bss_end; reclaim RAM (union the mutually-exclusive big buffers: FLAC pool / USB-MSC chunk / fw_update staging) instead of raising the ceiling.",
+      "content_hash": "1ff26f4be1524cadc63c4c003b32ec2a08f422edcf80c30c6fe20065ec3b6bb8",
+      "id": "R-8cd5fb0eb24a",
+      "incident_ids": [
+        "fb41cb15-1ca7-4ba7-9642-b430b7eed95d"
+      ],
+      "invariant": "Never link the AP image with _bss_end above 0x0304A000; FW_RAM length is 0x46000 and the linker enforces it.",
+      "revision": 1,
+      "scope": "AP (fw1) .bss layout / linker script / image geometry",
+      "severity": "blocker",
+      "when": {
+        "args": [
+          {
+            "field": "project",
+            "op": "eq",
+            "value": "ReChord"
+          },
+          {
+            "field": "files_touched",
+            "op": "touches_any",
+            "value": [
+              "firmware/firmware_ap.ld",
+              "tools/make_fw1.py",
+              "tools/pack_fw1.py"
+            ]
+          }
+        ],
+        "op": "all"
+      }
+    },
+    {
       "action": "Guarantee a reply for every mailbox command path, including error answers; treat any silent command as a deadlock.",
       "content_hash": "f67536b5020acb05b28d54cf0553c9333f0d12e52d5e05bb78c7546191ca530f",
       "id": "R-e9b5d8222673",
