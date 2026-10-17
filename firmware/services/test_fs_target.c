@@ -9,6 +9,7 @@
 
 #include "services/fs.h"
 #include "services/fs_target.h"
+#include "services/settings.h"
 
 static FILE *s_img;
 
@@ -70,16 +71,72 @@ static void report(const char *tag, const char *path)
         fs_close(f);
 }
 
+/* Creation phase (fs_target_mkdir / fs_target_file_create): run on a FRESH
+ * image and print "C <tag> <rc>" lines for tools/test_fs_target.py, which
+ * mounts the result with the kernel and fsck's it. Mirrors what the boot
+ * initializer does (rechord_files.c) on the device's internal volume. */
+static void create_phase(void)
+{
+    static char text[512];
+    static unsigned char buf[4096];
+    settings_t d;
+    int len, i;
+
+    settings_defaults(&d);
+    len = settings_serialize_text(&d, text, sizeof text);
+
+    printf("C mkdir %d\n", fs_target_mkdir("/SD/.rechord"));
+    printf("C cfg %d\n",
+           fs_target_file_create("/SD/.rechord/rechord.cfg", 64u * 1024u));
+    printf("C state %d\n",
+           fs_target_file_create("/SD/.rechord/state", 4096u));
+    /* The initializer writes the defaults into the fresh (all-zero) cfg. */
+    printf("C put %d\n",
+           fs_target_file_rewrite("/SD/.rechord/rechord.cfg", text,
+                                  (uint32_t)len));
+    /* Idempotency: a second pass must create nothing and change nothing. */
+    printf("C again %d %d %d\n",
+           fs_target_mkdir("/SD/.rechord"),
+           fs_target_file_create("/SD/.rechord/rechord.cfg", 64u * 1024u),
+           fs_target_file_create("/SD/.rechord/state", 4096u));
+    /* Refusals: an existing DIRECTORY is not a file, and vice versa; a name
+     * with a non-ASCII byte is refused by the LFN writer. */
+    printf("C clash %d\n",
+           fs_target_file_create("/SD/.rechord", 512u));
+    printf("C utf8 %d\n",
+           fs_target_file_create("/SD/.rechord/a\xc3\xa9", 0u));
+    /* Enough 8.3 names to fill the first directory cluster and force the
+     * chained-directory extension path (512-byte clusters here). */
+    for (i = 0; i < 20; i++) {
+        char p[64];
+
+        snprintf(p, sizeof p, "/SD/.rechord/f%02d", i);
+        if (fs_target_file_create(p, 0u) != 0)
+            printf("C fill%d ERR\n", i);
+    }
+    printf("C fill 20\n");
+    printf("C read %d\n", fs_open_read("/SD/.rechord/rechord.cfg") ? 1 : 0);
+    report("C rcfg", "/SD/.rechord/rechord.cfg");
+    report("C rstate", "/SD/.rechord/state");
+    (void)buf;
+}
+
 int main(int argc, char **argv)
 {
     fs_dirent_t e;
     uint32_t n, total, i;
 
-    if (argc != 2 || !(s_img = fopen(argv[1], "r+b")))
+    if (argc < 2 || argc > 3 || !(s_img = fopen(argv[1], "r+b")))
         return 2;
     int r = fs_target_mount(1, "SD", img_read, 0);
+    int create = argc == 3 && strcmp(argv[2], "create") == 0;
 
     printf("mount %d %s\n", r, fs_target_type(1));
+    if (create) {
+        printf("W set %d\n", fs_target_set_writer(1, img_write));
+        create_phase();
+        return 0;
+    }
     fs_list_dir("/", 0, &e, 1, &n, &total);
     printf("root %u %s\n", total, n ? e.name : "-");
     walk("/SD");

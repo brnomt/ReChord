@@ -15,6 +15,7 @@
 #include "drivers/rknano_i2s.h"
 #include "services/fs_target.h"
 #include "services/fw_update.h"
+#include "services/rechord_files.h"
 #include "services/input.h"
 #include "player.h"
 #include "ui/ui.h"
@@ -75,6 +76,10 @@ static void emmc_probe(void)
      * see fs_target_file_rewrite() (BRNOMT-71). */
     if (s_user)
         (void)fs_target_set_writer(0, emmc_write);
+    /* First boot: create /.rechord (cfg + state) when missing. Idempotent, so
+     * it runs on every boot and never touches what is already there. */
+    if (s_user)
+        (void)rechord_files_init();
 }
 
 static const char *emmc_text(void) { return s_emmc; }

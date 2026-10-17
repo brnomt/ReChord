@@ -2640,3 +2640,97 @@ V2 first, and is the same file the index work will want.
 the gate. All host suites green; `make cfw-img` RESULT: PASS — AP5M CRC
 `0x29C435B6`, sha256
 `5cea1b9b63d4b7838d14c0c18c11c949c10239ade2759a155871015fd13a52ea`.
+
+## W. Session 2026-10-17 (cont.) — the device creates its own files (the allocation path)
+
+**Request:** "reChord automatically creates the files and folders; if they
+already exist it'll just write over, such as settings" — i.e. first-boot
+`/.rechord/` + cfg + state, and resume tracked as a Linear feature with the
+separate-state-file design (option B).
+
+**The missing piece was allocation**, and §R/§T removed the reason it had
+stayed off (the bricks were the `.bss` ceiling, not this code). New
+primitives in `fs_target.c` (FAT16/FAT32; exFAT and read-only volumes are
+refused, as everywhere else):
+
+- `fs_target_mkdir(path)` and `fs_target_file_create(path, bytes)`, plus the
+  internals they need: a sector write-through that invalidates the read
+  cache, a FAT entry written to **both** FAT copies (a diverged mirror is
+  silent corruption for every other tool), a free-cluster search that starts
+  from FAT32's FSInfo hint (Linux keeps it valid) with a wrap-around scan and
+  an FSInfo free-count/hint update, a contiguous directory-slot finder that
+  extends chained directories by a cluster when full, and a dirent writer
+  (plain 8.3 with the NT case flags, or a long-name set with the generated
+  `BASE~1` short name).
+- **Ordering rule** (same as the device-proven rewrite): data first, the
+  directory entry LAST. An interrupted create leaks clusters — which fsck
+  recovers — instead of leaving an entry pointing at nothing.
+
+**`rechord_files.c`** is the policy layer: `rechord_files_init()` creates
+`/.rechord`, writes the default configuration into a fresh `rechord.cfg`
+(64 KiB allocated, sized to the default text) and creates `state` (4 KiB).
+Both are idempotent — an existing file is left exactly as it is — so it runs
+on every boot; `ap_ui` calls it right after mounting the internal volume
+(and after installing the block writer), guarded by `s_user`.
+
+**Harness (`tools/test_fs_target.py`, `test_fs_target.c` `create` mode):**
+creates the tree on FRESH kernel-made FAT16 (superfloppy) and FAT32
+(behind an MBR) images, then checks the kernel's view (mount + `os.listdir` +
+the cfg's text and the state's 4096 zeros), the idempotent second pass, the
+refusals (a directory is not a file; non-ASCII names), and 20 extra files
+that force the chained-directory extension path. `fsck.fat -n` must report
+no structural error — the one expected finding is the cfg's deliberate slack
+(allocated 64 KiB, size = the text). Three real bugs it caught in the new
+code, all of which would have corrupted data on the device:
+
+1. **`fat_next()` cannot answer "is this cluster free?"** It returns 0 both
+   for "end of chain" and for any value outside the cluster range — and in a
+   FAT16 volume the EOC marker (0xFFFF) is exactly that. An allocation scan
+   built on it reads every allocated cluster as free and hands out clusters
+   already in use. New `fat_raw()` reads the entry without the range check;
+   free is raw 0, and a read error reports "used" so a failure can never
+   allocate something.
+2. The generated long-name set was malformed twice over: the LFN checksum
+   accumulator was not truncated to 8 bits per step (the reader then rejects
+   the whole set), and the entry's first-cluster field carried `0xFFFF` from
+   the padding instead of 0 (`fsck`: "Start cluster field in VFAT long
+   filename slot is not 0").
+3. The lower-case flags were written base→byte 12 / ext→byte 13. Both belong
+   in byte 12 (bit 3 base, bit 4 extension); byte 13 is the created-time
+   tenths — so `rechord.cfg` displayed as `rechord.CFG`.
+4. The new directory's `..` pointed at the **root's cluster** on FAT32 (whose
+   root has a real cluster number) instead of the required 0 (`fsck`:
+   "Invalid '..' entry in the second slot").
+5. FAT32's FSInfo **free count** was decremented per allocation, which drifts
+   from reality (`fsck`: "Free cluster summary wrong (128883 vs. really
+   129010)"). It is now set to "unknown" (0xFFFFFFFF, always valid) — this
+   code cannot know the true count without a full FAT scan — while the
+   allocation hint still advances, which is what keeps the next allocation
+   fast.
+
+The harness also grew `timeout=` on its `udisksctl` calls: those hang
+occasionally in a desktop session (a stuck `loop-delete` wedges the suite).
+
+**Verified on the host:** both filesystems come back clean — FAT16
+(superfloppy) and FAT32 (superfloppy + behind an MBR, i.e. through the
+volume-base offset the device needs): every create returns 0, the second
+pass is idempotent (`0 0 0`), a directory is refused as a file (`-2`),
+non-ASCII names are refused (`-4`), the cfg reads back as exactly its 220
+text bytes and `state` as 4096 zeros, the kernel sees all 22 entries with
+the right names, the FAT is sound (`.` → the new cluster, `..` → 0 at the
+root, the directory's second cluster after it fills, empty files allocate
+nothing) and `fsck` reports nothing but the deliberate cfg slack.
+**Device A/B:** the next flash is the first build that writes FAT metadata;
+if it fails, it can only leak clusters (fsck-recoverable) and the previous
+image stays in `build/`.
+
+**Follow-up:** `fs_target_file_rewrite()` still refuses to grow a file beyond
+its allocation (the pre-flight returns `FS_ERR_UNSUPPORTED`). Now that the
+allocator exists, appending clusters there would let the cfg be created at
+exactly its text size (no slack) and grow on demand; until then the cfg is
+created preallocated at 64 KiB, which is what the device does today.
+
+**Build:** `_bss_end 0x030497e4` (284,452 B), text 114,560 B — the gate has
+~2.1 KB of headroom left, so the allocator fits comfortably. AP5M CRC
+`0x3A766B50`, sha256
+`83afe185ec760ca58d8bbb28271ea497e694f8a6b620ab4ef1d65f1fd78aecbc`.

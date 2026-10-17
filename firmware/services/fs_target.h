@@ -42,4 +42,28 @@ int fs_target_set_writer(int idx, fs_block_write_t wr);
  * contents. Returns 0 or an FS_ERR_* code. */
 int fs_target_file_rewrite(const char *path, const void *data, uint32_t len);
 
+/* ---- creation (allocation) ---------------------------------------------
+ *
+ * These DO write FAT metadata: a free-cluster search, the chain in both FAT
+ * copies, and a directory entry. The data (a directory's cluster and entries,
+ * a file's zeroed clusters) is written first and the entry that makes it
+ * reachable is written LAST, so an interrupted create leaks clusters (which
+ * fsck recovers) instead of leaving a dangling entry. The project kept this
+ * path off while it was bricking twice: that turned out to be the .bss
+ * ceiling at 0x0304A000, not this code (DFIU fb41cb15), and the ordering rule
+ * above is the same one the device-proven rewrite uses.
+ *
+ * Both are idempotent: an existing directory (mkdir) or file (create) is left
+ * alone and reported as FS_OK, so a first-boot initializer can just call them.
+ * Names must be ASCII (the LFN writer is ASCII-only) and are written as a
+ * plain 8.3 entry when they fit, otherwise as a long-name set. FAT16/FAT32
+ * only; exFAT and read-only volumes return FS_ERR_UNSUPPORTED. A full volume
+ * returns FS_ERR_IO. 0 on success. */
+
+/* Create one directory (its parent must exist). */
+int fs_target_mkdir(const char *path);
+
+/* Create a file of `bytes` bytes, allocated (and zero-filled) up front. */
+int fs_target_file_create(const char *path, uint32_t bytes);
+
 #endif

@@ -8,7 +8,9 @@ import os, re, struct, subprocess, tempfile, time
 T = tempfile.mkdtemp()
 EXE = os.path.join(T, 'test_fs_target')
 subprocess.check_call(['cc', '-O2', '-Wall', '-Ifirmware', '-o', EXE,
-                       'firmware/services/test_fs_target.c', 'firmware/services/fs_target.c'])
+                       'firmware/services/test_fs_target.c',
+                       'firmware/services/fs_target.c',
+                       'firmware/services/settings.c'])
 
 
 def fnv(b):
@@ -43,11 +45,12 @@ def expect(root):
 
 
 def build(mkfs, size_mb, mbr):
+    print('  build: make image', flush=True)
     fs = os.path.join(T, 'fs.img')
     open(fs, 'wb').truncate(size_mb << 20)
     subprocess.check_call(mkfs + [fs], stdout=subprocess.DEVNULL)
     dev = re.search(r'/dev/loop\d+', subprocess.check_output(
-        ['udisksctl', 'loop-setup', '-f', fs], text=True)).group(0)
+        ['udisksctl', 'loop-setup', '-f', fs], text=True, timeout=60)).group(0)
     try:
         mnt = ''
         for _ in range(20):
@@ -59,10 +62,11 @@ def build(mkfs, size_mb, mbr):
             mnt = re.search(r' at (\S+)', subprocess.check_output(['udisksctl', 'mount', '-b', dev], text=True)).group(1)
         fill(mnt)
         want = expect(mnt)
-        subprocess.check_call(['udisksctl', 'unmount', '-b', dev], stdout=subprocess.DEVNULL)
+        subprocess.check_call(['udisksctl', 'unmount', '-b', dev], stdout=subprocess.DEVNULL,
+                              timeout=60)
     finally:
         subprocess.call(['udisksctl', 'loop-delete', '-b', dev],    # may be auto-cleared already
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
     if not mbr:
         return fs, want
     disk = os.path.join(T, 'disk.img')
@@ -79,8 +83,11 @@ def build(mkfs, size_mb, mbr):
 for label, mkfs, size, mbr in (('FAT16', ['/usr/sbin/mkfs.fat', '-F', '16', '-s', '1'], 32, False),
                                ('FAT32', ['/usr/sbin/mkfs.fat', '-F', '32', '-s', '1'], 64, True),
                                ('exFAT', ['/usr/sbin/mkfs.exfat'], 64, False)):
+    print('phase', label, flush=True)
     img, want = build(mkfs, size, mbr)
+    print('  build done; running', EXE, flush=True)
     lines = subprocess.check_output([EXE, img], text=True).splitlines()
+    print('  test binary done', flush=True)
     assert lines[0] == f'mount 0 {label}', lines[0]
     assert lines[1] == 'root 1 SD', lines[1]
     got = sorted(l for l in lines[2:] if l[:2] in ('D ', 'F ', 'E '))
@@ -124,4 +131,108 @@ for label, mkfs, size, mbr in (('FAT16', ['/usr/sbin/mkfs.fat', '-F', '16', '-s'
         print(f'{label}: rewrite OK, fsck clean')
     else:
         print(f'{label}: rewrite OK (no fsck tool)')
+
+# ---- creation (allocation) phase -------------------------------------------
+# Fresh images only: fs_target_mkdir + fs_target_file_create write FAT metadata
+# (free-cluster search, both FAT copies, directory entries), so the kernel has
+# to agree with the result: mount it, look at the files, then fsck.
+mkfs_fat = '/usr/sbin/mkfs.fat'
+if os.path.exists(EXE) and os.path.exists(mkfs_fat):
+    for label, args, size, mbr in (('FAT16', ['-F', '16', '-s', '1'], 32, False),
+                                   ('FAT32', ['-F', '32', '-s', '1'], 64, True)):
+        fresh = os.path.join(T, f'fresh-{label}.img')
+        open(fresh, 'wb').truncate(size << 20)
+        subprocess.check_call([mkfs_fat] + args + [fresh], stdout=subprocess.DEVNULL)
+        if mbr:
+            disk = os.path.join(T, f'fresh-{label}-disk.img')
+            m = bytearray(512)
+            m[0x1BE:0x1CE] = bytes([0, 0, 0, 0, 0x0C, 0, 0, 0]) + \
+                struct.pack('<II', 2048, (size << 20) // 512)
+            m[0x1FE:] = b'\x55\xaa'
+            with open(disk, 'wb') as f:
+                f.write(m)
+                f.seek(2048 * 512)
+                f.write(open(fresh, 'rb').read())
+            fresh = disk
+        lines = subprocess.check_output([EXE, fresh, 'create'], text=True).splitlines()
+        assert lines[0] == f'mount 0 {label}', lines
+        c = {}
+        for l in lines:
+            if l.startswith('C '):
+                p = l.split()
+                c[p[1]] = p[2:]
+        assert c['mkdir'] == ['0'], c
+        assert c['cfg'] == ['0'] and c['state'] == ['0'], c
+        assert c['put'] == ['0'], c
+        assert c['again'] == ['0', '0', '0'], c                 # idempotent
+        assert c['clash'] != ['0'], c                           # dir isn't a file
+        assert c['utf8'] == [str(-4)], c                        # ASCII-only names
+        assert c['fill'] == ['20'], c
+        assert c['read'] == ['1'], c
+        # The cfg now holds exactly the default text; state is 4096 zeros.
+        size_cfg = int(c['rcfg'][0])
+        assert 100 < size_cfg < 512, c['rcfg']
+        assert c['rcfg'][2] == str(size_cfg), c['rcfg']
+        assert c['rstate'][0] == '4096' and c['rstate'][2] == '4096', c['rstate']
+
+        # The kernel's view: the directory, its entries and the cfg's text.
+        dev = re.search(r'/dev/loop\d+', subprocess.check_output(
+            ['udisksctl', 'loop-setup', '-f', fresh], text=True)).group(0)
+        try:
+            mnt = ''
+            for _ in range(20):
+                mnt = subprocess.run(['findmnt', '-S', dev, '-no', 'TARGET'],
+                                     capture_output=True, text=True).stdout.strip()
+                if mnt:
+                    break
+                time.sleep(0.25)
+            if not mnt:
+                mnt = re.search(r' at (\S+)', subprocess.check_output(
+                    ['udisksctl', 'mount', '-b', dev], text=True)).group(1)
+            names = sorted(os.listdir(f'{mnt}/.rechord'))
+            assert names == sorted(['rechord.cfg', 'state'] +
+                                   [f'f{i:02d}' for i in range(20)]), names
+            body = open(f'{mnt}/.rechord/rechord.cfg', 'rb').read()
+            assert len(body) == size_cfg and b'play=' in body and b'\x00' not in body, body[:40]
+            assert open(f'{mnt}/.rechord/state', 'rb').read() == bytes(4096)
+            subprocess.check_call(['udisksctl', 'unmount', '-b', dev],
+                                  stdout=subprocess.DEVNULL, timeout=60)
+        finally:
+            subprocess.call(['udisksctl', 'loop-delete', '-b', dev],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+
+        # fsck: structural errors fail, the deliberate cfg slack is expected
+        # (a preallocated file whose size is smaller than its chain; the
+        # device never runs a repair, see docs/HANDOVER.md).
+        if os.path.exists('/usr/sbin/fsck.fat'):
+            part = fresh
+            if mbr:
+                part = os.path.join(T, f'fresh-{label}-part.img')
+                with open(fresh, 'rb') as f:
+                    f.seek(2048 * 512)
+                    open(part, 'wb').write(f.read())
+            out = subprocess.run(['/usr/sbin/fsck.fat', '-n', part],
+                                 capture_output=True, text=True)
+            # Allow only: fsck's own chatter, the summary, and the ONE expected
+            # finding -- the cfg is preallocated (64 KiB) so its chain is longer
+            # than its size. Anything else (cross-links, FAT mismatch, bad
+            # clusters, ...) fails the test.
+            allow_prefix = ('fsck.fat', 'Checking', 'Free cluster', 'Currently, ',
+                            'FAT32', f'{part}:')
+            unexpected = []
+            for l in (out.stdout + out.stderr).splitlines():
+                if not l.strip() or l == 'Leaving filesystem unchanged.':
+                    continue
+                if l.startswith(allow_prefix):
+                    continue
+                if '.rechord' in l and ('RECHORD.CFG' in l or 'rechord.cfg' in l):
+                    continue                    # the file the note is about
+                if 'File size is' in l or 'Truncating' in l:
+                    continue                    # the slack note itself
+                unexpected.append(l)
+            assert not unexpected, unexpected
+            assert 'File size is' in out.stdout, 'expected the cfg slack note'
+            print(f'{label}: create OK, fsck clean (cfg slack noted)')
+        else:
+            print(f'{label}: create OK (no fsck tool)')
 print('fs_target: OK')
