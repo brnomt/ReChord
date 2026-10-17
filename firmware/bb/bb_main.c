@@ -25,6 +25,11 @@
 extern uint32_t __bb_stack_top;
 void bb_reset(void);
 
+/* Data/BSS live in SYSRAM1 (bb.ld); the flat image only carries the .data
+ * LMA, so the reset entry copies it down and zeroes .bss first. */
+extern uint32_t _bb_data_start[], _bb_data_end[], _bb_data_load[];
+extern uint32_t _bb_bss_start[], _bb_bss_end[];
+
 /* Vector table: SP, Reset. Must be the first bytes of the image. */
 __attribute__((section(".vectors_bb"), used))
 static const void *const bb_vectors[2] = {
@@ -34,6 +39,14 @@ static const void *const bb_vectors[2] = {
 
 void bb_reset(void)
 {
+    uint32_t *d, *s;
+
+    for (d = _bb_data_start, s = _bb_data_load; d < _bb_data_end; )
+        *d++ = *s++;
+    for (d = _bb_bss_start; d < _bb_bss_end; )
+        *d++ = 0u;
+    __asm__ volatile("dsb" ::: "memory");
+
     CTRL[IPC_SH_MAGIC] = IPC_SH_MAGIC_VAL;      /* phase-1 gate / AP poll */
 
     for (;;) {
