@@ -14,7 +14,8 @@ SERVICES_COMMON_SRCS := \
   $(SERVICES_DIR)/input.c \
   $(SERVICES_DIR)/store.c \
   $(SERVICES_DIR)/scratch.c \
-  $(SERVICES_DIR)/media_db.c
+  $(SERVICES_DIR)/media_db.c \
+  $(SERVICES_DIR)/media_scan.c
 
 # Sources compiled for the ARM target image.
 SERVICES_TARGET_SRCS := \

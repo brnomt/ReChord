@@ -64,8 +64,8 @@ int main(void)
     (void)mkdir(".work/Internal/.rechord", 0777);
     fs_host_set_root(".work");
     media_db_close();
-    (void)remove(MEDIA_DB_A);
-    (void)remove(MEDIA_DB_B);
+    (void)remove(".work/Internal/.rechord/INDEX.A");
+    (void)remove(".work/Internal/.rechord/INDEX.B");
 
     /* No index yet. */
     CHECK(media_db_open() == FS_ERR_OPEN);

@@ -95,6 +95,7 @@ AP_SERVICE_SRCS := \
   firmware/services/store.c \
   firmware/services/scratch.c \
   firmware/services/media_db.c \
+  firmware/services/media_scan.c \
   firmware/services/fw_update.c \
   firmware/services/fs_target.c \
   firmware/services/rechord_files.c

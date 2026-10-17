@@ -249,11 +249,13 @@ void fs_close(fs_file_t *f)
 int fs_list_dir(const char *path, uint32_t index, fs_dirent_t *out,
                 uint32_t max, uint32_t *out_count, uint32_t *out_total)
 {
-    DIR *d = opendir(path);
+    char host[FS_HOST_PATH_MAX];
+    DIR *d;
     struct dirent *e;
     uint32_t i = 0, written = 0;
 
-    if (d == NULL)
+    if (map_path(path, host, (unsigned long)sizeof(host)) != FS_OK ||
+        (d = opendir(host)) == NULL)
         return -1;
     while ((e = readdir(d)) != NULL) {
         if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)

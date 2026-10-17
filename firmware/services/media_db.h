@@ -64,6 +64,10 @@ int      media_db_begin(void);
 int      media_db_add(const media_rec_t *r);
 int      media_db_end(void);
 
+/* Abandon a build: releases the scratch and leaves the slot uncommitted, so
+ * the previous index stays current. Safe to call after any failure. */
+void     media_db_abort(void);
+
 /* Read side: opens the newest valid slot and keeps it open for media_db_get()
  * (which streams by offset). media_db_open() returns 0 when an index exists;
  * FS_ERR_OPEN when there is none (or both are corrupt). */

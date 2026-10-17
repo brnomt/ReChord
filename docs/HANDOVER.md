@@ -2901,3 +2901,33 @@ the index exists but nothing fills it.
 **Build:** `_bss_end 0x030493ac` (283,372 B), text 119,660 B; AP5M CRC
 `0x1D28DDCD`, sha256
 `5782a2574a1f5499732c16a0af194fe46c9922d09c0273025ce95d48fa96680f`.
+
+## AC. Session 2026-10-17 (cont.) — BRNOMT-74 step 4 closed: the scanner + the menu
+
+- `media_scan.c`: walks the mounted volumes page by page (`fs_list_dir`), takes
+  `.mp3/.flac/.wav` by extension, reads the container tags through the player's
+  reader (`tags_read_file`, header region only) and feeds one fixed record per
+  file to `media_db`. The title falls back to the filename with the extension
+  stripped; paths that would not fit the record are skipped (a truncated path
+  is useless as a key); depth is capped; the progress callback runs every 8
+  files and can abort.
+- `media_db_abort()`: an abandoned build releases the scratch and commits
+  nothing, so the previous index stays current (the build always targets the
+  slot that is not in use).
+- Root menu: **"Rebuild index"** (progress screen: file count + current name,
+  power key aborts) and an **"Index"** row showing the track count of the
+  current index (read once, cached).
+- The host backend's `fs_list_dir()` was not mapping paths like the rest of
+  `fs_host.c` (it did a raw `opendir`), which the scanner exposed: fixed.
+- `test_media_scan` (12 checks): the walk, the filename fallback, non-audio
+  files ignored, and an aborted scan leaving the previous index current.
+  `test_media_db` 25 checks. All suites green.
+
+**Build:** `_bss_end 0x030493d4` (283,412 B), text 124,012 B; AP5M CRC
+`0x03027491`, sha256
+`e0639bcb9f4879eead427d015e0ea27d00afbd817bb536253394beeec21c2f74`.
+
+**Device test:** "Rebuild index" on the root menu (fill Internal/SD with audio
+first), then the "Index" row should show the track count; `INDEX.A`/`INDEX.B`
+in `/.rechord` are the two slots (one is current, the other is the next
+target). The views that read it are BRNOMT-78 / step 5.

@@ -16,6 +16,8 @@
 #include "services/fs_target.h"
 #include "services/fw_update.h"
 #include "services/log.h"
+#include "services/media_db.h"
+#include "services/media_scan.h"
 #include "services/rechord_files.h"
 #include "services/input.h"
 #include "player.h"
@@ -28,6 +30,10 @@ static uint32_t s_user;              /* user volume start, 0 = unknown */
 static char s_emmc[32], s_usb[32] = "plug in", s_sd[32];
 static int s_sd_in = -1;
 static int s_volume_seen;            /* last volume persisted (see loop) */
+
+/* screen helpers defined further down (used by the USB/index screens) */
+static void line(int row, const char *s);
+static void screen(const char *title);
 
 /*
  * Millisecond clock for the input hold ladder (services/input.h). The
@@ -69,6 +75,65 @@ static void usb_storage_entry(void)
 {
     (void)log_flush("usb");
     usb_storage_run();
+}
+
+/* Index progress: coarse (every 8 files) so the scan is not slowed by the
+ * panel, and the power key aborts. */
+static int index_progress(uint32_t files, const char *name)
+{
+    char b[48];
+
+    snprintf(b, sizeof b, "%u files", (unsigned)files);
+    line(1, b);
+    line(2, name);
+    display_flush_rows(0, DISPLAY_H - 1);
+    return keys_power();
+}
+
+/* "Rebuild index": one full scan into the inactive slot, committed at the
+ * end. An abort or a failure leaves the previous index in place. */
+static void index_rebuild_run(void)
+{
+    char b[48];
+    int r;
+
+    screen("Rebuild index");
+    line(1, "scanning...");
+    display_flush_rows(0, DISPLAY_H - 1);
+    r = media_scan_build(index_progress);
+    if (r == FS_OK) {
+        line(1, "done");
+        if (media_db_open() == FS_OK) {
+            snprintf(b, sizeof b, "%u tracks", (unsigned)media_db_count());
+            media_db_close();
+        } else {
+            snprintf(b, sizeof b, "index unreadable");
+        }
+    } else {
+        snprintf(b, sizeof b, r == MEDIA_SCAN_ABORTED ? "aborted" : "failed");
+        line(1, b);
+        snprintf(b, sizeof b, "previous index kept");
+    }
+    line(2, b);
+    display_flush_rows(0, DISPLAY_H - 1);
+    while (!keys_power() && keys_adc() >= 1000)   /* wait for a key */
+        panel_io_delay_ms(1);
+    while (keys_power() || keys_adc() < 1000)
+        panel_io_delay_ms(1);
+}
+
+/* Root menu row: how many tracks the current index holds (read once). */
+static const char *index_text(void)
+{
+    static char b[24];
+    static uint32_t cached = 0xFFFFFFFFu;
+
+    if (cached == 0xFFFFFFFFu) {
+        cached = (media_db_open() == FS_OK) ? media_db_count() : 0u;
+        media_db_close();
+    }
+    snprintf(b, sizeof b, "%u trk", (unsigned)cached);
+    return b;
 }
 
 /* Read-only eMMC probe for the root menu: size and user volume start. */
@@ -601,6 +666,8 @@ static const menu_item_t k_root_items[] = {
     { "USB console", NULL,      usb_console_run },
     { "USB storage", NULL,      usb_storage_entry },
     { "Files",       NULL,      open_files },
+    { "Rebuild index", NULL,    index_rebuild_run },
+    { "Index",       index_text, NULL },
     { "Now Playing", NULL,      open_player },
     { "Settings",    NULL,      open_settings },
     { "Keys",        keys_text, NULL },
@@ -610,7 +677,7 @@ static const menu_item_t k_root_items[] = {
     { "USB diag",    usbd_text, NULL },
 };
 #define RC_BUILD "m7a"
-static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 11 };
+static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 13 };
 
 void ap_ui_loop(void)
 {

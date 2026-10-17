@@ -152,6 +152,16 @@ int media_db_add(const media_rec_t *r)
     return FS_OK;
 }
 
+void media_db_abort(void)
+{
+    if (s_buf != 0) {
+        scratch_release(SCRATCH_OWNER_INDEX);
+        s_buf = 0;
+    }
+    s_build_buf = 0;
+    s_build_count = 0;
+}
+
 int media_db_end(void)
 {
     media_hdr_t h;
