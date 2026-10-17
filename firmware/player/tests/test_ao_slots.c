@@ -26,6 +26,16 @@ int main(void)
     CHECK(ao_slot_word(-1) == 0xFFFF0000u, "slot: -1 sign pattern");
     CHECK(ao_slot_word(-32768) == 0x80000000u, "slot: INT16_MIN");
 
+    /* Volume mapping: 2 codes per dB (0.5 dB/step), 0x00 = 0 dB,
+     * 0xFF = -127.5 dB (datasheet volume decode). Pure integer. */
+    CHECK_EQI(ao_volume_atten_code(0), 0, "0 dB -> 0x00");
+    CHECK_EQI(ao_volume_atten_code(-1), 2, "-1 dB -> 2 codes");
+    CHECK_EQI(ao_volume_atten_code(-20), 40, "-20 dB -> 0x28");
+    CHECK_EQI(ao_volume_atten_code(-60), 120, "-60 dB -> 0x78");
+    CHECK_EQI(ao_volume_atten_code(20), 0, "+20 dB clamps at 0 dB");
+    CHECK_EQI(ao_volume_atten_code(-128), 255, "-128 dB clamps at mute");
+    CHECK_EQI(ao_volume_atten_code(-10000), 255, "floor: 0xFF mute");
+
     /* Exact ref constants (the three that were once transcribed wrong). */
     for (i = 0; i < 13; i++) {
         if (dac_rates[i].rate == 44100)

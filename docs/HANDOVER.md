@@ -2163,3 +2163,43 @@ Verified: all suites pass (services 144 checks incl. sweep/noise cases),
 `make cfw-ap` clean, `make cfw-img` RESULT: PASS (CRC 0xAA858C7D).
 Hardware check: vol- on Now Playing lowers volume (no menu pop); a held
 power key turns the device off within ~2 s during playback.
+
+## L. Session 2026-10-16 pm6 — hardware-volume spec reconciliation
+
+Task spec asked to route `audio_output_set_volume_db()` to "Master Volume
+(0x010009/0x01000A)" at "-95.5 dB full scale" with soft ramp enabled.
+The volume path already existed (session J) — this pass reconciled the
+spec against the hardware evidence. Two spec corrections, both with
+datasheet/REF backing (community/CS43131_DS1155F2.pdf):
+
+1. **Registers are `PCM_VOLUME_B/A` = 0x090001/0x090002**, not
+   0x010009/0x01000A. The datasheet register map marks **0x01 0007–
+   0x01 000A Reserved**; the ref's volume writer (`FUN_03055f28`) writes
+   0x90001/0x90002; and writing the reserved MAP was the original
+   "extremely quiet" bug (DFIU 19b83f5e: real regs stuck at their 0x78 =
+   -60 dB reset default). No change made — the spec addresses are unsafe.
+2. **Step is 0.5 dB/step with range 0x00 = 0 dB .. 0xFF = -127.5 dB**
+   (datasheet volume decode: "from 0 to -127.5 dB … 0000 0001 = -0.5 dB").
+   The "-95.5 dB" figure is the internal RockCodec's 0.375 dB/step spec
+   (SDK volume_control.c), not the CS43131. Mapping unchanged:
+   `code = -2 * db`, positive dB clamps at 0 (no digital boost).
+
+Confirmed requirements already satisfied:
+- **Soft ramp / zero-cross:** `PCM_SZC = 10` ("Enable soft ramp") in the
+  stock `0x09 0003 = 0xEC`; "volume changes are dictated by PCM_SZC" —
+  the hardware ramps internally, and our `dac_volume_ramp` (FUN_03055f48
+  port) additionally sequences the target level. Click-free without
+  per-sample CPU work.
+- **No software PCM scaling for volume:** `dsp_mod_volume` is linked in
+  no playback path (B-core DSP module, referenced only by its own host
+  tests). The only PCM scaling in the AP path is ReplayGain
+  (`rg_scale_pcm`, opt-in, default OFF) — exactly the requested policy.
+- **Integer conversion:** factored to the pure, test-pinned
+  `ao_volume_atten_code()` (audio_hal.h); `test_ao_slots` covers 0 dB,
+  -1/-20/-60 dB, +20 dB clamp, mute floor.
+- **Integration:** player.c/UI -> `player_set_volume` -> `ipc_b_set_volume`
+  (sink side) -> `audio_output_set_volume_db` -> `dac_volume_ramp` ->
+  I2C; abstractions unchanged.
+
+All suites pass; `make cfw-img` RESULT: PASS (CRC unchanged, no wire-
+format touched).

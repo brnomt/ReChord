@@ -27,6 +27,22 @@ static inline uint32_t ao_slot_word(int16_t s)
     return (uint32_t)(uint16_t)s << 16;
 }
 
+/* User dB -> CS43131 PCM_VOLUME attenuation code (pure integer).
+ * Datasheet register map p.128 / volume decode: "from 0 to -127.5 dB,
+ * 0000 0001 = -0.5 dB" -> 2 codes per dB, 0x00 = 0 dB (unattenuated),
+ * 0xFF = -127.5 dB. Positive dB clamps at 0 (the registers attenuate
+ * only — no digital boost). */
+static inline uint8_t ao_volume_atten_code(int db)
+{
+    int atten = -2 * db;
+
+    if (atten < 0)
+        atten = 0;
+    if (atten > 255)
+        atten = 255;
+    return (uint8_t)atten;
+}
+
 /* Feeder backend ops (implemented once for now; see header comment). */
 typedef struct
 {

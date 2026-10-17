@@ -272,18 +272,14 @@ void audio_output_power_off(void)
 
 void audio_output_set_volume_db(int db)
 {
-    /* dB -> PCM_VOLUME codes (0.5 dB/step attenuation). The registers
-     * attenuate only: positive dB clamps at 0 dB; -127.5 dB is mute.
-     * Ramp, don't jump: the stock volume path (FUN_03055f48) is a soft
-     * ramp to the user level — this is that setter. */
-    int atten = -2 * db;
-
-    if (atten < 0)
-        atten = 0;
-    if (atten > 255)
-        atten = 255;
-    dac_volume_ramp(s_volume_atten, (uint8_t)atten);
-    s_volume_atten = (uint8_t)atten;
+    /* dB -> PCM_VOLUME codes via the pure integer mapping
+     * (audio_hal.h ao_volume_atten_code: 2 codes per dB, 0x00 = 0 dB,
+     * 0xFF = -127.5 dB — datasheet volume decode; positive dB clamps at
+     * 0). Ramp, don't jump: PCM_SZC soft ramp is enabled (0x09 0003 =
+     * 0xEC) and the stock volume path (FUN_03055f48) is a soft ramp to
+     * the user level — this is that setter. */
+    dac_volume_ramp(s_volume_atten, ao_volume_atten_code(db));
+    s_volume_atten = ao_volume_atten_code(db);
 }
 
 int audio_output_feed_blocking(const int16_t *pcm, int frames)

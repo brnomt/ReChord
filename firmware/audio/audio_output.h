@@ -61,7 +61,7 @@ void audio_output_power_off(void);
 /* User volume -> CS43131 PCM_VOLUME attenuation (0.5 dB/step), applied
  * with the stock's click-free soft ramp (= FUN_03055f48 to the user
  * level). `db` is dB*1 attenuation: 0 = 0 dB (max), negative attenuates
- * (-127 dB floor), positive clamps at 0 dB (the registers attenuate
+ * (-127.5 dB floor = 0xFF), positive clamps at 0 dB (the registers attenuate
  * only). Survives configure() — tracks relock to the current level. */
 void audio_output_set_volume_db(int db);
 
