@@ -37,27 +37,44 @@ static void line(int row, const char *s);
 static void screen(const char *title);
 
 /*
- * Millisecond clock for the input hold ladder (services/input.h). The
- * Cortex-M3 DWT cycle counter is free-running once enabled, and at the
- * ~24 MHz AP core clock (no PLL is set up in this image -- the same
- * assumption panel_io_delay_ms makes) 24,000 cycles = 1 ms. Deliberately
- * not SysTick: no interrupt or vector slot is needed. If the counter never
- * advances, input.c notices and falls back to its synthetic clock.
+ * Millisecond clock for the input hold ladder and the log. The DWT cycle
+ * counter (what this used to read) does not tick on this SoC: the log showed
+ * 0.000 timestamps and input.c silently dropped the clock and fell back to its
+ * synthetic per-scan clock -- which is why the hold ladder never accelerated.
+ *
+ * SysTick IS a core timer and always counts, so it is used as a free-running
+ * DOWN-counter with no interrupt: LOAD = 0xFFFFFF wraps every 0x1000000
+ * cycles (~699 ms at 24 MHz), so each read adds the elapsed cycles to a static
+ * accumulator. ap_ms() must be called often enough that no two calls are more
+ * than one wrap apart (the UI loop and input_scan both call it every pass);
+ * the value is monotonic and the 32-bit ms wrap is handled by every consumer's
+ * subtraction arithmetic.
  */
 #define AP_CYCLES_PER_MS 24000u
-#define AP_DEMCR    (*(volatile uint32_t *)0xE000EDFCu)
-#define AP_DWT_CTRL (*(volatile uint32_t *)0xE0001000u)
-#define AP_DWT_CYCCNT (*(volatile uint32_t *)0xE0001004u)
+#define AP_SYST_MASK     0x00FFFFFFu
+#define AP_SYST_CSR      (*(volatile uint32_t *)0xE000E010u)
+#define AP_SYST_RVR      (*(volatile uint32_t *)0xE000E014u)
+#define AP_SYST_CVR      (*(volatile uint32_t *)0xE000E018u)
+
+static uint32_t s_tick_last;      /* previous CVR reading, masked */
+static uint32_t s_tick_cycles;    /* elapsed cycles, wraps included */
 
 static unsigned ap_ms(void)
 {
-    return (unsigned)(AP_DWT_CYCCNT / AP_CYCLES_PER_MS);
+    uint32_t now = AP_SYST_CVR & AP_SYST_MASK;
+
+    s_tick_cycles += (s_tick_last - now) & AP_SYST_MASK;   /* down-counter */
+    s_tick_last = now;
+    return (unsigned)(s_tick_cycles / AP_CYCLES_PER_MS);
 }
 
 static void ap_clock_init(void)
 {
-    AP_DEMCR |= 1u << 24;            /* TRCENA: enable the debug block  */
-    AP_DWT_CTRL |= 1u;               /* CYCCNTENA: start the cycle count */
+    AP_SYST_RVR = AP_SYST_MASK;
+    AP_SYST_CVR = 0;
+    AP_SYST_CSR = 5u;                /* CLKSOURCE = core, ENABLE, no TICKINT */
+    s_tick_last = AP_SYST_CVR & AP_SYST_MASK;
+    s_tick_cycles = 0;
     input_set_clock(ap_ms);
     log_init((log_clock_fn)ap_ms);
 }
