@@ -1,7 +1,7 @@
 # ReChord
 
 > **Re-Chord** — re-harmonize the FiiO Echo Mini. A **free, from-source custom
-> firmware (CWF)** for the Echo Mini.
+> firmware (CFW)** for the Echo Mini.
 
 [!WARNING]
 Work in Progress (WIP)
