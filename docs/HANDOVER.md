@@ -3324,6 +3324,9 @@ indices, DMB publishes (Cortex-M3 has no data cache).
 **Build:** AP5M CRC `0x4B2829D7`, sha256
 `20acbd3fcce27e415fa9c3c79e36e45a224facba9da464281bc35d82d7592450`; player
 host suite green.
-**Status:** 32 KiB build hardware-tested (see above); the 64 KiB ring is the
-next test. 96k may still stutter if the AP's decode throughput is below real
-time — that is phase 3 (decode on B).
+**HARDWARE-VERIFIED (2026-10-17, 64 KiB build `4B2829D7`):** 96k/24
+(Hyperdrama) and 88.2k/24 (Grandson "I Love you, I'm Trying") play with **no
+crackles**; 44.1/16 is unchanged; the UI stays fluid, only slightly heavier at
+88.2k (the AP still decodes). The 192k/24 file (max_block 16384) still does not
+open: its dr_flac window needs ~143 KB but the workbuf region is 80896 B (the
+documented 705/706 limit) — a separate decoder/memory item, not this phase.
