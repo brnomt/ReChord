@@ -3043,3 +3043,34 @@ with wrap tracking, no interrupt needed).
 
 **Build:** AP5M CRC `0x7AD9565E`, sha256
 `7247ffb7a88503a47e4164554ff2b91c4275685eca5701eae12e999ef3db224b`.
+
+## AF. Session 2026-10-17 (cont.) — the millisecond clock: DWT was dead, SysTick now
+
+**Root cause of two "unrelated" symptoms.** The DWT cycle counter does not tick
+on this SoC. `ap_ui` used it as the millisecond source for `log_init()` and
+`input_set_clock()`, so:
+- the log stamped every line `0.000`, and
+- `input.c`'s stuck-clock detector (three equal readings) declared the clock
+  dead and silently fell back to its synthetic per-scan clock — which is why
+  the hold ladder never accelerated. The safety net built so a broken clock
+  would not kill repeats turned the failure into a *tuning* problem and hid it
+  for weeks.
+
+**Fix:** `ap_ms()` now runs off **SysTick as a free-running down-counter with
+no interrupt** (LOAD 0xFFFFFF ≈ 699 ms per wrap at 24 MHz) plus a static cycle
+accumulator; it is polled every UI pass and every `input_scan`, so no two calls
+are ever more than one wrap apart. One change fixes the log timestamps and the
+ladder. (A SysTick interrupt was rejected: the AP's `vectors.c` table does not
+follow the ARMv7-M order — its own comments place SVCall at 0x20 — so adding an
+ISR to it is its own bug waiting to happen.)
+
+**DFIU:** incident `26eed982`, rule candidate `R-e68bf2428377` — *a safety net
+that hides a broken dependency amplifies the bug: when a fallback fires, make
+it observable.*
+
+**Build:** `_bss_end 0x03049b9c` (~1.1 KB margin), text 122,224 B; AP5M CRC
+`0x10F75898`, sha256
+`e1247707010ec35b84dfd808df9222f13ded4bca0c203eeadc7c96a58a2c5c11`.
+
+**Device check:** hold vol+/- ~2 s in a list: it must visibly accelerate; and
+`/.rechord/LOG` must show real seconds (`12.345 ...`), not `0.000`.

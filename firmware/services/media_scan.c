@@ -24,7 +24,7 @@
 #include "../player/codec.h"
 #include "../player/tags.h"
 
-#define SCAN_DEPTH_MAX 5
+#define SCAN_DEPTH_MAX 8
 
 static media_scan_progress_t s_progress;
 static uint32_t s_files;
@@ -128,7 +128,7 @@ static int walk(const char *dev_path, const char *rel_path, int depth)
     if (depth > SCAN_DEPTH_MAX)
         return FS_OK;
     for (i = 0; fs_list_dir(dev_path, i, &e, 1u, &count, &total) == FS_OK && count; i++) {
-        char sub_dev[MEDIA_PATH_MAX], sub_rel[MEDIA_PATH_MAX];
+        char sub_dev[MEDIA_PATH_MAX + 16u], sub_rel[MEDIA_PATH_MAX];
 
         if (snprintf(sub_dev, sizeof sub_dev, "%s/%s", dev_path, e.name)
                 >= (int)sizeof sub_dev)
