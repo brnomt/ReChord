@@ -3074,3 +3074,17 @@ it observable.*
 
 **Device check:** hold vol+/- ~2 s in a list: it must visibly accelerate; and
 `/.rechord/LOG` must show real seconds (`12.345 ...`), not `0.000`.
+
+### AF.1 The stuck-clock net was killing the working clock (3 -> 64 scans)
+
+First hardware LOG with SysTick: timestamps are real and monotonic
+(`11.961 index: begin` ... `66.349 log flush (usb)`), and the previous
+session's `0.000` lines survived -- the append/rotate fix works. But the hold
+still did not accelerate: `input.c` declares the clock dead after
+INPUT_CLOCK_STUCK_SCANS equal readings, and 3 is far too few for a SAMPLED
+millisecond clock (the playing loop runs several passes per millisecond, so
+three scans routinely share one). Raised to 64; a truly dead clock stays 0 far
+longer than that. DFIU: incident 26eed982 verified, rule R-e68bf2428377 active.
+
+**Build:** AP5M CRC `0xC49E04C3`, sha256
+`b923a1dfa5594b9cfb655385bd16b1cd0938f168a640d1aec4334aa2d65b6460`.
