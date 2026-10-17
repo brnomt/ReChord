@@ -3289,8 +3289,9 @@ audio is unchanged.
 
 **Build:** `_bss_end 0x030498b8`, AP5M CRC `0x0E9B5589`, sha256
 `e3d5ae7489333cef15f4ee43d20769b3d1e937359c9e759cca220400a368dd89`.
-**Status: NOT hardware-tested.** Gate: if the splash says "Core B: ready",
-Core B runs our code -> proceed to Phase 2 (B renders the ring + I2S).
+**Status: HARDWARE-VERIFIED (2026-10-17):** the splash shows **"Core B:
+ready"** on build `0E9B5589` → our 52-byte image runs on the second Cortex-M3.
+Phase 1 gate passed; proceed to Phase 2 (B renders the ring + I2S).
 
 Note: this does **not** make the firmware independent of the stock IMG yet —
 the flash image is still built on the stock container with section_3
