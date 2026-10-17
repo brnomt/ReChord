@@ -34,10 +34,31 @@ static const adc_band_t s_adc_bands[] = {
 
 #define ADC_IDLE 1023   /* documented idle reading: no key pressed */
 
+/*
+ * Hold-to-repeat ladder (BRNOMT-80): while a repeatable key (INPUT_REPEATS)
+ * is held, one REPEAT is emitted per `interval` scans — and the interval
+ * shrinks the longer the key stays down, so a long file list / a volume
+ * sweep can be crossed without spam-clicking. `after` = extra scans held
+ * past INPUT_LONG_SCANS before the entry's interval takes effect; the last
+ * entry holds for the rest of the press. Constants live in input.h (they
+ * are tuned against the UI pass cadence, ~10 ms/pass on hardware).
+ */
+typedef struct {
+    int after;
+    int interval;
+} repeat_step_t;
+
+static const repeat_step_t s_repeat_ladder[] = {
+    { 0,                     INPUT_REPEAT_SCANS },       /* ~0.1 s/step  */
+    { INPUT_FAST_HOLD_SCANS, INPUT_FAST_REPEAT_SCANS },  /* ~0.04 s/step */
+};
+
 static int s_scan_last = KEY_NONE;   /* previous mapped key            */
 static int s_scan_held = KEY_NONE;   /* debounced key, if any */
 static int s_scan_hold;              /* scans held past the press (LONG /
                                       * REPEAT timing)                     */
+static int s_scan_repeat;            /* scans since the last REPEAT (phase
+                                      * of the current ladder step)         */
 static int s_scan_stable;            /* consecutive samples agreeing with
                                       * s_scan_last (see input_scan)      */
 static int s_scan_min = ADC_IDLE;    /* lowest ADC seen since idle — the
@@ -151,25 +172,43 @@ int input_scan(int adc_value, int power)
 
         s_scan_held = KEY_NONE;
         s_scan_hold = 0;
+        s_scan_repeat = 0;
         s_scan_min = ADC_IDLE;         /* the pressed-bottom run         */
         if (rel == KEY_NONE)
             return 0;
         return input_push_kind(rel, rel_adc,
                                INPUT_RELEASE, rel_long) == INPUT_OK;
     }
-    if (key == s_scan_held) {          /* held: LONG once, then REPEAT   */
+    if (key == s_scan_held) {          /* held: LONG once, then REPEATs  */
         int adc = power ? -1 : s_scan_min;
 
         s_scan_hold++;
         if (s_scan_hold == INPUT_LONG_SCANS)
             return input_push_kind(key, adc, INPUT_LONG, 1) == INPUT_OK;
-        if (s_scan_hold > INPUT_LONG_SCANS && INPUT_REPEATS(key) &&
-            (s_scan_hold - INPUT_LONG_SCANS) % INPUT_REPEAT_SCANS == 0)
-            return input_push_kind(key, adc, INPUT_REPEAT, 1) == INPUT_OK;
+        if (s_scan_hold > INPUT_LONG_SCANS && INPUT_REPEATS(key)) {
+            /* Ladder: the interval shrinks with the hold (BRNOMT-80).
+             * s_scan_repeat carries the phase across a step change, so a
+             * faster tier can only fire earlier, never twice at once. */
+            int held = s_scan_hold - INPUT_LONG_SCANS;
+            int steps = (int)(sizeof(s_repeat_ladder) /
+                              sizeof(s_repeat_ladder[0]));
+            int interval = s_repeat_ladder[0].interval;
+            int i;
+
+            for (i = 0; i < steps; i++) {
+                if (held >= s_repeat_ladder[i].after)
+                    interval = s_repeat_ladder[i].interval;
+            }
+            if (++s_scan_repeat >= interval) {
+                s_scan_repeat = 0;
+                return input_push_kind(key, adc, INPUT_REPEAT, 1) == INPUT_OK;
+            }
+        }
         return 0;
     }
     s_scan_held = key;
     s_scan_hold = 0;
+    s_scan_repeat = 0;
     return input_push(key, power ? -1 : s_scan_min) == INPUT_OK;
 }
 
@@ -180,6 +219,7 @@ void input_mock_clear(void)
     s_scan_last = KEY_NONE;
     s_scan_held = KEY_NONE;
     s_scan_hold = 0;
+    s_scan_repeat = 0;
     s_scan_stable = 0;
 }
 

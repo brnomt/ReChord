@@ -37,10 +37,12 @@ typedef enum input_key {
  *
  * Press model (input_scan): a SHORT press produces exactly one PRESS and
  * a RELEASE{long_press=0}. A held press produces PRESS, then one LONG at
- * INPUT_LONG_SCANS, then a REPEAT every INPUT_REPEAT_SCANS (keys in
- * INPUT_REPEATS only — continuous volume / navigation while held), then
+ * INPUT_LONG_SCANS, then a REPEAT every INPUT_REPEAT_SCANS — and, after
+ * INPUT_FAST_HOLD_SCANS more of holding, every INPUT_FAST_REPEAT_SCANS
+ * (the repeat accelerates; keys in INPUT_REPEATS only) — then
  * RELEASE{long_press=1}. Consumers act on PRESS/REPEAT and may use
- * LONG/RELEASE to tell short from long. */
+ * LONG/RELEASE to tell short from long; the acceleration needs no consumer
+ * change (same REPEAT event, shorter interval). */
 typedef enum input_kind {
     INPUT_PRESS = 0,
     INPUT_LONG = 1,
@@ -94,9 +96,16 @@ unsigned input_pending(void);
 
 /* Hold timing, in input_scan() samples (one sample per UI pass). At the
  * observed ~10 ms/pass cadence: LONG at ~0.4 s of hold, one REPEAT every
- * ~0.1 s after that. */
-#define INPUT_LONG_SCANS    40
-#define INPUT_REPEAT_SCANS  10
+ * ~0.1 s after that, and — after INPUT_FAST_HOLD_SCANS more of holding —
+ * a faster REPEAT every ~0.04 s, so a long list or a volume sweep can be
+ * crossed without spam-clicking (BRNOMT-80). The ladder itself lives in
+ * input.c (add an entry there to add a tier); these are the knobs. */
+#define INPUT_LONG_SCANS        40
+#define INPUT_REPEAT_SCANS      10
+/* Extra hold (past LONG) before the fast tier engages (~1 s). */
+#define INPUT_FAST_HOLD_SCANS   100
+/* Fast-tier repeat interval (~0.04 s/step = 2.5x the first tier). */
+#define INPUT_FAST_REPEAT_SCANS 4
 
 /* Which keys auto-repeat while held (the user's hold-to-repeat: the vol
  * keys double as UI up/down). No other key repeats. */

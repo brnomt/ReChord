@@ -2347,3 +2347,36 @@ wrapped.
 conversion on this target needs the `int64_t` intermediate, and a >48 s
 fixture in the test whenever a new one is added (docs/rewrite/player.md §4).
 
+## P. Session 2026-10-17 (cont.) — hold-to-repeat acceleration (BRNOMT-80)
+
+**Request:** the hold-repeat shipped in `4d15172` works, but "if held 1
+second more it could navigate even faster through the UI".
+
+**Design:** the repeat is now a *ladder* of (extra-hold, interval) steps in
+`input.c`, with the knobs in `input.h`, and the phase tracked by
+`s_scan_repeat` instead of a modulo of the hold counter — so a step change
+can only make the next REPEAT come earlier, never fire twice at once:
+
+| tier | engages after | REPEAT interval | rate @ ~10 ms/pass |
+|---|---|---|---|
+| 1 | LONG (`INPUT_LONG_SCANS` 40, ~0.4 s) | every 10 scans | ~10 steps/s |
+| 2 | +`INPUT_FAST_HOLD_SCANS` (100, ~1 s) | every 4 scans | ~25 steps/s |
+
+No consumer change: the fast tier emits the same `INPUT_REPEAT` events, so
+menu/browser/settings/player are untouched (they act on PRESS/REPEAT). A
+third tier is one more row in `s_repeat_ladder`.
+
+**Verification:** `test_input` grew ladder coverage (225 checks, 0
+failures): a 50-scan window at tier 1 yields 5 repeats, the same window at
+tier 2 yields 12; SELECT held past the tier boundary still emits PRESS +
+LONG only (no key but vol+/vol- repeats); a short tap after a long hold
+starts from a clean phase (counter reset on press/release). All suites
+green; `make cfw-ap` + `make cfw-img` RESULT: PASS — AP5M CRC
+`0xE4E4FD01`.
+
+**Tuning note:** the tiers are counts of *scans*, and the scan cadence is
+the UI pass rate (render-bound: ~10 ms idle, slower while playing), so a
+slow pass slows the whole ladder proportionally. If the fast tier feels
+slow in practice, lower `INPUT_FAST_REPEAT_SCANS` (3 = ~33/s); to engage
+it sooner, lower `INPUT_FAST_HOLD_SCANS`.
+

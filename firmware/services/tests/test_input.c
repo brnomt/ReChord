@@ -209,11 +209,63 @@ static void test_scan_hold(void)
     input_mock_clear();
     for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
         (void)input_scan(250, 0);                    /* play: press      */
-    for (i = 0; i < INPUT_LONG_SCANS + INPUT_REPEAT_SCANS; i++)
-        (void)input_scan(250, 0);                    /* held long        */
+    /* Held past the fast tier: still no REPEAT — SELECT never repeats. */
+    for (i = 0; i < INPUT_LONG_SCANS + INPUT_FAST_HOLD_SCANS +
+                    INPUT_REPEAT_SCANS; i++)
+        (void)input_scan(250, 0);
     CHECK(input_pending() == 2);                     /* P + LONG only    */
     CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_PRESS);
     CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_LONG);
+    input_mock_clear();
+}
+
+/* BRNOMT-80: the repeat accelerates the longer a key is held. Feed `scans`
+ * held samples of a vol+ key and count the REPEAT events, draining the queue
+ * every pass exactly as the UI loop does (no backlog, no overflow). */
+static int repeats_over_scans(int scans)
+{
+    input_event_t ev;
+    int i, n = 0;
+
+    for (i = 0; i < scans; i++) {
+        (void)input_scan(130, 0);
+        while (input_poll(&ev) == 1) {
+            if (ev.kind == INPUT_REPEAT)
+                n++;
+        }
+    }
+    return n;
+}
+
+static void test_scan_hold_ladder(void)
+{
+    const int window = 5 * INPUT_REPEAT_SCANS;   /* ~0.5 s per window */
+    int i;
+
+    input_mock_clear();
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
+        (void)input_scan(130, 0);                /* press registers      */
+    /* Up to LONG: the marker only, no REPEATs yet. */
+    CHECK(repeats_over_scans(INPUT_LONG_SCANS) == 0);
+    /* Tier 1: one REPEAT every INPUT_REPEAT_SCANS (~0.1 s = ~10/s). */
+    CHECK(repeats_over_scans(window) == window / INPUT_REPEAT_SCANS);
+    /* Hold on to the fast threshold; still tier 1 all the way there (the
+     * threshold scan itself is a multiple of the tier-1 interval). */
+    CHECK(repeats_over_scans(INPUT_FAST_HOLD_SCANS - window) ==
+          (INPUT_FAST_HOLD_SCANS - window) / INPUT_REPEAT_SCANS);
+    /* Tier 2: the same window now yields ~2.5x the repeats (~0.04 s). */
+    CHECK(repeats_over_scans(window) == window / INPUT_FAST_REPEAT_SCANS);
+    /* A short tap right after the long hold starts from a clean phase. */
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
+        (void)input_scan(1023, 0);               /* release              */
+    input_mock_clear();
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
+        (void)input_scan(130, 0);
+    for (i = 0; i < 5; i++)
+        (void)input_scan(130, 0);                /* still short          */
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
+        (void)input_scan(1023, 0);
+    CHECK(input_pending() == 2);                 /* P + RELEASE only     */
     input_mock_clear();
 }
 
@@ -224,6 +276,7 @@ int main(void)
     test_adc_map();
     test_scan();
     test_scan_hold();
+    test_scan_hold_ladder();
 
     printf("test_input: %d checks, %d failures\n", s_checks, s_failures);
     return (s_failures == 0) ? 0 : 1;

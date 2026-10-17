@@ -68,16 +68,33 @@ buffer is kept and retried at the next flush).
 ### 3.3 input.h
 
 ```c
-typedef struct { int type; int adc_value; } input_event_t;
-enum { KEY_NONE, KEY_UP, KEY_DOWN, KEY_SELECT, KEY_BACK, KEY_POWER };
+typedef struct { int type; int adc_value; int kind; int long_press; } input_event_t;
+enum { KEY_NONE, KEY_UP, KEY_DOWN, KEY_SELECT, KEY_BACK, KEY_POWER, KEY_MENU };
+enum { INPUT_PRESS, INPUT_LONG, INPUT_REPEAT, INPUT_RELEASE };
 
-int input_poll(input_event_t *ev);  /* 1 = event, 0 = empty, -1 = bad arg  */
+int input_poll(input_event_t *ev);        /* 1 = event, 0 = empty, -1 = arg */
+int input_scan(int adc_value, int power); /* one key sample; 1 = event pushed */
 ```
 
 Producers/consumers: `input_push(type, adc_value)` (ISR/driver/host-mock
-entry), `input_map_adc(adc_value)` (raw reading → key type),
-`input_mock_clear()`, `input_pending()`. Queue: `INPUT_QUEUE_LEN` 16 events,
-FIFO; overflow drops with `INPUT_ERR_FULL`.
+entry), `input_map_adc(adc_value)` (raw reading → key type), `input_scan()`
+(the app loop's once-per-pass scanner: debounced on
+`INPUT_DEBOUNCE_SCANS` = 3 consecutive agreeing samples — 8 for the vol+
+pair — and the pressed-bottom ADC minimum, matching the stock scan
+0x03057eb0), `input_mock_clear()`, `input_pending()`. Queue:
+`INPUT_QUEUE_LEN` 16 events, FIFO; overflow drops with `INPUT_ERR_FULL`.
+
+Press model (2026-10-17): a short press is exactly one `PRESS` +
+`RELEASE{long_press=0}`. A held press is `PRESS`, one `LONG` at
+`INPUT_LONG_SCANS` (~0.4 s), then `REPEAT`s while held (only the keys in
+`INPUT_REPEATS` — vol+/vol-, which double as UI up/down), then
+`RELEASE{long_press=1}`. The repeat accelerates: one per
+`INPUT_REPEAT_SCANS` (~0.1 s), and after `INPUT_FAST_HOLD_SCANS` more of
+holding one per `INPUT_FAST_REPEAT_SCANS` (~0.04 s), so long lists and
+volume sweeps can be crossed without spam-clicking (BRNOMT-80; the ladder
+table that defines the tiers is in `input.c`). Consumers act on
+`PRESS`/`REPEAT` only — the acceleration is a shorter interval, not a new
+event kind.
 
 ### 3.4 fs.h
 
