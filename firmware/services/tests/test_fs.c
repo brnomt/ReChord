@@ -45,6 +45,40 @@ static int stop_early_cb(const char *name, int is_dir)
     return 1;                   /* stop after the first entry */
 }
 
+/* Whole-file writes by path (the index builder's primitives): append grows
+ * the file, patch rewrites inside it without changing its size. */
+static void test_append_patch(void)
+{
+    static char buf[64];
+    fs_file_t *f;
+    long n;
+
+    (void)remove(".work/APT.TXT");
+    f = fs_open_write("\\APT.TXT");
+    CHECK(f != NULL);
+    if (f == NULL) {
+        return;
+    }
+    CHECK(fs_write(f, "abc", 3) == 3);
+    fs_close(f);
+
+    CHECK(fs_append("\\APT.TXT", "def", 3) == FS_OK);
+    CHECK(fs_append("\\APT.TXT", "", 0) == FS_OK);      /* no-op */
+    CHECK(fs_patch("\\APT.TXT", 2, "XY", 2) == FS_OK);
+    CHECK(fs_patch("\\APT.TXT", 0, "", 0) == FS_OK);
+
+    f = fs_open_read("\\APT.TXT");
+    CHECK(f != NULL);
+    if (f != NULL) {
+        CHECK(fs_file_size(f) == 6);
+        n = fs_read(f, buf, sizeof buf);
+        CHECK(n == 6 && memcmp(buf, "abXYef", 6) == 0);
+        fs_close(f);
+    }
+    /* A missing file is refused, and the host backend does not invent one. */
+    CHECK(fs_patch("\\NOPE.TXT", 0, "x", 1) == FS_ERR_OPEN);
+}
+
 int main(void)
 {
     fs_file_t *f;
@@ -102,6 +136,8 @@ int main(void)
     CHECK(s_files >= 1);
     CHECK(s_dirs >= 1);
     CHECK(fs_list_dir_each("\\", stop_early_cb) == 1);
+
+    test_append_patch();
 
     printf("test_fs: %d checks, %d failures\n", s_checks, s_failures);
     return (s_failures == 0) ? 0 : 1;

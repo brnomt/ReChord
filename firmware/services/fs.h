@@ -92,4 +92,24 @@ fs_file_t *fs_open_append(const char *path);
 /* Write <len> bytes. Returns bytes written or FS_ERR_*. */
 long fs_write(fs_file_t *f, const void *buf, unsigned long len);
 
+/* ---- whole-file writes by path (no open needed) -------------------------
+ *
+ * These exist for the files the device builds itself: an index is written in
+ * chunks while it is scanned and its header is patched once at the end, and
+ * neither fits the open/seek/write API (the target backend has no append and
+ * a file open for writing is a different path). Both work on the FAT target
+ * backend and on the host backend, so the code that uses them is host-tested.
+ */
+
+/* Write <len> bytes at byte <off> of the existing file at <path>, WITHOUT
+ * changing its size: <off> + <len> must fit what the file already owns.
+ * This is the narrow "patch a field" write (one sector in practice, so it is
+ * atomic at sector granularity). Returns FS_OK or FS_ERR_*. */
+int fs_patch(const char *path, uint32_t off, const void *buf, uint32_t len);
+
+/* Append <len> bytes at the end of the file at <path>, growing it (and the
+ * file's allocation) as needed, and update its size. Returns FS_OK or
+ * FS_ERR_*. */
+int fs_append(const char *path, const void *buf, uint32_t len);
+
 #endif /* RECHORD_SERVICES_FS_H */

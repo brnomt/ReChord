@@ -79,4 +79,11 @@ int fs_target_file_create(const char *path, uint32_t bytes);
  * FS_ERR_IO. Returns 0 on success. */
 int fs_target_file_append(const char *path, const void *data, uint32_t len);
 
+/* Overwrite <len> bytes at byte <off> of an existing file WITHOUT changing its
+ * size: <off> + <len> must fit the file's current size (FS_ERR_ARG otherwise).
+ * This is the narrow field write (an index header, say): one sector in
+ * practice, so it is atomic at sector granularity. FAT16/FAT32 only. */
+int fs_target_file_patch(const char *path, uint32_t off, const void *data,
+                         uint32_t len);
+
 #endif

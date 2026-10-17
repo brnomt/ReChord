@@ -143,6 +143,12 @@ static void create_phase(void)
                fs_target_file_append("/SD/.rechord/nope", "x", 1u));
         printf("C apdir %d\n",
                fs_target_file_append("/SD/EmptyDir", "x", 1u));
+        /* Patch inside the file (the index header write): no size change,
+         * nothing outside the range touched, and out-of-range refused. */
+        printf("C pt1 %d\n",
+               fs_target_file_patch("/SD/.rechord/app", 3u, "XYZ", 3u));
+        printf("C ptbig %d\n",
+               fs_target_file_patch("/SD/.rechord/app", 1205u, "x", 1u));
         report("C rapp", "/SD/.rechord/app");
     }
     printf("C read %d\n", fs_open_read("/SD/.rechord/rechord.cfg") ? 1 : 0);

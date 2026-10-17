@@ -179,6 +179,12 @@ if os.path.exists(EXE) and os.path.exists(mkfs_fat):
         assert c['rapp'][0] == str(len(want_app)), c['rapp']
         assert c['rapp'][1] == f'{fnv(want_app):08x}', c['rapp']
         assert c['rapp'][2] == str(len(want_app)), c['rapp']
+        # Patch: 'helXYZ' + payload*2, same length, out-of-range refused.
+        want_app = b'helXYZ' + pay[1:] + pay   # patch overwrote 'llo'
+        assert c['pt1'] == ['0'], c
+        assert c['ptbig'] != ['0'], c
+        assert c['rapp'][1] == f'{fnv(want_app):08x}', c['rapp']
+        assert c['rapp'][0] == str(len(want_app)), c['rapp']
         # The cfg now holds exactly the default text; state is 4096 zeros.
         size_cfg = int(c['rcfg'][0])
         assert 100 < size_cfg < 512, c['rcfg']

@@ -270,3 +270,35 @@ int fs_list_dir(const char *path, uint32_t index, fs_dirent_t *out,
     if (out_total) *out_total = i;
     return 0;
 }
+
+/* fs.h whole-file writes: the host maps paths like everything else here, so
+ * the code that builds the index host-tests against the same code path. */
+int fs_patch(const char *path, uint32_t off, const void *buf, uint32_t len)
+{
+    fs_file_t *f;
+    long n;
+
+    if (len == 0u)
+        return FS_OK;
+    f = open_with_mode(path, "r+b");
+    if (f == NULL)
+        return FS_ERR_OPEN;
+    n = fs_seek(f, (long)off) < 0 ? -1 : fs_write(f, buf, len);
+    fs_close(f);
+    return n == (long)len ? FS_OK : FS_ERR_IO;
+}
+
+int fs_append(const char *path, const void *buf, uint32_t len)
+{
+    fs_file_t *f;
+    long n;
+
+    if (len == 0u)
+        return FS_OK;
+    f = open_with_mode(path, "ab");        /* creates it, like the target */
+    if (f == NULL)
+        return FS_ERR_OPEN;
+    n = fs_write(f, buf, len);
+    fs_close(f);
+    return n == (long)len ? FS_OK : FS_ERR_IO;
+}

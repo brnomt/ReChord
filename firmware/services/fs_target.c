@@ -1225,11 +1225,58 @@ int fs_target_file_rewrite(const char *path, const void *data, uint32_t len)
     return FS_OK;
 }
 
+/* Write `len` bytes at byte `off` inside a file that starts at cluster
+ * `first`, which must already own enough clusters. The sector the range
+ * starts in is read first (bytes before `off` must survive), every sector the
+ * range only partly fills is zero-padded, and the chain is walked as needed.
+ * Used by both the append (after growing) and the patch (no growth at all).
+ * `zero_tail` zero-pads the remainder of every sector the range only partly
+ * fills: right for an append (bytes past the old end are new), wrong for a
+ * patch (they belong to the file). */
+static int write_range(const vol_t *v, uint32_t first, uint32_t off,
+                       const void *data, uint32_t len, int zero_tail)
+{
+    uint32_t sec[128];
+    uint32_t c = first, coff, done = 0, start_sec = off / 512u;
+    uint32_t i;
+
+    coff = start_sec % v->spc;
+    for (i = 0; i < start_sec / v->spc; i++) {
+        c = fat_next(v, c);
+        if (c < 2u)
+            return FS_ERR_IO;                /* chain shorter than offset */
+    }
+    off %= 512u;
+    while (done < len) {
+        uint32_t chunk = len - done;
+
+        if (coff == v->spc) {                /* next cluster */
+            coff = 0u;
+            c = fat_next(v, c);
+            if (c < 2u)
+                return FS_ERR_IO;
+        }
+        if (chunk > 512u - off)
+            chunk = 512u - off;
+        if (v->rd(v->base + clus_lba(v, c) + coff, 1u, sec) != 0)
+            return FS_ERR_IO;
+        if (zero_tail)
+            memset((uint8_t *)sec + off, 0, 512u - off);
+        memcpy((uint8_t *)sec + off, (const uint8_t *)data + done, chunk);
+        if (v->wr(v->base + clus_lba(v, c) + coff, 1u, sec) != 0)
+            return FS_ERR_IO;
+        done += chunk;
+        off = 0u;
+        coff++;
+    }
+    return FS_OK;
+}
+
 int fs_target_file_append(const char *path, const void *data, uint32_t len)
 {
     const vol_t *v;
     uint32_t sec[128];
-    uint32_t first, last, have, need, c, i, done, start, coff, off;
+    uint32_t first, last, have, need, c, i, start;
     int r;
 
     if (path == 0 || (data == 0 && len > 0))
@@ -1293,39 +1340,8 @@ int fs_target_file_append(const char *path, const void *data, uint32_t len)
         fsi_note(v, last, 1u);
     }
 
-    /* Write the data at `start`: the sector the append point falls into is
-     * read first (the bytes before it must survive), every sector the data
-     * only partly fills is zero-padded, exactly like the rewrite. */
-    coff = (start / 512u) % v->spc;
-    c = first;
-    for (i = 0; i < start / 512u / v->spc; i++) {
-        c = fat_next(v, c);
-        if (c < 2u)
-            return FS_ERR_IO;                /* chain shorter than size */
-    }
-    done = 0u;
-    off = start % 512u;
-    while (done < len) {
-        uint32_t chunk = len - done;
-
-        if (coff == v->spc) {                /* next cluster */
-            coff = 0u;
-            c = fat_next(v, c);
-            if (c < 2u)
-                return FS_ERR_IO;
-        }
-        if (chunk > 512u - off)
-            chunk = 512u - off;
-        if (v->rd(v->base + clus_lba(v, c) + coff, 1u, sec) != 0)
-            return FS_ERR_IO;
-        memset((uint8_t *)sec + off, 0, 512u - off);
-        memcpy((uint8_t *)sec + off, (const uint8_t *)data + done, chunk);
-        if (v->wr(v->base + clus_lba(v, c) + coff, 1u, sec) != 0)
-            return FS_ERR_IO;
-        done += chunk;
-        off = 0u;
-        coff++;
-    }
+    if (write_range(v, first, start, data, len, 1) != FS_OK)
+        return FS_ERR_IO;
 
     /* Commit: the new size, and the first cluster when the file had none (a
      * zero-length file owns no clusters until its first append). Both live in
@@ -1345,4 +1361,44 @@ int fs_target_file_append(const char *path, const void *data, uint32_t len)
         return FS_ERR_IO;
     s_sec_vol = 0;                           /* cached sectors are stale */
     return FS_OK;
+}
+
+int fs_target_file_patch(const char *path, uint32_t off, const void *data,
+                         uint32_t len)
+{
+    const vol_t *v;
+    int r;
+
+    if (path == 0 || (data == 0 && len > 0))
+        return FS_ERR_ARG;
+    if (len == 0u)
+        return FS_OK;
+    r = resolve(path, &v);
+    if (r != 0 || s_ent.is_dir)
+        return FS_ERR_OPEN;
+    if (v->type == T_EXFAT || v->wr == 0)
+        return FS_ERR_UNSUPPORTED;
+    /* A patch never changes the file's size: it must land inside what the
+     * file already owns, which is what makes it a single-sector commit. */
+    if (off > s_ent.size || len > s_ent.size - off)
+        return FS_ERR_ARG;
+    if (s_ent.clus < 2u)
+        return FS_ERR_IO;
+    if (write_range(v, s_ent.clus, off, data, len, 0) != FS_OK)
+        return FS_ERR_IO;
+    s_sec_vol = 0;
+    return FS_OK;
+}
+
+/* fs.h whole-file entry points: the target backend implements them on the
+ * primitives above (only one backend is linked, so the host's own versions
+ * never clash). */
+int fs_append(const char *path, const void *buf, uint32_t len)
+{
+    return fs_target_file_append(path, buf, len);
+}
+
+int fs_patch(const char *path, uint32_t off, const void *buf, uint32_t len)
+{
+    return fs_target_file_patch(path, off, buf, len);
 }
