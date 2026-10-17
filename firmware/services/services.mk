@@ -12,7 +12,8 @@ SERVICES_COMMON_SRCS := \
   $(SERVICES_DIR)/settings.c \
   $(SERVICES_DIR)/log.c \
   $(SERVICES_DIR)/input.c \
-  $(SERVICES_DIR)/store.c
+  $(SERVICES_DIR)/store.c \
+  $(SERVICES_DIR)/scratch.c
 
 # Sources compiled for the ARM target image.
 SERVICES_TARGET_SRCS := \

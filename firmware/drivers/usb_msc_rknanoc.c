@@ -15,6 +15,7 @@
 #include "emmc.h"
 #include "rknanoc.h"
 #include "usb_msc.h"
+#include "../services/scratch.h"
 
 #define OTG(off)    (*(volatile uint32_t *)(0x60080000u + (off)))
 #define DIEPCTL(n)  OTG(0x900u + (n) * 0x20u)
@@ -444,7 +445,10 @@ static void put_be32(uint8_t *p, uint32_t v)
 
 static void scsi(const uint32_t *cbw, const usb_lun_t *u, uint32_t *rd, uint32_t *wr)
 {
-    static uint32_t buf[CHUNK_SECTORS * 128u];
+    /* The multi-sector data buffer lives in the shared scratch region (the
+     * device's .bss has no room for one of its own, see services/scratch.h);
+     * usb_msc_run() holds the claim for the whole session. */
+    uint32_t *buf = (uint32_t *)scratch_for(SCRATCH_OWNER_USB);
     static uint32_t resp[9];
     const uint8_t *cb = (const uint8_t *)cbw + 15;
     uint8_t *r = (uint8_t *)resp, flags = ((const uint8_t *)cbw)[12];
@@ -452,6 +456,10 @@ static void scsi(const uint32_t *cbw, const usb_lun_t *u, uint32_t *rd, uint32_t
     const void *data = r;
 
     usb_msc_diag = (usb_msc_diag & ~0xFFu) | cb[0];
+    if (buf == NULL) {                              /* scratch not held */
+        fail(tag, dtl, flags, 3, 0x3A);
+        return;
+    }
     if (!count && cb[0] != 0x03 && cb[0] != 0x12 && cb[0] != 0x1B && cb[0] != 0x1E) {
         fail(tag, dtl, flags, 2, 0x3A);              /* medium not present */
         return;
@@ -698,6 +706,8 @@ int usb_msc_run(const usb_lun_t *luns, unsigned nluns, int (*user_exit)(void),
     static uint32_t cbw[8];
     int ret;
 
+    if (scratch_claim(SCRATCH_OWNER_USB) == NULL)
+        return USB_EXIT_BUSY;        /* another owner holds the region */
     memset(&s, 0, sizeof s);
     usb_msc_diag = 0;
     s.mps = s.max_xfer = 64u;
@@ -750,5 +760,6 @@ int usb_msc_run(const usb_lun_t *luns, unsigned nluns, int (*user_exit)(void),
     ret = s.exit;
 out:
     usb_dwc2_stop();
+    scratch_release(SCRATCH_OWNER_USB);
     return ret;
 }

@@ -2804,3 +2804,35 @@ kernel agrees through a real mount, `fsck.fat -n` reports nothing unexpected
 text 115,432 B; `make cfw-img` RESULT: PASS — AP5M CRC `0xE0394429`, sha256
 `b0794bf3e2373ca43e7dfc0d3d769323602edb6402e7e8ff32d3f38b668bfba3`.
 All host suites green.
+
+## Z. Session 2026-10-17 (cont.) — the shared scratch region (BRNOMT-74 step 2)
+
+**Finding that changed the plan:** the approved reclaim was "union the FLAC
+pool (56 KiB) ∪ the USB-MSC chunk (32 KiB) ∪ the fw_update staging (2×8 KiB)".
+Measuring the real statics (`arm-none-eabi-nm -S --size-sort` on the AP ELF)
+shows the union does not have to touch the audio path at all: the MSC chunk
+(32 KiB, a function-local static in `scsi()`) alone is **enough scratch for
+the index**, so the FLAC pool stays exactly where it is and the audio path is
+untouched. Zero risk where it matters, and 32 KiB is plenty for a chunked
+build plus the unique-name lists (with documented caps).
+
+- New `firmware/services/scratch.{h,c}`: one 8-byte-aligned 32 KiB region and
+  a single-owner claim model (`scratch_claim/release/owner/for`). A claim
+  lives exactly as long as the operation that took it, a non-owner cannot
+  release it, and nothing survives a reboot — so a bug cannot wedge the
+  region permanently.
+- The USB mass-storage session claims it for the whole session (`scsi()` reads
+  the data buffer from it; a NULL there fails the command instead of
+  dereferencing) and releases it on its single exit path. A claim failure is
+  reported as the new `USB_EXIT_BUSY` (it cannot happen today: the only other
+  planned holder, an index build, blocks the UI loop).
+- Host test `test_scratch` covers claim/taken/re-claim/non-owner release/
+  handover/alignment. Host suites green.
+
+**Budget:** `s_scratch` (32 KiB) replaces the old `buf.0` (32 KiB) — the .bss
+is unchanged (`_bss_end 0x03049324 → 0x0304932c`, +8 bytes for the owner
+word). The point is not the saving but that the index now has a buffer.
+**Build:** AP5M CRC `0xE3950635`.
+
+**Device check (user):** USB storage still mounts and copies (same buffer,
+new home) and ejects normally — a regression check, nothing new to see.

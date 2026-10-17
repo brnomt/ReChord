@@ -14,6 +14,7 @@ enum {
     USB_EXIT_NO_HOST = 4,    /* no bus reset within ~3 s (charger) */
     USB_EXIT_IO = 5,         /* USB transfer failed */
     USB_EXIT_USER = 6,       /* user_exit() returned nonzero */
+    USB_EXIT_BUSY = 7,       /* the scratch region is taken */
 };
 
 int usb_cable(void);         /* 1 = VBUS present */
