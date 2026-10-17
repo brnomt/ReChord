@@ -77,4 +77,14 @@ int           theme_validate(const theme_t *t);
 int           theme_file_parse(const char *text, theme_t *inout);
 int           theme_file_load(const char *path, theme_t *inout);
 
+/* The user-editable theme override on the internal volume. Optional: if the
+ * file is missing nothing happens (the built-in theme stays). */
+#define THEME_FILE_PATH "/Internal/.rechord/theme.cfg"
+
+/* Boot-time override: load THEME_FILE_PATH over the active theme, validate
+ * it and adopt it only when it is both readable and sane (a bad file must
+ * never leave the UI with a broken theme). Returns the number of keys
+ * applied, 0 when there is nothing to do, < 0 on a hard error. */
+int           theme_boot_load(void);
+
 #endif /* THEME_H */

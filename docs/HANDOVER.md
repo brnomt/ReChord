@@ -2527,3 +2527,59 @@ to prove the second save works after the shrink. (2) Hold vol+/- in a long
 listing: ~1 s to the first step, ~0.3 s/step, and after ~1 s more it should
 visibly speed up to ~0.1 s/step. (3) Do **not** run a filesystem repair on
 the internal volume (intentional slack).
+
+## U. Session 2026-10-17 (cont.) — settings land on hardware; hold ladder moves to (injected) time
+
+**Device result on `0x41FE103E` (§T):** settings now persist — change →
+BACK → power off → power on → the value is still there, and
+`/.rechord/rechord.cfg` reads back as clean text (`play=shuffle
+brightness=3 ...`, 12 keys, no padding). T1/T2 are settled. The hold ladder
+*still* showed no acceleration, so §T3's scan-count retune was the wrong
+tool: it only moved the same fragility around.
+
+**T4 — the ladder runs on milliseconds now, not UI passes.** The pass rate
+is repaint-bound and unknowable at compile time (a listing pass repaints and
+flushes the whole panel: ~217,600 `bus_write` byte writes, ~75-90 ms at
+24 MHz, plus draw), so any count-of-scans tuning is a guess per screen. New
+shape:
+
+- `input_set_clock(unsigned (*ms)(void))` installs a millisecond source.
+  `ap_ui.c` provides it: the Cortex-M3 **DWT cycle counter**
+  (DEMCR.TRCENA + DWT_CTRL.CYCCNTENA, `CYCCNT / 24,000` = ms at the ~24 MHz
+  AP core clock — the same frequency `panel_io_delay_ms` assumes; no PLL is
+  set up in this image). Not SysTick: no interrupt or vector slot needed.
+- The ladder is in ms: `INPUT_LONG_MS` 1000, `INPUT_REPEAT_MS` 250,
+  `INPUT_FAST_HOLD_MS` 800, `INPUT_FAST_REPEAT_MS` 50 (one step per pass —
+  the fastest the UI can move). `s_press_ms` / `s_last_repeat_ms` /
+  `s_long_fired` replace the scan counters; the release's `long_press` flag
+  is that same `s_long_fired`.
+- **Safety net:** a clock that never advances (3 equal readings) is dropped
+  and the service falls back to a synthetic per-scan clock
+  (`INPUT_FALLBACK_MS_PER_SCAN` 80), so a dead clock degrades the feel
+  instead of killing repeats — the failure mode that cost two rounds here.
+- Tests: the input suite now drives a fake 50 ms/sample clock (divides every
+  constant), plus a dedicated no-clock and frozen-clock fallback test:
+  199 checks, 0 failures.
+
+**T5 — the theming half of the same stub bug.** `fopen/fgets/fgetc/feof/
+fclose` were the last weak stdio stubs in `ap_main.c`: file themes were
+silently inert. Real path: `firmware/libc/stdio_fs.c` (same subset over
+`services/fs.h`, read-only, 2-stream static pool; target-only, so not in
+`libc.mk`). New `theme_boot_load()` in `theme_file.c` loads
+`THEME_FILE_PATH` = `/.rechord/theme.cfg` at boot over the active built-in,
+`theme_validate()`s and adopts only if sane; `ap_ui_loop()` calls it after
+`ui_init()` and before the first push. Host theme test grew the
+missing-file case (must report the miss and leave the theme untouched): all
+PASSED. Format + key list in docs/rewrite/customization.md §3.1.
+
+**Build:** `_bss_end 0x030497c4` (284,420 B; +48 B for the stream pool),
+text 111,356 B — still ~2.1 KB under the 0x0304A000 gate. All host suites
+green; `make cfw-img` RESULT: PASS — AP5M CRC `0xE6B7A5D0`, sha256
+`c72631cf27fb0939c0380f749cc60f3142da033b1b920f7f741ef82e720cd8be`.
+
+**Device check (user):** (1) hold vol+/- in a long listing: ~1 s to the
+first step, ~0.25 s/step, then after ~1 s more, one step per frame (~10-20/s
+— a blur, not a crawl); (2) create `/.rechord/theme.cfg` with e.g.
+`accent=0xF800` + `background=0x0000`, power-cycle and check the UI picks
+the colors up (a broken file must leave the UI unchanged); (3) the settings
+round-trip again, as a regression.

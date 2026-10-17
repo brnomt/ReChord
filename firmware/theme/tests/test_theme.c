@@ -178,6 +178,19 @@ int main(void)
         CHECK(t.text == old_text, "override preserves keys not present");
     }
 
+    /* ---- 5. boot-time override is inert without a file -------------- */
+    {
+        theme_t before;
+
+        CHECK(theme_load_named("Classic") == 0, "reload Classic as base");
+        before = *theme_get();
+        /* No /Internal/.rechord/theme.cfg on the host: the loader must
+         * report the miss and leave the active theme exactly as it was. */
+        CHECK(theme_boot_load() < 0, "missing theme file is a soft error");
+        CHECK(memcmp(theme_get(), &before, sizeof before) == 0,
+              "missing theme file leaves the active theme untouched");
+    }
+
     printf("\n%s (%d failures)\n", failures ? "FAILED" : "PASSED", failures);
     return failures ? 1 : 0;
 }

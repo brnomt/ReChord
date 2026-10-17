@@ -26,6 +26,31 @@ static uint32_t s_user;              /* user volume start, 0 = unknown */
 static char s_emmc[32], s_usb[32] = "plug in", s_sd[32];
 static int s_sd_in = -1;
 
+/*
+ * Millisecond clock for the input hold ladder (services/input.h). The
+ * Cortex-M3 DWT cycle counter is free-running once enabled, and at the
+ * ~24 MHz AP core clock (no PLL is set up in this image -- the same
+ * assumption panel_io_delay_ms makes) 24,000 cycles = 1 ms. Deliberately
+ * not SysTick: no interrupt or vector slot is needed. If the counter never
+ * advances, input.c notices and falls back to its synthetic clock.
+ */
+#define AP_CYCLES_PER_MS 24000u
+#define AP_DEMCR    (*(volatile uint32_t *)0xE000EDFCu)
+#define AP_DWT_CTRL (*(volatile uint32_t *)0xE0001000u)
+#define AP_DWT_CYCCNT (*(volatile uint32_t *)0xE0001004u)
+
+static unsigned ap_ms(void)
+{
+    return (unsigned)(AP_DWT_CYCCNT / AP_CYCLES_PER_MS);
+}
+
+static void ap_clock_init(void)
+{
+    AP_DEMCR |= 1u << 24;            /* TRCENA: enable the debug block  */
+    AP_DWT_CTRL |= 1u;               /* CYCCNTENA: start the cycle count */
+    input_set_clock(ap_ms);
+}
+
 /* Read-only eMMC probe for the root menu: size and user volume start. */
 static void emmc_probe(void)
 {
@@ -560,6 +585,10 @@ void ap_ui_loop(void)
     emmc_probe();
     player_init();       /* register wav/mp3/flac codecs (registry) */
     ui_init();
+    ap_clock_init();     /* ms clock for the input hold ladder */
+    /* User theme override from the internal volume (optional file, see
+     * THEME_FILE_PATH). Before the first push so the first frame uses it. */
+    (void)theme_boot_load();
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
     for (;;) {

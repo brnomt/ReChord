@@ -155,6 +155,38 @@ include firmware/dsp/dsp.mk
 `DSP_SRCS`/`DSP_TEST_SRCS`/`DSP_HOST_LIBS` (`-lm`). `rechord_dsp_core.c` is
 deliberately NOT in `DSP_SRCS` (see §2.3).
 
+### 3.1 User theme file on the device (2026-10-17)
+
+`theme_file_load()` is written against stdio so the host tests use real
+stdio. On the target that used to be five weak stubs in
+`firmware/startup/ap_main.c` — which linked fine and silently made file
+themes inert. The real path is now `firmware/libc/stdio_fs.c`: the same
+subset (fopen/fgets/fgetc/feof/fclose, read-only, pooled streams) over
+`services/fs.h`. It is target-only, so it is deliberately not in
+`libc.mk` (the host links real stdio).
+
+At boot, `ap_ui_loop()` calls `theme_boot_load()` (theme_file.c), which
+loads `THEME_FILE_PATH` = `/.rechord/theme.cfg` from the internal volume on
+top of the active built-in theme, `theme_validate()`s the result and adopts
+it only if sane — a bad file must never leave the UI with a broken theme.
+Missing file = no-op. Accepted keys (case-insensitive, override style):
+
+```
+name=My Theme          ; up to THEME_NAME_MAX-1 chars
+background=0x1083      ; RGB565, 0x-prefixed hex or decimal
+surface=0x2104
+text=0xFFFF
+text_dim=0x8410
+accent=0x07E0
+danger=0xF800
+success=0x07E0
+spacing=8              ; metrics: decimal (or hex)
+radius=3
+font_id=0
+```
+
+`#`/`;` start comments; blank lines and unknown keys are skipped.
+
 ## 4. Verification (all executed 2026-09-10, host `cc -Wall -Werror`)
 
 | Test binary (compile lines below) | Result |

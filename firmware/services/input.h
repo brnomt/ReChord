@@ -94,26 +94,32 @@ unsigned input_pending(void);
 #define INPUT_DEBOUNCE_SCANS     3
 #define INPUT_DEBOUNCE_SCANS_VOL 8
 
-/* Hold timing, in input_scan() samples (one sample per UI pass). The pass
- * rate is repaint-bound, not fixed: a cursor move in a full-screen list
- * repaints and flushes the whole panel (~50 ms with the GPIO panel bus), so
- * the knobs are tuned for that ~50 ms/pass case, which is where holding is
- * used (lists/menus; the player screen redraws only a band and will run
- * faster). At 50 ms/pass: LONG at ~1 s of hold, one REPEAT every ~0.3 s,
- * and — after INPUT_FAST_HOLD_SCANS more of holding, i.e. ~1 s later —
- * a faster REPEAT every ~0.1 s, so a long list or a volume sweep can be
- * crossed without spam-clicking (BRNOMT-80). The ladder itself lives in
- * input.c (add an entry there to add a tier); these are the knobs.
+/* Hold timing, in MILLISECONDS of held time (BRNOMT-80). The ladder used to
+ * be counted in input_scan() samples, which made the feel depend on the UI
+ * pass rate — and that rate is repaint-bound, not the ~10 ms it was tuned
+ * for: a cursor move in a full-screen list repaints and flushes the whole
+ * panel (~50-100 ms per pass), while the player screen's band redraws run
+ * much faster. Time is now the unit; input_set_clock() supplies it.
  *
- * Timing in ms (a clock injected into the service) is the planned follow-up
- * so the feel stops depending on the pass rate; until then keep these tied
- * to the 50 ms/pass case. */
-#define INPUT_LONG_SCANS        20
-#define INPUT_REPEAT_SCANS      6
-/* Extra hold (past LONG) before the fast tier engages (~1 s at 50 ms/pass). */
-#define INPUT_FAST_HOLD_SCANS   20
-/* Fast-tier repeat interval (~0.1 s/step = 3x the first tier). */
-#define INPUT_FAST_REPEAT_SCANS 2
+ * At the ~50-100 ms/pass of a listing this means: LONG after ~1 s of hold,
+ * one REPEAT every ~0.25 s, and — after INPUT_FAST_HOLD_MS more of holding —
+ * one REPEAT every ~0.05 s, i.e. one per pass, the fastest the UI can move.
+ * The ladder table in input.c takes one row per tier; these are the knobs. */
+#define INPUT_LONG_MS           1000
+#define INPUT_REPEAT_MS          250
+/* Extra hold past LONG before the fast tier engages. */
+#define INPUT_FAST_HOLD_MS       800
+/* Fast-tier repeat interval (~one step per UI pass). */
+#define INPUT_FAST_REPEAT_MS      50
+
+/* Millisecond clock for the hold ladder (input.c). The target passes ap_ui's
+ * DWT-based counter; passing NULL restores the standalone behaviour. If the
+ * clock never advances it is dropped automatically and the service falls
+ * back to a synthetic per-scan clock (INPUT_FALLBACK_MS_PER_SCAN, sized for
+ * the slowest real pass), so repeats keep working either way. */
+void input_set_clock(unsigned (*ms)(void));
+#define INPUT_FALLBACK_MS_PER_SCAN 80
+#define INPUT_CLOCK_STUCK_SCANS     3
 
 /* Which keys auto-repeat while held (the user's hold-to-repeat: the vol
  * keys double as UI up/down). No other key repeats. */

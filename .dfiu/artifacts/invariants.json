@@ -60,6 +60,35 @@
       }
     },
     {
+      "action": "Run arm-none-eabi-nm on the CFW ELF and confirm every remaining weak symbol is an intentional fallback before handing a build over for hardware test.",
+      "content_hash": "20b205c4afe04dd82f351f7bbc691b9c84d7eef8e264147d8f70470ee7f9de02",
+      "id": "R-7cd6518a7e7b",
+      "incident_ids": [
+        "1c010b79-654b-423a-af94-65ca21c31cae"
+      ],
+      "invariant": "A feature must not depend on a weak symbol that lacks a strong implementation: check the linked ELF for W symbols in that subsystem before trusting the feature.",
+      "revision": 1,
+      "scope": "firmware/startup (link seams)",
+      "severity": "warning",
+      "when": {
+        "args": [
+          {
+            "field": "files_touched",
+            "op": "touches_any",
+            "value": [
+              "firmware/startup/ap_main.c"
+            ]
+          },
+          {
+            "field": "subsystem",
+            "op": "eq",
+            "value": "startup/ap_main.c (weak stubs)"
+          }
+        ],
+        "op": "any"
+      }
+    },
+    {
       "action": "Validate every scatter row against the reference fw1 boot model before any on-device flash.",
       "content_hash": "c331e6647ca19294c4457ada9bd761d5042a983d5ad021e105de9565348cd236",
       "id": "R-e9e18de6c692",

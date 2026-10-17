@@ -36,29 +36,30 @@ static const adc_band_t s_adc_bands[] = {
 
 /*
  * Hold-to-repeat ladder (BRNOMT-80): while a repeatable key (INPUT_REPEATS)
- * is held, one REPEAT is emitted per `interval` scans — and the interval
- * shrinks the longer the key stays down, so a long file list / a volume
- * sweep can be crossed without spam-clicking. `after` = extra scans held
- * past INPUT_LONG_SCANS before the entry's interval takes effect; the last
- * entry holds for the rest of the press. Constants live in input.h (they
- * are tuned against the UI pass cadence, ~10 ms/pass on hardware).
+ * is held, one REPEAT is emitted per `interval` ms — and the interval shrinks
+ * the longer the key stays down, so a long file list / a volume sweep can be
+ * crossed without spam-clicking. `after` = extra ms held past INPUT_LONG_MS
+ * before the entry's interval takes effect; the last entry holds for the rest
+ * of the press. Constants live in input.h.
+ *
+ * Time comes from the injected clock (input_set_clock) when one is present
+ * and ticking; otherwise the service advances a synthetic per-scan clock
+ * (INPUT_FALLBACK_MS_PER_SCAN). Counting *time* rather than scans is what
+ * keeps the feel independent of the UI pass rate, which is repaint-bound
+ * (~50-100 ms per pass in a full-screen list, much faster while playing).
  */
 typedef struct {
-    int after;
-    int interval;
+    unsigned after;
+    unsigned interval;
 } repeat_step_t;
 
 static const repeat_step_t s_repeat_ladder[] = {
-    { 0,                     INPUT_REPEAT_SCANS },       /* ~0.1 s/step  */
-    { INPUT_FAST_HOLD_SCANS, INPUT_FAST_REPEAT_SCANS },  /* ~0.04 s/step */
+    { 0,                       INPUT_REPEAT_MS },       /* ~0.25 s/step */
+    { INPUT_FAST_HOLD_MS,      INPUT_FAST_REPEAT_MS },  /* ~1 per pass  */
 };
 
 static int s_scan_last = KEY_NONE;   /* previous mapped key            */
 static int s_scan_held = KEY_NONE;   /* debounced key, if any */
-static int s_scan_hold;              /* scans held past the press (LONG /
-                                      * REPEAT timing)                     */
-static int s_scan_repeat;            /* scans since the last REPEAT (phase
-                                      * of the current ladder step)         */
 static int s_scan_stable;            /* consecutive samples agreeing with
                                       * s_scan_last (see input_scan)      */
 static int s_scan_min = ADC_IDLE;    /* lowest ADC seen since idle — the
@@ -80,6 +81,54 @@ static int s_scan_min = ADC_IDLE;    /* lowest ADC seen since idle — the
  * the stock key scan (ref 0x03057eb0): 3 consecutive samples for most
  * keys, 8 for the vol+- pair (the keys that phantom-fired under playback
  * when one sample was enough to "debounce"). */
+
+/* ---- hold timing clock ------------------------------------------------
+ * input_set_clock() installs a millisecond source (target: ap_ui's DWT
+ * cycle counter). A clock that stops advancing (INPUT_CLOCK_STUCK_SCANS
+ * equal readings after the first) is declared dead and the synthetic
+ * per-scan clock takes over, so a broken or absent clock degrades the feel
+ * instead of disabling repeats.
+ */
+static unsigned (*s_clock_ms)(void);
+static unsigned s_now_ms;             /* current time, from either clock  */
+static unsigned s_clock_prev;
+static int      s_clock_calls;
+static int      s_clock_stuck;
+static int      s_clock_live = 1;     /* the injected clock is being used */
+
+static unsigned s_press_ms;           /* when the debounced press began   */
+static unsigned s_last_repeat_ms;     /* when LONG/last REPEAT was emitted */
+static int      s_long_fired;         /* LONG for this press was sent     */
+
+void input_set_clock(unsigned (*ms)(void))
+{
+    s_clock_ms = ms;
+    s_clock_live = (ms != 0);
+    s_clock_calls = 0;
+    s_clock_stuck = 0;
+}
+
+static unsigned input_now(void)
+{
+    if (s_clock_ms != 0 && s_clock_live) {
+        unsigned raw = s_clock_ms();
+
+        if (s_clock_calls++ == 0) {
+            s_clock_prev = raw;       /* first reading: no delta yet      */
+        } else if (raw != s_clock_prev) {
+            s_clock_prev = raw;
+            s_clock_stuck = 0;
+        } else if (++s_clock_stuck >= INPUT_CLOCK_STUCK_SCANS) {
+            s_clock_live = 0;         /* stuck: fall back to scan time    */
+        }
+        if (s_clock_live) {
+            s_now_ms = raw;
+            return s_now_ms;
+        }
+    }
+    s_now_ms += INPUT_FALLBACK_MS_PER_SCAN;
+    return s_now_ms;
+}
 
 int input_map_adc(int adc_value)
 {
@@ -138,6 +187,7 @@ int input_poll(input_event_t *ev)
 int input_scan(int adc_value, int power)
 {
     int key, needed;
+    unsigned now = input_now();        /* one clock reading per sample */
 
     if (power) {
         key = KEY_POWER;               /* GPIO power key wins            */
@@ -168,11 +218,10 @@ int input_scan(int adc_value, int power)
     if (key == KEY_NONE) {             /* debounced release/idle: re-arm */
         int rel = s_scan_held;
         int rel_adc = power ? -1 : s_scan_min;
-        int rel_long = s_scan_hold >= INPUT_LONG_SCANS;
+        int rel_long = s_long_fired;
 
         s_scan_held = KEY_NONE;
-        s_scan_hold = 0;
-        s_scan_repeat = 0;
+        s_long_fired = 0;
         s_scan_min = ADC_IDLE;         /* the pressed-bottom run         */
         if (rel == KEY_NONE)
             return 0;
@@ -182,33 +231,35 @@ int input_scan(int adc_value, int power)
     if (key == s_scan_held) {          /* held: LONG once, then REPEATs  */
         int adc = power ? -1 : s_scan_min;
 
-        s_scan_hold++;
-        if (s_scan_hold == INPUT_LONG_SCANS)
-            return input_push_kind(key, adc, INPUT_LONG, 1) == INPUT_OK;
-        if (s_scan_hold > INPUT_LONG_SCANS && INPUT_REPEATS(key)) {
-            /* Ladder: the interval shrinks with the hold (BRNOMT-80).
-             * s_scan_repeat carries the phase across a step change, so a
-             * faster tier can only fire earlier, never twice at once. */
-            int held = s_scan_hold - INPUT_LONG_SCANS;
-            int steps = (int)(sizeof(s_repeat_ladder) /
-                              sizeof(s_repeat_ladder[0]));
-            int interval = s_repeat_ladder[0].interval;
-            int i;
+        if (!s_long_fired) {
+            if (now - s_press_ms >= INPUT_LONG_MS) {
+                s_long_fired = 1;
+                s_last_repeat_ms = now;
+                return input_push_kind(key, adc, INPUT_LONG, 1) == INPUT_OK;
+            }
+            return 0;
+        }
+        if (INPUT_REPEATS(key)) {
+            /* Ladder: the interval shrinks with the hold (BRNOMT-80). */
+            unsigned held = now - s_press_ms - INPUT_LONG_MS;
+            unsigned interval = s_repeat_ladder[0].interval;
+            unsigned i;
 
-            for (i = 0; i < steps; i++) {
+            for (i = 0; i < sizeof(s_repeat_ladder) / sizeof(s_repeat_ladder[0]); i++) {
                 if (held >= s_repeat_ladder[i].after)
                     interval = s_repeat_ladder[i].interval;
             }
-            if (++s_scan_repeat >= interval) {
-                s_scan_repeat = 0;
+            if (now - s_last_repeat_ms >= interval) {
+                s_last_repeat_ms = now;
                 return input_push_kind(key, adc, INPUT_REPEAT, 1) == INPUT_OK;
             }
         }
         return 0;
     }
     s_scan_held = key;
-    s_scan_hold = 0;
-    s_scan_repeat = 0;
+    s_press_ms = now;
+    s_last_repeat_ms = now;
+    s_long_fired = 0;
     return input_push(key, power ? -1 : s_scan_min) == INPUT_OK;
 }
 
@@ -218,9 +269,8 @@ void input_mock_clear(void)
     s_count = 0;
     s_scan_last = KEY_NONE;
     s_scan_held = KEY_NONE;
-    s_scan_hold = 0;
-    s_scan_repeat = 0;
     s_scan_stable = 0;
+    s_long_fired = 0;
 }
 
 unsigned input_pending(void)

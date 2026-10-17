@@ -21,6 +21,32 @@ static int s_failures;
     }                                                                      \
 } while (0)
 
+/* ---- hold timing clock --------------------------------------------------
+ * The hold ladder runs on milliseconds (INPUT_*_MS), so the tests drive a
+ * fake clock and step it once per sample. TEST_MS_PER_SCAN divides every
+ * timing constant, which keeps the expected repeat counts exact.
+ */
+#define TEST_MS_PER_SCAN 50
+
+static unsigned s_test_now;
+static unsigned s_test_frozen;         /* for the stuck-clock case */
+
+static unsigned test_clock(void)
+{
+    return s_test_frozen ? s_test_frozen : s_test_now;
+}
+
+/* One sample: advance the clock, then scan. The macro below redirects every
+ * test's input_scan() here; it is deliberately defined AFTER scan_step so it
+ * cannot capture the real call inside it. */
+static int scan_step(int adc_value, int power)
+{
+    s_test_now += TEST_MS_PER_SCAN;
+    return input_scan(adc_value, power);
+}
+
+#define input_scan(a, p) scan_step((a), (p))
+
 static void test_queue_fifo(void)
 {
     input_event_t ev;
@@ -177,13 +203,13 @@ static void test_scan_hold(void)
     for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
         (void)input_scan(130, 0);                    /* press registers  */
     CHECK(input_pending() == 1);
-    for (i = 0; i < INPUT_LONG_SCANS - 1; i++)
+    for (i = 0; i < INPUT_LONG_MS / TEST_MS_PER_SCAN - 1; i++)
         CHECK(input_scan(130, 0) == 0);              /* still short      */
     CHECK(input_scan(130, 0) == 1);                  /* LONG fires       */
-    for (i = 1; i < INPUT_REPEAT_SCANS; i++)
+    for (i = 1; i < INPUT_REPEAT_MS / TEST_MS_PER_SCAN; i++)
         CHECK(input_scan(130, 0) == 0);
     CHECK(input_scan(130, 0) == 1);                  /* REPEAT #1        */
-    for (i = 1; i < INPUT_REPEAT_SCANS; i++)
+    for (i = 1; i < INPUT_REPEAT_MS / TEST_MS_PER_SCAN; i++)
         CHECK(input_scan(130, 0) == 0);
     CHECK(input_scan(130, 0) == 1);                  /* REPEAT #2        */
     for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
@@ -210,8 +236,8 @@ static void test_scan_hold(void)
     for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
         (void)input_scan(250, 0);                    /* play: press      */
     /* Held past the fast tier: still no REPEAT — SELECT never repeats. */
-    for (i = 0; i < INPUT_LONG_SCANS + INPUT_FAST_HOLD_SCANS +
-                    INPUT_REPEAT_SCANS; i++)
+    for (i = 0; i < (INPUT_LONG_MS + INPUT_FAST_HOLD_MS + INPUT_REPEAT_MS) /
+                    TEST_MS_PER_SCAN; i++)
         (void)input_scan(250, 0);
     CHECK(input_pending() == 2);                     /* P + LONG only    */
     CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_PRESS);
@@ -239,12 +265,12 @@ static int repeats_over_scans(int scans)
 
 static void test_scan_hold_ladder(void)
 {
-    /* Two tier-1 intervals: fits in the tier-1 stretch and divides evenly,
-     * so the same window length can be re-used on both tiers. */
-    const int window = 2 * INPUT_REPEAT_SCANS;
-    /* Hold up to one scan before the fast tier: the threshold scan itself
-     * already repeats at the fast interval (held >= INPUT_FAST_HOLD_SCANS). */
-    const int to_fast = INPUT_FAST_HOLD_SCANS - window - 1;
+    /* Two tier-1 intervals of held time: fits in the tier-1 stretch and
+     * divides evenly, so the same window works on both tiers. */
+    const int window = 2 * INPUT_REPEAT_MS;
+    /* Stop one sample short of the fast tier: the threshold sample itself
+     * already repeats at the fast interval (held >= INPUT_FAST_HOLD_MS). */
+    const int to_fast = INPUT_FAST_HOLD_MS - window - TEST_MS_PER_SCAN;
     int i;
 
     CHECK(to_fast > 0);
@@ -252,14 +278,17 @@ static void test_scan_hold_ladder(void)
     for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
         (void)input_scan(130, 0);                /* press registers      */
     /* Up to LONG: the marker only, no REPEATs yet. */
-    CHECK(repeats_over_scans(INPUT_LONG_SCANS) == 0);
-    /* Tier 1: one REPEAT every INPUT_REPEAT_SCANS (~0.3 s = ~3/s). */
-    CHECK(repeats_over_scans(window) == window / INPUT_REPEAT_SCANS);
+    CHECK(repeats_over_scans(INPUT_LONG_MS / TEST_MS_PER_SCAN) == 0);
+    /* Tier 1: one REPEAT every INPUT_REPEAT_MS (~0.25 s). */
+    CHECK(repeats_over_scans(window / TEST_MS_PER_SCAN) ==
+          window / INPUT_REPEAT_MS);
     /* Hold on to just below the fast threshold: still tier 1. */
-    CHECK(repeats_over_scans(to_fast) == to_fast / INPUT_REPEAT_SCANS);
-    /* Tier 2: the same window now yields the faster interval (~0.1 s). */
-    CHECK(repeats_over_scans(window) == window / INPUT_FAST_REPEAT_SCANS);
-    CHECK(window / INPUT_FAST_REPEAT_SCANS > window / INPUT_REPEAT_SCANS);
+    CHECK(repeats_over_scans(to_fast / TEST_MS_PER_SCAN) ==
+          to_fast / INPUT_REPEAT_MS);
+    /* Tier 2: the same window now yields one REPEAT per pass. */
+    CHECK(repeats_over_scans(window / TEST_MS_PER_SCAN) ==
+          window / INPUT_FAST_REPEAT_MS);
+    CHECK(window / INPUT_FAST_REPEAT_MS > window / INPUT_REPEAT_MS);
     /* A short tap right after the long hold starts from a clean phase. */
     for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
         (void)input_scan(1023, 0);               /* release              */
@@ -274,14 +303,42 @@ static void test_scan_hold_ladder(void)
     input_mock_clear();
 }
 
+/* The ladder runs on the injected clock; with no clock, or with one that
+ * never advances, the synthetic per-scan clock must keep repeats working. */
+static void test_scan_hold_clock_fallback(void)
+{
+    const int scans = (INPUT_LONG_MS + INPUT_REPEAT_MS) /
+                      INPUT_FALLBACK_MS_PER_SCAN + 2;
+    int i;
+
+    input_set_clock(NULL);                       /* no clock at all      */
+    input_mock_clear();
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
+        (void)input_scan(130, 0);
+    CHECK(repeats_over_scans(scans) > 0);
+
+    /* A frozen clock is dropped after INPUT_CLOCK_STUCK_SCANS samples. */
+    s_test_frozen = s_test_now + 1234;
+    input_set_clock(test_clock);
+    input_mock_clear();
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
+        (void)input_scan(130, 0);
+    CHECK(repeats_over_scans(scans + INPUT_CLOCK_STUCK_SCANS) > 0);
+
+    s_test_frozen = 0;
+    input_set_clock(test_clock);
+}
+
 int main(void)
 {
+    input_set_clock(test_clock);      /* 50 ms per sample (see above) */
     test_queue_fifo();
     test_overflow();
     test_adc_map();
     test_scan();
     test_scan_hold();
     test_scan_hold_ladder();
+    test_scan_hold_clock_fallback();
 
     printf("test_input: %d checks, %d failures\n", s_checks, s_failures);
     return (s_failures == 0) ? 0 : 1;

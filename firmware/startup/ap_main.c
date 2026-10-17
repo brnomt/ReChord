@@ -124,40 +124,8 @@ __attribute__((weak)) char *strrchr(const char *s, int c)
 
 /*
  * Host-stdio file calls used by the theme file loader
- * (firmware/theme/theme_file.c theme_file_load).  The AP links the
- * freestanding firmware/libc, which has no FILE I/O; the real target path
- * will route through firmware/services/fs.h once the FAT backend lands.
- * Stubs: no file, no load -- theme_file_parse() (pure text) is unaffected.
+ * (firmware/theme/theme_file.c theme_file_load): the real target path is
+ * firmware/libc/stdio_fs.c (stdio subset over the read-only FAT backend,
+ * linked via firmware/ap.mk). They used to be weak stubs here, which linked
+ * fine and silently made file themes inert.
  */
-__attribute__((weak)) void *fopen(const char *path, const char *mode)
-{
-    (void)path;
-    (void)mode;
-    return (void *)0;
-}
-
-__attribute__((weak)) char *fgets(char *s, int n, void *stream)
-{
-    (void)s;
-    (void)n;
-    (void)stream;
-    return (char *)0;
-}
-
-__attribute__((weak)) int fgetc(void *stream)
-{
-    (void)stream;
-    return -1;   /* EOF */
-}
-
-__attribute__((weak)) int feof(void *stream)
-{
-    (void)stream;
-    return 1;    /* nothing to read */
-}
-
-__attribute__((weak)) int fclose(void *stream)
-{
-    (void)stream;
-    return -1;
-}

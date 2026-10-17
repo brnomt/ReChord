@@ -216,3 +216,19 @@ int theme_file_load(const char *path, theme_t *inout)
     fclose(f);
     return applied;
 }
+
+int theme_boot_load(void)
+{
+    theme_t t = *theme_get();
+    int applied;
+
+    /* Optional file: an unreadable path or a file with no known keys leaves
+     * the active theme alone. */
+    applied = theme_file_load(THEME_FILE_PATH, &t);
+    if (applied <= 0)
+        return applied;
+    if (theme_validate(&t) < 0)
+        return -3;                 /* rejected: keep the built-in theme */
+    theme_set(&t);
+    return applied;
+}

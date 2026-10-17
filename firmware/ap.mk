@@ -104,10 +104,13 @@ AP_THEME_SRCS := \
 
 # Freestanding libc, build-from-source (same set as $(LIBC_SRCS) in
 # firmware/libc/libc.mk -- listed explicitly so this fragment is standalone).
+# stdio_fs.c is target-only (it needs services/fs.h): the same stdio subset
+# is real stdio on the host, so it is deliberately NOT in libc.mk.
 AP_LIBC_SRCS := \
   firmware/libc/mem.c \
   firmware/libc/str.c \
   firmware/libc/stdio_min.c \
+  firmware/libc/stdio_fs.c \
   firmware/libc/math_min.c
 
 # Player module (audio path): linked from milestone 2a. Includes the
