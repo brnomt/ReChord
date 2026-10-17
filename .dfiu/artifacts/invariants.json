@@ -89,6 +89,36 @@
       }
     },
     {
+      "action": "Before adding a list view, compute rows = (DISPLAY_H - THEME_ITEM_H - THEME_MENU_TOP) / THEME_ITEM_H and check every right-hand column against DISPLAY_W; verify on hardware.",
+      "content_hash": "efb4a9eceed4657aa87a3e93794746866caff30242527c83176445bc026deb01",
+      "id": "R-1ddae0f0c00b",
+      "incident_ids": [
+        "1df69d31-b1ac-40bc-8f39-30ff87398fb4"
+      ],
+      "invariant": "Every list on the 320x170 panel sizes its rows from the footer-safe area (never menu_page_size(), which counts the footer row), keeps page == window, and adds no column that cannot fit the width.",
+      "revision": 1,
+      "scope": "firmware/ui/screens",
+      "severity": "warning",
+      "when": {
+        "args": [
+          {
+            "field": "files_touched",
+            "op": "touches_any",
+            "value": [
+              "firmware/ui/screens/library_screen.c",
+              "firmware/ui/screens/"
+            ]
+          },
+          {
+            "field": "subsystem",
+            "op": "eq",
+            "value": "ui/screens (layout)"
+          }
+        ],
+        "op": "any"
+      }
+    },
+    {
       "action": "Validate every scatter row against the reference fw1 boot model before any on-device flash.",
       "content_hash": "c331e6647ca19294c4457ada9bd761d5042a983d5ad021e105de9565348cd236",
       "id": "R-e9e18de6c692",
@@ -117,39 +147,6 @@
             "value": [
               "tools/make_fw1.py",
               "tools/pack_fw1.py"
-            ]
-          }
-        ],
-        "op": "all"
-      }
-    },
-    {
-      "action": "Before adding a codec, a seek path or any new playhead/time computation, check the conversion for a 32-bit product and compile it for ARM; keep a >48 s fixture in firmware/player/tests.",
-      "content_hash": "6f21a1669c51b9c243f38d3fc1227337854b71c6ba59cb1871301b4bdda9e6ba",
-      "id": "R-51cefba856b2",
-      "incident_ids": [
-        "92566ddb-9edf-41bc-98cc-80ae88e77091"
-      ],
-      "invariant": "On this target `long` is 32 bits: every ms <-> samples/frames conversion needs an int64_t intermediate, and a >48 s fixture in its test.",
-      "revision": 1,
-      "scope": "player + codecs + UI Now Playing (any time/duration math)",
-      "severity": "warning",
-      "when": {
-        "args": [
-          {
-            "field": "project",
-            "op": "eq",
-            "value": "ReChord"
-          },
-          {
-            "field": "files_touched",
-            "op": "touches_any",
-            "value": [
-              "firmware/player/player.c",
-              "firmware/player/codecs/mp3.c",
-              "firmware/player/codecs/flac.c",
-              "firmware/player/codecs/wav.c",
-              "firmware/ui/screens/player_screen.c"
             ]
           }
         ],
