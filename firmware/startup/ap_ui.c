@@ -600,27 +600,18 @@ void ap_ui_loop(void)
 
         /* audio pump + Now Playing sync (no-ops without a playing track).
          * While a track plays, decode ahead into the 32 KiB PCM ring: the
-         * I2S1 TX IRQ (dac_i2s_tx_isr) drains it at the sample clock, so
-         * decode and playback overlap and the pump calls are non-blocking
-         * once the ring is full. The inner loop just refills quickly and
-         * polls input between batches. */
+         * I2S1 TX IRQ (rknano_i2s_tx_isr) drains it at the sample clock,
+         * so decode and playback overlap and the pump calls are
+         * non-blocking once the ring is full. */
         if (player_get_state() == PLAYER_PLAYING) {
             int n;
-            for (n = 0; n < 8 && player_get_state() == PLAYER_PLAYING; n++) {
+
+            /* Pump only. Keys/power are sampled ONCE per pass above — the
+             * ring+IRQ feeder made player_process() non-blocking, so the
+             * old 8x rescan per pass was pure UI latency (8x the SARADC
+             * work and 8x the debounce samples per pass). */
+            for (n = 0; n < 8 && player_get_state() == PLAYER_PLAYING; n++)
                 (void)player_process();      /* decodes into the ring */
-                adc = keys_adc(); power = keys_power();
-                if (power_hold_step(power))
-                    power_off();
-                input_scan(adc, power);
-                while (input_poll(&ev) > 0) {
-                    if (ev.type == KEY_MENU) {
-                        while (ui_stack_depth() > 1)
-                            ui_pop_screen();
-                    } else {
-                        ui_handle_event(&ev);
-                    }
-                }
-            }
             player_screen_refresh();
             ui_render();
             panel_io_delay_ms(1);   /* ring is ahead; don't hot-spin */
