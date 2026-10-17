@@ -50,7 +50,7 @@ static void screen(const char *title);
  * the value is monotonic and the 32-bit ms wrap is handled by every consumer's
  * subtraction arithmetic.
  */
-#define AP_CYCLES_PER_MS 24000u
+#define AP_CYCLES_PER_MS 200000u   /* SysTick counts core cycles @ 200 MHz */
 #define AP_SYST_MASK     0x00FFFFFFu
 #define AP_SYST_CSR      (*(volatile uint32_t *)0xE000E010u)
 #define AP_SYST_RVR      (*(volatile uint32_t *)0xE000E014u)

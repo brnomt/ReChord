@@ -123,11 +123,11 @@ void backlight_on(void)
  * conversion, and returns the median. */
 #define ADC ((volatile uint32_t *)0x400D0000u)
 
-/* Fallback/conversion floor (~200 us at the 24 MHz boot clock). The SARADC
+/* Fallback/conversion floor (~200 us at the 200 MHz AP clock). The SARADC
  * runs at <= 1 MHz (TRM), so a conversion is tens of us at most. */
 static void adc_settle(void)
 {
-    volatile unsigned n = 4800;
+    volatile unsigned n = 40000;
 
     while (n--)
         ;

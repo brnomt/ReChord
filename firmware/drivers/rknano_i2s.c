@@ -32,9 +32,10 @@ void delay_loops(volatile unsigned n)
 
 void dac_delay_ms(unsigned ms)
 {
-    /* ~24 MHz boot CPU: ~24k loops is ~1 ms (over-shoot is safe). */
+    /* ~200 MHz AP clock after ap_clock_set_200mhz(): ~200k loops is ~1 ms
+     * (over-shoot is safe). */
     while (ms--)
-        delay_loops(24000);
+        delay_loops(200000);
 }
 
 /* ---- CRU gates (active-low, upper-halfword write-enable, SDK style) ------ */
@@ -55,7 +56,7 @@ void cru_rst(int rst_id, int assert)
     unsigned bit = 1u << ((unsigned)rst_id & 0xFu);
     /* SDK ScuSoftResetCtr: bit+16 = write-enable, bit = reset value. */
     CRU_RST(rst_id >> 4) = (bit << 16) | (assert ? bit : 0u);
-    delay_loops(4800);                      /* SDK: DelayUs(5) ~          */
+    delay_loops(40000);                     /* SDK: DelayUs(5) at 200 MHz */
 }
 
 /* ---- GPIO primitives ----------------------------------------------------- */
@@ -147,9 +148,9 @@ void i2s1_setup(uint32_t rate, uint32_t mclk)
 
     I2S_XFER = 0;
     I2S_CLR = 1;
-    delay_loops(48000);
+    delay_loops(400000);
     while (I2S_CLR)
-        delay_loops(100);
+        delay_loops(833);
 
     /* TXCR/RXCR = 0x401F stock-verbatim (ref FUN_03056550 "i2s regs",
      * REA-confirmed 2026-10-16): CSR = Channel_0 pair (stereo slots),

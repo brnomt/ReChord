@@ -21,6 +21,7 @@
 
 #include "drivers/panel_io.h"
 #include "drivers/display.h"
+#include "drivers/cru_pll.h"   /* AP core clock: 24 MHz -> 200 MHz */
 #include "ui/theme.h"       /* THEME_* geometry + palette (theme module) */
 
 void ap_ui_loop(void);   /* ap_ui.c */
@@ -30,6 +31,11 @@ uint32_t Main(void)
     uint16_t bg = THEME_COLOR_BG;
     uint16_t fg = THEME_COLOR_FG;
     const theme_t *th = theme_get();
+
+    /* The stock/reference boot raises the AP from the 24 MHz oscillator to
+     * the APLL at 200 MHz here (pclk 50 MHz). Everything below — and the
+     * busy-wait delays in the drivers — is calibrated for that clock. */
+    ap_clock_set_200mhz();
 
     display_init();
 

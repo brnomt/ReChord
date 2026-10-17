@@ -94,7 +94,7 @@ void dac_power_sequence(void);
 /* Boot pclk for I2C0 (24 MHz XIN) and the I2C0 mux-candidate scan.
  * i2c0_scan() fills the scan matrix and returns the first ACKing mux
  * candidate (0..2) or -1. */
-#define DAC_PCLK_HZ 24000000u
+#define DAC_PCLK_HZ 50000000u   /* pclk after ap_clock_set_200mhz() (APLL/4) */
 int i2c0_scan(void);
 
 /* Output teardown + close — ref FUN_03055F80 + FUN_030564d8 I2S half

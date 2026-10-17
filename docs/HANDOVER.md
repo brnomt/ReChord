@@ -3243,3 +3243,28 @@ AP5M CRC `0xA8122D30`, sha256 `10c276909782f7fee147fff4b065a1bd92652d9a0693fc402
 **Device test:** play `Justice - Hyperdrama` and `Grandson - I Love you, I'm
 Trying` (96k/88.2k, block 8192) — they should now open and play. 44.1/48k
 unchanged.
+
+## AL. Session 2026-10-17 (cont.) — AP clock 200 MHz: first attempt froze, REA found the offset bug
+
+Goal: the 24 MHz AP clock could not decode 96 kHz FLAC in time (stutter).
+Ported the reference's 200 MHz APLL switch (`ap_clock_set_200mhz()` in
+`firmware/drivers/cru_pll.c`) plus the delay recalibration.
+
+- First build (`4a15e07`, AP5M CRC `0x9C614F1D`): booted, then Library ->
+  Artists froze the device and the next power-up stuck at the splash. DFIU
+  incident `505c0c1f` / rule `R-3df19267bd2f`.
+- **REA of the reference fw1 switch (`0x030516B8`)**: the APLL/MODE/GRF values
+  matched, but the **CLKSEL offsets were wrong**. The sys/cal core dividers are
+  CRU **`+0x14`** (`0xFFFF1001`) and pclk is **`+0x18`** (`0x03000200`); the
+  first build wrote `+0x18`/`+0x1C`, leaving `+0x14` unprogrammed — the cores
+  ran at `VCO/postdiv` = **400 MHz** instead of 200.
+- Fixed build: `ap_clock_set_200mhz()` now writes `+0x14`/`+0x18`. Busy-waits
+  recalibrated for 200 MHz (`dac_delay_ms`, `cru_rst`, I2S resets, ADC settle),
+  `AP_CYCLES_PER_MS = 200000`, `DAC_PCLK_HZ = 50 MHz`.
+- Known caveat: the 24-bit SysTick wraps every ~84 ms at 200 MHz (was ~699 ms);
+  `ap_ms()` must be called more often than that.
+
+**Build:** `_bss_end 0x030498b8`, AP5M CRC `0x8BB258A7`, sha256
+`1c390e4682f06551643fbd96d24b32495665549c3b8f8d50484e6dfaa309c084`.
+**Status: NOT hardware-tested yet.** If it boots, verify UI snappiness, 96k FLAC
+(no stutter), and that the DAC/panel still work.
