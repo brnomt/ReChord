@@ -2951,3 +2951,13 @@ sha256 `85ee2827fddafed3a402710ed9a2f81f8eda9882c620514e90f1b14f3e70c96c`.
 
 **Next:** the Album/Artist/Genre lists (they need the unique-name lists built
 during the scan) and paging polish.
+
+### AD.1 The "Index" row said 0 after a rebuild (cache bug)
+
+The index committed fine (the rebuild screen counted the tracks), but the root
+menu's "Index" row kept showing 0: it caches the count on first render and that
+happens at boot, when no index exists yet. The rebuild now invalidates the cache
+and logs the outcome (`index: rebuild ok, N tracks` / `index: rebuild rc N
+(previous index kept)`), so the next session's LOG carries the number.
+Reported by the user: ~800 files indexed, row said 0. The All Tracks view was
+unaffected (it opens the index itself, no cache).

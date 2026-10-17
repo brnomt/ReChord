@@ -30,6 +30,7 @@ static uint32_t s_user;              /* user volume start, 0 = unknown */
 static char s_emmc[32], s_usb[32] = "plug in", s_sd[32];
 static int s_sd_in = -1;
 static int s_volume_seen;            /* last volume persisted (see loop) */
+static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 
 /* screen helpers defined further down (used by the USB/index screens) */
 static void line(int row, const char *s);
@@ -106,15 +107,21 @@ static void index_rebuild_run(void)
     line(1, "scanning...");
     display_flush_rows(0, DISPLAY_H - 1);
     r = media_scan_build(index_progress);
+    s_index_cache = 0xFFFFFFFFu;          /* the rebuilt index is the truth */
     if (r == FS_OK) {
+        uint32_t tracks = 0;
+
         line(1, "done");
         if (media_db_open() == FS_OK) {
-            snprintf(b, sizeof b, "%u tracks", (unsigned)media_db_count());
+            tracks = media_db_count();
             media_db_close();
+            snprintf(b, sizeof b, "%u tracks", (unsigned)tracks);
         } else {
             snprintf(b, sizeof b, "index unreadable");
         }
+        log_printf("index: rebuild ok, %lu tracks", (unsigned long)tracks);
     } else {
+        log_printf("index: rebuild rc %d (previous index kept)", r);
         snprintf(b, sizeof b, r == MEDIA_SCAN_ABORTED ? "aborted" : "failed");
         line(1, b);
         snprintf(b, sizeof b, "previous index kept");
@@ -127,17 +134,18 @@ static void index_rebuild_run(void)
         panel_io_delay_ms(1);
 }
 
-/* Root menu row: how many tracks the current index holds (read once). */
+/* Root menu row: how many tracks the current index holds. Opening the index is
+ * I/O, so the value is cached -- and invalidated after a rebuild, otherwise the
+ * row keeps the count it read at boot (when there was no index yet). */
 static const char *index_text(void)
 {
     static char b[24];
-    static uint32_t cached = 0xFFFFFFFFu;
 
-    if (cached == 0xFFFFFFFFu) {
-        cached = (media_db_open() == FS_OK) ? media_db_count() : 0u;
+    if (s_index_cache == 0xFFFFFFFFu) {
+        s_index_cache = (media_db_open() == FS_OK) ? media_db_count() : 0u;
         media_db_close();
     }
-    snprintf(b, sizeof b, "%u trk", (unsigned)cached);
+    snprintf(b, sizeof b, "%u trk", (unsigned)s_index_cache);
     return b;
 }
 
