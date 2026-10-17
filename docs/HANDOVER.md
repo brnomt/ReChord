@@ -2931,3 +2931,23 @@ the index exists but nothing fills it.
 first), then the "Index" row should show the track count; `INDEX.A`/`INDEX.B`
 in `/.rechord` are the two slots (one is current, the other is the next
 target). The views that read it are BRNOMT-78 / step 5.
+
+## AD. Session 2026-10-17 (cont.) — BRNOMT-78 first view: All Tracks
+
+- `ui/screens/library_screen.c`: a paged view over the media index. One page of
+  records (8) is fetched when the cursor moves — never in draw, the same rule
+  the browser follows — and each row shows the tag title with the artist on the
+  right. SELECT opens the track (`player_open` + `player_play`), BACK pops.
+  With no index it says "no index: Rebuild index" and **never** falls back to
+  scanning: that is the point of having one.
+- Root menu: "Library" (14 rows now).
+- The page window is 8 x 184 B = 1.5 KiB of .bss on purpose: 16 records left
+  only 156 B of margin under the 0x0304A000 gate (the linker would have
+  refused the *next* static), 8 leaves 1.6 KiB.
+- UI test mocks for the index (empty state), suites green.
+
+**Build:** `_bss_end 0x030499a4`, text 121,460 B; AP5M CRC `0x379499C7`,
+sha256 `85ee2827fddafed3a402710ed9a2f81f8eda9882c620514e90f1b14f3e70c96c`.
+
+**Next:** the Album/Artist/Genre lists (they need the unique-name lists built
+during the scan) and paging polish.

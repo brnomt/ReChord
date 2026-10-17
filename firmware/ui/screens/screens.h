@@ -120,6 +120,8 @@ int player_bar_width(int width, uint32_t pos, uint32_t dur);
 
 extern const ui_screen_t settings_screen;
 
+extern const ui_screen_t library_screen;   /* All Tracks, from the index */
+
 void settings_screen_reload(void);   /* settings_load() into the live copy  */
 void settings_screen_store(void);    /* settings_save() the live copy       */
 const rechord_settings_t *settings_screen_get(void);

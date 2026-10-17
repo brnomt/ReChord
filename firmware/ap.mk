@@ -61,7 +61,8 @@ AP_UI_SRCS := \
   firmware/ui/screens/menu_screen.c \
   firmware/ui/screens/browser_screen.c \
   firmware/ui/screens/player_screen.c \
-  firmware/ui/screens/settings_screen.c
+  firmware/ui/screens/settings_screen.c \
+  firmware/ui/screens/library_screen.c
 
 # Drivers: the TARGET panel backend + the panel init sequence tables
 # (same set as $(DRIVERS_TARGET_SRCS) in firmware/drivers/drivers.mk,

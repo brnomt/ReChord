@@ -79,6 +79,11 @@ static void usb_storage_entry(void)
 
 /* Index progress: coarse (every 8 files) so the scan is not slowed by the
  * panel, and the power key aborts. */
+static void open_library(void)
+{
+    ui_push_screen(&library_screen);
+}
+
 static int index_progress(uint32_t files, const char *name)
 {
     char b[48];
@@ -666,6 +671,7 @@ static const menu_item_t k_root_items[] = {
     { "USB console", NULL,      usb_console_run },
     { "USB storage", NULL,      usb_storage_entry },
     { "Files",       NULL,      open_files },
+    { "Library",     NULL,      open_library },
     { "Rebuild index", NULL,    index_rebuild_run },
     { "Index",       index_text, NULL },
     { "Now Playing", NULL,      open_player },
@@ -677,7 +683,7 @@ static const menu_item_t k_root_items[] = {
     { "USB diag",    usbd_text, NULL },
 };
 #define RC_BUILD "m7a"
-static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 13 };
+static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 14 };
 
 void ap_ui_loop(void)
 {

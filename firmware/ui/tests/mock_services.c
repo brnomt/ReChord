@@ -409,3 +409,13 @@ int player_get_track(track_info_t *out)
 unsigned      flac_diag_block, flac_diag_channels;
 unsigned long flac_diag_seektable, flac_diag_need;
 int           flac_diag_reason;
+
+/* ---- media index (screens/library_screen.c) ------------------------------
+ * The UI tests do not have a filesystem: the index reports "none", which is
+ * the screen's empty-state path. */
+#include "../../services/media_db.h"
+
+int media_db_open(void) { return FS_ERR_OPEN; }
+uint32_t media_db_count(void) { return 0u; }
+int media_db_get(uint32_t i, media_rec_t *out) { (void)i; (void)out; return FS_ERR_ARG; }
+void media_db_close(void) { }
