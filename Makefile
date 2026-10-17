@@ -61,11 +61,14 @@ BB_CORE_ELF  := $(BB_CORE_DIR)/bb_core.elf
 BB_CORE_BIN  := $(BB_CORE_DIR)/bb_core.bin
 BB_CORE_BLOB := $(BB_CORE_DIR)/bb_core_blob.o
 
-$(BB_CORE_ELF): firmware/bb/bb_main.c firmware/bb/bb.ld
+$(BB_CORE_ELF): firmware/bb/bb_main.c firmware/bb/bcio.c \
+                firmware/player/codec_io.c firmware/player/ipc_shared.h \
+                firmware/bb/bb.ld
 	@$(MKDIR_P) $(BB_CORE_DIR)
 	$(CC) -mcpu=cortex-m3 -mthumb -Os -ffreestanding -fno-builtin \
 	    -nostdlib -ffunction-sections -fdata-sections -Ifirmware/player \
-	    -T firmware/bb/bb.ld firmware/bb/bb_main.c -lgcc -o $@
+	    -T firmware/bb/bb.ld firmware/bb/bb_main.c firmware/bb/bcio.c \
+	    firmware/player/codec_io.c -lgcc -o $@
 
 $(BB_CORE_BIN): $(BB_CORE_ELF)
 	$(OBJCOPY) -O binary $< $@
