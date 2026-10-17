@@ -109,15 +109,16 @@ static void test_scan(void)
     for (i = 1; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
         CHECK(input_scan(130, 0) == 0);      /* not stable yet */
     CHECK(input_scan(130, 0) == 1);          /* Nth equal sample: press */
-    CHECK(input_scan(130, 0) == 0);          /* hold: no repeat */
+    CHECK(input_scan(130, 0) == 0);          /* held below LONG: silent */
     /* RELEASE SWEEP through the back/menu/play bands must be invisible:
      * the pressed-bottom minimum classifies the press (ref 0x03057eb0). */
     CHECK(input_scan(200, 0) == 0);
     CHECK(input_scan(350, 0) == 0);
     CHECK(input_scan(500, 0) == 0);
     CHECK(input_scan(800, 0) == 0);
-    for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
-        CHECK(input_scan(1023, 0) == 0);     /* debounced release: re-arm */
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS - 1; i++)
+        CHECK(input_scan(1023, 0) == 0);
+    CHECK(input_scan(1023, 0) == 1);         /* release: RELEASE(short)  */
     /* A press SWEEP from idle falls through back/menu/play bands without
      * registering them; only the settled bottom (the run minimum)
      * registers. */
@@ -128,26 +129,91 @@ static void test_scan(void)
     for (i = 1; i < INPUT_DEBOUNCE_SCANS_VOL - 1; i++)
         CHECK(input_scan(130, 0) == 0);      /* settles at the min (130) */
     CHECK(input_scan(130, 0) == 1);          /* 8th UP sample: press */
-    for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
-        CHECK(input_scan(1023, 0) == 0);     /* release */
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS - 1; i++)
+        CHECK(input_scan(1023, 0) == 0);
+    CHECK(input_scan(1023, 0) == 1);         /* release: RELEASE(short)  */
     /* Noise on a held key cannot ratchet the minimum into another band. */
     for (i = 1; i < INPUT_DEBOUNCE_SCANS; i++)
         CHECK(input_scan(250, 0) == 0);      /* play: 3-sample key */
     CHECK(input_scan(250, 0) == 1);          /* press play */
     for (i = 0; i < 12; i++)
         CHECK(input_scan((i & 1) ? 258 : 244, 0) == 0);   /* +-7 noise */
-    CHECK(input_pending() == 3);            /* UP, UP, SELECT            */
-    for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
-        CHECK(input_scan(1023, 0) == 0);     /* release */
+    CHECK(input_pending() == 5);            /* P,R,P,R,P (up,up,select)  */
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS - 1; i++)
+        CHECK(input_scan(1023, 0) == 0);
+    CHECK(input_scan(1023, 0) == 1);         /* release: RELEASE(short)  */
     /* power GPIO wins once stable. */
     for (i = 1; i < INPUT_DEBOUNCE_SCANS; i++)
         CHECK(input_scan(1023, 1) == 0);
     CHECK(input_scan(1023, 1) == 1);
-    CHECK(input_pending() == 4);
-    CHECK(input_poll(&ev) == 1 && ev.type == KEY_UP && ev.adc_value == 130);
-    CHECK(input_poll(&ev) == 1 && ev.type == KEY_UP && ev.adc_value == 130);
-    CHECK(input_poll(&ev) == 1 && ev.type == KEY_SELECT && ev.adc_value == 250);
-    CHECK(input_poll(&ev) == 1 && ev.type == KEY_POWER && ev.adc_value == -1);
+    CHECK(input_pending() == 7);
+    CHECK(input_poll(&ev) == 1 && ev.type == KEY_UP && ev.adc_value == 130
+          && ev.kind == INPUT_PRESS);
+    CHECK(input_poll(&ev) == 1 && ev.type == KEY_UP
+          && ev.kind == INPUT_RELEASE && ev.long_press == 0);
+    CHECK(input_poll(&ev) == 1 && ev.type == KEY_UP && ev.adc_value == 130
+          && ev.kind == INPUT_PRESS);
+    CHECK(input_poll(&ev) == 1 && ev.type == KEY_UP
+          && ev.kind == INPUT_RELEASE && ev.long_press == 0);
+    CHECK(input_poll(&ev) == 1 && ev.type == KEY_SELECT && ev.adc_value == 250
+          && ev.kind == INPUT_PRESS);
+    CHECK(input_poll(&ev) == 1 && ev.type == KEY_SELECT
+          && ev.kind == INPUT_RELEASE && ev.long_press == 0);
+    CHECK(input_poll(&ev) == 1 && ev.type == KEY_POWER && ev.adc_value == -1
+          && ev.kind == INPUT_PRESS);
+    input_mock_clear();
+}
+
+/* Short vs long press: a short press is exactly one PRESS (+ RELEASE with
+ * long_press = 0); a held vol key produces PRESS, LONG, REPEATs and
+ * RELEASE{long_press = 1}; a held non-repeating key produces LONG but no
+ * REPEAT. */
+static void test_scan_hold(void)
+{
+    input_event_t ev;
+    int i;
+
+    input_mock_clear();
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
+        (void)input_scan(130, 0);                    /* press registers  */
+    CHECK(input_pending() == 1);
+    for (i = 0; i < INPUT_LONG_SCANS - 1; i++)
+        CHECK(input_scan(130, 0) == 0);              /* still short      */
+    CHECK(input_scan(130, 0) == 1);                  /* LONG fires       */
+    for (i = 1; i < INPUT_REPEAT_SCANS; i++)
+        CHECK(input_scan(130, 0) == 0);
+    CHECK(input_scan(130, 0) == 1);                  /* REPEAT #1        */
+    for (i = 1; i < INPUT_REPEAT_SCANS; i++)
+        CHECK(input_scan(130, 0) == 0);
+    CHECK(input_scan(130, 0) == 1);                  /* REPEAT #2        */
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
+        (void)input_scan(1023, 0);                   /* release          */
+    CHECK(input_pending() == 5);                     /* P,L,R,R,R        */
+    CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_PRESS);
+    CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_LONG && ev.long_press == 1);
+    CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_REPEAT);
+    CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_REPEAT);
+    CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_RELEASE && ev.long_press == 1);
+
+    input_mock_clear();
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS_VOL; i++)
+        (void)input_scan(130, 0);                    /* press registers  */
+    for (i = 0; i < 5; i++)
+        (void)input_scan(130, 0);                    /* short hold       */
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
+        (void)input_scan(1023, 0);                   /* release          */
+    CHECK(input_pending() == 2);                     /* P + RELEASE      */
+    CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_PRESS);
+    CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_RELEASE && ev.long_press == 0);
+
+    input_mock_clear();
+    for (i = 0; i < INPUT_DEBOUNCE_SCANS; i++)
+        (void)input_scan(250, 0);                    /* play: press      */
+    for (i = 0; i < INPUT_LONG_SCANS + INPUT_REPEAT_SCANS; i++)
+        (void)input_scan(250, 0);                    /* held long        */
+    CHECK(input_pending() == 2);                     /* P + LONG only    */
+    CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_PRESS);
+    CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_LONG);
     input_mock_clear();
 }
 
@@ -157,6 +223,7 @@ int main(void)
     test_overflow();
     test_adc_map();
     test_scan();
+    test_scan_hold();
 
     printf("test_input: %d checks, %d failures\n", s_checks, s_failures);
     return (s_failures == 0) ? 0 : 1;

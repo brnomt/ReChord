@@ -36,6 +36,8 @@ static const adc_band_t s_adc_bands[] = {
 
 static int s_scan_last = KEY_NONE;   /* previous mapped key            */
 static int s_scan_held = KEY_NONE;   /* debounced key, if any */
+static int s_scan_hold;              /* scans held past the press (LONG /
+                                      * REPEAT timing)                     */
 static int s_scan_stable;            /* consecutive samples agreeing with
                                       * s_scan_last (see input_scan)      */
 static int s_scan_min = ADC_IDLE;    /* lowest ADC seen since idle — the
@@ -74,7 +76,7 @@ int input_map_adc(int adc_value)
     return KEY_NONE;
 }
 
-int input_push(int type, int adc_value)
+static int input_push_kind(int type, int adc_value, int kind, int long_press)
 {
     input_event_t *slot;
 
@@ -87,8 +89,15 @@ int input_push(int type, int adc_value)
     slot = &s_queue[(s_head + s_count) % (unsigned)INPUT_QUEUE_LEN];
     slot->type = type;
     slot->adc_value = adc_value;
+    slot->kind = kind;
+    slot->long_press = long_press;
     s_count++;
     return INPUT_OK;
+}
+
+int input_push(int type, int adc_value)
+{
+    return input_push_kind(type, adc_value, INPUT_PRESS, 0);
 }
 
 int input_poll(input_event_t *ev)
@@ -136,13 +145,31 @@ int input_scan(int adc_value, int power)
     if (s_scan_stable < needed)        /* fires on the N-th equal sample  */
         return 0;
     if (key == KEY_NONE) {             /* debounced release/idle: re-arm */
-        s_scan_min = ADC_IDLE;         /* the pressed-bottom run         */
+        int rel = s_scan_held;
+        int rel_adc = power ? -1 : s_scan_min;
+        int rel_long = s_scan_hold >= INPUT_LONG_SCANS;
+
         s_scan_held = KEY_NONE;
+        s_scan_hold = 0;
+        s_scan_min = ADC_IDLE;         /* the pressed-bottom run         */
+        if (rel == KEY_NONE)
+            return 0;
+        return input_push_kind(rel, rel_adc,
+                               INPUT_RELEASE, rel_long) == INPUT_OK;
+    }
+    if (key == s_scan_held) {          /* held: LONG once, then REPEAT   */
+        int adc = power ? -1 : s_scan_min;
+
+        s_scan_hold++;
+        if (s_scan_hold == INPUT_LONG_SCANS)
+            return input_push_kind(key, adc, INPUT_LONG, 1) == INPUT_OK;
+        if (s_scan_hold > INPUT_LONG_SCANS && INPUT_REPEATS(key) &&
+            (s_scan_hold - INPUT_LONG_SCANS) % INPUT_REPEAT_SCANS == 0)
+            return input_push_kind(key, adc, INPUT_REPEAT, 1) == INPUT_OK;
         return 0;
     }
-    if (key == s_scan_held)            /* hold: no repeat               */
-        return 0;
     s_scan_held = key;
+    s_scan_hold = 0;
     return input_push(key, power ? -1 : s_scan_min) == INPUT_OK;
 }
 
@@ -152,6 +179,7 @@ void input_mock_clear(void)
     s_count = 0;
     s_scan_last = KEY_NONE;
     s_scan_held = KEY_NONE;
+    s_scan_hold = 0;
     s_scan_stable = 0;
 }
 

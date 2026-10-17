@@ -29,8 +29,31 @@ typedef enum input_key {
 /* One key event.
  *   type      — one of the KEY_* constants above
  *   adc_value — raw ADC reading that produced the event, or -1 for the
- *               GPIO power key / scripted events with no ADC value */
-typedef struct { int type; int adc_value; } input_event_t;
+ *               GPIO power key / scripted events with no ADC value
+ *   kind      — INPUT_*: distinguishes a SHORT press from a LONG one
+ *   long_press— meaningful on INPUT_RELEASE: 1 when the press was held
+ *               past the long-press threshold (LONG/REPEAT were emitted),
+ *               0 for a short press
+ *
+ * Press model (input_scan): a SHORT press produces exactly one PRESS and
+ * a RELEASE{long_press=0}. A held press produces PRESS, then one LONG at
+ * INPUT_LONG_SCANS, then a REPEAT every INPUT_REPEAT_SCANS (keys in
+ * INPUT_REPEATS only — continuous volume / navigation while held), then
+ * RELEASE{long_press=1}. Consumers act on PRESS/REPEAT and may use
+ * LONG/RELEASE to tell short from long. */
+typedef enum input_kind {
+    INPUT_PRESS = 0,
+    INPUT_LONG = 1,
+    INPUT_REPEAT = 2,
+    INPUT_RELEASE = 3
+} input_kind_t;
+
+typedef struct {
+    int type;
+    int adc_value;
+    int kind;
+    int long_press;
+} input_event_t;
 
 /* Pop the oldest queued event into *ev.
  * Returns 1 if an event was delivered, 0 if the queue is empty,
@@ -68,6 +91,16 @@ unsigned input_pending(void);
  * registers (stock key scan ref 0x03057eb0 uses 3, and 8 for vol+-). */
 #define INPUT_DEBOUNCE_SCANS     3
 #define INPUT_DEBOUNCE_SCANS_VOL 8
+
+/* Hold timing, in input_scan() samples (one sample per UI pass). At the
+ * observed ~10 ms/pass cadence: LONG at ~0.4 s of hold, one REPEAT every
+ * ~0.1 s after that. */
+#define INPUT_LONG_SCANS    40
+#define INPUT_REPEAT_SCANS  10
+
+/* Which keys auto-repeat while held (the user's hold-to-repeat: the vol
+ * keys double as UI up/down). No other key repeats. */
+#define INPUT_REPEATS(k) ((k) == KEY_UP || (k) == KEY_DOWN)
 
 #define INPUT_OK        0
 #define INPUT_ERR_ARG (-1)

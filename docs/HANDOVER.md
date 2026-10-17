@@ -2271,3 +2271,17 @@ explained there). Two follow-up fixes on main:
 
 Both verified host-side (player + services + UI suites pass; `make
 cfw-img` RESULT: PASS).
+
+**Hold-to-repeat + short/long press model (input):** holding vol up/down
+now continues the action (volume in the player, selection in menus) — no
+more spam-clicking. The event model distinguishes a SHORT press from a
+LONG one explicitly (`input_event_t.kind` + `long_press`):
+PRESS (one per short press) -> LONG (once, at INPUT_LONG_SCANS) ->
+REPEAT (every INPUT_REPEAT_SCANS while held; KEY_UP/KEY_DOWN only) ->
+ RELEASE{long_press=0|1}. The UI acts on PRESS/REPEAT; LONG/RELEASE are
+markers for consumers that need the distinction. Timing is scan-count
+based (INPUT_LONG_SCANS=40, INPUT_REPEAT_SCANS=10 ~= 0.4 s / 0.1 s at
+the ~10 ms UI pass cadence). test_input grew hold coverage (220 checks).
+Note: this supersedes the old "hold: no repeat" contract in the input
+tests; playback/UI confirmed crack-free on the previous build
+(CRC 0xC0ACE53A).

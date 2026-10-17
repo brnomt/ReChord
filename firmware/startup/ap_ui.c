@@ -116,6 +116,8 @@ static int ask(int any_key)
     for (;;) {
         input_scan(keys_adc(), keys_power());
         while (input_poll(&ev) > 0) {
+            if (ev.kind != INPUT_PRESS)     /* a short press answers once */
+                continue;
             if (any_key || ev.type == KEY_SELECT)
                 return 1;
             if (ev.type == KEY_BACK || ev.type == KEY_POWER)
@@ -588,6 +590,11 @@ void ap_ui_loop(void)
         input_scan(adc, power);
 
         while (input_poll(&ev) > 0) {
+            /* Short vs long press: PRESS acts once; REPEAT continues the
+             * action while held (volume / navigation). LONG and RELEASE
+             * are markers for consumers that need the distinction. */
+            if (ev.kind != INPUT_PRESS && ev.kind != INPUT_REPEAT)
+                continue;
             if (ev.type == KEY_MENU) {
                 while (ui_stack_depth() > 1)
                     ui_pop_screen();
