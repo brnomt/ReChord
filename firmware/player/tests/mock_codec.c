@@ -26,8 +26,18 @@ void mock_codec_configure(const mock_codec_cfg_t *cfg)
     g_cfg.rg_album_gain_tenth_db = 0;
     g_cfg.rg_track_peak_q15 = 0;
     g_cfg.rg_album_peak_q15 = 0;
+    g_cfg.meta_title[0] = '\0';
+    g_cfg.meta_artist[0] = '\0';
+    g_cfg.meta_album[0] = '\0';
+    g_cfg.meta_genre[0] = '\0';
+    g_cfg.meta_track = 0;
     if (cfg != 0)
         g_cfg = *cfg;
+    /* A caller may hand over unterminated text fields: force termination. */
+    g_cfg.meta_title[sizeof g_cfg.meta_title - 1] = '\0';
+    g_cfg.meta_artist[sizeof g_cfg.meta_artist - 1] = '\0';
+    g_cfg.meta_album[sizeof g_cfg.meta_album - 1] = '\0';
+    g_cfg.meta_genre[sizeof g_cfg.meta_genre - 1] = '\0';
     if (g_cfg.sample_rate <= 0)
         g_cfg.sample_rate = 44100;
     if (g_cfg.channels < 1 || g_cfg.channels > 2)
@@ -155,6 +165,21 @@ static int mock_tags(void *vst, codec_replaygain_t *out)
     return CODEC_OK;
 }
 
+static int mock_meta(void *vst, codec_meta_t *out)
+{
+    mock_state_t *st = (mock_state_t *)vst;
+
+    if (st == 0 || out == 0)
+        return CODEC_ERR_STATE;
+    memset(out, 0, sizeof *out);
+    memcpy(out->title, st->cfg.meta_title, sizeof out->title);
+    memcpy(out->artist, st->cfg.meta_artist, sizeof out->artist);
+    memcpy(out->album, st->cfg.meta_album, sizeof out->album);
+    memcpy(out->genre, st->cfg.meta_genre, sizeof out->genre);
+    out->track = st->cfg.meta_track;
+    return CODEC_OK;
+}
+
 static const codec_t g_mock_codec =
 {
     "mock",
@@ -167,7 +192,8 @@ static const codec_t g_mock_codec =
     (int)sizeof(mock_state_t),
     mock_format,
     mock_gapless,
-    mock_tags
+    mock_tags,
+    mock_meta
 };
 
 const codec_t *mock_codec_get(void)

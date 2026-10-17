@@ -24,6 +24,12 @@ typedef struct
     int  rg_album_gain_tenth_db;   /* ReplayGain album gain (dB*10)     */
     int  rg_track_peak_q15;        /* track peak (Q1.15)                */
     int  rg_album_peak_q15;        /* album peak (Q1.15)                */
+    /* Text tags the mock reports through codec_t.meta (empty = no tags). */
+    char meta_title[64];
+    char meta_artist[64];
+    char meta_album[64];
+    char meta_genre[32];
+    int  meta_track;
 } mock_codec_cfg_t;
 
 /* Reset to defaults (44100 frames @ 44100 Hz stereo, no failures) and

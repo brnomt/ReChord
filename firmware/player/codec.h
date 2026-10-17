@@ -87,6 +87,20 @@ typedef struct
     int album_peak_q15;
 } codec_replaygain_t;
 
+/* Text metadata from the container's tag block (ID3v2 text frames for mp3,
+ * Vorbis comments for flac; see tags.h). Every field is NUL-terminated and
+ * EMPTY when the file carries no such tag — "no tags" is not an error, it
+ * just leaves the fallbacks (filename for the title) in charge. `track` is
+ * the tag track number, 0 = unknown. */
+typedef struct
+{
+    char title[64];
+    char artist[64];
+    char album[64];
+    char genre[32];
+    int  track;
+} codec_meta_t;
+
 typedef struct codec_s
 {
     const char *name;                              /* short id, e.g. "wav" */
@@ -132,6 +146,13 @@ typedef struct codec_s
      * and applies it as a fixed gain before the PCM ring, composed with the
      * user volume on the B side. */
     int (*tags)(void *st, codec_replaygain_t *out);
+
+    /* Extension (ReChord, optional — may be NULL): report the text metadata
+     * parsed at open() (see codec_meta_t). Like tags(), always succeeds:
+     * absent fields stay empty, the caller decides on the fallbacks. The
+     * parse happens inside the existing tag/header pass, so this costs no
+     * extra I/O. */
+    int (*meta)(void *st, codec_meta_t *out);
 
     /* Extension (ReChord, optional — may be NULL): one-time codec-global
      * initialization, called once at player_register_codec(). 0 = ok.
