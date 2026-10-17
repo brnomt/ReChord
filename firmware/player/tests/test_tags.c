@@ -165,6 +165,14 @@ static int test_id3v2_text(int ver)
                      text_body(body, 0, "Synthpop"));
     n = append_frame(blob, n, ver, "TRCK", body,
                      text_body(body, 0, "3/8"));
+    n = append_frame(blob, n, ver, "TYER", body,
+                     text_body(body, 0, "1983"));
+    n = append_frame(blob, n, ver, "TPUB", body,
+                     text_body(body, 0, "Factory"));
+    n = append_frame(blob, n, ver, "TPE2", body,
+                     text_body(body, 0, "New Order"));
+    n = append_frame(blob, n, ver, "TCOM", body,
+                     text_body(body, 0, "Bernard Sumner"));
     put_synchsafe(blob + 6, (unsigned int)(n - 10));
 
     if (write_blob(path, blob, n) != 0)
@@ -184,6 +192,34 @@ static int test_id3v2_text(int ver)
           "id3v2 text: TALB");
     CHECK(strcmp(meta.genre, "Synthpop") == 0, "id3v2 text: TCON");
     CHECK_EQI(meta.track, 3, "id3v2 text: TRCK \"3/8\" -> 3");
+    CHECK_EQI(meta.year, 1983, "id3v2 text: TYER -> year");
+    CHECK(strcmp(meta.label, "Factory") == 0, "id3v2 text: TPUB -> label");
+    CHECK(strcmp(meta.album_artist, "New Order") == 0,
+          "id3v2 text: TPE2 -> album artist");
+    CHECK(strcmp(meta.composer, "Bernard Sumner") == 0,
+          "id3v2 text: TCOM -> composer");
+
+    /* A year that is not a plausible number is 0 ("Undefined"), never a
+     * wrong number: the UI must not display garbage. */
+    {
+        char p2[128];
+        int m = 10;
+
+        snprintf(p2, sizeof p2, "/tmp/rechord_tags_badyear_v%d.bin", ver);
+        put_id3v2_header(blob, ver);
+        m = append_frame(blob, m, ver, "TIT2", body,
+                         text_body(body, 0, "No Year"));
+        m = append_frame(blob, m, ver, "TYER", body,
+                         text_body(body, 0, "20xx"));
+        put_synchsafe(blob + 6, (unsigned int)(m - 10));
+        if (write_blob(p2, blob, m) == 0 && (io = cio_open(p2)) != 0) {
+            codec_meta_t bad;
+
+            (void)tags_read_id3v2(io, &bad, 0);
+            cio_close(io);
+            CHECK_EQI(bad.year, 0, "id3v2 text: invalid TYER -> year 0");
+        }
+    }
     return failures ? -1 : 0;
 }
 

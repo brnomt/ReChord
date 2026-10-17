@@ -322,7 +322,30 @@ static int id3_txxx(codec_io_t *io, long body, unsigned long size,
     return 0;
 }
 
-/* Text frame (TIT2/TPE1/TALB/TCON/TRCK) -> codec_meta_t field. */
+/* Year out of a date-ish string ("2015", "2015-06-01", "2015/06"): the first
+ * four digits, and only when they form a plausible year. Anything else (empty,
+ * "20xx", "0000", out of range) is 0 -- the caller renders that as "Undefined"
+ * rather than showing a wrong number. */
+static int parse_year(const char *s)
+{
+    int y = 0, digits = 0;
+
+    if (s == 0)
+        return 0;
+    while (*s == ' ' || *s == '\t')
+        s++;
+    while (*s >= '0' && *s <= '9') {
+        if (digits < 4)
+            y = y * 10 + (*s - '0');
+        digits++;
+        s++;
+    }
+    if (digits != 4 || y < 1000 || y > 9999)
+        return 0;
+    return y;
+}
+
+/* Text frame (TIT2/TPE1/TALB/TCON/TRCK/TYER/TDRC/TPUB/TPE2/TCOM). */
 static int id3_text(codec_io_t *io, const unsigned char *fh, long body,
                     unsigned long size, codec_meta_t *meta)
 {
@@ -343,6 +366,22 @@ static int id3_text(codec_io_t *io, const unsigned char *fh, long body,
         len = id3_text_narrow(meta->album, (int)sizeof meta->album, slab, n);
     else if (fh[0] == 'T' && fh[1] == 'C' && fh[2] == 'O' && fh[3] == 'N')
         len = id3_text_narrow(meta->genre, (int)sizeof meta->genre, slab, n);
+    else if (fh[0] == 'T' && fh[1] == 'Y' && fh[2] == 'E' && fh[3] == 'R') {
+        if (id3_text_narrow(num, (int)sizeof num, slab, n) <= 0)
+            return 0;
+        meta->year = parse_year(num);
+        return meta->year ? TAG_HAVE_META : 0;
+    } else if (fh[0] == 'T' && fh[1] == 'D' && fh[2] == 'R' && fh[3] == 'C') {
+        if (id3_text_narrow(num, (int)sizeof num, slab, n) <= 0)
+            return 0;
+        meta->year = parse_year(num);
+        return meta->year ? TAG_HAVE_META : 0;
+    } else if (fh[0] == 'T' && fh[1] == 'P' && fh[2] == 'U' && fh[3] == 'B')
+        len = id3_text_narrow(meta->label, (int)sizeof meta->label, slab, n);
+    else if (fh[0] == 'T' && fh[1] == 'P' && fh[2] == 'E' && fh[3] == '2')
+        len = id3_text_narrow(meta->album_artist, (int)sizeof meta->album_artist, slab, n);
+    else if (fh[0] == 'T' && fh[1] == 'C' && fh[2] == 'O' && fh[3] == 'M')
+        len = id3_text_narrow(meta->composer, (int)sizeof meta->composer, slab, n);
     else if (fh[0] == 'T' && fh[1] == 'R' && fh[2] == 'C' && fh[3] == 'K') {
         if (id3_text_narrow(num, (int)sizeof num, slab, n) <= 0)
             return 0;
@@ -504,6 +543,23 @@ int tags_read_vorbis(codec_io_t *io, long offset, long length,
                 len = copy_text(meta->album, (int)sizeof meta->album, val, n - klen - 1);
             else if (key_eq_n((const char *)slab, klen, "GENRE"))
                 len = copy_text(meta->genre, (int)sizeof meta->genre, val, n - klen - 1);
+            else if (key_eq_n((const char *)slab, klen, "DATE") ||
+                     key_eq_n((const char *)slab, klen, "YEAR")) {
+                char ybuf[16];
+
+                if (copy_text(ybuf, (int)sizeof ybuf, val, n - klen - 1) > 0) {
+                    meta->year = parse_year(ybuf);
+                    if (meta->year)
+                        flags |= TAG_HAVE_META;
+                }
+                continue;
+            } else if (key_eq_n((const char *)slab, klen, "LABEL"))
+                len = copy_text(meta->label, (int)sizeof meta->label, val, n - klen - 1);
+            else if (key_eq_n((const char *)slab, klen, "ALBUMARTIST") ||
+                     key_eq_n((const char *)slab, klen, "ALBUM ARTIST"))
+                len = copy_text(meta->album_artist, (int)sizeof meta->album_artist, val, n - klen - 1);
+            else if (key_eq_n((const char *)slab, klen, "COMPOSER"))
+                len = copy_text(meta->composer, (int)sizeof meta->composer, val, n - klen - 1);
             else if (key_eq_n((const char *)slab, klen, "TRACKNUMBER")) {
                 meta->track = parse_track_no(val);
                 flags |= TAG_HAVE_META;

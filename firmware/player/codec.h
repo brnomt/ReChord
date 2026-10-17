@@ -49,7 +49,7 @@
  * buffers (minimp3 residual/feed, dr_flac window) live as file-statics in
  * their adapters instead — there is one open track at a time. Sized:
  * mp3dec_t is 6668 B + adapter ctx. Static pool — no malloc on target. */
-#define PLAYER_CODEC_STATE_MAX  7168
+#define PLAYER_CODEC_STATE_MAX  7296   /* +128 for the extended tag fields (year/label/album artist/composer) */
 
 /* ---- codec format + gapless ---- */
 
@@ -98,7 +98,11 @@ typedef struct
     char artist[64];
     char album[64];
     char genre[32];
+    char album_artist[24];
+    char composer[24];
+    char label[16];
     int  track;
+    int  year;      /* 0 = unknown/invalid (the UI shows "Undefined") */
 } codec_meta_t;
 
 typedef struct codec_s

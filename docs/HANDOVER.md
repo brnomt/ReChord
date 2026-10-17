@@ -2974,3 +2974,31 @@ track pushes Now Playing instead of only starting playback. DFIU records it as
 `1df69d31` / rule candidate `R-1ddae0f0c00b`: *every list on the 320x170 panel
 sizes its rows from the footer-safe area, keeps page == window, and adds no
 column that cannot fit the width.*
+
+## AE. Session 2026-10-17 (cont.) — BRNOMT-78: Year/Label/Album Artist/Composer in the tags
+
+The Rockbox-style library menu needs fields the tag reader did not read. Added
+to `codec_meta_t` and the parser (one header pass, stack buffers):
+
+- ID3v2: **TYER / TDRC** -> `year`, **TPUB** -> `label`, **TPE2** ->
+  `album_artist`, **TCOM** -> `composer`.
+- Vorbis: **DATE / YEAR**, **LABEL**, **ALBUMARTIST / ALBUM ARTIST**,
+  **COMPOSER**.
+- **Validation policy (user's rule):** a field whose value is not usable is
+  *not* shown as-is. `year` accepts only the first four digits of a date-like
+  string and only a plausible 1000..9999; anything else (empty, "20xx", "0000")
+  becomes 0, and the category views will render 0/"" as **"Undefined"** --
+  never a wrong number. Text fields keep using the parser's bounded copy.
+- `PLAYER_CODEC_STATE_MAX` 7168 -> 7296 (+128) because the codec state carries
+  a `codec_meta_t`: the static asserts caught it immediately.
+- Tests: the ID3v2 fixture grows the four frames and the invalid-year case
+  (`TYER=20xx` -> year 0). Player suite green.
+
+**Build:** `_bss_end 0x03049b94` (~1.1 KB of margin), text 121,940 B; AP5M CRC
+`0x3344ADF8`, sha256
+`bbeabb903382bca2184aef8ad4fcbd6e21e34289a8f7c024361fe12492f1b0da`.
+
+**Next (in order):** media_rec_t v2 (year + label + album_artist + composer,
+MEDIA_VERSION 2 -> reindex required) -> unique-name lists built during the scan
+(in the scratch, sorted, stored in the index, "Undefined" first) -> the Library
+category menu + the generic category screen.

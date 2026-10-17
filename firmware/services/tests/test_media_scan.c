@@ -60,6 +60,13 @@ int main(void)
     media_db_close();
     (void)remove(".work/Internal/.rechord/INDEX.A");
     (void)remove(".work/Internal/.rechord/INDEX.B");
+    /* the abort case creates extra files: a second run must not see them */
+    for (int k = 0; k < 8; k++) {
+        char p[64];
+
+        snprintf(p, sizeof p, ".work/Internal/Music/extra %d.wav", k);
+        (void)remove(p);
+    }
     put("/Internal/Music/01 First.mp3");
     put("/Internal/Music/notes.txt");              /* not audio: ignored */
     put("/SD/Second.flac");
