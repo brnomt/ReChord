@@ -120,40 +120,68 @@ static uint32_t cmd_start(uint32_t cmd)
     return seq;
 }
 
-/* Ask Core B to open the track with command `cmd` (IPC_C_OPEN for a fresh
- * start, IPC_C_NEXT for a gapless change on the live ring). A must have
- * opened the file for it first (bfs_open). */
-static int b_open_cmd(const char *path, uint32_t cmd)
+/* Wait up to ~1500 ms for Core B to finish the command published by
+ * cmd_start(). The old 200 ms budget fell back to a hard restart (stop + DAC
+ * relock) too eagerly, which is the ~1 s gap BRNOMT-73 is about. `bfs_poll`
+ * keeps the file ring(s) fed while B opens a codec and reads its headers. */
+static int b_cmd_wait(uint32_t seq)
+{
+    int i;
+
+    for (i = 0; i < 1500; i++) {
+        bfs_poll();
+        if (CTRL[IPC_C_ACK] == seq)
+            break;
+        dac_delay_ms(1);
+    }
+    if (CTRL[IPC_C_ACK] != seq || CTRL[IPC_C_BSTATE] != IPC_BS_OPEN)
+        return -1;
+    return 0;
+}
+
+/* Hard start: A opens the track into ring 0, then asks B to open it. */
+static int b_handoff(const char *path)
 {
     uint32_t seq;
-    int i;
 
     if (path == 0)
         return -1;
     if (bfs_open(path) != 0)
         return -1;
 
+    sh_set(IPC_C_RING, 0);
     CTRL[IPC_C_ARG] = codec_id_for(path);
     dmb();
-    seq = cmd_start(cmd);
-
-    for (i = 0; i < 200; i++) {         /* ~200 ms, B opens + reads headers */
-        bfs_poll();
-        if (CTRL[IPC_C_ACK] == seq)
-            break;
-        dac_delay_ms(1);
-    }
-    if (CTRL[IPC_C_ACK] != seq || CTRL[IPC_C_BSTATE] != IPC_BS_OPEN) {
+    seq = cmd_start(IPC_C_OPEN);
+    if (b_cmd_wait(seq) != 0) {
         bfs_close();
         return -1;
     }
     return 0;
 }
 
-/* Ask Core B to open the track. A must have opened the file for it first. */
-static int b_handoff(const char *path)
+/* Gapless boundary: the AP has already promoted the pre-opened ring (next
+ * file in RAM), so B only reopens its codec reading that ring. No bfs_open:
+ * the SD open was paid at pre-open time. */
+static int b_next_cmd(const char *path, uint32_t ring)
 {
-    return b_open_cmd(path, IPC_C_OPEN);
+    uint32_t seq;
+
+    if (path == 0)
+        return -1;
+    sh_set(IPC_C_RING, ring);
+    CTRL[IPC_C_ARG] = codec_id_for(path);
+    dmb();
+    seq = cmd_start(IPC_C_NEXT);
+    return b_cmd_wait(seq);
+}
+
+/* Pre-open the NEXT track into the other file ring while the current plays. */
+int ipc_b_preopen(const char *path)
+{
+    if (path == 0 || !s_b_decodes)
+        return 0;                       /* AP decodes: nothing to pre-open */
+    return (bfs_preopen(path) == 0) ? 0 : -1;
 }
 
 int ipc_b_init(void)
@@ -343,21 +371,29 @@ int ipc_b_track_change(long duration_ms)
 
 int ipc_b_next(const ipc_b_track_t *track)
 {
+    int ring;
+
     if (track == NULL || !s_b_decodes)
         return -1;
 
-    /* Gapless (BRNOMT-73): publish the new track's PCM post-processing (B reads
-     * these in its OPEN handler through trim_reset), then have B reopen its
-     * codec over the same file ring. Deliberately NO ipc_b_stop/flush and NO
-     * audio_output_configure: the PCM ring cursors, the frames counter and the
-     * DAC/serializer must all stay live across the boundary. B's IPC_C_OPEN
-     * handler already preserves the ring (the ring reset lives in
-     * ipc_b_start, not in B), so the boundary is sample-accurate. */
+    /* Gapless (BRNOMT-73): B reopens its codec reading the PRE-OPENED ring —
+     * the next file is already in RAM, so the boundary pays no SD open.
+     * Without a pre-open for exactly this track, return -1 and let the caller
+     * take the hard path (never play the wrong file because the list changed).
+     * Deliberately NO ipc_b_stop/flush and NO audio_output_configure: the PCM
+     * ring cursors, the frames counter and the DAC/serializer stay live. */
+    if (!bfs_preopen_ready(track->path))
+        return -1;
+
+    ring = bfs_promote();
+    if (ring < 0)
+        return -1;
+
     sh_set(IPC_C_RG, (uint32_t)track->rg_gain_q16);
     sh_set(IPC_C_GAP_DELAY, (uint32_t)track->gapless_delay);
     sh_set(IPC_C_GAP_PAD, (uint32_t)track->gapless_padding);
     sh_set(IPC_C_GAP_TOTAL, (uint32_t)track->total_samples);
-    if (b_open_cmd(track->path, IPC_C_NEXT) != 0)
+    if (b_next_cmd(track->path, (uint32_t)ring) != 0)
         return -1;              /* B did not ACK: caller falls back to hard */
     return 0;
 }

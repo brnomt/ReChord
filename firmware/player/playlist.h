@@ -68,6 +68,12 @@ int playlist_advance(playlist_t *pl);
  * hand the next track off (gapless) or drain to END_OF_TRACK. */
 int playlist_has_next(const playlist_t *pl);
 
+/* The record index the next auto-advance WOULD play, without moving the list.
+ * Returns 1 and writes *out when there is a next track (a real next, a
+ * repeat-ALL wrap, or a repeat-ONE replay), 0 otherwise. Used to pre-open the
+ * next file while the current one still plays (BRNOMT-73). */
+int playlist_peek_next(const playlist_t *pl, uint16_t *out);
+
 /* Manual "next" (a key press): always moves forward, ignoring repeat-ONE
  * (which only applies to end-of-stream). Wraps only when repeat == ALL.
  * Returns the new position, or -1 to stop. */

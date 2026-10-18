@@ -122,12 +122,39 @@ static void test_has_next(void)
     CHECK(playlist_has_next(&pl) == 0, "has_next: empty list");
 }
 
+static void test_peek_next(void)
+{
+    playlist_t pl;
+    const uint16_t idx[3] = { 10, 20, 30 };
+    uint16_t n = 0;
+
+    memset(&pl, 0, sizeof pl);
+    playlist_set_repeat(&pl, PLAYLIST_REPEAT_OFF);
+    playlist_load(&pl, idx, 3, 0);
+    CHECK(playlist_peek_next(&pl, &n) == 1 && n == 20, "peek: next is 20");
+    CHECK(playlist_position(&pl) == 1, "peek does not move the list");
+    playlist_advance(&pl);
+    CHECK(playlist_peek_next(&pl, &n) == 1 && n == 30, "peek: next is 30");
+    playlist_advance(&pl);               /* last track, repeat off */
+    CHECK(playlist_peek_next(&pl, &n) == 0, "peek: end of list");
+
+    playlist_set_repeat(&pl, PLAYLIST_REPEAT_ALL);
+    CHECK(playlist_peek_next(&pl, &n) == 1 && n == 10,
+          "peek: repeat all wraps");
+    playlist_set_repeat(&pl, PLAYLIST_REPEAT_ONE);
+    CHECK(playlist_peek_next(&pl, &n) == 1 && n == 30, "peek: repeat one");
+
+    playlist_reset(&pl);
+    CHECK(playlist_peek_next(&pl, &n) == 0, "peek: empty list");
+}
+
 int main(void)
 {
     test_order_and_advance();
     test_shuffle();
     test_empty();
     test_has_next();
+    test_peek_next();
 
     if (fails != 0) {
         printf("test_playlist: %d FAILURES\n", fails);

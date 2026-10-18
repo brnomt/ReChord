@@ -3547,3 +3547,47 @@ than the 64 KiB PCM ring covers (~85 ms). The issue thread asks for preloading
 the next file 2-3 s early; the PCM ring cannot grow (0x01030000..0x01040000 is
 exactly the window below Core B's data), so it needs a pre-open/2nd-file design,
 plus BRNOMT-94 (crossfade) later.
+
+## AT. Session 2026-10-18 — BRNOMT-73 option B: pre-open the next track
+
+The boundary after `7e5ba95` still cost ~1 s. Root: `ipc_b_next()` called
+`bfs_open()`, and the SD open (FAT + LFN) plus B reopening its codec cost more
+than the PCM ring covers (64 KiB = 186 ms @44.1k / 85 ms @96k). The ring cannot
+grow: 0x01030000..0x01040000 is exactly the window below Core B's data.
+
+**Constraint found:** FLAC/MP3 claim the SINGLE `workbuf` in `open()` and release
+it in `close()` (`codecs/flac.c`, `codecs/mp3.c`), so **B cannot hold two
+codecs** — "B pre-opens and pre-decodes the next track" is impossible. The design
+became: the AP pre-reads the next file into a second ring; **B only reopens,
+from RAM**.
+
+- `ipc_shared.h`: second file ring `IPC_F2_*` / `IPC_FILE2_BASE` = **0x01029000,
+  16 KiB** (the free gap before the PCM ring; 24 KiB is not a power of two for
+  the mask). `IPC_C_RING` (0/1) tells B which ring to read; `IPC_SH_COUNT`
+  29 → 39.
+- `bfs.c`: two file services (`s_cur`, `s_pre`) with per-ring control sets;
+  `bfs_preopen` opens and fills the other ring, `bfs_preopen_ready(path)` guards
+  against a stale pre-open (the list can change mid-track), `bfs_promote` swaps
+  the rings and closes the finished handle. `bfs_poll` services both.
+- `bcio.c` (B): `cio_open` selects the ring from `IPC_C_RING`; read/seek/tell/
+  size use that ring's words/base.
+- `ipc_b_target.c`: `ipc_b_preopen()`; `ipc_b_next()` now requires a matching
+  pre-open, promotes, sets `IPC_C_RING` and sends `IPC_C_NEXT` **without**
+  `bfs_open`; `b_cmd_wait` budget 200 → **1500 ms** (the old budget fell back to
+  a DAC relock too eagerly).
+- `player.c`: `playlist_peek_next()` + `next_path_peek()`; `player_process()`
+  pre-opens ~3 s before the end, once per track (`g.preload_done`).
+
+Fallbacks: no matching pre-open → hard path (never the wrong file); a format
+change is still a hard boundary.
+
+**Risk, explicit:** the SD `cio_open` **blocks the AP loop** (there is no task),
+and if it runs long enough it can starve Core B's file ring *during* the
+pre-open. That is why the plan says to measure on device: an underrun **before**
+the end would point at that, and the next lever is enlarging the current file
+ring (the read-ahead) rather than moving the trigger. Not flashed yet.
+
+Tests: `test_playlist` peek cases; `test_player_gapless` pre-open trigger (fires
+inside the 3 s window, exactly once per track); `ipc_b_mock` counts pre-opens.
+AP5M CRC `0x57727463`, `_bss_end` 0x03042db8 (+228 B; `s_pre_path[208]`), Core B
+~34 KB stack left, packer `RESULT: PASS`.

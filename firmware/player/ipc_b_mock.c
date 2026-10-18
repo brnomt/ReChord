@@ -46,6 +46,7 @@ static void *g_sink_user = 0;
 static int g_b_decodes = 0;
 static int g_b_eof = 0;
 static int g_next_count = 0;
+static int g_preopen_count = 0;
 
 void ipc_b_mock_set_frames_per_tick(int frames)
 {
@@ -96,6 +97,7 @@ int ipc_b_init(void)
     g_b_decodes = 0;
     g_b_eof = 0;
     g_next_count = 0;
+    g_preopen_count = 0;
     return 0;
 }
 
@@ -272,6 +274,20 @@ int ipc_b_next(const ipc_b_track_t *track)
         g_state == IPC_B_STARTING)
         g_state = IPC_B_RUNNING;
     return 0;
+}
+
+/* Pre-open: the mock only records it — what the tests assert is that the
+ * PLAYER asked early enough (once per track, ~3 s before the end). */
+int ipc_b_preopen(const char *path)
+{
+    (void)path;
+    g_preopen_count++;
+    return 0;
+}
+
+int ipc_b_preopen_count(void)
+{
+    return g_preopen_count;
 }
 
 int ipc_b_seek(long ms)

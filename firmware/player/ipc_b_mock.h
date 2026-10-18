@@ -33,6 +33,9 @@ void ipc_b_mock_set_b_eof(int on);
 /* Host-only: number of ipc_b_next() calls (gapless Core-B track changes). */
 int  ipc_b_next_count(void);
 
+/* Host-only: number of ipc_b_preopen() calls (BRNOMT-73 early pre-open). */
+int  ipc_b_preopen_count(void);
+
 /* Host-only: number of times ipc_b_start() was called (B-core restarts).
  * Tests use this to assert a gapless transition does NOT restart the core. */
 int ipc_b_start_count(void);

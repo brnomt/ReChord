@@ -55,6 +55,7 @@ typedef struct
     int             restart_pending;  /* deferred hard restart (format    */
                                       /* change on Core B): wait for the  */
                                       /* ring to drain, then stop/start   */
+    int             preload_done;     /* next-file pre-open already tried */
 
     int             volume_db;
     int             rg_mode;
@@ -322,6 +323,7 @@ static int open_codec_only(const char *path)
     g.decoded_samples = 0;
     g.emitted_samples = 0;
     g.leading_trimmed = (g.gapless.delay_samples == 0) ? 1 : 0;
+    g.preload_done = 0;
 
     g.track_no++;
     g.track.track_no = g.track_no;
@@ -404,6 +406,30 @@ static void build_ipc_track(ipc_b_track_t *t)
     t->gapless_delay = g.gapless.delay_samples;
     t->gapless_padding = g.gapless.padding_samples;
     t->rg_gain_q16 = g.rg_gain_q16;
+}
+
+/* Peek the next track's device path WITHOUT consuming the queue/list.
+ * Returns 1 when there is one, 0 otherwise. Used to pre-open the next file
+ * while the current track still plays (BRNOMT-73). */
+static int next_path_peek(char *out, int cap)
+{
+    char p[PLAYER_PATH_MAX];
+
+    if (playlist_count(&g.list) > 0) {
+        uint16_t ridx;
+
+        if (!playlist_peek_next(&g.list, &ridx) || ridx == PLAYLIST_IDX_NONE)
+            return 0;
+        if (s_resolve == 0 || s_resolve(ridx, p, (int)sizeof p) != 0)
+            return 0;
+        str_copy(out, (unsigned)cap, p);
+        return 1;
+    }
+    if (g.q_count > 0) {
+        str_copy(out, (unsigned)cap, g.queue[g.q_head]);
+        return 1;
+    }
+    return 0;
 }
 
 /* Hard boundary for the ALREADY-OPEN codec: stop the B core / drain the ring,
@@ -871,6 +897,21 @@ int player_process(void)
                 return PLAYER_OK;
             }
             /* No next track: let the ring drain -> END_OF_TRACK below. */
+        }
+
+        /* BRNOMT-73: ~3 s before the end, pre-open the next file into the
+         * other ring so the boundary does not pay the SD open. Once per
+         * track; a stale pre-open is rejected at the boundary. */
+        if (!g.preload_done && !g.eof && g.duration_ms > 0) {
+            long pos = player_get_position_ms();
+
+            if (g.duration_ms - pos <= 3000) {
+                char np[PLAYER_PATH_MAX];
+
+                g.preload_done = 1;
+                if (next_path_peek(np, (int)sizeof np))
+                    (void)ipc_b_preopen(np);
+            }
         }
     } else {
     frame_b = g.fmt.channels * 4;   /* int32 left-justified per sample */

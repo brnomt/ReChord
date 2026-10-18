@@ -110,6 +110,20 @@ silently dropped a repeated command — two gapless `NEXT`s in a row, or two
 `SEEK`s to the same ms. `advance_to()` opens the next codec first so the two
 formats can be compared before committing to gapless vs hard.
 
+**Pre-open (BRNOMT-73 option B).** The boundary still paid the SD open inside
+`bfs_open`, which costs more than the 64 KiB PCM ring covers (~85 ms @96k; the
+ring cannot grow — 0x01030000..0x01040000 is exactly the window below Core B's
+data). A **second file ring** (`IPC_F2_*` / `IPC_FILE2_BASE` = 0x01029000,
+16 KiB, the free gap) lets the AP **pre-open the next file ~3 s before the
+end** (`ipc_b_preopen` → `bfs_preopen`, driven from `player_process()` with
+`playlist_peek_next()`; once per track). At the boundary the ring is already
+full: `bfs_promote()` swaps it in, `IPC_C_RING` tells B which ring to read, and
+B reopens its codec **from RAM** (no SD latency). Two codecs are never open at
+once — FLAC/MP3 claim the single `workbuf` at `open()` — so B pre-opens nothing;
+it only reopens. A pre-open that does not match the boundary track is rejected
+(hard path), and `b_cmd_wait` now allows 1500 ms so a slow reopen does not trip
+the old 200 ms fallback into a DAC relock.
+
 ## 2. Codec interface (`codec.h`)
 
 ```c

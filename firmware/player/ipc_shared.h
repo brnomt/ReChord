@@ -58,6 +58,21 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_F_SEEK_SEQ 16u   /* B: increment to request a seek            */
 #define IPC_F_SEEK_ACK 17u   /* A: copies SEQ once the seek is applied    */
 
+/* ---- second file service (pre-open ring, BRNOMT-73) ---- */
+/* Same fields as IPC_F_*, for the ring the AP PRE-READS into while the current
+ * track still plays. At the gapless boundary the AP promotes this ring and
+ * tells B to read it (IPC_C_RING), so B's codec reopen finds the next file
+ * already in RAM instead of waiting on the SD. */
+#define IPC_F2_OPEN    29u
+#define IPC_F2_SIZE    30u
+#define IPC_F2_BASE    31u
+#define IPC_F2_RD      32u
+#define IPC_F2_WR      33u
+#define IPC_F2_EOF     34u
+#define IPC_F2_SEEK_TO 35u
+#define IPC_F2_SEEK_SEQ 36u
+#define IPC_F2_SEEK_ACK 37u
+
 /* ---- command channel (phase 3c): AP -> B decode control ---- */
 /* Sequencing: the AP increments IPC_C_SEQ on every command and B copies it
  * into IPC_C_ACK once done. Comparing SEQUENCE numbers (not the command word)
@@ -74,8 +89,10 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_C_GAP_PAD  26u   /* AP: trailing trim samples (encoder pad)   */
 #define IPC_C_GAP_TOTAL 27u  /* AP: exact total samples (0 = unknown)     */
 #define IPC_C_SEQ      28u   /* AP: command sequence (increments per cmd) */
+#define IPC_C_RING     38u   /* AP: file ring B must read: 0 = IPC_F_*,
+                              * 1 = IPC_F2_* (set before OPEN/NEXT)       */
 
-#define IPC_SH_COUNT   29u
+#define IPC_SH_COUNT   39u
 
 #define IPC_SH_MAGIC_VAL  0x42524459u   /* 'BRDY' */
 
@@ -106,5 +123,19 @@ _Static_assert(IPC_FILE_BASE >= IPC_SHARED_BASE + 0x1000u,
                "file ring must sit above the 4 KiB control block");
 _Static_assert(IPC_FILE_BASE + IPC_FILE_BYTES <= IPC_RING_BASE,
                "file ring must stay below the PCM ring");
+
+/* ---- pre-open ring (BRNOMT-73) ---- */
+/* Fits the free gap between the file ring and the PCM ring
+ * (0x01029000..0x01030000), so the memory map below Core B is unchanged. */
+#define IPC_FILE2_BASE     0x01029000u
+#define IPC_FILE2_BYTES    (16u * 1024u)
+#define IPC_FILE2_MASK     (IPC_FILE2_BYTES - 1u)
+
+_Static_assert(IPC_FILE2_BASE >= IPC_FILE_BASE + IPC_FILE_BYTES,
+               "pre-open ring must follow the current file ring");
+_Static_assert(IPC_FILE2_BASE + IPC_FILE2_BYTES <= IPC_RING_BASE,
+               "pre-open ring must stay below the PCM ring");
+_Static_assert((IPC_FILE2_BYTES & IPC_FILE2_MASK) == 0u,
+               "pre-open ring must be pow2");
 
 #endif /* RECHORD_IPC_SHARED_H */

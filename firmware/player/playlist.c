@@ -143,6 +143,28 @@ int playlist_has_next(const playlist_t *pl)
     return pl->repeat == PLAYLIST_REPEAT_ALL;
 }
 
+int playlist_peek_next(const playlist_t *pl, uint16_t *out)
+{
+    int idx;
+
+    if (pl == 0 || pl->n <= 0)
+        return 0;
+    if (pl->repeat == PLAYLIST_REPEAT_ONE) {
+        if (pl->pos < 0 || pl->pos >= pl->n)
+            return 0;
+        idx = pl->pos;
+    } else if (pl->pos + 1 < pl->n) {
+        idx = pl->pos + 1;
+    } else if (pl->repeat == PLAYLIST_REPEAT_ALL) {
+        idx = 0;
+    } else {
+        return 0;
+    }
+    if (out != 0)
+        *out = pl->order[idx];
+    return 1;
+}
+
 int playlist_next_manual(playlist_t *pl)
 {
     if (pl == 0 || pl->n <= 0)

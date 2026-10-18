@@ -186,6 +186,13 @@ int ipc_b_track_change(long duration_ms);
  * Returns 0 on success, < 0 if Core B is not the decoder or did not ACK. */
 int ipc_b_next(const ipc_b_track_t *track);
 
+/* Pre-open the NEXT track while the current one still plays (BRNOMT-73): opens
+ * the file and starts filling the second file ring, so ipc_b_next() at the
+ * boundary does not pay the SD open. No-op (returns 0) when the AP is decoding.
+ * Idempotent for the same path. Returns 0, or < 0 if the file cannot be
+ * opened (the boundary then falls back to the hard path). */
+int ipc_b_preopen(const char *path);
+
 /* ---- phase 3c: decode on Core B ---- */
 
 /* 1 when Core B is decoding (it is the PCM-ring producer; the AP must not
