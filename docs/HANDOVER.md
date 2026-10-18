@@ -3958,3 +3958,44 @@ press brings it back (no warm reboot needed, which this platform does not
 support anyway). On battery nothing changes: the rail cut is still a real off.
 
 All host suites green. AP5M CRC `0x58C4C9F7`, packer `RESULT: PASS`. Not flashed.
+
+## BH. Session 2026-10-18 — BRNOMT-81: docs brought in line with the code
+
+Audited `README.md`, `docs/STATUS.md` and `docs/rewrite/*` against the code (two
+parallel sweeps) and fixed what misled:
+
+- **README**: gapless verdict (same-format verified on device; a format change is
+  a hard boundary by design), the 96k margin note, 192 kHz = decode-window limit
+  (the rate IS in the table), DSP "not linked into the AP image", the repo layout
+  (`app/`, `modules/`, `bb_stub/`, `libc/` added), the two missing test runners,
+  and the newer features (index v3 with 208-char paths + case-insensitive order,
+  the self-flushing log, USB power parking).
+- **STATUS**: same verdict plus the real memory map (control block, two file
+  rings, PCM ring); the legacy "Makefile targets" block is now explicitly
+  **SUPERSEDED** with the live targets.
+- **rewrite/audio.md**: PCM ring 64 KiB (was 32), `PLAYER_CODEC_STATE_MAX` 7296
+  (was 7168), the real feeder path (`drivers/rknano_i2s.c`), the FLAC pool =
+  shared workbuf (80,896 B), and the diagram (B is OUR decoder, not the SDK;
+  there is no clock negotiation on target).
+- **rewrite/core-b-phase3.md**: status = implemented; the **real memory map**
+  (B code 128 KiB, control block, 32+16 KiB file rings, PCM ring at
+  `0x01030000`, B data/pool/stack); the real command set
+  (`IPC_C_OPEN/NEXT/SEEK/CLOSE` + `IPC_C_SEQ/ACK`, no doorbell); and a new **§9**
+  documenting the gapless hand-off (pre-open ring, pending open, prescan
+  hand-off, promote, bounded read).
+- **rewrite/player.md**: the legacy `ipc_b_shared_t` marked unreferenced (the
+  contract is `ipc_shared.h`), the doorbell row marked unused, the phase-3c
+  inversion corrected, and the file tree regenerated (`codecs/`, playlist, bfs,
+  ipc_shared, the real tests).
+- **rewrite/services.md**: `fs_target` is a real FAT/exFAT backend, the settings
+  path is `/Internal/.rechord/rechord.cfg` (14 keys), the log flush policy, and
+  the `.mk` is now included.
+- **rewrite/core.md**: the build fragments are included by the root Makefile.
+- **`firmware/ap.mk`**: the stale duplicate `LOG_BUFFER_LINES=12` aligned to the
+  Makefile's 48 and the block marked superseded (the Makefile's `AP_CFLAGS`
+  wins); **`firmware/drivers/panel_io.h`**: the stale "VOP register interface"
+  comment → GPIO bit-bang.
+
+BRNOMT-81 stays open on purpose: docs drift as the code moves.
+
+All host suites green. AP5M CRC `0x57109205`, packer `RESULT: PASS`. Not flashed.

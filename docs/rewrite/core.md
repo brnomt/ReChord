@@ -130,10 +130,10 @@ dependencies and the same code is host-tested and booted.
 
 ## 5. Build wiring
 
-- `firmware/startup/startup.mk` and `firmware/app/app.mk` are included by the
-  root Makefile when the thin-Makefile wiring happens (not in this
-  workstream's ownership); until then the exact compile lines live in the
-  fragments' comments.
+- `firmware/startup/startup.mk`, `firmware/app/app.mk`, `drivers.mk`,
+  `services.mk`, `ui.mk`, `theme.mk`, `dsp.mk`, `modules.mk` and `player.mk` are
+  all included by the root Makefile (`Makefile:175-183`), so the fragments are
+  the single source of the compile lines.
 - App code compiles with **`-DRECHORD_UI_TARGET`** plus
   `-Ifirmware -Ifirmware/services -Ifirmware/drivers`: `ui/ui.h` reaches
   services/drivers through `ui/internal/hal.h`, which otherwise serves UI's

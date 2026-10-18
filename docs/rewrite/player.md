@@ -192,16 +192,15 @@ table records how OUR `ipc_b.h` maps the observable protocol behavior.
 | PCM streams through a ring buffer — `ring rd %u wr %u` | §5d | `ringbuf.h/.c`: lock-free SPSC byte ring (pow2, free-running counters = the logged rd/wr pair, DMB on M3), filled via `ipc_b_ring_fill()` |
 | Clock negotiation `B /1 -> /4 (100 MHz; busy 10%, out min 5576)` | §6c | `ipc_b_status_t.clock_div` (1 -> 4) + `busy_pct`; mock simulates the step, target TODO: CRU sequence |
 | Supervisor state machine, 30 s timeouts, states "B drained", "B is gone", "B off" | §5c/§6b (`FUN_03057694`: states 0-4, 30 s timeout) | `ipc_b_state_t` OFF/STARTING/RUNNING/DRAINED/FAULT; `ipc_b_poll_state()` runs the supervisor (tick-budget guard; TODO convert to 30 s once poll cadence is fixed) |
-| Fault dump `B FAULT kind %u pc %08x lr %08x cfsr %08x` | §5d | `ipc_b_shared_t.fault_kind/pc/lr/cfsr` words; `IPC_B_FAULT` state -> player `PLAYER_ERROR` |
-| Shared IPC block around `0x01020xxx` | §5c/§6b | `ipc_b_shared_t` mapped at `0x01020000` in `ipc_b_target.c` (our own field set — exact offsets TODO on hardware) |
-| Mailbox-style doorbell between cores (SDK mailbox at `0x40110000`, channels 0-3) | firmware/ipc.h (our mailbox contract) | `target_doorbell()` candidate: channel 1 (MB_CH_DECODE); TODO confirm IRQ wiring |
+| Fault reporting by B | §5d | `IPC_C_BERR` (negative codec error) + `IPC_C_BSTATE = ERROR`; a failed B command maps to player `PLAYER_ERROR`. The `ipc_b_shared_t` fault_kind/pc/lr/cfsr words in `ipc_b.h` are a legacy, **unreferenced** struct — do not code against them. |
+| Shared IPC block at `0x01020000` | §5c/§6b | **`firmware/player/ipc_shared.h` is the contract**: fixed word indexes `IPC_SH_*` (state, PCM rd/wr, frames, rate/ch/bits) and `IPC_C_*` (command, arg, ack, seq, ring, RG/gap, prescan geometry, stall counter), plus the two file-ring flag sets `IPC_F_*` / `IPC_F2_*`. `ipc_b_shared_t` in `ipc_b.h` is legacy and unreferenced. |
+| Mailbox-style doorbell between cores (SDK mailbox at `0x40110000`, channels 0-3) | firmware/ipc.h (our mailbox contract) | **Not used.** The shipped channel is the polling control block with the `IPC_C_SEQ`/`IPC_C_ACK` handshake; the PCM ring is drained by the AP's I2S TX IRQ. |
 
-OUR design choice (the reference does not tell us this, and we do not
-look): **the AP decodes with our from-source codecs and streams PCM; the
-B core renders PCM to the DAC/I2S path** (and may apply DSP, e.g. the
-freestanding `rechord_dsp_core` for volume/EQ). This keeps all codec code
-in our portable, host-testable tree and confines the B image to a
-renderer — the cleanest split for the build-from-source rule.
+Design note — **superseded by phase 3c**: B **decodes** with our from-source
+codecs and is the PCM-ring producer; the **AP renders** it (DAC/I2S bring-up +
+the TX-empty IRQ feeder) and serves B's file reads over the A→B file rings.
+Codec code thus stays in our portable, host-testable tree, while the B image
+carries the decoders + `rg_math.c` + the shared `workbuf`.
 
 ## 4. Codec vendoring plan (architecture.md §4: prefer open-source C)
 
@@ -257,26 +256,39 @@ it. Cover with a >48 s fixture whenever adding a conversion.
 ```
 firmware/player/
 ├── player.h            public API: track_info_t, states, events, calls
-├── player.c            state machine + codec registry + ring pump
+├── player.c            state machine + codec registry + ring pump + hand-off
+├── playlist.h/.c       playback list (indices, shuffle, repeat, peek/advance)
 ├── codec.h             codec_t interface (build-from-source codecs)
 ├── codec_io.h          byte-source seam (read/seek/tell/size)
 ├── codec_io_stdio.c    stdio backend (host + newlib target)
-├── codec_wav.c         FULL WAV/RIFF PCM decoder (ours, reference codec)
-├── codec_mp3_stub.c    minimp3 adapter scaffold (TODO vendoring)
-├── codec_flac_stub.c   dr_flac adapter scaffold (TODO vendoring)
-├── ipc_b.h             A<->B audio IPC contract + shared-block layout
+├── codec_io_fs.c       fs.h backend (target: SD/eMMC)
+├── ipc_shared.h        authoritative shared block + file-ring map
+├── ipc_b.h             A<->B audio IPC API (target + mock share it)
 ├── ipc_b_mock.c        host: simulated B core (ring consumer + sink hook)
 ├── ipc_b_mock.h        host-only test knobs (tick rate, sink, fault)
-├── ipc_b_target.c      target: shared block @0x01020000 + supervisor
+├── ipc_b_target.c      target: shared block @0x01020000 + supervisor + feeder
+├── bfs.h/.c            A-side file service (current + pre-open rings, promote)
 ├── ringbuf.h/.c        lock-free SPSC ring (PCM streaming)
+├── rg_math.h/.c        ReplayGain dB->linear + PCM scaler
+├── tags.h/.c           ID3v2 / Vorbis tags + ReplayGain
 ├── player.mk           build fragment (root Makefile includes it)
+├── codecs/             one file per codec + vendored trees
+│   ├── codec_registry.h/.c extension -> codec_t dispatch
+│   ├── wav.c           FULL WAV/RIFF PCM decoder (ours)
+│   ├── mp3.c           minimp3 adapter (Xing/LAME gapless + RG)
+│   ├── flac.c          dr_flac adapter (workbuf pool + prescan + RG)
+│   ├── minimp3/        vendored (CC0-1.0, pinned) + LICENSE
+│   └── dr_flac/        vendored (MIT-0, pinned) + LICENSE
 └── tests/
     ├── run_tests.sh    cc -Wall -Werror build + run of all tests
     ├── test_util.h     PASS/FAIL harness (dsp-tests style)
     ├── mock_codec.c/.h scripted codec (sine-like generator + failures)
     ├── test_ringbuf.c  wrap / overflow / underflow / counter wrap
     ├── test_codec_wav.c WAV golden test (synthesized sine, exact match)
+    ├── test_playlist.c playlist / shuffle / repeat
     ├── test_player_state.c state machine transitions + queue + errors
+    ├── test_player_gapless.c trim, continuity, Core-B hand-off, repeat
+    ├── test_codec_flac.c / test_codec_mp3.c / test_tags.c codec goldens
     └── test_ipc_mock.c end-to-end: play -> B consumes -> position advances
 ```
 

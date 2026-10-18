@@ -23,14 +23,20 @@
   codec_t  (self-describing vtable: codecs/{wav,mp3,flac}.c + codec_registry)
         |  interleaved int32 PCM frames (left-justified to 32 bits)
         v
-  player.c state machine  --ipc_b ring->  B core (RKnanoD SDK audio) -> DAC/I2S
-        |                                  B started @400 MHz -> /4 (100 MHz)
-  dsp/mod_volume.c (AP-side gain: user volume + ReplayGain pre-attenuation)
+  player.c state machine  --PCM ring--> Core B (our from-source decoder)
+        |                                  (B produces the ring; the AP's I2S
+  player/rg_math.c (user volume            TX ISR feeds it to the DAC)
+                    + ReplayGain)
 ```
 
 Two cores, strict boundary:
-- **A core (AP, our fw1):** UI + decode + tags + gapless + gain. This workstream.
-- **B core (SDK):** PCM ring consumer -> DAC. Hardware-close; changed last.
+- **A core (AP, our fw1):** UI, filesystem, decode fallback, tags, gapless,
+  gain, the DAC/I2S bring-up, and the I2S TX ISR that drains the PCM ring. It
+  also serves Core B's file reads over the A→B file rings (`bfs`).
+- **B core (ours since phase 3c, `firmware/bb/`):** decodes the track and
+  produces the PCM ring. Note: the target reports `clock_div = 1` unconditionally
+  (`ipc_b_target.c`) — the "/1 → /4 clock negotiation" seen in older notes is
+  **host-mock only**; there is no negotiation on hardware.
 
 The reference's `ECHOLOG.TXT` is the contract we match:
 `B: boundary to track N: FLAC 44100 Hz, ~5840 frames queued (gapless)` and
@@ -62,10 +68,15 @@ firmware/player/
 ├── codec_io_stdio.c    stdio backend (host + newlib target)  <-- host only
 ├── codec_io.c          shared cio_* dispatch (open lives in the backend)
 ├── codec_io_fs.c       fs.h backend (target: SD/eMMC)  <-- DONE
-├── ipc_b.h             A<->B audio IPC contract + shared block @0x01020000
+├── ipc_b.h             A<->B audio IPC API (the shared-block LAYOUT lives in
+│                       ipc_shared.h: PCM ring 64 KiB, file ring 32 KiB +
+│                       pre-open ring 16 KiB, IPC_C_*/IPC_SH_* words)
+├── ipc_shared.h        authoritative shared-block + file-ring map
+├── bfs.h/.c            A-side file service (rings, pre-open, promote)
+├── playlist.h/.c       playback list (indices, shuffle, repeat)
 ├── ipc_b_mock.c        host simulated B core
 ├── ipc_b_target.c      target shared block + supervisor
-├── ringbuf.h/.c        SPSC lock-free ring (PCM streaming, 32 KiB)
+├── ringbuf.h/.c        SPSC lock-free ring (PCM streaming, 64 KiB)
 ├── rg_math.c/.h        ReplayGain dB->linear + PCM scaler (Q1.15)  <-- DONE
 ├── tags.c/.h           ReplayGain + ID3v2 TXXX / Vorbis parse  <-- DONE
 ├── player.mk           build fragment
@@ -181,16 +192,16 @@ firmware/player/
    implementation TUs and self-describing `codec_t`s (registry extracted to
    `codecs/codec_registry.c`). MP3: Xing/Info + LAME gapless (+528+1),
    CBR fallback, TOC seek, ID3v2 RG, ID3v1 tail salvage. FLAC: metadata
-   pre-scan (RG + SEEKTABLE budget), static 56 KiB pool for
-   DRFLAC_MALLOC/REALLOC/FREE, deterministic UNSUPPORTED over budget,
-   frame-accurate seek. Host tests synthesize both formats byte-exactly
-   (crafted MP3 frames; VERBATIM-subframe FLAC lossless golden). RAM:
-   ring 64K→32 KiB, `PLAYER_CODEC_STATE_MAX`→7168 (codec.h). Packer
-   (`is_header_shadow`) + Makefile (`build/cfw/*.d` deps) fixes landed in
-   the same pass — see HANDOVER m6c.
+   pre-scan (RG + SEEKTABLE budget), decode pool = the shared **workbuf**
+   (`WORKBUF_BYTES` 80,896 B) for DRFLAC_MALLOC/REALLOC/FREE, deterministic
+   UNSUPPORTED over budget, frame-accurate seek. Host tests synthesize both
+   formats byte-exactly (crafted MP3 frames; VERBATIM-subframe FLAC lossless
+   golden). RAM: PCM ring 64 KiB, `PLAYER_CODEC_STATE_MAX` 7296 (codec.h).
+   Packer (`is_header_shadow`) + Makefile (`build/cfw/*.d` deps) fixes landed
+   in the same pass — see HANDOVER m6c.
 
 7. **DAC renderer — DONE.** The PCM ring feeds I2S1 → CS43131 through the
-   TX-empty IRQ feeder (`firmware/audio/rknano_i2s.c`), and since phase 3c the
+   TX-empty IRQ feeder (`firmware/drivers/rknano_i2s.c`), and since phase 3c the
    ring is produced by **Core B** (the AP keeps the DAC bring-up and the
    feeder). Full plan + evidence in **`docs/rewrite/dac.md`**; the reference
    sequence is documented in `docs/re/dac-output-path.md`. Superseded note:

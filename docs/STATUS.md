@@ -30,28 +30,40 @@ The project is now a **from-source fw1 + our own Core B image** that boots and
 plays audio on hardware:
 
 - **Audio**: Core B decodes FLAC/MP3/WAV; the AP does the DAC/I2S bring-up,
-  serves the track bytes over the A→B file ring (`bfs`) and drains the PCM ring
-  in its I2S TX ISR. Verified: 16/44.1 and 24-bit 88.2/96 kHz clean; a slight UI
-  lag remains. Track changes hand the next file to Core B on the **live ring**
-  (BRNOMT-73, `ipc_b_next`) — implemented + host-tested, hardware verdict
-  pending.
+  serves the track bytes over the A→B file rings (`bfs`) and drains the PCM ring
+  in its I2S TX ISR. Verified: 16/44.1 and 24-bit 88.2/96 kHz clean. Note that
+  **96 kHz halves every time budget** (64 KiB PCM ring ≈ 74 ms of cover, TX-FIFO
+  refill margin ≈ 0.15 ms) — occasional crackles on 96k material are still being
+  chased.
 - **UI/library**: menus, browser, iterative media index (depth-capped, one
   scratch claim), Album/Artist/Genre/Year/Label/Album Artist/Composer, All
-  Songs; Now Playing shows bit depth/rate (`16/44.1kHz`) and the list position
-  (`i/N`). The index format is **v3** (BRNOMT-92: global CRC covering the header,
-  strict UTF-8 text) — an index built by an older firmware is ignored, so
-  **rebuild it once from the menu** after flashing.
+  Songs; Now Playing shows bit depth/rate (`16/44.1kHz`), the list position
+  (`i/N`) and the repeat/shuffle mode (`R:one`, ` S`). Names sort
+  **case-insensitively** and paths are stored whole up to **208 chars**. The
+  index format is **v3** (BRNOMT-92: global CRC covering the header, strict
+  UTF-8 text, dual `INDEX.A`/`INDEX.B` slots) — an index built by an older
+  firmware is ignored, so **rebuild it once from the menu** after flashing.
 - **Playback lists**: album/genre/folder queue with Rockbox-style shuffle and
-  repeat off/all/one (config keys `shuffle`, `repeat_mode`; 14-key schema).
+  repeat off/all/one (config keys `shuffle`, `repeat_mode`; 14-key schema),
+  applied to the player immediately and preserved when a new list starts.
 - **Memory** (vendor `B_Core.sct` + TRM): B code in HIGHRAM0
-  `0x01000000..0x01020000`; PCM ring `0x01030000`; A→B file ring `0x01021000`;
-  B data/pool/stack `0x01040000..0x01060000`.
-- **Gapless on B (BRNOMT-73)**: implemented + host-tested — at B's decoder EOF
-  the AP hands the next same-format track to B on the live ring
-  (`ipc_b_next` → `IPC_C_NEXT`, no DAC/ring restart); the B command channel is
-  sequence-numbered. **Hardware verdict pending.**
-- **Open**: 192 kHz / FLAC block 16384 (~143 KB window), 384 kHz, and DSP in the
-  playback path.
+  `0x01000000..0x01020000`; control block `0x01020000`; A→B file ring
+  `0x01021000` (32 KiB) + **pre-open ring** `0x01029000` (16 KiB); PCM ring
+  `0x01030000` (64 KiB); B data/pool/stack `0x01040000..0x01060000`. The
+  authoritative layout is `firmware/player/ipc_shared.h`.
+- **Gapless on B (BRNOMT-73)**: **verified on device for same-format tracks**.
+  At B's decoder EOF the AP hands the next track to B on the live ring
+  (`ipc_b_next` → `IPC_C_NEXT`, no DAC/ring restart) with no AP-side storage
+  access on the boundary: the next file is pre-opened ~3 s earlier, its codec is
+  opened and kept as `pending`, its index→path resolution is cached, and its
+  FLAC prescan geometry is published so B skips its own header walk. A **format
+  change** stays a hard boundary by design (the DAC must re-lock) — expect a
+  short pause on albums that mix rates/depths.
+- **Power**: on battery the power hold cuts the PMIC rail (a real off); with
+  USB/VBUS the host keeps the SoC powered, so "off" **parks** (dark + silent +
+  charging) and a power press wakes the UI.
+- **Open**: 96k margins (above), 192 kHz / FLAC block 16384 (~143 KB window),
+  384 kHz, and DSP in the playback path (sources exist, not linked).
 - **History**: everything below is dated notes from the reverse-engineering and
   bring-up phases; kept for provenance (some statements are superseded).
 
@@ -131,6 +143,13 @@ reply to the AP's commands, menus stop freezing and we get a working
 navigation → then real drivers + DSP.
 
 ### Makefile targets
+
+> **SUPERSEDED — see "Current status" above.** The live build is the clean-room
+> AP image: `make cfw-ap` → `build/cfw/rechord_ap.elf`, `make cfw-img` →
+> `build/ReChord_AP.IMG` + **`build/ReChord_AP5M.IMG`** (the one to flash),
+> `make build-bb` / `make link-bb` for section_3, and `make release` for the
+> stock-AP + custom-BB fallback. Everything below is the older hybrid path, kept
+> for provenance only.
 
 ```
 make build-ap      # compile AP (fw1) 187 objects -> build/ap/objs/

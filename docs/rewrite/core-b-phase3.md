@@ -1,8 +1,11 @@
 # Core B phase 3 — decode on B (BRNOMT-68)
 
-> Status: **design** (not implemented). Phase 2 is hardware-verified: 96k/88.2k
-> play without crackles and the 64 KiB shared ring fixed the stutter. Phase 3
-> is the architectural completion: B owns decode + render, A keeps UI/input/FS.
+> Status: **implemented** (phase 3c — see §8, and §9 for the gapless hand-off).
+> Phase 2 is hardware-verified (96k/88.2k play without crackles; the 64 KiB
+> shared ring fixed the stutter). Phase 3 was the architectural completion: B
+> owns decode, A keeps UI/input/FS, the DAC bring-up and the I2S render. §2–§7
+> are the original design notes, kept for provenance — where they disagree with
+> the code, `firmware/player/ipc_shared.h` and §8/§9 win.
 
 ## 1. Why
 
@@ -65,15 +68,16 @@ So Core 1 runs code from HIGHRAM0 and keeps its **data + stack in
 proves it reaches that region — it reads the control block at `0x01020000`
 every poll in phase 2.
 
-**Layout now used** (bb.ld + ipc_shared.h):
+**Layout now used** (`ipc_shared.h` is authoritative; `bb.ld` mirrors it):
 
 | range | use |
 |---|---|
-| `0x01000000..0x01010000` | B code (64 KiB) + .data LMA |
-| `0x01010000..0x01020000` | PCM ring (B) |
+| `0x01000000..0x01020000` | B code (HIGHRAM0, 128 KiB) + .data LMA |
 | `0x01020000..0x01021000` | control block (shared) |
-| `0x01021000..0x01029000` | A→B file ring (shared) |
-| `0x01031000..0x01060000` | B .data + .bss (pool) + stack |
+| `0x01021000..0x01029000` | A→B file ring, "current" (32 KiB) |
+| `0x01029000..0x01030000` | A→B file ring, "pre-opened next" (16 KiB) |
+| `0x01030000..0x01040000` | PCM ring (64 KiB, produced by B) |
+| `0x01040000..0x01060000` | B .data + .bss (decode pool) + stack |
 
 Negative result kept for the record: `822761d` put B's SP at `0x03090000`
 and broke playback (stuck at 0:00) — SYSRAM1 is not Core-1-reachable as
@@ -81,11 +85,17 @@ assumed; reverted in `cb95438`.
 
 ## 4. IPC and the file-service boundary (FS stays on A)
 
-- **A→B commands** (control block + mailbox/doorbell or polling):
-  `OPEN(path, format)`, `PLAY`, `PAUSE`, `STOP`, `SEEK(ms)`, `VOLUME(db)`,
-  `TRACK(length)`.
-- **B→A file requests**: `OPEN`, `READ(off,len)`, `SEEK`, `TELL`, `SIZE`,
-  `CLOSE` — A owns the FS and the file handle.
+- **A→B commands** (as shipped — `ipc_shared.h`, all polling, no doorbell):
+  `IPC_C_OPEN` (ARG = codec id), `IPC_C_NEXT` (gapless reopen over the live
+  ring), `IPC_C_SEEK`, `IPC_C_CLOSE`, each gated by the `IPC_C_SEQ`/`IPC_C_ACK`
+  handshake; run/pause/idle come from `IPC_SH_STATE`. There is no
+  `PLAY/PAUSE/STOP/VOLUME/TRACK` opcode — gain and trim travel as published
+  words (`IPC_C_RG`, `IPC_C_GAP_*`).
+- **B→A file "requests":** B does **not** round-trip per operation. A owns the
+  handle and fills a shared ring; B consumes bytes from it and only *requests a
+  seek* (`IPC_F_SEEK_TO` + `IPC_F_SEEK_SEQ` → A copies `IPC_F_SEEK_ACK`). EOF and
+  failures are published as flags (`IPC_F_EOF`, `IPC_F_OPEN`); a read that can
+  never be refilled is bounded and counted (`IPC_C_BSTALL`).
 - **Read-ahead**: A prefetches into a shared file ring ahead of B's cursor so
   a read does not round-trip per chunk. B's `codec_io` copies from that ring;
   it only stalls when the ring is empty (A must keep it ahead).
@@ -138,8 +148,9 @@ One core does decode + render; they must interleave:
 - **Fallback.** If B does not ACK the OPEN handshake, the AP decodes exactly as
   phase 2 (`ipc_b_ring_fill`); audio never breaks because of the handoff.
 - **Memory.** B code in HIGHRAM0 `0x01000000..0x01020000` (blob ~65 KiB,
-  embedded in fw1 — FW_CODE enlarged to `0x3C000`); PCM ring `0x01030000`; file
-  ring `0x01021000`; B data/pool/stack `0x01040000..0x01060000`.
+  embedded in fw1 — FW_CODE enlarged to `0x3C000`); control block `0x01020000`;
+  file ring `0x01021000` (32 KiB) + **pre-open ring** `0x01029000` (16 KiB); PCM
+  ring `0x01030000` (64 KiB); B data/pool/stack `0x01040000..0x01060000`.
 - **PCM post-processing on B:** ReplayGain (Q16 gain in `IPC_C_RG`, re-synced
   on mode changes) and the gapless trim (`IPC_C_GAP_DELAY/PAD/TOTAL`) are
   applied in B's decode loop, mirroring the previous AP logic; B links
@@ -158,3 +169,34 @@ the AP pumping). BRNOMT-68 can be closed as far as this phase goes.
 DFIU: incident `6d0ae36b` (Library → All Songs cut) **verified_resolved**
 (effective pass, reproduction, 2026-10-17). Logged-out item: a slight lag
 remains (accepted, not blocking).
+
+## 9. Gapless hand-off (BRNOMT-73) — how the next track reaches B
+
+Verified on device for **same-format** tracks (same rate / channels / bit
+depth); a format change stays a hard boundary because the DAC must re-lock.
+
+- **Second file ring.** Besides the 32 KiB "current" ring, A keeps a 16 KiB
+  **pre-open** ring (`IPC_FILE2_BASE`). ~3 s before the end of a track it opens
+  the next file into it (`bfs_preopen`) and streams its head there.
+- **Pending open (A side).** In the same window the AP opens the next track's
+  codec (`preopen_next_codec`, `player.c`) and keeps its metadata in `pending_*`
+  while `g.track`/`g.fmt` still describe the playing track (Now Playing must not
+  jump ~3 s early). The index→path resolution is cached too (`peek_*`), so the
+  boundary performs no media-DB lookup either.
+- **Prescan hand-off.** A publishes the FLAC geometry it discovered
+  (`IPC_C_PRE_*`, via `codec_t.prescan_info` → `ipc_b_set_prescan`). B installs
+  a reader (`b_prescan_read`) and `flac_open()` skips its own `flac_prescan()`
+  when the values are present and plausible — that walk is a seek round-trip per
+  metadata block and used to sit inside the boundary.
+- **The boundary.** At B's decoder EOF the AP promotes the pre-open ring
+  (`bfs_promote`, which also clears the retired ring's `OPEN`) and sends
+  `IPC_C_NEXT` with `IPC_C_RING`; B reopens its codec reading the ring already in
+  RAM. Nothing is stopped — the PCM ring (64 KiB ≈ 162 ms at 44.1k) covers B's
+  ~90 ms reopen. The boundary pass issues the command *before* the ring refill
+  and the app event, so neither delays the reopen.
+- **Failure is safe.** If the pre-open does not match the resolved path (the
+  list changed under us), `ipc_b_next()` returns -1 and the caller takes the hard
+  path instead of playing the wrong file.
+- **96 kHz.** Every budget above halves at 96k (PCM cover ≈ 74 ms, TX-FIFO
+  refill margin ≈ 0.15 ms), so the boundary and the feeder are tight there —
+  tracked separately in HANDOVER/STATUS.

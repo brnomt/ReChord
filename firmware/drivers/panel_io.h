@@ -3,7 +3,7 @@
  *
  * The display driver speaks to the panel only through these five calls,
  * so the same driver code runs:
- *   - on target:   panel_io_rknanoc.c (RKNanoC VOP MCU register interface),
+ *   - on target:   panel_io_rknanoc.c (GPIO bit-bang panel interface),
  *   - on the host: panel_io_sim.c (simulated DCS panel, writes PPM files),
  * making every display/font behavior unit-testable with `cc`.
  *

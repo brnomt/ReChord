@@ -17,24 +17,36 @@ byte-mod of the stock binary.
 > **Work in progress.** ReChord is experimental, but no longer silent: the
 > from-source fw1 boots, the UI/library work, and audio plays from 16/44.1 up to
 > **24-bit / 96 kHz** — Core B decodes and the AP drives the CS43131 DAC.
-> Gapless across tracks, the 192 kHz edge case (FLAC block 16384) and the DSP
-> chain are still in progress. Driver/hardware changes must be verified on
-> physical hardware before merge.
+> Track-to-track **gapless works within one format** (same rate / channels /
+> depth); a format change stays a **hard boundary by design**, because the DAC
+> has to re-lock (an album that mixes rates, e.g. 96k and 44.1k, will show a
+> short pause there). Still open: the 192 kHz edge case (FLAC max_block 16384
+> needs a ~143 KB decode window) and the DSP chain. Driver/hardware changes must
+> be verified on physical hardware before merge.
 
 ## What works today
 
 - **Boots standalone** — ROM → our reset → our `Main`; the stock AP layer is gone.
-- **UI** — menus, keys, file browser over eMMC + microSD (FAT16/32/exFAT), themes.
-- **Storage & USB** — eMMC read/write, microSD read, USB mass storage, self-updater.
+- **UI** — menus, keys, file browser over eMMC + microSD (FAT16/32/exFAT), themes,
+  Now Playing with position/duration, stream format, `i/N` and the repeat/shuffle
+  mode, plus list wrap-around and cursor memory.
+- **Storage & USB** — eMMC read/write, microSD read, USB mass storage,
+  self-updater. With a cable in, "off" parks the player (dark + silent + still
+  charging) and a power press wakes it — the rail cut only works on battery.
 - **Audio** — Core B decodes **FLAC / MP3 / WAV**; the AP owns the DAC/I2S
   bring-up and feeds the CS43131 from a shared PCM ring.
 - **Hi-res** — int32 left-justified end-to-end, source bit depth reported to the
   DAC; 24-bit at 44.1/48/88.2/96 kHz verified on device.
-- **Library** — recursive media index + Album / Artist / Genre / Year / Label /
-  Album Artist / Composer and **All Songs**.
+- **Library** — recursive media index (v3, dual `INDEX.A`/`INDEX.B` slots with a
+  CRC-checked commit) with Album / Artist / Genre / Year / Label / Album Artist
+  / Composer and **All Songs**; names sort case-insensitively, paths up to 208
+  chars. A reindex is only needed when the layout changes.
 - **Playback lists** — playing a song inside a list queues that list, shows
-  **`i/N`**, auto-advances, with Rockbox-style **shuffle** and
-  **repeat off/all/one**.
+  **`i/N`**, auto-advances, with Rockbox-style **shuffle** (reorders the list)
+  and **repeat off/all/one**, both persisted in `rechord.cfg`.
+- **Diagnostics** — a RAM log that persists itself (append + rotate at 32 KiB,
+  written when there is news, at most every 30 s) so a session can be read back
+  without plugging the USB cable.
 
 ## Architecture
 
@@ -43,23 +55,27 @@ The Echo Mini is a **dual Cortex-M3** (RKnanoD). ReChord ships a from-source
 
 ```
                 shared memory (0x0102xxxx..0x0106xxxx)
-  ┌───────────────┐   A→B file ring   ┌──────────────────┐
+  ┌───────────────┐   A→B file rings  ┌──────────────────┐
   │  fw1  (AP)    │ ───────────────▶ │  Core B (CAL_M3) │
-  │  UI/services  │                   │  FLAC/MP3/WAV    │
-  │  DAC / I2S    │ ◀─────────────── │  decoder         │
-  └───────┬───────┘   PCM ring        └──────────────────┘
-          │
+  │  UI/services  │   (current +     │  FLAC/MP3/WAV    │
+  │  DAC / I2S    │    pre-opened)   │  decoder         │
+  └───────┬───────┘ ◀─────────────── └──────────────────┘
+          │           PCM ring (64 KiB)
           ▼
      CS43131 DAC  →  headphones
 ```
 
 | Part | Role |
 |------|------|
-| **fw1 (AP)** | Boot, UI, services, filesystem, player state machine, DAC/I2S bring-up, I2S TX-IRQ feeder |
-| **Core B** | Decodes the track (our codecs) and produces the PCM ring; data/pool live in its own memory region |
+| **fw1 (AP)** | Boot, UI, services, filesystem, player state machine, DAC/I2S bring-up, I2S TX-IRQ feeder that drains the PCM ring |
+| **Core B** | Decodes the track (our codecs) and produces the PCM ring; data/pool/stack live in its own memory region |
 | **Mask ROM** | Fixed hardware HAL (LCD, I2S, DAC, USB, keys) — not replaced; it is the "BIOS" our code calls |
 
-Details: [`docs/rewrite/core-b-phase3.md`](docs/rewrite/core-b-phase3.md) ·
+At a track boundary the AP hands Core B the next file **without stopping the
+stream**: the next file is pre-opened into a second file ring ~3 s before the
+end (with its codec opened and its FLAC prescan geometry published), and the
+boundary is a `NEXT` command over the live ring. Details:
+[`docs/rewrite/core-b-phase3.md`](docs/rewrite/core-b-phase3.md) ·
 [`docs/rewrite/audio.md`](docs/rewrite/audio.md) ·
 [`docs/rewrite/player.md`](docs/rewrite/player.md).
 
@@ -79,18 +95,24 @@ Details: [`docs/rewrite/core-b-phase3.md`](docs/rewrite/core-b-phase3.md) ·
 | Hi-res 24-bit @ 44.1/48/88.2/96 kHz | ✅ |
 | Library index + category navigation | ✅ |
 | Playback lists, `i/N`, shuffle, repeat | ✅ |
-| Gapless between tracks (Core B, BRNOMT-73) | 🟡 implemented + host-tested, HW verdict pending |
-| 192 kHz (FLAC block 16384) | ⬜ needs a ~143 KB decode window |
+| Gapless between **same-format** tracks (Core B, BRNOMT-73) | ✅ verified on device |
+| **Format-change** boundary | hard by design (DAC re-lock, ~200 ms) |
+| 96 kHz margins (ring cover, FIFO refill) | 🟡 every time budget halves at 96k; occasional crackles under investigation |
+| 192 kHz (FLAC block 16384) | ⬜ rate is in the table; needs a ~143 KB decode window (the workbuf is 80,896 B) |
 | 384 kHz | ⬜ not in the rate table / untested |
-| DSP effects in the playback path | 🟡 core written + host-tested |
+| DSP effects in the playback path | 🟡 sources + host tests exist; **not linked into the AP image** |
+| RMF1 module loader | 🟡 host-tested; later milestone |
 
 ## Build & test
 
 ```bash
-# Host tests (player: codecs/playlist/gapless/ReplayGain · UI · services)
+# Host tests (player: codecs/playlist/gapless/ReplayGain · UI · services ·
+# drivers · modules)
 sh firmware/player/tests/run_tests.sh
 sh firmware/ui/tests/run_tests.sh
 sh firmware/services/tests/run_tests.sh
+sh firmware/drivers/tests/run_tests.sh
+sh firmware/modules/tests/run_tests.sh
 
 # Clean-room AP image (UI + player + Core B decoder) → flashable IMGs
 make cfw-ap        # build/cfw/rechord_ap.elf
@@ -112,20 +134,26 @@ power-cycle. Full procedure: [`docs/FLASHING.md`](docs/FLASHING.md). Recovery:
 ```
 firmware/rockchip/            # Rockchip RKnanoD SDK (source + codec .lib)
   ├── bbsystem/               # kernel base (Main2, CRU, DMA, interrupt, ...)
-  ├── system/                 # OS, fileseek, module_overlay, sysservice
+  ├── system/                 # OS, fileseek, module_overlay, sysservice, debug
   ├── audio/                  # AudioControl, Effect (EQ/DSP), codecs
   └── include/                # ReChord integration headers (armcc compat, etc.)
 firmware/                     # our from-source layer
-  ├── startup/                # fw1 boot (ap_startup, vectors, UI loop)
-  ├── ui/                     # screens (menu, browser, player, settings)
-  ├── services/               # settings, log, input, FAT/exFAT fs, fw_update
-  ├── drivers/                # panel, eMMC, SD (DW-MMC), USB MSC, input
-  ├── player/                 # engine: player.c, playlist.c, ipc_b*, codecs/
-  │   └── codecs/             #   minimp3 + dr_flac vendored (CC0 / MIT-0)
-  ├── bb/                     # Core B image: decoder + codec_io over the file ring
-  ├── audio/                  # DAC/I2S HAL: CS43131 + rknano_i2s + TX-IRQ feeder
-  ├── dsp/                    # effect modules (EQ, bass, volume) — host-tested
-  └── theme/                  # theme data + loader
+  ├── startup/                # AP boot: ap_startup/ap_main/ap_ui + vectors + UI loop
+  ├── app/                    # clean-room app/registry glue (host-tested wiring)
+  ├── ui/                     # screens (menu, browser, player, settings, library)
+  ├── services/               # settings, log, input, FAT/exFAT fs, media index,
+  │                           #   store, fw_update
+  ├── drivers/                # panel, eMMC, SD (DW-MMC), USB MSC/CDC, I2S, DAC
+  ├── player/                 # engine: player.c, playlist.c, bfs.c, ipc_*, codecs/
+  │   └── codecs/             #   wav + minimp3 + dr_flac vendored (CC0 / MIT-0)
+  ├── bb/                     # Core B image: decoder + codec_io over the file rings
+  ├── bb_stub/                # minimal section_3 stub image (bb-stub target)
+  ├── audio/                  # DAC/I2S HAL: CS43131 + rate table + TX-IRQ feeder
+  ├── dsp/                    # effect modules (EQ, bass, volume) — not linked yet
+  ├── modules/                # RMF1 module loader/registry — later milestone
+  ├── theme/                  # theme data + loader
+  ├── libc/                   # freestanding libc (mem/str/stdio/math shims)
+  └── (dev trees: hook, qemu, mb1, config, util)
 tools/                        # build, analyze, pack scripts
 docs/                         # HANDOVER (start here), STATUS, re/, rewrite/
 stock/                        # official firmware backups (not distributed)
@@ -142,12 +170,14 @@ stock/                        # official firmware backups (not distributed)
 - [x] **Core B decodes** (phase 3c) — the AP keeps the DAC and file service
 - [x] **Hi-res path**: int32 end-to-end, source depth to the DAC
 - [x] **Library**: recursive index + category navigation + All Songs
-- [x] **Playback lists**: queue, `i/N`, shuffle, repeat
-- [ ] **Gapless on Core B** — implemented + host-tested (BRNOMT-73); the AP hands
-      the next track to B on the live ring (`ipc_b_next` + `IPC_C_NEXT`) instead
-      of restarting the stream. Awaiting the on-device verdict.
+- [x] **Playback lists**: `i/N`, shuffle, repeat (+ persistence)
+- [x] **Gapless between same-format tracks** on Core B — verified on device; a
+      format change stays a hard boundary (the DAC must re-lock)
+- [ ] **96 kHz margins** — 96k halves the ring cover and the TX-FIFO refill
+      margin; occasional crackles there are still being chased
 - [ ] **192 kHz** (bigger decode window) and **384 kHz**
-- [ ] **DSP effects** in the playback path
+- [ ] **DSP effects** in the playback path (sources exist; not linked)
+- [ ] **RMF1 modules** (loader host-tested; later milestone)
 
 ## Documentation
 

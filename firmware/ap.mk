@@ -166,9 +166,11 @@ AP_INCLUDE_DIRS := \
   firmware/theme
 
 # ---- flags -------------------------------------------------------------
-# Mirrors the BB build exactly (Makefile: ARCH_FLAGS + COMMON_FLAGS +
-# AP_CFLAGS), i.e. the SDK-era warning leniency set, -ffunction-sections /
-# -fdata-sections / -fcommon, and the force-included armcc_compat.h.
+# SUPERSEDED: the root Makefile defines AP_CFLAGS *after* including this file
+# (Makefile "AP_CFLAGS :="), and every rule uses that definition — so the block
+# below is only a fallback and must not disagree with it. In particular
+# LOG_BUFFER_LINES is owned by the Makefile (currently 48; the 12 here was a
+# stale duplicate that once shadowed nothing but read as if it applied).
 AP_ARCH_FLAGS := -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
 
 AP_CFLAGS := $(AP_ARCH_FLAGS) -Os -Wall \
@@ -178,7 +180,7 @@ AP_CFLAGS := $(AP_ARCH_FLAGS) -Os -Wall \
   -Wno-return-mismatch -Wno-int-conversion -Wno-return-type \
   -ffunction-sections -fdata-sections -MMD -MP -fcommon \
   -DRECHORD_AP_BUILD \
-  "-DLOG_BUFFER_LINES=12" \
+  "-DLOG_BUFFER_LINES=48" \
   $(addprefix -I,$(AP_INCLUDE_DIRS)) \
   -include firmware/rockchip/include/armcc_compat.h
 

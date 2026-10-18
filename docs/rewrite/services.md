@@ -17,17 +17,27 @@ data-format description.
 
 ```
 firmware/services/
-├── settings.h / settings.c   12-key \RECHORD.CFG parser/serializer
-├── log.h / log.c             ring-buffered timestamped logger
+├── settings.h / settings.c   14-key key=value settings service (default path
+│                             /Internal/.rechord/rechord.cfg)
+├── log.h / log.c             ring-buffered timestamped logger (self-flushing:
+│                             30 s / 32 lines, append + rotate at 32 KiB)
 ├── input.h / input.c         key event queue + ADC threshold mapping
 ├── fs.h                      minimal storage abstraction (one backend per image)
 ├── fs_host.c / fs_host.h     HOST backend (POSIX real filesystem; tests/tools)
-├── fs_target.c               TARGET backend — TODO stub for the SDK FAT stack
+├── fs_target.c               TARGET backend — read-only FAT16/FAT32(LFN)/exFAT
+│                             (fs_seek, fs_patch dirent-size); writes via store.c
+├── store.h / store.c         raw-sector store (in-place file rewrites)
+├── media_db.h / media_db.c   media index (v3: dual A/B slots + CRC commit)
+├── media_scan.c              iterative directory walk (depth-capped)
+├── media_query.c             sorted category/All Songs queries (case-insensitive)
+├── settings_store.c          settings <-> on-disk persistence glue
+├── rechord_files.c           /.rechord bootstrap (cfg + state + index)
+├── fw_update.h / fw_update.c self-updater (scan, install, retire)
 ├── scratch.h / scratch.c     shared working region (USB MSC / media index)
 ├── workbuf.h / workbuf.c     shared region for the mutually-exclusive heavy
 │                             users that must NOT share scratch (FLAC decode
 │                             pool / mp3 buffers / fw_update staging)
-├── services.mk               build fragment for the root Makefile (not yet included)
+├── services.mk               build fragment (included by the root Makefile)
 └── tests/                    host tests (cc -Wall -Werror), run_tests.sh runner
 ```
 
@@ -68,7 +78,9 @@ Return codes: `SETTINGS_OK 0`, `SETTINGS_ERR_ARG -1`, `SETTINGS_ERR_OPEN -2`
 (file missing — defaults are still applied), `SETTINGS_ERR_IO -3`,
 `SETTINGS_ERR_FULL -4` (serialize buffer too small).
 
-Config path: `SETTINGS_PATH` = `"\\RECHORD.CFG"` (compile-time overridable).
+Config path: `SETTINGS_PATH` = `"/Internal/.rechord/rechord.cfg"` (default in
+`settings.h`; compile-time overridable). The 14-key schema is in
+`firmware/ui/settings_schema.c`; the `\RECHORD.CFG` root name is legacy.
 
 ### 3.2 log.h
 
