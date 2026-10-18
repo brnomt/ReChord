@@ -13,7 +13,7 @@ mkdir -p .work
 
 # The mocks replace the hardware/player/settings seams (mock_services.c is
 # the link seam for player_*/settings_*; mock_display.c captures draws).
-$CC $CFLAGS -I.. -I../.. -I../../services -o .work/ui_tests \
+$CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
     main.c test_screen_stack.c test_ui_redraw.c test_menu_nav.c \
     test_settings_keys.c test_browser_pagination.c \
     ../ui.c ../screens/*.c ../settings_schema.c \

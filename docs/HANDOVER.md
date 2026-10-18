@@ -3886,3 +3886,31 @@ happens — orders of magnitude below the endurance budget. `LOG_FLUSH_MS` is th
 single knob to trade forensics freshness against writes.
 
 All host suites green. AP5M CRC `0x803A9E25`, packer `RESULT: PASS`. Not flashed.
+
+## BE. Session 2026-10-18 — BRNOMT-90: repeat verified end to end + mode indicator
+
+Field report: with repeat set to "one" the track still changed. Walked the whole
+chain instead of guessing:
+
+- schema options are `off=0 / all=1 / one=2` — exactly `PLAYLIST_REPEAT_*`, so no
+  value skew (`settings_schema.c`);
+- the row handlers line up with the displayed rows (Settings is schema-ordered),
+  and `on_select_13` really is `repeat_mode`;
+- `playlist_reset()` / `playlist_load()` preserve `repeat`/`shuffle`, so starting
+  a list (Library or browser) does NOT wipe the mode;
+- both end-of-track paths (Core B and the AP fallback) advance through
+  `advance_playlist()` -> `playlist_advance()`, which honours REPEAT_ONE
+  (replay), REPEAT_ALL (wrap) and OFF (stop);
+- new host test `test_repeat_modes` proves it: ONE replays t0, ALL wraps
+  last->first, OFF stays on the last track. It passes.
+
+So the player DOES honour the mode. What was missing was a way to see the mode
+the player actually holds, which is the other half of the request: Now Playing
+prints it right-aligned on the play-state row — `R:off` / `R:all` / `R:one`,
+plus ` S` when shuffle is on (`player_screen_set_modes()`, synced from
+`player_screen_on_enter()` and `player_screen_refresh()`).
+
+The UI host build needed `-I../../player` (the screen now includes
+`playlist.h` for the shared enum).
+
+All host suites green. AP5M CRC `0xD34BA066`, packer `RESULT: PASS`. Not flashed.

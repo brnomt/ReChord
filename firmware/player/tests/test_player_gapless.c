@@ -5,6 +5,7 @@
  * (3) seamless same-format auto-advance WITHOUT a B-core restart.
  */
 #include "player.h"
+#include "playlist.h"
 #include "mock_codec.h"
 #include "ipc_b_mock.h"
 #include "ipc_b.h"
@@ -377,6 +378,62 @@ static void test_playlist_resolve_cache(void)
     player_stop();
 }
 
+/* BRNOMT-90: the auto-advance must honour the repeat mode — ONE replays the
+ * same track, ALL wraps from the last track to the first, OFF stops at the
+ * end of the list. (Field report: repeat "one" still changed the track.) */
+static void test_repeat_modes(void)
+{
+    static const uint16_t idx[3] = {0, 1, 2};
+    mock_codec_cfg_t cfg = {0};
+    track_info_t ti;
+
+    cfg.total_frames = 44100 * 2;
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+
+    ipc_b_init();
+    player_init();
+    player_register_codec("mock", mock_codec_get());
+    ipc_b_mock_set_b_decodes(1);
+    ipc_b_mock_set_b_eof(0);
+    player_set_resolver(test_resolve);
+
+    /* repeat ONE: the boundary replays t0, it does not move to t1. */
+    CHECK_EQI(player_play_list(idx, 3, 0), PLAYER_OK, "repeat: start list");
+    player_set_repeat(PLAYLIST_REPEAT_ONE);
+    CHECK_EQI(player_process(), PLAYER_OK, "repeat: one pre-open");
+    ipc_b_mock_set_b_eof(1);
+    CHECK_EQI(player_process(), PLAYER_OK, "repeat: one boundary");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "repeat: one query");
+    CHECK(strcmp(ti.path, "t0.mock") == 0, "repeat: one replays the same track");
+
+    /* repeat ALL: start on the LAST track, the boundary wraps to the first. */
+    ipc_b_mock_set_b_eof(0);
+    CHECK_EQI(player_play_list(idx, 3, 2), PLAYER_OK, "repeat: play last");
+    player_set_repeat(PLAYLIST_REPEAT_ALL);
+    CHECK_EQI(player_process(), PLAYER_OK, "repeat: all pre-open");
+    ipc_b_mock_set_b_eof(1);
+    CHECK_EQI(player_process(), PLAYER_OK, "repeat: all boundary");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "repeat: all query");
+    CHECK(strcmp(ti.path, "t0.mock") == 0, "repeat: all wraps to the first");
+
+    /* repeat OFF: on the last track the list ends (no advance). */
+    ipc_b_mock_set_b_eof(0);
+    CHECK_EQI(player_play_list(idx, 3, 2), PLAYER_OK, "repeat: play last off");
+    player_set_repeat(PLAYLIST_REPEAT_OFF);
+    CHECK_EQI(player_process(), PLAYER_OK, "repeat: off pre-open");
+    ipc_b_mock_set_b_eof(1);
+    (void)player_process();
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "repeat: off query");
+    CHECK(strcmp(ti.path, "t2.mock") == 0, "repeat: off stays on the last");
+
+    ipc_b_mock_set_b_decodes(0);
+    ipc_b_mock_set_b_eof(0);
+    player_stop();
+}
+
 int main(void)
 {
     TEST("player gapless");
@@ -387,6 +444,7 @@ int main(void)
     test_preopen_trigger();
     test_pending_open_adopt();
     test_playlist_resolve_cache();
+    test_repeat_modes();
     if (failures == 0) {
         printf("test_player_gapless: OK\n");
         return 0;

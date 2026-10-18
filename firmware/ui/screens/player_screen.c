@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "screens.h"
+#include "playlist.h"      /* PLAYLIST_REPEAT_* (mode indicator) */
 #include "../theme.h"
 #include "../internal/hal.h"
 
@@ -30,6 +31,8 @@ static int      s_bits;        /* source bit depth (0 = unknown) */
 static long     s_rate;        /* sample rate Hz (0 = unknown) */
 static int      s_pl_pos;      /* playlist position (0 = no list) */
 static int      s_pl_count;    /* playlist length */
+static int      s_repeat;      /* PLAYLIST_REPEAT_* (shown on the state row) */
+static int      s_shuffle;     /* 1 = shuffle on */
 static int      s_track_no = -1; /* player open-sequence: detects a new track */
 static bool     s_playing;
 static char     s_status[40];  /* non-empty: shown instead of Playing/Paused */
@@ -97,6 +100,19 @@ static void player_screen_draw(void)
                                       : (s_playing ? THEME_COLOR_WARM
                                                    : THEME_COLOR_DIM),
                           THEME_COLOR_BG);
+    }
+
+    /* repeat / shuffle mode, right-aligned on the play-state row: the mode the
+     * PLAYER has must be visible, not only what Settings shows (BRNOMT-90). */
+    {
+        char mo[20];
+        const char *rep = (s_repeat == PLAYLIST_REPEAT_ONE) ? "one"
+                        : (s_repeat == PLAYLIST_REPEAT_ALL) ? "all" : "off";
+
+        snprintf(mo, sizeof(mo), "R:%s%s", rep, s_shuffle ? " S" : "");
+        display_draw_text(DISPLAY_W - THEME_PAD - THEME_TEXT_W((int)strlen(mo)),
+                          48 + THEME_TEXT_YOFF, mo,
+                          THEME_COLOR_DIM, THEME_COLOR_BG);
     }
 
     /* progress bar + times */
@@ -220,6 +236,7 @@ static void player_screen_on_enter(void)
     player_screen_set_volume(player_get_volume());
     player_screen_set_format(ti.bits, ti.sample_rate);
     player_screen_set_playlist(ti.playlist_pos, ti.playlist_count);
+    player_screen_set_modes(player_get_repeat(), player_get_shuffle());
     s_track_no = ti.track_no;
     player_screen_set_playing(player_get_state() == PLAYER_PLAYING);
 }
@@ -282,6 +299,17 @@ void player_screen_set_playing(bool playing)
     ui_invalidate(0, 48, DISPLAY_W - 1, 48 + THEME_LINE_H);
 }
 
+/* Repeat / shuffle mode indicator (BRNOMT-90). Shows what the PLAYER has, so
+ * a Settings change is verifiable from Now Playing itself. */
+void player_screen_set_modes(int repeat, int shuffle)
+{
+    if (repeat == s_repeat && (shuffle ? 1 : 0) == s_shuffle)
+        return;
+    s_repeat = repeat;
+    s_shuffle = shuffle ? 1 : 0;
+    ui_invalidate(0, 48, DISPLAY_W - 1, 48 + THEME_LINE_H);
+}
+
 void player_screen_set_status(const char *msg)
 {
     snprintf(s_status, sizeof(s_status), "%s", msg ? msg : "");
@@ -322,6 +350,7 @@ void player_screen_refresh(void)
         player_screen_set_position(pos);
     player_screen_set_format(ti.bits, ti.sample_rate);
     player_screen_set_playlist(ti.playlist_pos, ti.playlist_count);
+    player_screen_set_modes(player_get_repeat(), player_get_shuffle());
     if ((st == PLAYER_PLAYING) != s_playing)
         player_screen_set_playing(st == PLAYER_PLAYING);
 }
