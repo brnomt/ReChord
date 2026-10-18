@@ -13,6 +13,7 @@
 #include "drivers/usb_cdc.h"
 #include "audio/audio_output.h"
 #include "drivers/rknano_i2s.h"
+#include "drivers/battery.h"
 #include "services/fs_target.h"
 #include "services/fw_update.h"
 #include "services/log.h"
@@ -50,6 +51,7 @@ static char s_emmc[32], s_usb[32] = "plug in", s_sd[32];
 static int s_sd_in = -1;
 static int s_volume_seen;            /* last volume persisted (see loop) */
 static unsigned s_log_ms;            /* last periodic log flush (see loop) */
+static unsigned s_batt_ms;           /* last battery poll (see loop) */
 static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 
 /* BRNOMT-87 resume state: defined with the loop, used by the power paths. */
@@ -869,13 +871,17 @@ static const ui_screen_t system_screen_entry = {
 static void open_system(void) { ui_push_screen(&system_screen_entry); }
 
 /* ---- root menu ---------------------------------------------------------- */
-/* Task-oriented entries only; diagnostics live under System. The title row
- * carries the live volume (a battery indication waits on BRNOMT-83). */
+/* Title-row status (BRNOMT-72/83): volume, plus the battery approximation when
+ * the gauge answers (5-step ladder -> 0/25/50/75/100 %). */
 static const char *vol_status(void)
 {
-    static char buf[16];
+    static char buf[24];
+    int pct = battery_percent();
 
-    snprintf(buf, sizeof buf, "%d dB", player_get_volume());
+    if (pct >= 0)
+        snprintf(buf, sizeof buf, "%d dB %d%%", player_get_volume(), pct);
+    else
+        snprintf(buf, sizeof buf, "%d dB", player_get_volume());
     return buf;
 }
 
@@ -1030,6 +1036,7 @@ void ap_ui_loop(void)
     player_set_repeat(settings_screen_get()->repeat_mode);
     player_screen_set_volume(player_get_volume());
     s_volume_seen = player_get_volume();
+    battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
     resume_boot_restore();   /* BRNOMT-87: may push browser/player on top */
@@ -1094,6 +1101,17 @@ void ap_ui_loop(void)
         }
         settings_screen_flush_pending(ap_ms());
         resume_poll(ap_ms(), 0);      /* BRNOMT-87: deferred position save */
+
+        /* Battery gauge (BRNOMT-83): one slow poll (the SARADC is shared with
+         * the keys); repaint the title row only when the step changed. */
+        if ((unsigned)(ap_ms() - s_batt_ms) >= 15000u) {
+            int before = battery_percent();
+
+            battery_poll();
+            s_batt_ms = ap_ms();
+            if (battery_percent() != before)
+                ui_invalidate(0, 0, DISPLAY_W - 1, 16);
+        }
 
         /* Persist the RAM log without waiting for the USB cable (see the flush
          * policy above): only when there is something new, and eagerly before

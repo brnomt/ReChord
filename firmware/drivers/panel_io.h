@@ -42,6 +42,9 @@ void backlight_off(void);
  * and the power key level (1 = pressed). Feed both to input_scan(). */
 int keys_adc(void);
 int keys_power(void);
+/* One fresh SARADC conversion on `ch` (0 = battery, 1 = key ladder).
+ * Returns the raw 10-bit value, or -1 when the channel is unavailable. */
+int adc_read_channel(int ch);
 void board_power_off(void);   /* does not return */
 
 #endif /* RECHORD_PANEL_IO_H */

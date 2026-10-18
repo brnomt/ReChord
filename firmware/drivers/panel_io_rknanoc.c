@@ -144,7 +144,7 @@ static void adc_settle(void)
         ;
 }
 
-static int adc_read_fresh(void)
+static int adc_read_fresh(int ch)
 {
     unsigned t = 4000;
 
@@ -154,7 +154,7 @@ static int adc_read_fresh(void)
      * read burned the full poll timeout and the UI crawled (DFIU
      * ae88365a). */
     ADC[2] &= ~0x50u;                        /* SOC=0, clear EOC           */
-    ADC[2] = (ADC[2] & ~0x47u) | 1u | 0x38u; /* ch1 | power | SOC | int_en */
+    ADC[2] = (ADC[2] & ~0x47u) | ((unsigned)ch & 7u) | 0x38u;
     /* EOC is only a FAST PATH: bounded so unknown flag semantics can
      * never stall the UI again; adc_settle() is the always-there floor
      * that guarantees a completed conversion before the read. */
@@ -166,11 +166,20 @@ static int adc_read_fresh(void)
     return (int)(ADC[0] & 0x3FFu);
 }
 
+/* One fresh conversion on an arbitrary channel (BRNOMT-83: the battery gauge
+ * uses channel 0; the keys use 1, exactly as the stock SDK's Adc.h defines). */
+int adc_read_channel(int ch)
+{
+    if (ch < 0 || ch > 7)
+        return -1;
+    return adc_read_fresh(ch);
+}
+
 int keys_adc(void)
 {
-    int s0 = adc_read_fresh();
-    int s1 = adc_read_fresh();
-    int s2 = adc_read_fresh();
+    int s0 = adc_read_fresh(1);
+    int s1 = adc_read_fresh(1);
+    int s2 = adc_read_fresh(1);
 
     /* median of three */
     if (s0 > s1) { int t = s0; s0 = s1; s1 = t; }

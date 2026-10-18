@@ -80,7 +80,8 @@ AP_DRIVER_SRCS := \
   firmware/drivers/cs43131.c \
   firmware/drivers/core_b.c \
   firmware/drivers/cru_pll.c \
-  firmware/drivers/rknano_i2s.c
+  firmware/drivers/rknano_i2s.c \
+  firmware/drivers/battery.c
 
 # Audio output HAL (modular pipeline, docs/rewrite/audio.md): controller +
 # pure per-rate table. Replaces the monolithic dac_cs43131.c (register

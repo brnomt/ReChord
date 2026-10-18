@@ -66,6 +66,9 @@ plays audio on hardware:
 - **Power**: on battery the power hold cuts the PMIC rail (a real off); with
   USB/VBUS the host keeps the SoC powered, so "off" **parks** (dark + silent +
   charging) and a power press wakes the UI.
+- **Battery**: an approximation from the stock SDK constants — SARADC channel 0,
+  `((adc<<1)*2500)>>10` mV, 5-step ladder (3350/3500/3600/3800/4000 mV) → 25 %
+  steps, polled every 15 s and shown in the root menu's title row.
 - **Open**: 96k margins (above), 192 kHz / FLAC block 16384 (~143 KB window),
   384 kHz, and DSP in the playback path (sources exist, not linked).
 - **History**: everything below is dated notes from the reverse-engineering and

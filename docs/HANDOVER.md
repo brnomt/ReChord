@@ -4094,3 +4094,22 @@ the keys' SARADC sequence, an 8-sample average, a cached level refreshed every
 would look for (icon map, hysteresis, low-battery shutdown).
 
 Docs only: image CRC unchanged (`0x9FDCD4D3`).
+
+## BL. Session 2026-10-18 — BRNOMT-83: battery gauge wired (approximation)
+
+- `firmware/drivers/battery.{h,c}`: SARADC **channel 0** through the keys'
+  existing sequence (now `adc_read_channel(ch)` in `panel_io`, with `keys_adc()`
+  calling channel 1 unchanged), 8-sample average, stock formula
+  `((adc<<1)*2500)>>10` and the stock 5-step ladder
+  (3350/3500/3600/3800/4000 mV) → level 0..4 → 0/25/50/75/100 %.
+  Pure mapping is host-tested (`test_battery`, including the sim's "unknown").
+- App: `battery_poll()` once at boot, then every **15 s** from the main loop
+  (the SARADC is shared with the keys); the title row of the root menu now shows
+  `"<vol> dB <pct>%"` and repaints only when the step changes.
+- Caveat to validate on hardware: the SDK's `ADC_CHANEL_BATTERY = 0` is the
+  **logical** index (its comment mentions physical channel 4); the keys' working
+  path uses the logical index too, so 0 is the consistent choice, but the first
+  on-device read is what confirms it.
+
+`.bss_end 0x03046040` (gate 0x0304A000 → ~15.9 KiB still free).
+AP5M CRC `0xC82B3C36`, packer `RESULT: PASS`. Not flashed.

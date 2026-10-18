@@ -105,6 +105,12 @@ int keys_power(void)
     return 0;
 }
 
+int adc_read_channel(int ch)
+{
+    /* Sim: the key ladder idles at 1023; the battery channel is unknown. */
+    return ch == 1 ? 1023 : -1;
+}
+
 void board_power_off(void)
 {
     for (;;) { }
