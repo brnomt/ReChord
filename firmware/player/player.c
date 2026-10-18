@@ -395,6 +395,14 @@ static int advance_to(const char *path, int hard)
 {
     codec_format_t prev;
 
+    /* Phase 3c: when Core B holds the decoder, a "gapless continuation" is not
+     * possible through the shared ring — B's codec must be reopened for the new
+     * file. Force the hard path (open_track + player_play -> ipc_b_start ->
+     * bfs_open + OPEN) so B actually switches tracks instead of staying at EOF
+     * and making the player skip ahead. */
+    if (ipc_b_b_decodes())
+        hard = 1;
+
     if (g.track_valid)
         prev = g.fmt;
     else

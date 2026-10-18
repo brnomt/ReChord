@@ -26,11 +26,80 @@ static unsigned s_count;
 static int      s_truncated;
 static void   (*s_pump)(void);           /* optional player_process() pump */
 
+/* Sort key captured with each matched record (BRNOMT-90): record indices alone
+ * cannot be sorted alphabetically, and sorting later would need a record read
+ * per comparison. text = title (All Songs) or album (category song lists);
+ * track_no breaks ties so an album plays in track order. */
+#define MQ_SORT_TEXT 24u
+typedef struct {
+    uint16_t track;
+    char     text[MQ_SORT_TEXT];
+} mq_key_t;
+static mq_key_t *s_key;
+
 #define MQ_PUMP_EVERY 32u
 
 void mq_set_pump(void (*fn)(void))
 {
     s_pump = fn;
+}
+
+static void mq_key_set(mq_key_t *k, uint16_t track, const char *s)
+{
+    size_t n;
+
+    k->track = track;
+    memset(k->text, 0, MQ_SORT_TEXT);
+    if (s == 0)
+        return;
+    n = strlen(s);
+    if (n > MQ_SORT_TEXT - 1u)
+        n = MQ_SORT_TEXT - 1u;
+    memcpy(k->text, s, n);
+}
+
+static int mq_item_cmp(const mq_key_t *a, uint16_t ia,
+                       const mq_key_t *b, uint16_t ib)
+{
+    int c = strcmp(a->text, b->text);
+
+    if (c != 0)
+        return c;
+    if (a->track != b->track)
+        return (a->track < b->track) ? -1 : 1;
+    return (ia < ib) ? -1 : (ia > ib) ? 1 : 0;
+}
+
+/* Insertion sort over the collected pairs: in-RAM, no I/O. */
+static void mq_sort_items(void)
+{
+    unsigned i, j;
+
+    for (i = 1; i < s_count; i++) {
+        mq_key_t kk = s_key[i];
+        uint16_t ki = s_idx[i];
+
+        j = i;
+        while (j > 0 && mq_item_cmp(&s_key[j - 1], s_idx[j - 1], &kk, ki) > 0) {
+            s_key[j] = s_key[j - 1];
+            s_idx[j] = s_idx[j - 1];
+            j--;
+        }
+        s_key[j] = kk;
+        s_idx[j] = ki;
+    }
+}
+
+/* Partition the scratch region into the index array + the key array. */
+static void mq_setup_lists(unsigned *cap)
+{
+    unsigned entry = (unsigned)(sizeof(uint16_t) + sizeof(mq_key_t));
+
+    *cap = (entry == 0) ? 0u : SCRATCH_BYTES / entry;
+    s_idx = (uint16_t *)scratch_claim(SCRATCH_OWNER_INDEX);
+    s_key = (s_idx == 0) ? 0
+                         : (mq_key_t *)(void *)((uint8_t *)s_idx +
+                                                *cap * sizeof(uint16_t));
 }
 
 const char *mq_category_name(int cat)
@@ -108,6 +177,7 @@ int mq_names_init(int cat)
     s_cells = scratch_claim(SCRATCH_OWNER_INDEX);
     if (s_cells == 0)
         return FS_ERR_IO;
+    s_key = 0;                       /* names mode has no sort keys */
     /* The module owns the index lifetime: without this the screens would have
      * to remember media_db_open(), and forgetting it reads as "empty index". */
     if (media_db_open() != FS_OK) {
@@ -169,14 +239,13 @@ int mq_filter_init(int cat, const char *value)
     unsigned total, i;
 
     mq_done();
-    s_idx = scratch_claim(SCRATCH_OWNER_INDEX);
+    mq_setup_lists(&s_cap);
     if (s_idx == 0)
         return FS_ERR_IO;
     if (media_db_open() != FS_OK) {
         mq_done();
         return FS_ERR_OPEN;
     }
-    s_cap = SCRATCH_BYTES / sizeof s_idx[0];
     s_count = 0;
     s_truncated = 0;
     total = media_db_count();
@@ -202,8 +271,13 @@ int mq_filter_init(int cat, const char *value)
             s_truncated = 1;
             break;
         }
-        s_idx[s_count++] = i;
+        s_idx[s_count] = (uint16_t)i;
+        /* All Songs sorts by title; a category's songs by album then track. */
+        mq_key_set(&s_key[s_count], rec.track_no,
+                   (value == 0) ? rec.title : rec.album);
+        s_count++;
     }
+    mq_sort_items();
     return 0;
 }
 
@@ -233,14 +307,13 @@ int mq_folder_init(const char *prefix)
     size_t plen;
 
     mq_done();
-    s_idx = scratch_claim(SCRATCH_OWNER_INDEX);
+    mq_setup_lists(&s_cap);
     if (s_idx == 0)
         return FS_ERR_IO;
     if (media_db_open() != FS_OK) {
         mq_done();
         return FS_ERR_OPEN;
     }
-    s_cap = SCRATCH_BYTES / sizeof s_idx[0];
     s_count = 0;
     s_truncated = 0;
     if (prefix == 0)
@@ -266,8 +339,11 @@ int mq_folder_init(const char *prefix)
             s_truncated = 1;
             break;
         }
-        s_idx[s_count++] = (uint16_t)i;
+        s_idx[s_count] = (uint16_t)i;
+        mq_key_set(&s_key[s_count], rec.track_no, rec.title);
+        s_count++;
     }
+    mq_sort_items();
     return 0;
 }
 
@@ -279,6 +355,7 @@ void mq_done(void)
         s_cells = 0;
         s_idx = 0;
     }
+    s_key = 0;
     s_count = 0;
     s_cap = 0;
     s_truncated = 0;

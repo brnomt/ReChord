@@ -109,10 +109,10 @@ static void player_screen_draw(void)
 
     /* stream format on its own line: e.g. "24b/96.0k" */
     if (s_bits > 0 && s_rate > 0) {
-        char f[32];
+        char f[40];
         long k10 = s_rate / 100;      /* tenths of kHz, no float printf */
 
-        snprintf(f, sizeof(f), "%db/%ld.%ldk", s_bits, k10 / 10, k10 % 10);
+        snprintf(f, sizeof(f), "%d/%ld.%ldkHz", s_bits, k10 / 10, k10 % 10);
         display_draw_text(THEME_PAD, 64 + THEME_TEXT_YOFF,
                           f, THEME_COLOR_DIM, THEME_COLOR_BG);
     }

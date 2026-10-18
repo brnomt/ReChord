@@ -3356,3 +3356,30 @@ loop; seek forwards to B and resets its trim cursors.
 play with no crackles; UI fluid; a slight lag remains (minor). The Library →
 All Songs cut is gone at the root. AP5M CRC `0x88C41346`, `_bss_end 0x030418c8`;
 host player tests pass.
+
+## AP. Session 2026-10-17 (cont.) — BRNOMT-90: playlist queue + shuffle/repeat
+
+Playing a song inside a list (Library: All Songs / Album / Artist / Genre /
+Year / Label / Album Artist / Composer, or a folder in the browser) now plays
+**that list** from there: Now Playing shows **"i/N"** and the player auto-advances
+at end of track.
+
+- `firmware/player/playlist.{h,c}`: ordered list of **media_db record indices**
+  (uint16, `PLAYLIST_MAX 1024` = 2 KB — paths would be ~90 KB), user order +
+  play order, **Rockbox-style shuffle** (reorder; current track kept first),
+  **repeat off/all/one**, and a manual next that ignores repeat-one.
+- `player.c`: `player_set_resolver()` (app installs a media_db-backed index→path
+  resolver; host tests install stubs), `player_play_list(idx,n,start)`; EOF
+  auto-advance walks the list first, then the legacy 8-deep path queue;
+  `player_next()` follows the list; `player_open()` clears the list;
+  `track_info_t` gains `playlist_pos/playlist_count`.
+- Library: `mq_filter_indices()` exposes the current filter's indices →
+  `cat_play` calls `player_play_list`. Browser: `mq_folder_init(prefix)` collects
+  the folder's indexed tracks and selecting a file queues the folder from it
+  (falls back to a single open when the file is not indexed).
+- UI: "i/N" right-aligned on the Next-playing format line.
+- Settings: two new keys `shuffle` (off/on) and `repeat_mode` (off/all/one)
+  (store + schema + screen; `SETTING_KEY_COUNT 12 → 14`), applied to the player
+  at boot and when cycled.
+- Builds/tests: AP5M CRC `0xB100671E`, `_bss_end 0x03042950`; player/UI/services
+  host suites all pass (new `test_playlist`, updated settings tests).

@@ -37,10 +37,10 @@
 #define THEME_COLOR_BAR_FG    (theme_get()->accent)   /* bar fill        */
 #define THEME_COLOR_WARN      (theme_get()->danger)   /* errors          */
 
-/* ---- typography (font contract: 6x11 glyph cell, 12 px line pitch) ---- */
-#define THEME_FONT_NAME        "builtin-6x11"
-#define THEME_FONT_W           6   /* advance per character, px             */
-#define THEME_FONT_H           11  /* glyph height, px                      */
+/* ---- typography (font contract: font8x8 cell, 12 px line pitch) -------- */
+#define THEME_FONT_NAME        "builtin-8x8"
+#define THEME_FONT_W           8   /* advance per character, px             */
+#define THEME_FONT_H           8   /* glyph height, px                      */
 #define THEME_LINE_H           12  /* line pitch, px (contract)             */
 #define THEME_TEXT_YOFF        1   /* glyph top offset inside its line      */
 
