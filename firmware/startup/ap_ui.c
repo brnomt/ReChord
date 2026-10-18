@@ -54,6 +54,7 @@ static int s_volume_seen;            /* last volume persisted (see loop) */
 static unsigned s_log_ms;            /* last periodic log flush (see loop) */
 static unsigned s_batt_ms;           /* last battery poll (see loop) */
 static int      s_resume_done;       /* boot resume restore ran (BRNOMT-87) */
+static int      s_resume_wait;       /* passes after the first probe        */
 static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 
 /* BRNOMT-87 resume state: defined with the loop, used by the power paths. */
@@ -1000,26 +1001,33 @@ static void resume_boot_restore(void)
 
     if (mode <= 0)
         return;
-    if (resume_load(&st) != 0)
+    if (resume_load(&st) != 0) {
+        log_printf("resume: no state file");
         return;
+    }
     /* Field diagnostics (numbers first so a long path cannot truncate them). */
     log_printf("resume: mode %d row %d pos %lu track '%s'",
                mode, st.row, st.pos_ms, st.track);
+    (void)log_flush("resume-a");       /* breadcrumb: restore starts here   */
 
     if (st.folder[0] == '/') {
         browser_screen_set_root("/");
         browser_screen_open_at(st.folder, st.row);
-        ui_push_screen(&browser_screen);
+        ui_push_screen(&browser_screen);   /* land where the user was        */
+        log_printf("resume: browser '%s' row %d", st.folder, st.row);
     }
     if (mode >= 2 && st.track[0] == '/') {
         if (player_open(st.track) == PLAYER_OK) {
             if (st.pos_ms > 0)
                 (void)player_seek((long)st.pos_ms);
-            ui_push_screen(&player_screen);
+            /* Deliberately NOT pushing Now Playing: the user lands on the
+             * browser/menu and SELECT resumes from the saved position. */
+            log_printf("resume: track loaded, paused");
         } else {
             log_printf("resume: open failed '%s'", st.track);
         }
     }
+    (void)log_flush("resume-b");       /* breadcrumb: restore finished      */
 
     /* Seed the comparison state so the first poll does not re-save it. */
     text_copy(s_res.track, (unsigned)sizeof s_res.track, st.track);
@@ -1069,10 +1077,14 @@ void ap_ui_loop(void)
             ui_invalidate_all();
         }
 
-        /* BRNOMT-87: restore once, now that the volumes are mounted. */
-        if (!s_resume_done) {
-            s_resume_done = 1;
-            resume_boot_restore();
+        /* BRNOMT-87: restore once, a few passes AFTER the first probe so the
+         * volumes settle. The restore is chain-logged with flushes: the RAM log
+         * is lost on a reset, so a crash at boot must leave a breadcrumb. */
+        if (!s_resume_done && s_sd_in >= 0) {
+            if (++s_resume_wait >= 3) {
+                s_resume_done = 1;
+                resume_boot_restore();
+            }
         }
 
         /* VBUS edge: plugging the cable opens USB STORAGE right away (the
