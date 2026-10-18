@@ -129,26 +129,41 @@ static uint32_t cmd_start(uint32_t cmd)
 static int b_cmd_wait(uint32_t seq)
 {
     uint32_t cmd = CTRL[IPC_C_CMD];
-    int i;
+    unsigned long t0 = log_now_ms();
+    unsigned long ms;
+    unsigned long guard = 0;
 
-    for (i = 0; i < 1500; i++) {
+    /* Poll TIGHTLY. Core B's open walks the file headers and its seeks are
+     * served by bfs_poll() right here, so the old dac_delay_ms(1) between
+     * polls (~3 ms, that loop is calibrated loosely) was throttling the very
+     * open it was waiting on. The real-time budget is unchanged (1500 ms), now
+     * measured on the log clock instead of counted in iterations. */
+    for (;;) {
         bfs_poll();
         if (CTRL[IPC_C_ACK] == seq)
             break;
-        dac_delay_ms(1);
+        ms = log_now_ms() - t0;
+        if (ms >= 1500UL || ++guard > 40000000UL) {
+            log_printf("ipc: cmd %u no ack after %lu ms", (unsigned)cmd, ms);
+            return -1;
+        }
+        delay_loops(2000);              /* ~10 us: brief, do not starve bus */
     }
-    if (CTRL[IPC_C_ACK] != seq || CTRL[IPC_C_BSTATE] != IPC_BS_OPEN) {
-        log_printf("ipc: cmd %u no ack after %d ms", (unsigned)cmd, i);
+    if (CTRL[IPC_C_BSTATE] != IPC_BS_OPEN) {
+        log_printf("ipc: cmd %u no ack after %lu ms", (unsigned)cmd,
+                   log_now_ms() - t0);
         return -1;
     }
-    /* Boundary timing (BRNOMT-73): the PCM ring is ~186 ms @44.1k, so an ACK
-     * slower than that is audible as a gap. Always log the two boundary
-     * commands (OPEN = hard restart, NEXT = gapless) so the log tells which
-     * path was taken and how long Core B took. */
+
+    /* Boundary timing (BRNOMT-73): REAL milliseconds, same clock as the line
+     * timestamps. The PCM ring holds ~162 ms @44.1k, so an ACK slower than
+     * that is audible. Log both boundary commands so the log shows the path
+     * (OPEN = hard restart, NEXT = gapless) and what Core B actually took. */
+    ms = log_now_ms() - t0;
     if (cmd == IPC_C_OPEN || cmd == IPC_C_NEXT)
-        log_printf("ipc: cmd %u ack %d ms", (unsigned)cmd, i);
-    else if (i >= 50)
-        log_printf("ipc: cmd %u ack slow %d ms", (unsigned)cmd, i);
+        log_printf("ipc: cmd %u ack %lu ms", (unsigned)cmd, ms);
+    else if (ms >= 50UL)
+        log_printf("ipc: cmd %u ack slow %lu ms", (unsigned)cmd, ms);
     return 0;
 }
 

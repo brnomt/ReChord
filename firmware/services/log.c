@@ -47,6 +47,13 @@ static unsigned long now_ms(void)
     return (s_clock != NULL) ? s_clock() : 0UL;
 }
 
+/* Public ms clock (same source the timestamps use): callers that need real
+ * elapsed time — not a loop-iteration count — measure with this. */
+unsigned long log_now_ms(void)
+{
+    return now_ms();
+}
+
 /* Copy one finished line into the ring, or count it as dropped. */
 static void append_line(const char *line)
 {

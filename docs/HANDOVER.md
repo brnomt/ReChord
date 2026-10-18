@@ -3754,3 +3754,29 @@ Tests: `test_playlist_resolve_cache` (the resolver runs once, at the pre-open;
 the boundary reuses it). All host suites green.
 
 AP5M CRC `0xDBCEF736`, packer `RESULT: PASS`. Not flashed.
+
+## BA. Session 2026-10-18 — the `ack N ms` number was not milliseconds
+
+Reviewing the boundary instrumentation found a measurement bug: `b_cmd_wait()`
+timed Core B with a loop counter over `dac_delay_ms(1)`. That helper is
+`200000` iterations of an empty loop calibrated for the 200 MHz AP clock and
+overshoots several-fold, and the loop also runs `bfs_poll()` once per
+iteration — so `ipc: cmd 4 ack 87 ms` was NOT 87 ms. The line *timestamps*
+come from `ap_ms()` (SysTick) and ARE real ms, so `ipc: B eof` -> `ipc: next`
+(47 ms) was honest while the ACK figure was inflated.
+
+Worse, that ~3 ms sleep between polls throttled the very open it was waiting
+for: Core B's open walks the file headers and its seeks are served by
+`bfs_poll()` in this loop.
+
+- `log_now_ms()` is now public (`log.h`) — the same clock the timestamps use.
+- `b_cmd_wait()` polls tightly (`delay_loops(2000)` ~10 us) and measures real
+  elapsed time on that clock; the timeout stays a real 1500 ms (iteration guard
+  as backstop).
+- `ipc: cmd N ack M ms` now prints real milliseconds for both boundary commands.
+
+Next field log will show the REAL reopen cost. If it exceeds the ring's
+~162 ms cover, the remaining target is the FLAC prescan inside B's open (dr_flac
+header walk + SEEKTABLE/end seeks), not the AP side.
+
+AP5M CRC `0x1F917D1B`, packer `RESULT: PASS`. Not flashed.

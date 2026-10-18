@@ -47,6 +47,10 @@ typedef unsigned long (*log_clock_fn)(void);
 /* Install the ms clock source (NULL = frozen at 0.000). */
 void log_init(log_clock_fn clock_ms);
 
+/* Read the installed ms clock (0 when none is installed). Same source as the
+ * line timestamps, so callers can measure real elapsed time. */
+unsigned long log_now_ms(void);
+
 /* Optional whole-file writer: when set, log_flush() assembles the pending
  * lines and hands them over in ONE call. The writer is expected to APPEND
  * them (the target implemented it as a rewrite at first, which lost the
