@@ -170,6 +170,11 @@ int ipc_b_start(const ipc_b_track_t *track)
     sh_set(IPC_SH_RATE, (uint32_t)track->sample_rate);
     sh_set(IPC_SH_CHANNELS, (uint32_t)track->channels);
     sh_set(IPC_SH_BITS, (uint32_t)track->bits);
+    /* PCM post-processing for Core B (it decodes): ReplayGain + gapless trim. */
+    sh_set(IPC_C_RG, (uint32_t)track->rg_gain_q16);
+    sh_set(IPC_C_GAP_DELAY, (uint32_t)track->gapless_delay);
+    sh_set(IPC_C_GAP_PAD, (uint32_t)track->gapless_padding);
+    sh_set(IPC_C_GAP_TOTAL, (uint32_t)track->total_samples);
 
     /* Offload decode to Core B; on any failure the AP decodes (phase 2). */
     if (b_handoff(track->path) == 0)
@@ -323,6 +328,13 @@ int ipc_b_b_decodes(void)
 int ipc_b_b_eof(void)
 {
     return s_b_decodes ? (int)CTRL[IPC_C_BEOF] : 0;
+}
+
+int ipc_b_set_replaygain(int gain_q16)
+{
+    if (s_b_decodes)
+        sh_set(IPC_C_RG, (uint32_t)gain_q16);
+    return 0;
 }
 
 int ipc_b_seek(long ms)

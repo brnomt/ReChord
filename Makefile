@@ -74,6 +74,7 @@ BB_CORE_SRCS := \
   firmware/player/codecs/mp3.c \
   firmware/player/codecs/wav.c \
   firmware/player/tags.c \
+  firmware/player/rg_math.c \
   firmware/services/workbuf.c \
   firmware/libc/mem.c \
   firmware/libc/str.c

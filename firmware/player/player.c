@@ -479,6 +479,10 @@ int player_play(void)
         t.bits = g.fmt.bits;
         t.duration_ms = g.duration_ms;
         t.path = g.track.path;
+        t.total_samples = g.total_samples;
+        t.gapless_delay = g.gapless.delay_samples;
+        t.gapless_padding = g.gapless.padding_samples;
+        t.rg_gain_q16 = g.rg_gain_q16;
         if (ipc_b_start(&t) < 0) {
             do_error();
             return PLAYER_ERR;
@@ -651,6 +655,9 @@ static void recalc_rg_gain(void)
         g.rg_gain_q16 = 32768;                 /* no tags: neutral */
     else
         g.rg_gain_q16 = rg_effective_gain_q16(gain_tenth_db, peak_q15);
+
+    /* Core B decodes and applies the gain; keep it in sync on mode changes. */
+    ipc_b_set_replaygain(g.rg_gain_q16);
 }
 
 int player_get_track(track_info_t *out)

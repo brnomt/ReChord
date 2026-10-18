@@ -4,21 +4,26 @@
  * Phase 2 had B render (the AP decoded). Phase 3c moves the DECODE here: the
  * AP owns the filesystem and streams the open track into the A->B file ring
  * (firmware/player/bfs.c), B's codec_io reads from it (firmware/bb/bcio.c),
- * B decodes with our normal codecs and becomes the PCM-ring PRODUCER. The AP
- * keeps the DAC/I2S bring-up and drains the ring in its TX ISR (consumer), so
- * B never touches the I2S and needs no IRQ of its own.
+ * B decodes with our normal codecs, applies the PCM post-processing the AP
+ * used to do (gapless leading/trailing trim + ReplayGain) and becomes the
+ * PCM-ring PRODUCER. The AP keeps the DAC/I2S bring-up and drains the ring in
+ * its TX ISR (consumer), so B never touches the I2S and needs no IRQ of its
+ * own.
  *
  * B memory (bb.ld): code in HIGHRAM0; .data/.bss (the codec decode pool from
  * services/workbuf + the codec state) and the stack in the B data region
  * 0x01040000..0x01060000.
  *
  * Commands come through the control block (ipc_shared.h): OPEN/SEEK/CLOSE via
- * IPC_C_*, play/pause/stop via IPC_SH_STATE.
+ * IPC_C_*, play/pause/stop via IPC_SH_STATE. ReplayGain (Q16) and the gapless
+ * trim (delay/padding/total) come in IPC_C_RG / IPC_C_GAP_*.
  */
 #include <stdint.h>
+#include <string.h>
 
 #include "ipc_shared.h"
 #include "codec.h"
+#include "rg_math.h"
 
 #define CTRL ((volatile uint32_t *)IPC_SHARED_BASE)
 
@@ -56,9 +61,25 @@ static int32_t       s_pcm[CHUNK_FRAMES * 2];
 static const codec_t *s_codec;
 static int           s_channels = 2;
 
+/* PCM post-processing state (mirrors player.c's gapless cursors). */
+static long s_emitted;              /* frames emitted after leading trim */
+static int  s_leading_trimmed = 1;  /* 0 until the encoder delay is dropped */
+static int  s_delay, s_pad;
+static long s_total;                /* exact decoder frame count (0 unknown) */
+
 static void dmb(void)
 {
     __asm__ volatile("dmb" ::: "memory");
+}
+
+/* (Re)load the per-track gapless trim and reset its cursors. */
+static void trim_reset(void)
+{
+    s_delay = (int)CTRL[IPC_C_GAP_DELAY];
+    s_pad = (int)CTRL[IPC_C_GAP_PAD];
+    s_total = (long)CTRL[IPC_C_GAP_TOTAL];
+    s_emitted = 0;
+    s_leading_trimmed = (s_delay == 0) ? 1 : 0;
 }
 
 static void ring_write(uint32_t off, const void *src, uint32_t n)
@@ -113,6 +134,7 @@ static void handle_command(void)
             if (s_codec->format != 0)
                 (void)s_codec->format(s_cstate, &f),
                 s_channels = (f.channels == 1) ? 1 : 2;
+            trim_reset();
             CTRL[IPC_C_BEOF] = 0;
             CTRL[IPC_C_BERR] = 0;
             CTRL[IPC_C_BSTATE] = IPC_BS_OPEN;
@@ -126,6 +148,7 @@ static void handle_command(void)
     case IPC_C_SEEK:
         if (s_codec != 0) {
             (void)s_codec->seek(s_cstate, (long)CTRL[IPC_C_ARG]);
+            trim_reset();               /* audible stream repositioned */
             CTRL[IPC_C_BEOF] = 0;
         }
         break;
@@ -147,7 +170,7 @@ static void handle_command(void)
 static void decode_round(void)
 {
     uint32_t rd, wr, freeb;
-    int got;
+    int got, gain;
 
     if (s_codec == 0 || CTRL[IPC_C_BEOF])
         return;
@@ -171,6 +194,45 @@ static void decode_round(void)
         dmb();
         return;
     }
+
+    /* Gapless: drop the encoder-delay samples at the very start. */
+    {
+        int lead = s_leading_trimmed ? 0 : s_delay;
+
+        if (lead > 0) {
+            if (lead >= got)
+                return;               /* whole batch was delay: drop it */
+            memmove(s_pcm, s_pcm + (long)lead * s_channels,
+                    (size_t)((long)(got - lead) * s_channels) *
+                        sizeof(int32_t));
+            got -= lead;
+            s_leading_trimmed = 1;
+        }
+    }
+
+    s_emitted += got;
+
+    /* Gapless: stop at total - delay - padding (the last audible sample). */
+    if (s_total > 0) {
+        long tail = s_total - s_delay - s_pad;
+        long emit;
+
+        if (tail < 0)
+            tail = 0;
+        if (s_emitted >= tail) {
+            emit = tail - (s_emitted - got);
+            got = (emit > 0) ? (int)emit : 0;
+            CTRL[IPC_C_BEOF] = 1;
+            CTRL[IPC_C_BSTATE] = IPC_BS_EOF;
+        }
+    }
+    if (got <= 0)
+        return;                       /* nothing audible left in this batch */
+
+    /* ReplayGain: fixed gain (Q16) on the trimmed PCM. */
+    gain = (int)CTRL[IPC_C_RG];
+    if (gain != 32768)
+        rg_scale_pcm(s_pcm, (long)got * s_channels, gain);
 
     if (s_channels == 1) {            /* upmix mono -> stereo on the wire */
         int i;

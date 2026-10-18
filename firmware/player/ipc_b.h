@@ -53,6 +53,10 @@ typedef struct
                                 * are always int32 left-justified        */
     long        duration_ms;   /* for the drained/timeout supervisor    */
     const char *path;          /* logging aid on the B side; may be NULL*/
+    long        total_samples; /* exact decoder sample count (0 unknown)*/
+    int         gapless_delay; /* leading trim samples                  */
+    int         gapless_padding; /* trailing trim samples               */
+    int         rg_gain_q16;   /* ReplayGain Q16 (32768 = 1.0x)         */
 } ipc_b_track_t;
 
 /* Snapshot returned by ipc_b_poll_state(). */
@@ -183,5 +187,9 @@ int ipc_b_b_eof(void);
 /* Ask Core B to reposition the (B-side) decoder. No-op when B is not the
  * producer. Only legal while running/paused. */
 int ipc_b_seek(long ms);
+
+/* Update the ReplayGain Q16 gain used by Core B (mode toggled mid-track).
+ * No-op on the host mock (the AP applies its own gain there). */
+int ipc_b_set_replaygain(int gain_q16);
 
 #endif /* RECHORD_IPC_B_H */

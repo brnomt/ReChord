@@ -65,8 +65,12 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_C_BSTATE   21u   /* B: 0 idle, 1 open, 2 eof, 3 error         */
 #define IPC_C_BEOF     22u   /* B: 1 = decoder drained                    */
 #define IPC_C_BERR     23u   /* B: negative codec error                   */
+#define IPC_C_RG       24u   /* AP: ReplayGain Q16 (32768 = neutral 1.0x) */
+#define IPC_C_GAP_DELAY 25u  /* AP: leading trim samples (encoder delay)  */
+#define IPC_C_GAP_PAD  26u   /* AP: trailing trim samples (encoder pad)   */
+#define IPC_C_GAP_TOTAL 27u  /* AP: exact total samples (0 = unknown)     */
 
-#define IPC_SH_COUNT   24u
+#define IPC_SH_COUNT   28u
 
 #define IPC_SH_MAGIC_VAL  0x42524459u   /* 'BRDY' */
 

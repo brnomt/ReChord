@@ -237,3 +237,10 @@ int ipc_b_seek(long ms)
     (void)ms;
     return 0;
 }
+
+/* Phase 3c: the AP applies its own ReplayGain on the host mock. */
+int ipc_b_set_replaygain(int gain_q16)
+{
+    (void)gain_q16;
+    return 0;
+}
