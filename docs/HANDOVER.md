@@ -3936,3 +3936,25 @@ stays lit.
   disconnected USB. The screen text was updated to say so.
 
 All host suites green. AP5M CRC `0xE0997DCF`, packer `RESULT: PASS`. Not flashed.
+
+## BG. Session 2026-10-18 — BRNOMT-91 bis: "off" on VBUS parks instead of deadlocking
+
+Field follow-up: after powering off while plugged in, the player could not be
+turned back on again — and **stock firmware does exactly the same**, so the
+mechanism is the hardware's.
+
+Why: `board_power_off()` holds the PMIC rail-kill (GPIO2.6) low and spins
+forever. On battery the rail dies and the next power press boots from scratch;
+**on VBUS the host keeps the SoC alive**, so that loop keeps holding the rail
+kill and the power key cannot restart the player.
+
+Mitigation (only reachable with a cable in): `power_off()` now checks
+`usb_cable()`. On VBUS it parks the device instead of asserting the rail cut —
+display cleared, backlight off, DAC silenced (`audio_output_power_off()`), then
+a spin that waits for a power press; on release it resets the power-hold
+debounce, turns the backlight back on and returns to the main loop so the UI
+resumes. Result: with USB, "off" = dark + silent + still charging, and one power
+press brings it back (no warm reboot needed, which this platform does not
+support anyway). On battery nothing changes: the rail cut is still a real off.
+
+All host suites green. AP5M CRC `0x58C4C9F7`, packer `RESULT: PASS`. Not flashed.

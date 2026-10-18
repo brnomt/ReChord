@@ -418,7 +418,26 @@ static void power_off(void)
     display_clear(0x0000);
     display_flush_rows(0, DISPLAY_H - 1);
     backlight_off();     /* else the panel keeps glowing over a black screen */
-    board_power_off();
+    audio_output_power_off();    /* silence the DAC path while we are "off" */
+
+    if (usb_cable()) {
+        /* On VBUS the rail cut cannot kill us (the host feeds the SoC) and,
+         * with the rail held low, the power key does NOT restart the player —
+         * stock firmware behaves the same way (BRNOMT-91). So with a cable in,
+         * "off" means dark + silent + parked: the device keeps charging, and a
+         * power press wakes the UI back up instead of leaving it unstartable
+         * until the cable is pulled. */
+        while (!keys_power())
+            panel_io_delay_ms(1);
+        while (keys_power())
+            panel_io_delay_ms(1);
+        s_power_held = 0;            /* this press must not count as a hold */
+        s_power_level = 0;
+        backlight_on();
+        ui_invalidate_all();
+        return;                      /* the main loop resumes the UI */
+    }
+    board_power_off();               /* battery: the rail cut is a real off */
 }
 
 /* USB-storage power key (BRNOMT-91). The MSC loop's exit predicate used to be
