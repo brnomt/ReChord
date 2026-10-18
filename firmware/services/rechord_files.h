@@ -11,6 +11,8 @@
 #define RECHORD_CFG     "/Internal/.rechord/rechord.cfg"
 #define RECHORD_STATE   "/Internal/.rechord/state"
 #define RECHORD_LOG     "/Internal/.rechord/LOG"
+/* Installable theme packages (BRNOMT-69): materialized on first boot. */
+#define RECHORD_THEMES_DIR "/Internal/.rechord/themes"
 
 /* First-boot layout: create /.rechord, rechord.cfg (with the default
  * configuration written), state and LOG (each with a short text header, so

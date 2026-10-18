@@ -46,6 +46,56 @@ static const char k_log_template[] =
     "# so it holds the lines of the latest one. Timestamps are seconds\n"
     "# since boot.\n";
 
+/* ---- standard theme packages (BRNOMT-69) -------------------------------- */
+/* Materialized on first boot through the SAME create/mkdir path that makes
+ * /.rechord and the cfg, so no pre-existing files are needed. Identical to the
+ * authoring copies shipped in themes/<id>/theme.cfg. Created once; a later boot
+ * never overwrites a file the user may have edited. */
+#define THEME_LAYOUT_TAIL \
+    "pad=4\ntitle_h=16\nitem_h=12\nnp_title_y=24\nnp_artist_y=36\n" \
+    "np_state_y=48\nnp_info_y=60\nnp_bar_y=74\nnp_bar_h=2\nnp_time_y=84\n" \
+    "np_mode_y=148\nnp_vol_y=162\nnp_vol_h=2\n"
+
+static const char k_theme_mono[] =
+    "# ReChord Mono (house look)\nname=Mono\n"
+    "background=0x0000\nsurface=0x0000\ntext=0xFFFF\ntext_dim=0x8410\n"
+    "accent=0xFFFF\ndanger=0xC618\nsuccess=0xFFFF\nspacing=8\nradius=0\n"
+    THEME_LAYOUT_TAIL;
+
+static const char k_theme_classic[] =
+    "# ReChord Classic (dark slate)\nname=Classic\n"
+    "background=0x1083\nsurface=0x2146\ntext=0xEF7E\ntext_dim=0x94B4\n"
+    "accent=0x44FF\ndanger=0xFA8A\nsuccess=0x56AF\nspacing=8\nradius=6\n"
+    THEME_LAYOUT_TAIL;
+
+static const char k_theme_paper[] =
+    "# ReChord Paper (warm light)\nname=Paper\n"
+    "background=0xF79C\nsurface=0xFFFE\ntext=0x3144\ntext_dim=0x7B8C\n"
+    "accent=0x9AC2\ndanger=0xB145\nsuccess=0x2BE8\nspacing=10\nradius=2\n"
+    THEME_LAYOUT_TAIL;
+
+static const char k_theme_night[] =
+    "# ReChord Night (dim)\nname=Night\n"
+    "background=0x0841\nsurface=0x10A3\ntext=0xAD56\ntext_dim=0x630D\n"
+    "accent=0x23B6\ndanger=0xB2AA\nsuccess=0x44AC\nspacing=8\nradius=6\n"
+    THEME_LAYOUT_TAIL;
+
+static const struct
+{
+    const char *dir;
+    const char *path;
+    const char *text;
+} k_theme_seeds[] = {
+    { RECHORD_THEMES_DIR "/mono",    RECHORD_THEMES_DIR "/mono/theme.cfg",
+      k_theme_mono },
+    { RECHORD_THEMES_DIR "/classic", RECHORD_THEMES_DIR "/classic/theme.cfg",
+      k_theme_classic },
+    { RECHORD_THEMES_DIR "/paper",   RECHORD_THEMES_DIR "/paper/theme.cfg",
+      k_theme_paper },
+    { RECHORD_THEMES_DIR "/night",   RECHORD_THEMES_DIR "/night/theme.cfg",
+      k_theme_night },
+};
+
 static int ensure_file(const char *path, uint32_t bytes, const char *template_text)
 {
     fs_file_t *f = fs_open_read(path);
@@ -111,5 +161,25 @@ int rechord_files_init(void)
      * no text header), created here so a build always has a file to target. */
     if (ensure_file(MEDIA_DB_A, 0u, 0) != FS_OK)
         return FS_ERR_IO;
-    return ensure_file(MEDIA_DB_B, 0u, 0);
+    if (ensure_file(MEDIA_DB_B, 0u, 0) != FS_OK)
+        return FS_ERR_IO;
+
+    /* Standard theme packages + the active manifest (BRNOMT-69). The FS create
+     * and mkdir paths are the same ones that make /.rechord and the cfg, so no
+     * pre-existing file is involved. Best effort: a theme that cannot be
+     * created (full volume, exFAT refusal) must never fail the boot. */
+    if (fs_target_mkdir(RECHORD_THEMES_DIR) == FS_OK) {
+        unsigned i;
+
+        for (i = 0; i < (unsigned)(sizeof k_theme_seeds /
+                                   sizeof k_theme_seeds[0]); i++) {
+            if (fs_target_mkdir(k_theme_seeds[i].dir) == FS_OK)
+                (void)ensure_file(k_theme_seeds[i].path, 1024u,
+                                  k_theme_seeds[i].text);
+        }
+    }
+    /* Active manifest starts as Mono (theme_boot_load reads THEME_FILE_PATH,
+     * the same path). Never overwritten once the user edits it. */
+    (void)ensure_file("/Internal/.rechord/theme.cfg", 1024u, k_theme_mono);
+    return FS_OK;
 }

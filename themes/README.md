@@ -2,11 +2,16 @@
 
 One directory per theme, each containing a `theme.cfg` (palette + layout) in the
 format `firmware/theme/theme_file.c` and `firmware/theme/theme_pkg.c` parse.
-These are the **source copies of the built-in themes**: the firmware compiles
-the palettes in (`firmware/theme/themes_builtin.c`), so nothing is created on
-the device at boot — a package only exists on the device once you copy it.
+These are the **authoring copies of the built-in themes**. The palettes are also
+compiled in (`firmware/theme/themes_builtin.c`), and the first boot writes a
+copy of each package to `/.rechord/themes/` (see below).
 
 ## Install / activate (current firmware)
+
+**The device creates these packages itself on first boot** (the FS create +
+mkdir path, no pre-existing files): `/.rechord/themes/{mono,classic,paper,night}/theme.cfg`
+plus the active `/.rechord/theme.cfg` (Mono). Existing files are never
+overwritten, so you can edit them on the device.
 
 The firmware applies **one** package, read from the fixed path
 `/Internal/.rechord/theme.cfg` at boot (palette + layout):
