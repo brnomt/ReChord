@@ -592,14 +592,13 @@ static int advance_to(const char *path, int hard)
             return rc;
         }
     }
-    emit(PLAYER_EV_TRACK);
-
     same_fmt = prev_valid &&
                prev.sample_rate == g.fmt.sample_rate &&
                prev.channels    == g.fmt.channels &&
                prev.bits        == g.fmt.bits;
 
     if (hard || !same_fmt) {
+        emit(PLAYER_EV_TRACK);
         if (ipc_b_b_decodes() && !hard) {
             g.restart_pending = 1;   /* let the tail drain, then stop/start */
             return PLAYER_OK;
@@ -610,10 +609,18 @@ static int advance_to(const char *path, int hard)
     if (ipc_b_b_decodes()) {
         ipc_b_track_t t;
 
+        /* Hand off BEFORE announcing: ipc_b_next() pumps bfs_poll() while Core
+         * B reopens from the pre-filled ring, so an app event that touches the
+         * index or the UI must not sit between B's EOF and its reopen
+         * (BRNOMT-73: that gap is inside the ring's cover budget). */
         build_ipc_track(&t);
-        if (ipc_b_next(&t) != 0)
+        if (ipc_b_next(&t) != 0) {
+            emit(PLAYER_EV_TRACK);
             return restart_stream();     /* B refused: fall back to hard */
+        }
+        emit(PLAYER_EV_TRACK);
     } else {
+        emit(PLAYER_EV_TRACK);
         ipc_b_track_change(g.duration_ms);
     }
     g.frames_at_start = g.frames_consumed;   /* per-track position base */
@@ -1022,7 +1029,6 @@ int player_process(void)
          * for the ring to empty (that was the 2-3 s hard boundary). A format
          * change defers its hard restart to the ring-empty handler
          * (restart_pending) so the previous tail is not truncated. */
-        bfs_poll();
         if (st.b_error) {
             do_error();
             return PLAYER_ERR;
@@ -1044,6 +1050,12 @@ int player_process(void)
             }
             /* No next track: let the ring drain -> END_OF_TRACK below. */
         }
+
+        /* Refill Core B's file ring. Kept AFTER the EOF hand-off because that
+         * hand-off pumps bfs_poll() itself while B reopens — on the boundary
+         * pass the SD read must not sit between B's EOF and its reopen
+         * (BRNOMT-73: it eats the ring's cover budget). */
+        bfs_poll();
 
         /* BRNOMT-73: ~3 s before the end, pre-open the next file into the
          * other ring so the boundary does not pay the SD open. Once per

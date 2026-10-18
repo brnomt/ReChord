@@ -3703,3 +3703,32 @@ Tests: `test_pending_open_adopt` (adoption at the boundary, plus a seek inside
 the window keeping the playing track). Player/services/ui/drivers/modules green.
 
 AP5M CRC `0x4DD00D5E`, packer `RESULT: PASS`. Not flashed.
+
+## AY. Session 2026-10-18 — GP: the boundary pass now hands off before any SD/UI work
+
+Field log on AX (`0x4DD00D5E`) showed the pending open working — the AP portion
+of the boundary fell from 84 ms to 47 ms:
+
+```
+17.716 ipc: B eof
+17.763 ipc: next 44100 Hz 2 ch 16 b     <- 47 ms of AP work
+17.789 ipc: cmd 4 ack 87 ms             <- Core B's codec reopen
+```
+
+Those 47 ms were the rest of the boundary pass, both *before* the hand-off:
+`bfs_poll()` (an SD refill of Core B's file ring) and `emit(PLAYER_EV_TRACK)`
+(the app callback). Neither belongs between B's EOF and its reopen.
+
+- `player_process()` B-decodes branch: `bfs_poll()` now runs AFTER the EOF
+  hand-off (the hand-off pumps it itself inside `ipc_b_next()`'s wait loop).
+- `advance_to()`: for the Core-B gapless path, `ipc_b_next()` runs BEFORE
+  `emit(PLAYER_EV_TRACK)` — a slow app event can no longer delay B's reopen.
+  The hard / format-change / AP-decode paths keep their original order.
+
+Cover budget for reference: Core B only produces while at least
+`CHUNK_FRAMES * 8` = 8 KiB is free (`bb_main.c`), so at EOF the 64 KiB ring
+holds >= 56 KiB ~= 162 ms @44.1k. Once the AP side is ~0 ms, only B's 87 ms
+reopen sits inside it.
+
+All host suites green. AP5M CRC `0xF8A50BAD`, packer `RESULT: PASS`. Not
+flashed.
