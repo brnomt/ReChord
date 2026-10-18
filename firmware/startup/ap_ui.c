@@ -53,6 +53,7 @@ static int s_sd_in = -1;
 static int s_volume_seen;            /* last volume persisted (see loop) */
 static unsigned s_log_ms;            /* last periodic log flush (see loop) */
 static unsigned s_batt_ms;           /* last battery poll (see loop) */
+static int      s_resume_done;       /* boot resume restore ran (BRNOMT-87) */
 static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 
 /* BRNOMT-87 resume state: defined with the loop, used by the power paths. */
@@ -1001,10 +1002,9 @@ static void resume_boot_restore(void)
         return;
     if (resume_load(&st) != 0)
         return;
-    /* Field diagnostics: this line tells whether the state file was written and
-     * what it holds (no track = nothing was ever saved). */
-    log_printf("resume: mode %d track '%s' pos %lu row %d",
-               mode, st.track, st.pos_ms, st.row);
+    /* Field diagnostics (numbers first so a long path cannot truncate them). */
+    log_printf("resume: mode %d row %d pos %lu track '%s'",
+               mode, st.row, st.pos_ms, st.track);
 
     if (st.folder[0] == '/') {
         browser_screen_set_root("/");
@@ -1055,7 +1055,9 @@ void ap_ui_loop(void)
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
-    resume_boot_restore();   /* BRNOMT-87: may push browser/player on top */
+    /* BRNOMT-87: the resume restore runs inside the loop, AFTER the first
+     * sd_probe() — opening a /SD track before the volume is mounted fails
+     * (field log: "resume: open failed" at 0.021 s). */
     for (;;) {
         int adc = keys_adc(), power = keys_power(), cable = usb_cable();
 
@@ -1065,6 +1067,12 @@ void ap_ui_loop(void)
                 panel_io_delay_ms(300);  /* let the contacts settle */
             sd_probe();
             ui_invalidate_all();
+        }
+
+        /* BRNOMT-87: restore once, now that the volumes are mounted. */
+        if (!s_resume_done) {
+            s_resume_done = 1;
+            resume_boot_restore();
         }
 
         /* VBUS edge: plugging the cable opens USB STORAGE right away (the
