@@ -106,6 +106,17 @@ void backlight_on(void)
     GPIO2->ddr |= 1u << 4;
 }
 
+/* Backlight off: drive the same pin low. power_off() only clears the
+ * framebuffer, so without this the panel keeps GLOWING over a black screen
+ * (field report: "el backlight sigue encendido" after turning off while
+ * plugged into USB). */
+void backlight_off(void)
+{
+    iomux_gpio(2, 4);
+    GPIO2->ddr |= 1u << 4;
+    GPIO2->dr &= ~(1u << 4);
+}
+
 /* Keys (reference key scan 0x03057eb0 + TRM SARADC chapter): SAR-ADC at
  * 0x400D0000 [0] SARADC_DATA[9:0], [1] SARADC_STAS bit0 = "conversion in
  * progress" (RO), [2] SARADC_CTRL bit4 = SOC, bit5 = int_en, bit6 =

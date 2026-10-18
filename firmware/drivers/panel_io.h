@@ -36,6 +36,7 @@ void panel_io_send_pixel(uint16_t rgb565);
 void panel_io_delay_ms(uint16_t ms);
 
 void backlight_on(void);
+void backlight_off(void);
 
 /* Keys: last ADC ladder reading 0..1023 (also starts the next conversion)
  * and the power key level (1 = pressed). Feed both to input_scan(). */

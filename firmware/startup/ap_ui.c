@@ -417,7 +417,38 @@ static void power_off(void)
         panel_io_delay_ms(1);
     display_clear(0x0000);
     display_flush_rows(0, DISPLAY_H - 1);
+    backlight_off();     /* else the panel keeps glowing over a black screen */
     board_power_off();
+}
+
+/* USB-storage power key (BRNOMT-91). The MSC loop's exit predicate used to be
+ * the raw key level, so a HOLD while plugged in only left the session and the
+ * user could never switch the player off with the cable in. Now: a short press
+ * exits the session (as the screen says), a ~2 s hold exits AND powers off.
+ * Time-based, because the MSC loop's pass rate is not the UI's. */
+static int s_usb_power_off;
+
+static int usb_power_step(void)
+{
+    static unsigned long t0;
+    static int down;
+
+    if (keys_power()) {
+        if (!down) {
+            down = 1;
+            t0 = ap_ms();
+        }
+        if ((unsigned long)(ap_ms() - t0) >= 2000UL) {
+            s_usb_power_off = 1;      /* long hold: leave and turn off */
+            return 1;
+        }
+        return 0;                     /* keep serving while it is held */
+    }
+    if (down) {
+        down = 0;                     /* short press: just exit the session */
+        return 1;
+    }
+    return 0;
 }
 
 /* MSC session: expose the user volume (LUN 0) and the SD card (LUN 1,
@@ -433,9 +464,9 @@ static void usb_session(void)
     int r;
 
     screen("USB mass storage");
-    line(1, "eject on the PC or press power");
+    line(1, "eject on the PC, hold power to turn off");
     display_flush_rows(0, DISPLAY_H - 1);
-    r = usb_msc_run(luns, 2, keys_power, &rd, &wr);
+    r = usb_msc_run(luns, 2, usb_power_step, &rd, &wr);
     fs_target_mount(0, "Internal", emmc_read, s_user);   /* host may have written */
     snprintf(s_usb, sizeof s_usb, "x%d r%uM w%uM", r, (unsigned)(rd >> 11), (unsigned)(wr >> 11));
     /* Session forensics: how it ended and which SCSI opcode/LUN was last on
@@ -446,6 +477,15 @@ static void usb_session(void)
                r, (unsigned long)usb_msc_diag, (unsigned long)rd,
                (unsigned long)wr);
     (void)log_flush("usb-exit");
+    if (s_usb_power_off) {
+        /* Held power: switch off now (USB storage is already stopped above, so
+         * the PC sees a clean disconnect first). On VBUS the SoC itself stays
+         * powered by the host — the rail cut only takes effect on battery. */
+        s_usb_power_off = 0;
+        settings_screen_store();
+        (void)log_flush("power");
+        power_off();                  /* does not return */
+    }
     while (keys_power())                 /* don't leak the exit press */
         panel_io_delay_ms(1);
     /* Scan for an update on ANY session exit the screen advertises:

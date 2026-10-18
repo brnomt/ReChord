@@ -3914,3 +3914,25 @@ The UI host build needed `-I../../player` (the screen now includes
 `playlist.h` for the shared enum).
 
 All host suites green. AP5M CRC `0xD34BA066`, packer `RESULT: PASS`. Not flashed.
+
+## BF. Session 2026-10-18 — BRNOMT-91: power-off and backlight on USB
+
+Field: plugged into a PC the player never really turns off and the backlight
+stays lit.
+
+- Hardware half (already noted in `board_power_off()`): the rail cut is GPIO2.6,
+  and **with VBUS present the host keeps the SoC powered**. A true "off" on USB
+  is not possible — the reachable state is a blanked panel with the CPU spinning
+  in `board_power_off()`. Power-off tests belong on battery.
+- Real bug: `power_off()` cleared the framebuffer but never touched the
+  backlight, so the panel kept **glowing over black**. Only `backlight_on()`
+  (GPIO2.4 high) existed. Added `backlight_off()` (same pin low; sim stub too)
+  and `power_off()` now calls it after flushing the cleared frame.
+- Second real bug: the USB-storage MSC loop's exit predicate was the raw key
+  **level**, so holding power while plugged in only left the session — the user
+  could never switch off with the cable in. The predicate is now time-based
+  (`usb_power_step()`): short press = leave the session (what the screen says),
+  ~2 s hold = leave AND power off, the power-off running after the session has
+  disconnected USB. The screen text was updated to say so.
+
+All host suites green. AP5M CRC `0xE0997DCF`, packer `RESULT: PASS`. Not flashed.

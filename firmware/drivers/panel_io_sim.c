@@ -91,6 +91,10 @@ void backlight_on(void)
 {
 }
 
+void backlight_off(void)
+{
+}
+
 int keys_adc(void)
 {
     return 1023;   /* idle ladder */
