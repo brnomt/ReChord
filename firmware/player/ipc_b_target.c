@@ -32,6 +32,10 @@ static int  g_paused;
 static int  g_volume_db;
 static int  s_b_decodes;            /* 1 = Core B is the ring producer */
 static int  s_eof_logged;           /* BEOF boundary already logged      */
+/* Stream geometry for the next OPEN/NEXT (codec_t.prescan_info), pushed to
+ * Core B so its re-open can skip the header walk (BRNOMT-73). */
+static codec_prescan_t s_prescan;
+static int  s_prescan_valid;
 
 static void dmb(void)
 {
@@ -167,6 +171,29 @@ static int b_cmd_wait(uint32_t seq)
     return 0;
 }
 
+void ipc_b_set_prescan(const codec_prescan_t *p)
+{
+    if (p == 0) {
+        s_prescan_valid = 0;
+        return;
+    }
+    s_prescan = *p;
+    s_prescan_valid = 1;
+}
+
+/* Push the stored geometry to Core B. Called right before OPEN/NEXT so it
+ * always describes the command that consumes it; IPC_C_PRE_VALID is written
+ * LAST so B can never read a half-published set. */
+static void publish_prescan(void)
+{
+    if (s_prescan_valid) {
+        sh_set(IPC_C_PRE_MAXBLOCK, s_prescan.max_block);
+        sh_set(IPC_C_PRE_CHANNELS, s_prescan.channels);
+        sh_set(IPC_C_PRE_SEEKTABLE, (uint32_t)s_prescan.seektable_bytes);
+    }
+    sh_set(IPC_C_PRE_VALID, s_prescan_valid ? 1u : 0u);
+}
+
 /* Hard start: A opens the track into ring 0, then asks B to open it. */
 static int b_handoff(const char *path)
 {
@@ -178,6 +205,7 @@ static int b_handoff(const char *path)
         return -1;
 
     sh_set(IPC_C_RING, 0);
+    publish_prescan();
     CTRL[IPC_C_ARG] = codec_id_for(path);
     dmb();
     seq = cmd_start(IPC_C_OPEN);
@@ -198,6 +226,7 @@ static int b_next_cmd(const char *path, uint32_t ring)
     if (path == 0)
         return -1;
     sh_set(IPC_C_RING, ring);
+    publish_prescan();
     CTRL[IPC_C_ARG] = codec_id_for(path);
     dmb();
     seq = cmd_start(IPC_C_NEXT);
@@ -231,6 +260,7 @@ int ipc_b_init(void)
     g_paused = 0;
     g_volume_db = 0;
     s_b_decodes = 0;
+    s_prescan_valid = 0;
     audio_output_clear_played();
     return 0;
 }
@@ -304,6 +334,7 @@ int ipc_b_stop(void)
     bfs_close();
     g_paused = 0;
     s_eof_logged = 0;
+    s_prescan_valid = 0;
     g_state = IPC_B_OFF;
     return 0;
 }

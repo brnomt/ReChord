@@ -260,6 +260,20 @@ static void decode_round(void)
     I2S_INTCR |= INTCR_TX_EMPTY;      /* re-arm the AP's TX-empty feeder */
 }
 
+/* Stream geometry the AP prescanned while pre-opening the file (BRNOMT-73):
+ * lets the FLAC adapter skip its own header walk — that walk is a seek
+ * round-trip per metadata block and sits inside the gapless boundary. */
+static int b_prescan_read(unsigned *max_block, unsigned *channels,
+                          unsigned long *seektable)
+{
+    if (CTRL[IPC_C_PRE_VALID] != 1u)
+        return 0;
+    *max_block = CTRL[IPC_C_PRE_MAXBLOCK];
+    *channels = CTRL[IPC_C_PRE_CHANNELS];
+    *seektable = (unsigned long)CTRL[IPC_C_PRE_SEEKTABLE];
+    return 1;
+}
+
 void bb_reset(void)
 {
     uint32_t *d, *s;
@@ -269,6 +283,10 @@ void bb_reset(void)
     for (d = _bb_bss_start; d < _bb_bss_end; )
         *d++ = 0u;
     dmb();
+
+    /* Register AFTER the .data/.bss copy (the hook lives in the codec's
+     * statics, which that copy just zeroed). */
+    flac_set_prescan_source(b_prescan_read);
 
     CTRL[IPC_SH_MAGIC] = IPC_SH_MAGIC_VAL;   /* phase-1 gate / AP poll */
     CTRL[IPC_C_BSTATE] = IPC_BS_IDLE;

@@ -124,6 +124,12 @@ int ipc_b_start(const ipc_b_track_t *track)
     return 0;
 }
 
+/* Host mock: the AP decodes here, so there is no second decoder to feed. */
+void ipc_b_set_prescan(const codec_prescan_t *p)
+{
+    (void)p;
+}
+
 int ipc_b_stop(void)
 {
     g_started = 0;

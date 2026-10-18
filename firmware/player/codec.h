@@ -110,6 +110,17 @@ typedef struct
     int  year;      /* 0 = unknown/invalid (the UI shows "Undefined") */
 } codec_meta_t;
 
+/* Stream geometry a decoder learns while opening (see codec_t.prescan_info).
+ * It exists so the SAME file can be opened by a second decoder instance
+ * without repeating the header walk: the player passes these to the peer
+ * (Core B) through the shared block at a gapless boundary. */
+typedef struct
+{
+    unsigned      max_block;         /* FLAC max block size in samples    */
+    unsigned      channels;          /* stream channels (1..2)            */
+    unsigned long seektable_bytes;   /* FLAC SEEKTABLE bytes in the stream */
+} codec_prescan_t;
+
 typedef struct codec_s
 {
     const char *name;                              /* short id, e.g. "wav" */
@@ -164,11 +175,27 @@ typedef struct codec_s
      * extra I/O. */
     int (*meta)(void *st, codec_meta_t *out);
 
+    /* Extension (ReChord, optional — may be NULL): report the stream geometry
+     * the open() header walk discovered, so a SECOND instance of the decoder
+     * (Core B, which re-opens the same file at a gapless boundary) can skip
+     * that walk. Returns 1 when `out` is filled, 0 when the codec has nothing
+     * to share (then the peer must do its own walk). Only safe to trust right
+     * after a successful open(). */
+    int (*prescan_info)(void *st, codec_prescan_t *out);
+
     /* Extension (ReChord, optional — may be NULL): one-time codec-global
      * initialization, called once at player_register_codec(). 0 = ok.
      * Place for lookup-table setup (e.g. a future fixed-point Opus port);
      * NULL = no-op. Must not touch hardware. */
     int (*init)(void);
 } codec_t;
+
+/* FLAC fast open (Core B only, optional): the AP prescans every track it
+ * pre-opens, so Core B installs a source here to size its decode pool from
+ * the peer's geometry instead of repeating the header walk. Returns 1 and
+ * fills the values, or 0 to walk the header. */
+typedef int (*flac_prescan_fn)(unsigned *max_block, unsigned *channels,
+                               unsigned long *seektable_bytes);
+void flac_set_prescan_source(flac_prescan_fn fn);
 
 #endif /* RECHORD_CODEC_H */

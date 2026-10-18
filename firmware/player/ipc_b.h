@@ -34,6 +34,8 @@
 
 #include <stdint.h>
 
+#include "codec.h"      /* codec_prescan_t (ipc_b_set_prescan) */
+
 /* Supervisor states (naming follows the documented protocol facts). */
 typedef enum
 {
@@ -131,6 +133,13 @@ int ipc_b_init(void);
  * documented "B start 0 at 400 MHz" step, then clock negotiation).
  * Returns 0, or < 0 on error. */
 int ipc_b_start(const ipc_b_track_t *track);
+
+/* Publish the stream geometry the AP discovered while opening a track
+ * (codec_t.prescan_info) so Core B's re-open can size its decode pool without
+ * repeating the header walk — that walk sits inside the gapless boundary.
+ * Copied here and pushed to Core B with the next OPEN/NEXT command. Pass NULL
+ * to clear (non-FLAC or an open that shares nothing). */
+void ipc_b_set_prescan(const codec_prescan_t *p);
 
 /* Stop the B core ("B off") and reset streaming state. Returns 0. */
 int ipc_b_stop(void);

@@ -3780,3 +3780,34 @@ Next field log will show the REAL reopen cost. If it exceeds the ring's
 header walk + SEEKTABLE/end seeks), not the AP side.
 
 AP5M CRC `0x1F917D1B`, packer `RESULT: PASS`. Not flashed.
+
+## BB. Session 2026-10-18 — FLAC prescan hand-off to Core B
+
+With the AP side ~0, the boundary's remaining cost is Core B's OWN `flac_open`:
+`flac_prescan()` walks the metadata chain and `cio_seek`s past every block's
+payload (PICTURE, SEEKTABLE, PADDING...) — each seek is a B→AP round-trip
+served by `bfs_poll()` — and that walk runs a SECOND time on B for a file the AP
+had already prescanned while pre-opening it.
+
+- `codec_t.prescan_info` (optional, inserted before `init` so the positional
+  descriptors keep working): a codec reports the geometry its open discovered
+  (`codec_prescan_t` = max_block / channels / seektable_bytes).
+- `player.c: open_codec_only()` publishes it through `ipc_b_set_prescan()`, and
+  clears it when the codec shares nothing or the open failed.
+- `ipc_b_target.c` writes it into the shared block (new words `IPC_C_PRE_*`)
+  immediately before OPEN/NEXT, `IPC_C_PRE_VALID` LAST so B never sees a
+  half-published set; cleared on init/stop.
+- Core B registers `b_prescan_read()` (`bb_main.c`, after the .data/.bss copy)
+  via `flac_set_prescan_source()`; `flac_open()` skips `flac_prescan()` when the
+  geometry is present and plausible (max_block 1..65535, channels 1..2) and
+  falls back to the walk otherwise. The AP registers no source, so its own open
+  is unchanged.
+- Not touched: `drflac_open()` still parses the metadata chain for its own
+  decoder state. The win is not repeating OUR prescan and its seeks.
+
+Reminder of why this is the right lever: metadata is ALREADY cached (the
+pending open) and there is no heap on the target — all decoder state is static
+(`workbuf` + `codec_mem`) — so the cost is constructing the decoder, not
+getting the bytes.
+
+All host suites green. AP5M CRC `0x596E7005`, packer `RESULT: PASS`. Not flashed.

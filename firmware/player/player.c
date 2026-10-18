@@ -282,6 +282,7 @@ static int open_codec_only(const char *path)
     int rc;
 
     close_codec_only();
+    ipc_b_set_prescan(0);        /* a new open invalidates the old geometry */
 
     c = codec_registry_find(path);
     if (c == 0)
@@ -398,6 +399,21 @@ static int open_codec_only(const char *path)
     g.track_valid = 1;
 
     recalc_rg_gain();   /* cache Q16 gain for the open track */
+
+    /* Share what this open learned with Core B, so its re-open of the same
+     * file can size its decode pool without repeating the header walk
+     * (BRNOMT-73: that walk is inside the gapless boundary). */
+    if (c->prescan_info != 0) {
+        codec_prescan_t pi;
+
+        mem_zero(&pi, (unsigned)sizeof pi);
+        if (c->prescan_info(codec_state(), &pi) == 1)
+            ipc_b_set_prescan(&pi);
+        else
+            ipc_b_set_prescan(0);
+    } else {
+        ipc_b_set_prescan(0);   /* codec has nothing to share */
+    }
     return PLAYER_OK;
 }
 

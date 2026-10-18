@@ -40,6 +40,15 @@ unsigned flac_diag_block, flac_diag_channels;
 unsigned long flac_diag_seektable, flac_diag_need;
 int        flac_diag_reason;
 
+/* Peer-supplied stream geometry (Core B: the AP prescanned the file while
+ * pre-opening it, see codec.h). NULL = no source, walk the header ourselves. */
+static flac_prescan_fn s_prescan_src;
+
+void flac_set_prescan_source(flac_prescan_fn fn)
+{
+    s_prescan_src = fn;
+}
+
 /* ---- static pool allocator (replaces DRFLAC_MALLOC/REALLOC/FREE) -------- */
 
 /* The decode pool is the shared workbuf region (workbuf.h): a whole FLAC
@@ -330,6 +339,35 @@ static int flac_would_fit(unsigned max_block, unsigned channels,
     return need <= (unsigned)WORKBUF_BYTES;
 }
 
+/* Geometry handed over by the peer core: lets this instance skip the header
+ * walk (Core B, whose open sits inside the gapless boundary). */
+static int flac_prescan_supplied(unsigned *max_block, unsigned *channels,
+                                 unsigned long *seektable_bytes)
+{
+    unsigned mb = 0, ch = 0;
+    unsigned long stb = 0;
+
+    if (s_prescan_src == 0 || !s_prescan_src(&mb, &ch, &stb))
+        return 0;
+    if (mb == 0 || mb > 65535u || ch < 1 || ch > 2)
+        return 0;                       /* implausible: walk it ourselves */
+    *max_block = mb;
+    *channels = ch;
+    *seektable_bytes = stb;
+    return 1;
+}
+
+/* Publish the geometry this open discovered (codec_t.prescan_info). */
+static int flac_prescan_info(void *vst, codec_prescan_t *out)
+{
+    if (vst == 0 || out == 0 || flac_diag_block == 0)
+        return 0;
+    out->max_block = flac_diag_block;
+    out->channels = flac_diag_channels;
+    out->seektable_bytes = flac_diag_seektable;
+    return 1;
+}
+
 /* ---- codec_t callbacks --------------------------------------------------- */
 
 static int flac_open(void *vst, const char *path)
@@ -361,7 +399,12 @@ static int flac_open(void *vst, const char *path)
     memset(&st->rg, 0, sizeof st->rg);
     memset(&st->meta, 0, sizeof st->meta);
 
-    if (flac_prescan(st->io, &st->meta, &st->rg, &seektable_bytes, &max_block,
+    /* Core B re-opens a file the AP already prescanned while pre-opening it;
+     * that walk costs a seek round-trip per metadata block and lands inside
+     * the gapless cover budget. Use the peer's geometry when supplied and
+     * plausible; walk the header only otherwise. */
+    if (!flac_prescan_supplied(&max_block, &scan_channels, &seektable_bytes) &&
+        flac_prescan(st->io, &st->meta, &st->rg, &seektable_bytes, &max_block,
                      &scan_channels) != 0) {
         cio_close(st->io);
         st->io = 0;
@@ -558,5 +601,6 @@ const codec_t codec_flac =
     flac_format,
     flac_gapless,
     flac_tags,
-    flac_meta
+    flac_meta,
+    flac_prescan_info
 };

@@ -92,7 +92,16 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_C_RING     38u   /* AP: file ring B must read: 0 = IPC_F_*,
                               * 1 = IPC_F2_* (set before OPEN/NEXT)       */
 
-#define IPC_SH_COUNT   39u
+/* Stream geometry the AP discovered while prescanning the file (BRNOMT-73):
+ * published with each OPEN/NEXT so Core B can size its decode pool without
+ * repeating the header walk (see codec_t.prescan_info / flac.c). Valid only
+ * while IPC_C_PRE_VALID == 1. */
+#define IPC_C_PRE_VALID    39u   /* AP: 1 = geometry below is for this open */
+#define IPC_C_PRE_MAXBLOCK 40u   /* AP: FLAC max block size (samples)       */
+#define IPC_C_PRE_CHANNELS 41u   /* AP: stream channels (1..2)              */
+#define IPC_C_PRE_SEEKTABLE 42u  /* AP: SEEKTABLE bytes in the stream       */
+
+#define IPC_SH_COUNT   43u
 
 #define IPC_SH_MAGIC_VAL  0x42524459u   /* 'BRDY' */
 
