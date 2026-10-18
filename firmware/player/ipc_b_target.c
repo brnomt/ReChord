@@ -141,8 +141,12 @@ static int b_cmd_wait(uint32_t seq)
         return -1;
     }
     /* Boundary timing (BRNOMT-73): the PCM ring is ~186 ms @44.1k, so an ACK
-     * slower than that is audible as a gap. Keep the slow ones in the log. */
-    if (i >= 50)
+     * slower than that is audible as a gap. Always log the two boundary
+     * commands (OPEN = hard restart, NEXT = gapless) so the log tells which
+     * path was taken and how long Core B took. */
+    if (cmd == IPC_C_OPEN || cmd == IPC_C_NEXT)
+        log_printf("ipc: cmd %u ack %d ms", (unsigned)cmd, i);
+    else if (i >= 50)
         log_printf("ipc: cmd %u ack slow %d ms", (unsigned)cmd, i);
     return 0;
 }
@@ -225,6 +229,11 @@ int ipc_b_start(const ipc_b_track_t *track)
 
     g_paused = 0;
     s_b_decodes = 0;
+
+    /* One line per track start: the format is what decides gapless vs hard at
+     * the NEXT boundary (BRNOMT-73). */
+    log_printf("ipc: start %ld Hz %d ch %d b", track->sample_rate,
+               track->channels, track->bits);
 
     /* Stop the feed, reset the ring indices, publish the format. */
     sh_set(IPC_SH_STATE, IPC_SH_IDLE);
@@ -391,25 +400,34 @@ int ipc_b_next(const ipc_b_track_t *track)
     if (track == NULL || !s_b_decodes)
         return -1;
 
+    log_printf("ipc: next %ld Hz %d ch %d b", track->sample_rate,
+               track->channels, track->bits);
+
     /* Gapless (BRNOMT-73): B reopens its codec reading the PRE-OPENED ring —
      * the next file is already in RAM, so the boundary pays no SD open.
      * Without a pre-open for exactly this track, return -1 and let the caller
      * take the hard path (never play the wrong file because the list changed).
      * Deliberately NO ipc_b_stop/flush and NO audio_output_configure: the PCM
      * ring cursors, the frames counter and the DAC/serializer stay live. */
-    if (!bfs_preopen_ready(track->path))
+    if (!bfs_preopen_ready(track->path)) {
+        log_printf("ipc: next rejected (no matching preopen)");
         return -1;
+    }
 
     ring = bfs_promote();
-    if (ring < 0)
+    if (ring < 0) {
+        log_printf("ipc: next rejected (promote)");
         return -1;
+    }
 
     sh_set(IPC_C_RG, (uint32_t)track->rg_gain_q16);
     sh_set(IPC_C_GAP_DELAY, (uint32_t)track->gapless_delay);
     sh_set(IPC_C_GAP_PAD, (uint32_t)track->gapless_padding);
     sh_set(IPC_C_GAP_TOTAL, (uint32_t)track->total_samples);
-    if (b_next_cmd(track->path, (uint32_t)ring) != 0)
+    if (b_next_cmd(track->path, (uint32_t)ring) != 0) {
+        log_printf("ipc: next failed ack");
         return -1;              /* B did not ACK: caller falls back to hard */
+    }
     return 0;
 }
 
