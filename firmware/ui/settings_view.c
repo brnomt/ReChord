@@ -1,6 +1,6 @@
 /*
  * settings_view.c — target glue between the UI view (rechord_settings_t) and
- * the settings service (settings_t, the on-disk 12-key schema).
+ * the settings service (settings_t, the on-disk key=value schema).
  *
  * The conversion logic lives in settings_schema.c (settings_view_from_store /
  * settings_view_to_store); this file only adds the load/save calls. It has

@@ -1,5 +1,5 @@
 /*
- * test_settings_keys.c — 12-key config schema and its menu binding.
+ * test_settings_keys.c — config schema and its menu binding.
  *
  * Verifies: exact key names/order (the on-device schema), per-key field
  * mapping (cycling one key touches exactly one field), value formatting,
@@ -15,6 +15,7 @@
 static const char *const k_expected_names[SETTING_KEY_COUNT] = {
     "play", "brightness", "screen_off", "auto_off", "usb", "resume",
     "strip", "tags", "cpu", "volume", "browse", "cursor",
+    "shuffle", "repeat_mode",
 };
 
 static input_event_t ev(input_key_t key)
@@ -29,7 +30,7 @@ static void test_schema_table(void)
 {
     int i;
 
-    CHECK_EQ_INT(SETTING_KEY_COUNT, 12);
+    CHECK_EQ_INT(SETTING_KEY_COUNT, 14);
     for (i = 0; i < SETTING_KEY_COUNT; i++)
         CHECK_STR_EQ(setting_schema[i].name, k_expected_names[i]);
 
@@ -37,6 +38,7 @@ static void test_schema_table(void)
     CHECK(settings_schema_find("play") == &setting_schema[0]);
     CHECK(settings_schema_find("cursor") == &setting_schema[11]);
     CHECK(settings_schema_find("brightness") == &setting_schema[1]);
+    CHECK(settings_schema_find("repeat_mode") == &setting_schema[13]);
     CHECK(settings_schema_find("nope") == NULL);
     CHECK(settings_schema_find(NULL) == NULL);
 }
@@ -60,6 +62,8 @@ static void test_defaults_and_format(void)
     CHECK_EQ_INT(s.volume_db, -23);
     CHECK_STR_EQ(s.browse, "");
     CHECK_EQ_INT(s.cursor, 0);
+    CHECK_EQ_INT(s.shuffle, 0);          /* off */
+    CHECK_EQ_INT(s.repeat_mode, 0);      /* off */
 
     /* values format exactly like the config file writes them */
     settings_format(&setting_schema[0], &s, buf, (int)sizeof(buf));
@@ -96,6 +100,8 @@ static void test_key_field_mapping(void)
         { 9, -22 },  /* volume_db: -23 -> -22                     */
         { 10, 0 },   /* browse: cleared (string)                  */
         { 11, 1 },   /* cursor: 0 -> 1                            */
+        { 12, 1 },   /* shuffle: off -> on                        */
+        { 13, 1 },   /* repeat_mode: off -> all                   */
     };
 
     for (i = 0; i < SETTING_KEY_COUNT; i++) {
@@ -121,6 +127,8 @@ static void test_key_field_mapping(void)
         if (s.volume_db != old.volume_db) changed++;
         if (strcmp(s.browse, old.browse) != 0) changed++;
         if (s.cursor != old.cursor) changed++;
+        if (s.shuffle != old.shuffle) changed++;
+        if (s.repeat_mode != old.repeat_mode) changed++;
         CHECK_EQ_INT(changed, 1);
 
         /* and it is the right one, with the right value */
@@ -137,6 +145,8 @@ static void test_key_field_mapping(void)
         case 9:  CHECK_EQ_INT(s.volume_db, k_after[i].want); break;
         case 10: CHECK_STR_EQ(s.browse, ""); break;
         case 11: CHECK_EQ_INT(s.cursor, k_after[i].want); break;
+        case 12: CHECK_EQ_INT(s.shuffle, k_after[i].want); break;
+        case 13: CHECK_EQ_INT(s.repeat_mode, k_after[i].want); break;
         default: CHECK(0); break;
         }
     }

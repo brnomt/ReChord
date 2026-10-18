@@ -1,7 +1,7 @@
 /*
  * settings_store.c — target settings persistence (BRNOMT-71).
  *
- * The config is the plain-text 12-key file SETTINGS_PATH, inside the
+ * The config is the plain-text key=value file SETTINGS_PATH, inside the
  * user-visible /.rechord folder of the internal eMMC volume. Loads use the
  * read-only fs.h path; SAVES go through fs_target_file_rewrite(): the data
  * sectors of the existing file are rewritten and its 4-byte size is patched,
@@ -21,7 +21,7 @@
 #include "fs.h"
 #include "fs_target.h"
 
-/* Longest config text read back (the 12 keys live in the first lines). */
+/* Longest config text read back (the keys live in the first lines). */
 #define CFG_READ_MAX 512
 
 int settings_load(settings_t *s)

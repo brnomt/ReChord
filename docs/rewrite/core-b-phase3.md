@@ -140,11 +140,13 @@ One core does decode + render; they must interleave:
 - **Memory.** B code in HIGHRAM0 `0x01000000..0x01020000` (blob ~65 KiB,
   embedded in fw1 — FW_CODE enlarged to `0x3C000`); PCM ring `0x01030000`; file
   ring `0x01021000`; B data/pool/stack `0x01040000..0x01060000`.
-- **Not in v1:** ReplayGain/gapless trim on B (RG default is OFF; gapless loses
-  sample-accurate joins → a small gap between tracks). Seek is forwarded to B
-  via `ipc_b_seek()`.
-- AP5M CRC `0x57853181`, `_bss_end 0x030418c8`; host player tests still pass.
-  (Final build `0x88C41346` adds the AP-fallback kick in `ipc_b_ring_fill`.)
+- **PCM post-processing on B:** ReplayGain (Q16 gain in `IPC_C_RG`, re-synced
+  on mode changes) and the gapless trim (`IPC_C_GAP_DELAY/PAD/TOTAL`) are
+  applied in B's decode loop, mirroring the previous AP logic; B links
+  `rg_math.c`. Seek forwards to B via `ipc_b_seek()` and resets B's trim
+  cursors. (v1 shipped without these; added right after.)
+- AP5M CRC `0xE27C15B8` (RG+gapless build), `_bss_end 0x030418c8`; host player
+  tests pass.
 
 ### Hardware verified (2026-10-17)
 

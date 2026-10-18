@@ -105,6 +105,7 @@ void player_screen_set_track(const char *title, uint32_t duration_s);
 void player_screen_set_position(uint32_t position_s);
 void player_screen_set_volume(int volume_db);   /* -60..0 dB */
 void player_screen_set_format(int bits, long sample_rate);  /* stream format */
+void player_screen_set_playlist(int pos, int count);        /* BRNOMT-90 i/N */
 void player_screen_set_playing(bool playing);
 /* Status line ("unsupported format", "no audio renderer", ...); NULL/"" clears. */
 void player_screen_set_status(const char *msg);
@@ -116,7 +117,7 @@ void player_screen_refresh(void);
 int player_bar_width(int width, uint32_t pos, uint32_t dur);
 
 /* ======================================================================
- * settings_screen — the 12-key schema bound to a menu
+ * settings_screen — the config schema bound to a menu
  * ====================================================================== */
 
 extern const ui_screen_t settings_screen;

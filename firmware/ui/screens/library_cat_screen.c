@@ -108,16 +108,14 @@ static void cat_draw(void)
 
 static void cat_play(int idx)
 {
-    media_rec_t rec;
-    char full[MEDIA_PATH_MAX + 2];
+    unsigned n = 0;
+    const uint16_t *list = mq_filter_indices(&n);
 
-    if (mq_filter_get((unsigned)idx, &rec) != FS_OK)
+    if (list == 0 || n == 0)
         return;
-    if (strlen(rec.path) + 1u >= sizeof full)
-        return;
-    full[0] = '/';
-    strcpy(full + 1, rec.path);
-    if (player_open(full) == PLAYER_OK) {
+    /* BRNOMT-90: play the whole filtered list, starting here — the player
+     * shows "i/N" and auto-advances through the rest. */
+    if (player_play_list(list, (int)n, idx) == PLAYER_OK) {
         track_info_t ti;
 
         player_screen_set_status(NULL);
@@ -125,7 +123,6 @@ static void cat_play(int idx)
             player_screen_set_track(ti.title,
                                     ti.duration_ms > 0
                                         ? (uint32_t)(ti.duration_ms / 1000) : 0);
-        (void)player_play();
         ui_push_screen(&player_screen);
     } else {
         player_screen_set_status("cannot open track");

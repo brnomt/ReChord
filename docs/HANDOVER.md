@@ -3348,8 +3348,9 @@ Earlier attempt that put B's stack in SYSRAM1 `0x03090000` FAILED on hardware
 (hung at 0:00) — SYSRAM1 is not Core-1-reachable; reverted.
 
 Fallback: if B does not ACK the OPEN handshake the AP decodes exactly as phase 2.
-Not in v1: ReplayGain/gapless trim on B (RG default OFF; gapless loses the
-sample-accurate join). Seek is forwarded to B via `ipc_b_seek()`.
+PCM post-processing lives on B: ReplayGain (`IPC_C_RG`, synced on mode changes)
+and the gapless trim (`IPC_C_GAP_DELAY/PAD/TOTAL`) are applied in B's decode
+loop; seek forwards to B and resets its trim cursors.
 
 **Hardware result (user, CRC `0x88C41346`):** 16/44.1 and 96k/24 (Hyperdrama)
 play with no crackles; UI fluid; a slight lag remains (minor). The Library →

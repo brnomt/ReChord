@@ -26,6 +26,22 @@
 #include "ui/screens/screens.h"
 #include "player/bfs.h"     /* phase 3: A-side file service for Core B */
 
+/* BRNOMT-90: playlist record index -> track path (player_play_list). */
+static int media_resolve(uint16_t idx, char *path, int cap)
+{
+    media_rec_t rec;
+
+    if (media_db_open() != FS_OK)
+        return -1;
+    if (media_db_get((uint32_t)idx, &rec) != FS_OK)
+        return -1;
+    if ((int)strlen(rec.path) + 2 > cap)
+        return -1;
+    path[0] = '/';
+    strcpy(path + 1, rec.path);
+    return 0;
+}
+
 static int s_adc = 1023, s_power, s_cable;
 static unsigned s_power_held;
 static uint32_t s_user;              /* user volume start, 0 = unknown */
@@ -737,6 +753,7 @@ void ap_ui_loop(void)
 
     emmc_probe();
     player_init();       /* register wav/mp3/flac codecs (registry) */
+    player_set_resolver(media_resolve);   /* BRNOMT-90: list index -> path */
     mq_set_pump(player_process);  /* keep audio fed during library scans */
     ui_init();
     ap_clock_init();     /* ms clock for the input hold ladder */
@@ -748,6 +765,8 @@ void ap_ui_loop(void)
      * changes. */
     settings_screen_reload();
     player_set_volume(settings_screen_get()->volume_db);
+    player_set_shuffle(settings_screen_get()->shuffle);           /* BRNOMT-90 */
+    player_set_repeat(settings_screen_get()->repeat_mode);
     player_screen_set_volume(player_get_volume());
     s_volume_seen = player_get_volume();
     menu_screen_bind(&k_root);

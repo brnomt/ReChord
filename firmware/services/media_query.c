@@ -20,7 +20,7 @@
 
 /* Scratch views (the region is reinterpreted, never copied). */
 static char    *s_cells;                 /* names mode: count * MQ_CELL */
-static uint32_t *s_idx;                  /* filter mode: record indices */
+static uint16_t *s_idx;                  /* filter mode: record indices */
 static unsigned s_cap;                   /* capacity in the current mode */
 static unsigned s_count;
 static int      s_truncated;
@@ -217,6 +217,58 @@ int mq_filter_get(unsigned i, media_rec_t *out)
     if (s_idx == 0 || i >= s_count)
         return FS_ERR_ARG;
     return media_db_get(s_idx[i], out);
+}
+
+const uint16_t *mq_filter_indices(unsigned *out_count)
+{
+    if (out_count != 0)
+        *out_count = (s_idx != 0) ? s_count : 0u;
+    return (s_idx != 0 && s_count > 0) ? s_idx : 0;
+}
+
+int mq_folder_init(const char *prefix)
+{
+    unsigned total, i;
+    const char *p;
+    size_t plen;
+
+    mq_done();
+    s_idx = scratch_claim(SCRATCH_OWNER_INDEX);
+    if (s_idx == 0)
+        return FS_ERR_IO;
+    if (media_db_open() != FS_OK) {
+        mq_done();
+        return FS_ERR_OPEN;
+    }
+    s_cap = SCRATCH_BYTES / sizeof s_idx[0];
+    s_count = 0;
+    s_truncated = 0;
+    if (prefix == 0)
+        return 0;
+
+    p = prefix;
+    if (*p == '/')               /* record paths are volume-relative */
+        p++;
+    plen = strlen(p);
+
+    total = media_db_count();
+    for (i = 0; i < total; i++) {
+        media_rec_t rec;
+
+        if (media_db_get(i, &rec) != FS_OK)
+            break;
+        if (s_pump != 0 && (i & (MQ_PUMP_EVERY - 1u)) == 0u)
+            s_pump();
+        if (plen > 0 &&
+            (strncmp(rec.path, p, plen) != 0 || rec.path[plen] != '/'))
+            continue;
+        if (s_count >= s_cap) {
+            s_truncated = 1;
+            break;
+        }
+        s_idx[s_count++] = (uint16_t)i;
+    }
+    return 0;
 }
 
 void mq_done(void)

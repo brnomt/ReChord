@@ -7,7 +7,7 @@
  * turned out to be the .bss ceiling at 0x0304A000, not this code (DFIU
  * fb41cb15), so the first-boot initializer lives here:
  *
- *   /.rechord/rechord.cfg   12-key settings, 64 KiB allocated
+ *   /.rechord/rechord.cfg   key=value settings, 64 KiB allocated
  *   /.rechord/state         runtime state for resume (track + position)
  *
  * Both are idempotent through fs_target's create primitives: an existing

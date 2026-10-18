@@ -1,5 +1,5 @@
 /*
- * settings.c — parser/serializer for the 12-key "\RECHORD.CFG" schema.
+ * settings.c — parser/serializer for the "\RECHORD.CFG" settings schema.
  *
  * Written from the documented FORMAT FACTS only (docs/re/refcfw-analysis.md):
  * key=value lines, '#' comments, unknown keys ignored. No third-party code is
@@ -41,6 +41,8 @@ void settings_defaults(settings_t *s)
     s->volume = -23;
     s->browse[0] = '\0';
     s->cursor = 0;
+    memcpy(s->shuffle, "off", 3);
+    memcpy(s->repeat_mode, "off", 3);
 }
 
 /* Copy src into dst (capacity cap), truncating safely. */
@@ -128,7 +130,7 @@ static int parse_line(char *line, settings_t *s)
     val = trim(eq + 1);
     key = trim(key);            /* re-trim: " key " before '=' */
 
-    /* Fixed 12-key schema. Field sizes are the struct's array sizes minus 1;
+    /* Fixed key schema. Field sizes are the struct's array sizes minus 1;
      * copy_value truncates anything longer. */
     if (strcmp(key, "play") == 0) {
         copy_value(s->play, sizeof(s->play), val);
@@ -154,6 +156,10 @@ static int parse_line(char *line, settings_t *s)
         copy_value(s->browse, sizeof(s->browse), val);
     } else if (strcmp(key, "cursor") == 0) {
         (void)parse_int(val, &s->cursor);
+    } else if (strcmp(key, "shuffle") == 0) {
+        copy_value(s->shuffle, sizeof(s->shuffle), val);
+    } else if (strcmp(key, "repeat_mode") == 0) {
+        copy_value(s->repeat_mode, sizeof(s->repeat_mode), val);
     } else {
         return 0;               /* unknown key: ignored by design */
     }
@@ -280,6 +286,10 @@ int settings_serialize_text(const settings_t *s, char *buf, unsigned long cap)
         emit(buf, cap, &pos, s->browse) != 0 ||
         emit(buf, cap, &pos, "\ncursor=") != 0 ||
         emit_int(buf, cap, &pos, s->cursor) != 0 ||
+        emit(buf, cap, &pos, "\nshuffle=") != 0 ||
+        emit(buf, cap, &pos, s->shuffle) != 0 ||
+        emit(buf, cap, &pos, "\nrepeat_mode=") != 0 ||
+        emit(buf, cap, &pos, s->repeat_mode) != 0 ||
         emit(buf, cap, &pos, "\n") != 0) {
         return SETTINGS_ERR_FULL;
     }

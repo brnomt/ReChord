@@ -358,6 +358,44 @@ long player_get_position_ms(void)
     return s_pl_pos_ms;
 }
 
+/* BRNOMT-90 stubs: the UI tests drive the screens, not the list engine. */
+void player_set_resolver(int (*fn)(uint16_t idx, char *path, int cap))
+{
+    (void)fn;
+}
+
+int player_play_list(const uint16_t *idx, int n, int start)
+{
+    (void)idx;
+    (void)n;
+    (void)start;
+    if (!s_pl_present)
+        return PLAYER_ERR_EMPTY;
+    s_pl_play_count++;
+    s_pl_state = PLAYER_PLAYING;
+    return PLAYER_OK;
+}
+
+void player_set_shuffle(int on)
+{
+    (void)on;
+}
+
+int player_get_shuffle(void)
+{
+    return 0;
+}
+
+void player_set_repeat(int mode)
+{
+    (void)mode;
+}
+
+int player_get_repeat(void)
+{
+    return 0;
+}
+
 int player_get_volume(void)
 {
     return s_pl_volume;

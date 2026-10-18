@@ -26,8 +26,9 @@ static int s_failures;
     }                                                                      \
 } while (0)
 
-/* The documented on-device sample configuration: exact values, exact 12-key
- * schema, comment lines. This fixture is the drop-in compatibility target. */
+/* The documented on-device sample configuration (the original 12-key file):
+ * exact values, comment lines. shuffle/repeat_mode are NOT in it, so they must
+ * fall back to their defaults — that is the forward-compatibility target. */
 static const char k_sample_cfg[] =
     "# ReChord settings: key=value, one per line. Unknown keys are ignored.\n"
     "play=repeat_track\n"
@@ -59,6 +60,8 @@ static void check_sample_values(const settings_t *s)
     CHECK(s->volume == -23);
     CHECK(strcmp(s->browse, "") == 0);
     CHECK(s->cursor == 0);
+    CHECK(strcmp(s->shuffle, "off") == 0);       /* BRNOMT-90 */
+    CHECK(strcmp(s->repeat_mode, "off") == 0);
 }
 
 static void check_same(const settings_t *a, const settings_t *b)
@@ -75,6 +78,8 @@ static void check_same(const settings_t *a, const settings_t *b)
     CHECK(a->volume == b->volume);
     CHECK(strcmp(a->browse, b->browse) == 0);
     CHECK(a->cursor == b->cursor);
+    CHECK(strcmp(a->shuffle, b->shuffle) == 0);
+    CHECK(strcmp(a->repeat_mode, b->repeat_mode) == 0);
 }
 
 static void write_cfg(const char *content)
@@ -148,7 +153,7 @@ static void test_sample_round_trip(void)
     CHECK(settings_parse_text(text, &c) == SETTINGS_OK);
     check_same(&b, &c);
 
-    /* 5. the saved file is key=value one per line, 12 keys in schema order */
+    /* 5. the saved file is key=value one per line, schema order */
     read_cfg(text, (unsigned long)sizeof(text));
     CHECK(strstr(text, "play=repeat_track\n") != NULL);
     CHECK(strstr(text, "brightness=8\n") != NULL);
@@ -162,6 +167,8 @@ static void test_sample_round_trip(void)
     CHECK(strstr(text, "volume=-23\n") != NULL);
     CHECK(strstr(text, "browse=\n") != NULL);
     CHECK(strstr(text, "cursor=0\n") != NULL);
+    CHECK(strstr(text, "shuffle=off\n") != NULL);      /* BRNOMT-90 */
+    CHECK(strstr(text, "repeat_mode=off\n") != NULL);
     CHECK(strstr(text, "\nplay=") < strstr(text, "\nbrightness="));
     CHECK(strstr(text, "\nbrightness=") < strstr(text, "\nscreen_off="));
     CHECK(strstr(text, "\nscreen_off=") < strstr(text, "\nauto_off="));
@@ -173,6 +180,8 @@ static void test_sample_round_trip(void)
     CHECK(strstr(text, "\ncpu=") < strstr(text, "\nvolume="));
     CHECK(strstr(text, "\nvolume=") < strstr(text, "\nbrowse="));
     CHECK(strstr(text, "\nbrowse=") < strstr(text, "\ncursor="));
+    CHECK(strstr(text, "\ncursor=") < strstr(text, "\nshuffle="));
+    CHECK(strstr(text, "\nshuffle=") < strstr(text, "\nrepeat_mode="));
 }
 
 static void test_tolerance(void)

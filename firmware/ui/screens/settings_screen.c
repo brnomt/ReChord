@@ -1,9 +1,10 @@
 /*
- * settings_screen.c — binds the 12-key config schema to a menu.
+ * settings_screen.c — binds the config schema to a menu.
  *
  * One menu row per schema key (canonical order: play, brightness,
  * screen_off, auto_off, usb, resume, strip, tags, cpu, volume, browse,
- * cursor).  The row label is the config key name, the right-aligned value is
+ * cursor, shuffle, repeat_mode).
+ * The row label is the config key name, the right-aligned value is
  * the key's current value formatted exactly like the config file writes it.
  *
  * Keys: UP/DOWN move, SELECT cycles the value (enum wraps through options,
@@ -36,11 +37,14 @@ static const char *value_text_8(void)  { return s_value_buf[8]; }
 static const char *value_text_9(void)  { return s_value_buf[9]; }
 static const char *value_text_10(void) { return s_value_buf[10]; }
 static const char *value_text_11(void) { return s_value_buf[11]; }
+static const char *value_text_12(void) { return s_value_buf[12]; }
+static const char *value_text_13(void) { return s_value_buf[13]; }
 
 static const char *(*const s_value_text_fn[SETTING_KEY_COUNT])(void) = {
     value_text_0,  value_text_1,  value_text_2,  value_text_3,
     value_text_4,  value_text_5,  value_text_6,  value_text_7,
     value_text_8,  value_text_9,  value_text_10, value_text_11,
+    value_text_12, value_text_13,
 };
 
 static void on_select_0(void)  { settings_cycle(&setting_schema[0],  &s_settings, +1); }
@@ -55,11 +59,20 @@ static void on_select_8(void)  { settings_cycle(&setting_schema[8],  &s_settings
 static void on_select_9(void)  { settings_cycle(&setting_schema[9],  &s_settings, +1); }
 static void on_select_10(void) { settings_cycle(&setting_schema[10], &s_settings, +1); }
 static void on_select_11(void) { settings_cycle(&setting_schema[11], &s_settings, +1); }
+static void on_select_12(void) {
+    settings_cycle(&setting_schema[12], &s_settings, +1);
+    player_set_shuffle(s_settings.shuffle);      /* BRNOMT-90: apply now */
+}
+static void on_select_13(void) {
+    settings_cycle(&setting_schema[13], &s_settings, +1);
+    player_set_repeat(s_settings.repeat_mode);
+}
 
 static void (*const s_on_select_fn[SETTING_KEY_COUNT])(void) = {
     on_select_0,  on_select_1,  on_select_2,  on_select_3,
     on_select_4,  on_select_5,  on_select_6,  on_select_7,
     on_select_8,  on_select_9,  on_select_10, on_select_11,
+    on_select_12, on_select_13,
 };
 
 static const menu_model_t s_model = {

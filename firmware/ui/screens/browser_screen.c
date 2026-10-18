@@ -21,6 +21,8 @@
 #include "screens.h"
 #include "../theme.h"
 #include "../internal/hal.h"
+#include "../../services/media_db.h"       /* BRNOMT-90: folder -> list */
+#include "../../services/media_query.h"
 
 static browser_state_t s_state;
 static char            s_root[BROWSER_PATH_MAX];
@@ -261,7 +263,37 @@ static void browser_screen_handle_event(const input_event_t *ev)
                 full[len++] = '/';
             memcpy(full + len, ent->name, nlen + 1);
 
-            rc = player_open(full);
+            {
+                unsigned n = 0, i;
+                const uint16_t *list = 0;
+                int start = -1;
+
+                /* BRNOMT-90: queue the whole folder, starting at this file. */
+                if (mq_folder_init(s_state.path) == 0)
+                    list = mq_filter_indices(&n);
+                for (i = 0; list != 0 && i < n; i++) {
+                    media_rec_t rec;
+                    char recfull[MEDIA_PATH_MAX + 2];
+
+                    if (mq_filter_get(i, &rec) != FS_OK)
+                        continue;
+                    if (strlen(rec.path) + 2u > sizeof(recfull))
+                        continue;
+                    recfull[0] = '/';
+                    strcpy(recfull + 1, rec.path);
+                    if (strcmp(recfull, full) == 0) {
+                        start = (int)i;
+                        break;
+                    }
+                }
+                if (start >= 0) {
+                    rc = player_play_list(list, (int)n, start);
+                } else {
+                    rc = player_open(full);     /* not indexed: single track */
+                    if (rc == PLAYER_OK)
+                        rc = player_play();
+                }
+            }
             if (rc == PLAYER_OK) {
                 track_info_t ti;
 
@@ -271,7 +303,6 @@ static void browser_screen_handle_event(const input_event_t *ev)
                         ti.title,
                         ti.duration_ms > 0
                             ? (uint32_t)(ti.duration_ms / 1000) : 0);
-                (void)player_play();
             } else {
                 /* Show the raw error code (-1 io, -2 format, -3 out of the
                  * codec subset e.g. FLAC block/seektable pool, -4 no codec):

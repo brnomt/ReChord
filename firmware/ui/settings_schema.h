@@ -1,8 +1,8 @@
 /*
- * settings_schema.h — ReChord 12-key configuration schema.
+ * settings_schema.h — ReChord configuration schema.
  *
- * The user-facing config is a plain key=value file with exactly these 12
- * keys (schema proven on-device: docs/re/refcfw-analysis.md §6c shows a live
+ * The user-facing config is a plain key=value file; the first 12 keys match
+ * the documented on-device schema (docs/re/refcfw-analysis.md §6c shows a live
  * REFCFW.CFG with `play=repeat_track brightness=8 screen_off=30 auto_off=15
  * usb=ask resume=folder strip=off tags=on cpu=auto volume=-23 browse=
  * cursor=0`).  We keep the same key names so config files stay portable;
@@ -23,7 +23,7 @@
 #include "../services/settings.h"
 
 #define RECHORD_BROWSE_PATH_MAX 64
-#define SETTING_KEY_COUNT       12
+#define SETTING_KEY_COUNT       14
 
 /* In-memory settings.  Field order is our own; persistence must go through
  * the schema table (or the key names), never through raw offsets on disk. */
@@ -40,6 +40,8 @@ typedef struct rechord_settings {
     int  volume_db;                   /* key "volume"     (dB, -60..0)      */
     char browse[RECHORD_BROWSE_PATH_MAX]; /* key "browse"  (last path)      */
     int  cursor;                      /* key "cursor"     (last position)   */
+    int  shuffle;                     /* key "shuffle"    (0=off, 1=on)     */
+    int  repeat_mode;                 /* key "repeat_mode"(0=off,1=all,2=one)*/
 } rechord_settings_t;
 
 typedef enum setting_kind {
@@ -66,7 +68,7 @@ typedef struct setting_schema {
 
 /* The schema table, in canonical key order:
  * play, brightness, screen_off, auto_off, usb, resume,
- * strip, tags, cpu, volume, browse, cursor                        (12 keys) */
+ * strip, tags, cpu, volume, browse, cursor, shuffle, repeat_mode  (14 keys) */
 extern const setting_schema_t setting_schema[SETTING_KEY_COUNT];
 
 /* Reset every field to its default (the observed on-device values). */

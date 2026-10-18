@@ -1,5 +1,5 @@
 /*
- * settings_schema.c — the 12-key schema table + value helpers.
+ * settings_schema.c — the schema table + value helpers.
  *
  * Key names exactly match the on-device config schema (facts from
  * docs/re/refcfw-analysis.md §6c); option texts are the observed values plus
@@ -60,6 +60,18 @@ static const setting_opt_t opts_cpu[] = {
     { "high", 2 },
 };
 
+/* BRNOMT-90: playback list options. */
+static const setting_opt_t opts_shuffle[] = {
+    { "off", 0 },
+    { "on",  1 },
+};
+
+static const setting_opt_t opts_repeat[] = {
+    { "off", 0 },
+    { "all", 1 },
+    { "one", 2 },
+};
+
 /* ---- the schema table (canonical key order) --------------------------- */
 
 const setting_schema_t setting_schema[SETTING_KEY_COUNT] = {
@@ -87,6 +99,10 @@ const setting_schema_t setting_schema[SETTING_KEY_COUNT] = {
       { .s = { RECHORD_BROWSE_PATH_MAX } } },
     { "cursor",     SETTING_KIND_INT,  offsetof(rechord_settings_t, cursor),
       { .r = { 0, 9999, 1 } } },
+    { "shuffle",     SETTING_KIND_ENUM, offsetof(rechord_settings_t, shuffle),
+      { .e = { opts_shuffle, 2 } } },
+    { "repeat_mode", SETTING_KIND_ENUM, offsetof(rechord_settings_t, repeat_mode),
+      { .e = { opts_repeat, 3 } } },
 };
 
 /* ---- helpers ----------------------------------------------------------- */
@@ -111,6 +127,8 @@ void settings_view_defaults(rechord_settings_t *s)
     s->volume_db = -23;
     memset(s->browse, 0, sizeof s->browse);   /* whole buffer: no stale tail */
     s->cursor = 0;
+    s->shuffle = 0;        /* off */
+    s->repeat_mode = 0;    /* off */
 }
 
 static void cycle_enum(const setting_schema_t *sch, rechord_settings_t *s,
@@ -234,6 +252,8 @@ void settings_view_from_store(const settings_t *in, rechord_settings_t *out)
         else if (strcmp(sc->name, "strip") == 0)    { txt = in->strip; }
         else if (strcmp(sc->name, "tags") == 0)     { txt = in->tags; }
         else if (strcmp(sc->name, "cpu") == 0)      { txt = in->cpu; }
+        else if (strcmp(sc->name, "shuffle") == 0)     { txt = in->shuffle; }
+        else if (strcmp(sc->name, "repeat_mode") == 0) { txt = in->repeat_mode; }
         else if (strcmp(sc->name, "brightness") == 0) { iv = in->brightness; }
         else if (strcmp(sc->name, "screen_off") == 0) { iv = in->screen_off_min; by_opt = 1; }
         else if (strcmp(sc->name, "auto_off") == 0)   { iv = in->auto_off_min;   by_opt = 1; }
@@ -286,6 +306,8 @@ void settings_view_to_store(const rechord_settings_t *in, settings_t *out)
             else if (strcmp(sc->name, "strip") == 0) snprintf(out->strip, sizeof out->strip, "%s", txt);
             else if (strcmp(sc->name, "tags") == 0)  snprintf(out->tags, sizeof out->tags, "%s", txt);
             else if (strcmp(sc->name, "cpu") == 0)   snprintf(out->cpu, sizeof out->cpu, "%s", txt);
+            else if (strcmp(sc->name, "shuffle") == 0)     snprintf(out->shuffle, sizeof out->shuffle, "%s", txt);
+            else if (strcmp(sc->name, "repeat_mode") == 0) snprintf(out->repeat_mode, sizeof out->repeat_mode, "%s", txt);
         } else if (strcmp(sc->name, "brightness") == 0) out->brightness = *src;
         else if (strcmp(sc->name, "volume") == 0)       out->volume = *src;
         else if (strcmp(sc->name, "cursor") == 0)       out->cursor = *src;

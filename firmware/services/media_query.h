@@ -44,6 +44,15 @@ int      mq_filter_init(int cat, const char *value);
 unsigned mq_filter_count(void);
 int      mq_filter_get(unsigned i, media_rec_t *out);
 
+/* The record indices collected by mq_filter_init(), for a playback list
+ * (BRNOMT-90). Returned pointer is valid until mq_done(); NULL when empty. */
+const uint16_t *mq_filter_indices(unsigned *out_count);
+
+/* BRNOMT-90: collect every indexed track under `prefix` (a browser folder
+ * path such as "/SD/Music/Album"). Results come back through
+ * mq_filter_indices(). Returns 0, or FS_ERR_* (no index / scratch busy). */
+int mq_folder_init(const char *prefix);
+
 /* Release the scratch region and drop the current query. */
 void mq_done(void);
 

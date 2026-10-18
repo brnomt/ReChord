@@ -1,5 +1,5 @@
 /*
- * settings.h — ReChord settings service: the 12-key "\RECHORD.CFG" schema.
+ * settings.h — ReChord settings service: the key=value "\RECHORD.CFG" schema.
  *
  * Format (drop-in compatible with the documented on-device config format):
  *   - plain text, one "key=value" per line,
@@ -7,9 +7,9 @@
  *   - unknown keys are ignored on load (forward compatibility),
  *   - CRLF and LF line endings both accepted.
  *
- * The 12 keys (fixed schema, stable order on save):
+ * The keys (fixed schema, stable order on save):
  *   play, brightness, screen_off, auto_off, usb, resume,
- *   strip, tags, cpu, volume, browse, cursor
+ *   strip, tags, cpu, volume, browse, cursor, shuffle, repeat_mode
  *
  * API contract (other modules code against exactly this):
  *   settings_load   — read and parse \RECHORD.CFG into a settings_t
@@ -19,7 +19,7 @@
 #ifndef RECHORD_SERVICES_SETTINGS_H
 #define RECHORD_SERVICES_SETTINGS_H
 
-typedef struct { char play[16]; int brightness; int screen_off_min; int auto_off_min; char usb[8]; char resume[8]; char strip[8]; char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor; } settings_t;
+typedef struct { char play[16]; int brightness; int screen_off_min; int auto_off_min; char usb[8]; char resume[8]; char strip[8]; char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor; char shuffle[8]; char repeat_mode[8]; } settings_t;
 
 /* Config file location: the internal eMMC volume, in the user-visible
  * .rechord folder (BRNOMT-71). Plain text, so it can be edited/copied from a
@@ -41,7 +41,7 @@ typedef struct { char play[16]; int brightness; int screen_off_min; int auto_off
  * the struct. Returns SETTINGS_OK or an error code. */
 int settings_load(settings_t *s);
 
-/* Write *s to SETTINGS_PATH (create/truncate), 12 keys in schema order with a
+/* Write *s to SETTINGS_PATH (create/truncate), all keys in schema order with a
  * short comment header. Note: keys not in the schema are not preserved (the
  * struct cannot hold them). Returns SETTINGS_OK or an error code. */
 int settings_save(const settings_t *s);

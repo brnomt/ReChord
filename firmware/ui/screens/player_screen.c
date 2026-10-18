@@ -28,6 +28,8 @@ static uint32_t s_position_s;
 static int      s_volume_db;   /* -60..0 */
 static int      s_bits;        /* source bit depth (0 = unknown) */
 static long     s_rate;        /* sample rate Hz (0 = unknown) */
+static int      s_pl_pos;      /* playlist position (0 = no list) */
+static int      s_pl_count;    /* playlist length */
 static bool     s_playing;
 static char     s_status[40];  /* non-empty: shown instead of Playing/Paused */
 
@@ -107,12 +109,24 @@ static void player_screen_draw(void)
 
     /* stream format on its own line: e.g. "24b/96.0k" */
     if (s_bits > 0 && s_rate > 0) {
-        char f[24];
+        char f[32];
         long k10 = s_rate / 100;      /* tenths of kHz, no float printf */
 
         snprintf(f, sizeof(f), "%db/%ld.%ldk", s_bits, k10 / 10, k10 % 10);
         display_draw_text(THEME_PAD, 64 + THEME_TEXT_YOFF,
                           f, THEME_COLOR_DIM, THEME_COLOR_BG);
+    }
+
+    /* playlist position ("i/N"), right-aligned on the same line */
+    if (s_pl_count > 0) {
+        char pl[24];
+        int  plen;
+
+        snprintf(pl, sizeof(pl), "%d/%d", s_pl_pos, s_pl_count);
+        plen = (int)strlen(pl);
+        display_draw_text(DISPLAY_W - THEME_PAD - THEME_TEXT_W(plen),
+                          64 + THEME_TEXT_YOFF,
+                          pl, THEME_COLOR_DIM, THEME_COLOR_BG);
     }
 
     /* volume bar (-60..0 dB maps to 0..full width) */
@@ -175,6 +189,7 @@ static void player_screen_on_enter(void)
                                 ? (uint32_t)(ti.duration_ms / 1000) : 0);
     player_screen_set_volume(player_get_volume());
     player_screen_set_format(ti.bits, ti.sample_rate);
+    player_screen_set_playlist(ti.playlist_pos, ti.playlist_count);
     player_screen_set_playing(player_get_state() == PLAYER_PLAYING);
 }
 
@@ -210,6 +225,15 @@ void player_screen_set_volume(int volume_db)
     s_volume_db = volume_db;
     ui_invalidate(0, PLAYER_VOL_Y - THEME_LINE_H,
                   DISPLAY_W - 1, PLAYER_VOL_Y + PLAYER_VOL_H);
+}
+
+void player_screen_set_playlist(int pos, int count)
+{
+    if (pos == s_pl_pos && count == s_pl_count)
+        return;
+    s_pl_pos = pos;
+    s_pl_count = count;
+    ui_invalidate(0, 64, DISPLAY_W - 1, 64 + THEME_LINE_H);
 }
 
 void player_screen_set_format(int bits, long sample_rate)
@@ -258,6 +282,7 @@ void player_screen_refresh(void)
     if (pos != s_position_s)
         player_screen_set_position(pos);
     player_screen_set_format(ti.bits, ti.sample_rate);
+    player_screen_set_playlist(ti.playlist_pos, ti.playlist_count);
     if ((st == PLAYER_PLAYING) != s_playing)
         player_screen_set_playing(st == PLAYER_PLAYING);
 }

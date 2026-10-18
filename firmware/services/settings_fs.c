@@ -4,7 +4,7 @@
  *
  * Creates/truncates the file on save, so it is the backend for a POSIX
  * filesystem where files can be allocated freely. The on-disk format is the
- * plain-text 12-key schema parsed/serialized in settings.c.
+ * plain-text key=value schema parsed/serialized in settings.c.
  */
 #include <stddef.h>
 
@@ -37,7 +37,7 @@ int settings_load(settings_t *s)
         rc = SETTINGS_ERR_IO;
         got = 0;
     } else if (size > (long)sizeof(buf) - 1) {
-        /* Over-long file: parse the part we hold (all 12 keys live in the
+        /* Over-long file: parse the part we hold (all keys live in the
          * first lines by format convention). Not an error — tolerant. */
         got = (long)sizeof(buf) - 1;
     }
