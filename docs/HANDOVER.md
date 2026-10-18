@@ -3529,6 +3529,18 @@ Tests: `test_media_scan` +6 (a ~100-char path must be indexed whole and
 un-truncated; a 230-char dir must be skipped, never stored half-way). services +
 player + UI green. AP5M CRC `0xDDAB52EA`, packer `RESULT: PASS`. Not flashed.
 
+**Follow-up, same day (user, reindexed build): grouping is case-insensitive.**
+The indexing itself is now right (710/710, no blank rows), but the Library
+sorted with plain `strcmp`, so every uppercase-initial name went before every
+lowercase one — "BALLADS 1" and "BLEED (RUNAWAY)" before "Backstreet's Back",
+and lowercase albums ("bb u ok", "help herself") landed past the whole
+uppercase alphabet instead of under their letter. `media_query.c` now compares
+with `ci_cmp` (ASCII case-fold, non-ASCII byte-wise) for BOTH the category names
+and the song lists; `Undefined` still sorts first. `test_media_query` +11
+("apple"/"Banana"/"cherry" must group by letter). Also: the services test runner
+now `rm -rf .work` at the start — the long-path fixtures leaked into the next
+run's assertions. AP5M CRC `0x77EFB70C`.
+
 **GP is NOT fixed by this** — see AQ/BRNOMT-73: with the device handoff (7e5ba95)
 the boundary is still ~1 s because `bfs_open` + B reopening the codec costs more
 than the 64 KiB PCM ring covers (~85 ms). The issue thread asks for preloading

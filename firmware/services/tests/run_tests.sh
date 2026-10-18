@@ -7,7 +7,10 @@ cd "$(dirname "$0")"
 CC="${CC:-cc}"
 CFLAGS="${CFLAGS:--Wall -Werror -O1}"
 
-mkdir -p .work
+# Start every run from a clean tree: the media tests walk everything under
+# .work, so fixtures left by a previous run (long-path dirs, extra files) would
+# leak into their assertions.
+rm -rf .work && mkdir -p .work
 
 $CC $CFLAGS -I.. -o .work/test_settings test_settings.c ../settings.c ../settings_fs.c ../fs_host.c
 $CC $CFLAGS -I.. -o .work/test_settings_store test_settings_store.c ../settings.c ../settings_store.c

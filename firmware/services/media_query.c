@@ -58,10 +58,34 @@ static void mq_key_set(mq_key_t *k, uint16_t track, const char *s)
     memcpy(k->text, s, n);
 }
 
+/* ASCII case-insensitive compare (BRNOMT-92 follow-up): the lists must group
+ * "bb u ok" with "B..." and not push every lowercase-initial name after the
+ * whole uppercase alphabet (plain strcmp put 'BALLADS' before 'Backstreet' and
+ * after 'Z...'). Non-ASCII bytes compare byte-wise, which is deterministic. */
+static int ci_cmp(const char *a, const char *b)
+{
+    while (*a != '\0' && *b != '\0') {
+        unsigned char ca = (unsigned char)*a;
+        unsigned char cb = (unsigned char)*b;
+
+        if (ca >= 'A' && ca <= 'Z')
+            ca = (unsigned char)(ca + 32);
+        if (cb >= 'A' && cb <= 'Z')
+            cb = (unsigned char)(cb + 32);
+        if (ca != cb)
+            return (ca < cb) ? -1 : 1;
+        a++;
+        b++;
+    }
+    if (*a == *b)
+        return 0;
+    return (*a != '\0') ? 1 : -1;
+}
+
 static int mq_item_cmp(const mq_key_t *a, uint16_t ia,
                        const mq_key_t *b, uint16_t ib)
 {
-    int c = strcmp(a->text, b->text);
+    int c = ci_cmp(a->text, b->text);
 
     if (c != 0)
         return c;
@@ -139,7 +163,7 @@ static const char *rec_value(const media_rec_t *rec, int cat, char *buf,
     }
 }
 
-/* "Undefined" first, then case-sensitive strcmp: deterministic and cheap. */
+/* "Undefined" first, then case-insensitive so the letters group (BRNOMT-92). */
 static int name_cmp(const char *a, const char *b)
 {
     int ua = strcmp(a, MQ_UNDEFINED) == 0;
@@ -147,7 +171,7 @@ static int name_cmp(const char *a, const char *b)
 
     if (ua != ub)
         return ua ? -1 : 1;
-    return strcmp(a, b);
+    return ci_cmp(a, b);
 }
 
 static void sort_names(void)

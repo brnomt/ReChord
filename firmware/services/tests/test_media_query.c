@@ -91,6 +91,33 @@ int main(void)
 
     mq_done();
     CHECK(mq_names_count() == 0 && mq_filter_count() == 0);
+
+    /* Case-insensitive grouping (BRNOMT-92): "apple" must sort next to
+     * "Banana"/"cherry", not after every uppercase-initial name. Plain strcmp
+     * put 'BALLADS' before 'Backstreet's Back' and pushed lowercase-initial
+     * albums past the whole uppercase alphabet. */
+    CHECK(media_db_begin(s_dbbuf, (uint32_t)sizeof s_dbbuf) == FS_OK);
+    add("apple", "apple", 2020, "zed");
+    add("Banana", "Banana", 2020, "zed");
+    add("cherry", "cherry", 2020, "zed");
+    CHECK(media_db_end() == FS_OK);
+
+    CHECK(mq_names_init(MQ_ALBUM) == 0);
+    CHECK(mq_names_count() == 3);
+    CHECK(strcmp(mq_names_get(0), "apple") == 0);
+    CHECK(strcmp(mq_names_get(1), "Banana") == 0);
+    CHECK(strcmp(mq_names_get(2), "cherry") == 0);
+
+    CHECK(mq_filter_init(MQ_ALL, 0) == 0);   /* All Songs: same comparer */
+    CHECK(mq_filter_count() == 3);
+    {
+        media_rec_t r;
+
+        CHECK(mq_filter_get(0, &r) == FS_OK);
+        CHECK(strcmp(r.title, "apple") == 0);
+    }
+    mq_done();
+
     /* No index at all -> the queries report it instead of an empty list. */
     (void)remove(".work/Internal/.rechord/INDEX.A");
     (void)remove(".work/Internal/.rechord/INDEX.B");
