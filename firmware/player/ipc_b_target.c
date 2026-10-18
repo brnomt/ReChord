@@ -21,6 +21,7 @@
 #include "ipc_shared.h"
 #include "audio/audio_output.h"
 #include "rknano_i2s.h"
+#include "log.h"
 
 #define CTRL ((volatile uint32_t *)IPC_SHARED_BASE)
 
@@ -126,6 +127,7 @@ static uint32_t cmd_start(uint32_t cmd)
  * keeps the file ring(s) fed while B opens a codec and reads its headers. */
 static int b_cmd_wait(uint32_t seq)
 {
+    uint32_t cmd = CTRL[IPC_C_CMD];
     int i;
 
     for (i = 0; i < 1500; i++) {
@@ -134,8 +136,14 @@ static int b_cmd_wait(uint32_t seq)
             break;
         dac_delay_ms(1);
     }
-    if (CTRL[IPC_C_ACK] != seq || CTRL[IPC_C_BSTATE] != IPC_BS_OPEN)
+    if (CTRL[IPC_C_ACK] != seq || CTRL[IPC_C_BSTATE] != IPC_BS_OPEN) {
+        log_printf("ipc: cmd %u no ack after %d ms", (unsigned)cmd, i);
         return -1;
+    }
+    /* Boundary timing (BRNOMT-73): the PCM ring is ~186 ms @44.1k, so an ACK
+     * slower than that is audible as a gap. Keep the slow ones in the log. */
+    if (i >= 50)
+        log_printf("ipc: cmd %u ack slow %d ms", (unsigned)cmd, i);
     return 0;
 }
 
@@ -179,9 +187,16 @@ static int b_next_cmd(const char *path, uint32_t ring)
 /* Pre-open the NEXT track into the other file ring while the current plays. */
 int ipc_b_preopen(const char *path)
 {
+    int rc;
+
     if (path == 0 || !s_b_decodes)
         return 0;                       /* AP decodes: nothing to pre-open */
-    return (bfs_preopen(path) == 0) ? 0 : -1;
+    /* Timestamps come from log_printf: start/end bound the SD open, which
+     * blocks the AP loop (BRNOMT-73 measurement). */
+    log_printf("ipc: preopen start");
+    rc = (bfs_preopen(path) == 0) ? 0 : -1;
+    log_printf("ipc: preopen rc %d", rc);
+    return rc;
 }
 
 int ipc_b_init(void)
