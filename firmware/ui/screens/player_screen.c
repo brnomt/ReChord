@@ -30,6 +30,7 @@ static int      s_bits;        /* source bit depth (0 = unknown) */
 static long     s_rate;        /* sample rate Hz (0 = unknown) */
 static int      s_pl_pos;      /* playlist position (0 = no list) */
 static int      s_pl_count;    /* playlist length */
+static int      s_track_no = -1; /* player open-sequence: detects a new track */
 static bool     s_playing;
 static char     s_status[40];  /* non-empty: shown instead of Playing/Paused */
 
@@ -190,6 +191,7 @@ static void player_screen_on_enter(void)
     player_screen_set_volume(player_get_volume());
     player_screen_set_format(ti.bits, ti.sample_rate);
     player_screen_set_playlist(ti.playlist_pos, ti.playlist_count);
+    s_track_no = ti.track_no;
     player_screen_set_playing(player_get_state() == PLAYER_PLAYING);
 }
 
@@ -277,6 +279,14 @@ void player_screen_refresh(void)
         if (s_playing)
             player_screen_set_playing(false);
         return;
+    }
+    /* A new track (auto-advance / next) must refresh the title, duration and
+     * format too — the position alone updates every pass. */
+    if (ti.track_no != s_track_no) {
+        s_track_no = ti.track_no;
+        player_screen_set_track(ti.title,
+                                ti.duration_ms > 0
+                                    ? (uint32_t)(ti.duration_ms / 1000) : 0);
     }
     pos = (uint32_t)(player_get_position_ms() / 1000);
     if (pos != s_position_s)
