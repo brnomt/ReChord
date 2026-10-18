@@ -132,12 +132,6 @@ int ipc_b_init(void);
  * Returns 0, or < 0 on error. */
 int ipc_b_start(const ipc_b_track_t *track);
 
-/* Same-format user boundary (skip / previous / next) while Core B is playing:
- * swap the stream but keep the DAC and the I2S serializer up, skipping the
- * full bring-up. Returns 0 on success, < 0 when the caller must take the full
- * stop/start path (different format, or Core B is not the decoder). */
-int ipc_b_soft_restart(const ipc_b_track_t *track);
-
 /* Stop the B core ("B off") and reset streaming state. Returns 0. */
 int ipc_b_stop(void);
 

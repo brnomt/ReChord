@@ -438,26 +438,6 @@ static int next_path_peek(char *out, int cap)
  * and for a user-driven next(). */
 static int restart_stream(void)
 {
-    ipc_b_track_t t;
-
-    /* Same-format skip/prev/next while Core B plays: keep the DAC and the
-     * serializer up, so the boundary is just a stream swap (BRNOMT-93
-     * follow-up: the full bring-up made every skip feel slow). */
-    build_ipc_track(&t);
-    if (ipc_b_soft_restart(&t) == 0) {
-        g.base_ms = 0;
-        g.frames_consumed = 0;
-        g.frames_at_start = 0;
-        g.eof = 0;
-        g.decoded_samples = 0;
-        g.emitted_samples = 0;
-        g.leading_trimmed = (g.gapless.delay_samples == 0) ? 1 : 0;
-        g.restart_pending = 0;
-        set_state(PLAYER_PLAYING);
-        return PLAYER_OK;
-    }
-
-    /* Full restart: stop the stream, reconfigure the DAC, start again. */
     ipc_b_stop();
     ipc_b_flush();
 

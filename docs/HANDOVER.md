@@ -3637,3 +3637,34 @@ DAC bring-up — that is the "tarda algo" the user reports.
 AP5M CRC `0xCE4CCACE`, packer `RESULT: PASS`. Not flashed. Next field log
 tells whether the boundary still exceeds the ring margin (then the AP's
 `open_codec_only` must leave the critical path) or the gap is gone.
+
+## AW. Session 2026-10-18 — AV reverted: the soft restart corrupted playback
+
+The AV build (AP5M CRC `0xCE4CCACE`) broke playback: after a skip to the next
+track — and again going back to the previous one — a 1:38 track finished in
+~12 s. The log shows the soft path (`ipc: cmd 1 ack 87 ms` with no preceding
+`ipc: start`), then an early `ipc: B eof`.
+
+Cause: `ipc_b_soft_restart()` reset `IPC_SH_RD/WR/FRAMES` **while the I2S
+TX-empty ISR (`shared_pull`) was still attached**. A pull in flight publishes
+`rd = stale_rd + 8` after the reset, so `rd > wr`; `avail` and Core B's
+`freeb = IPC_RING_BYTES - (wr - rd)` underflow (uint32), the feeder copies from
+wrong ring offsets, and Core B is no longer throttled by the ring — it decodes
+flat out. The full path never hits this: `ipc_b_stop()` calls
+`rknano_i2s_detach()` (and stops the serializer) before the ring is touched.
+
+Reverted AV: `ipc_b_soft_restart()` removed from `ipc_b_target.c`, `ipc_b.h`
+and `ipc_b_mock.c`, and dropped from `restart_stream()`; the `ipc: B eof`
+boundary log stays.
+
+Correction to AV's premise: `audio_output_configure()` **already early-exits**
+for the same rate/channels (stock `FUN_03056550` behaviour; `bits` deliberately
+not compared), so a same-format hard boundary never re-ran the DAC bring-up.
+The perceived skip latency is Core B's ~87-91 ms codec open, not the DAC.
+
+Recorded as **DFIU incident `2a957c29-…`** (candidate rule `R-11dac25fe560`,
+blocker): *never reset the shared PCM ring cursors while a consumer ISR can
+run — detach/mask the feeder first, and keep the free-space math free of
+counter underflow.*
+
+AP5M CRC `0x105510CA`, packer `RESULT: PASS`. Not flashed.

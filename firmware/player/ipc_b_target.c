@@ -32,9 +32,6 @@ static int  g_paused;
 static int  g_volume_db;
 static int  s_b_decodes;            /* 1 = Core B is the ring producer */
 static int  s_eof_logged;           /* BEOF boundary already logged      */
-/* Format the DAC/serializer are configured for (0 = off). A same-format
- * user skip can keep them running instead of re-running the bring-up. */
-static int  s_ao_rate, s_ao_channels, s_ao_bits;
 
 static void dmb(void)
 {
@@ -269,76 +266,11 @@ int ipc_b_start(const ipc_b_track_t *track)
         return -1;
     }
     audio_output_start(0);              /* serializer on (XFER) */
-    s_ao_rate = (int)track->sample_rate;
-    s_ao_channels = track->channels;
-    s_ao_bits = track->bits;
     rknano_i2s_attach(shared_pull, 0);  /* AP ISR drains the ring */
     rknano_i2s_kick();
     audio_output_fade_in();
 
     sh_set(IPC_SH_STATE, IPC_SH_RUN);   /* B starts decoding on RUN */
-    g_state = IPC_B_RUNNING;
-    return 0;
-}
-
-/* Same-format user boundary (skip / previous / next) while Core B is playing:
- * keep the DAC and the I2S serializer up and only swap the stream. This skips
- * the full DAC bring-up (power GPIOs, I2C probe, PLL, I2S, CS43131 sequence)
- * that stop+start pays on every skip — the perceived "takes a while".
- * Returns < 0 when the format or the state does not allow it, so the caller
- * takes the full restart. */
-int ipc_b_soft_restart(const ipc_b_track_t *track)
-{
-    uint32_t seq;
-    int i;
-
-    if (track == NULL || !s_b_decodes)
-        return -1;
-    if (s_ao_rate != (int)track->sample_rate ||
-        s_ao_channels != track->channels || s_ao_bits != track->bits)
-        return -1;                  /* the DAC would have to re-lock */
-
-    g_paused = 0;
-    s_eof_logged = 0;
-
-    /* Fade while the ring is flushed; the serializer keeps clocking. */
-    audio_output_fade_out();
-    sh_set(IPC_SH_STATE, IPC_SH_IDLE);
-    sh_set(IPC_SH_RD, 0);
-    sh_set(IPC_SH_WR, 0);
-    sh_set(IPC_SH_FRAMES, 0);
-    sh_set(IPC_SH_UNDERRUNS, 0);
-    sh_set(IPC_SH_RATE, (uint32_t)track->sample_rate);
-    sh_set(IPC_SH_CHANNELS, (uint32_t)track->channels);
-    sh_set(IPC_SH_BITS, (uint32_t)track->bits);
-    sh_set(IPC_C_RG, (uint32_t)track->rg_gain_q16);
-    sh_set(IPC_C_GAP_DELAY, (uint32_t)track->gapless_delay);
-    sh_set(IPC_C_GAP_PAD, (uint32_t)track->gapless_padding);
-    sh_set(IPC_C_GAP_TOTAL, (uint32_t)track->total_samples);
-    audio_output_clear_played();
-
-    /* Make sure B has let go of the old file before bfs_open resets the ring. */
-    seq = cmd_start(IPC_C_CLOSE);
-    for (i = 0; i < 200; i++) {
-        bfs_poll();
-        if (CTRL[IPC_C_ACK] == seq)
-            break;
-        dac_delay_ms(1);
-    }
-
-    if (bfs_open(track->path) != 0)
-        return -1;
-    sh_set(IPC_C_RING, 0);
-    CTRL[IPC_C_ARG] = codec_id_for(track->path);
-    dmb();
-    seq = cmd_start(IPC_C_OPEN);
-    if (b_cmd_wait(seq) != 0) {
-        bfs_close();
-        return -1;
-    }
-    rknano_i2s_kick();              /* re-arm the feeder if it masked */
-    audio_output_fade_in();
-    sh_set(IPC_SH_STATE, IPC_SH_RUN);
     g_state = IPC_B_RUNNING;
     return 0;
 }
@@ -356,7 +288,6 @@ int ipc_b_stop(void)
     audio_output_clear_played();
     bfs_close();
     g_paused = 0;
-    s_ao_rate = 0;                  /* the DAC is off: no soft restart */
     s_eof_logged = 0;
     g_state = IPC_B_OFF;
     return 0;
