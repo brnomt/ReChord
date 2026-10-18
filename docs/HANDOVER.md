@@ -3732,3 +3732,25 @@ reopen sits inside it.
 
 All host suites green. AP5M CRC `0xF8A50BAD`, packer `RESULT: PASS`. Not
 flashed.
+
+## AZ. Session 2026-10-18 — GP: cache the next-index resolution for the boundary
+
+Field log on AY (`0xF8A50BAD`) still showed 47 ms between B's EOF and
+`ipc: next`, so it was neither `bfs_poll()` nor the app event. What is left in
+that window is `advance_playlist()`'s **resolver call**: the app installs
+`media_resolve()` (`ap_ui.c`), which does `media_db_open()` + `media_db_get()`
+— a media-DB lookup per advance, right where the ring is draining.
+
+Fix: `next_path_peek()` already resolves that index ~3 s earlier, so it now
+caches `{record index, path}` (`g.peek_*`). At the boundary `advance_playlist()`
+reuses the cached path **iff** the index the playlist actually lands on matches
+(a repeat/shuffle change or a different advance falls back to the resolver), and
+`advance_to()` / `close_track()` clear it so a stale peek can never be used.
+
+With the AP side at ~0 ms, only Core B's 87 ms reopen sits inside the ring's
+>=162 ms of cover.
+
+Tests: `test_playlist_resolve_cache` (the resolver runs once, at the pre-open;
+the boundary reuses it). All host suites green.
+
+AP5M CRC `0xDBCEF736`, packer `RESULT: PASS`. Not flashed.

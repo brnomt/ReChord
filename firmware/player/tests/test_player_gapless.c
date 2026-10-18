@@ -324,6 +324,59 @@ static void test_pending_open_adopt(void)
     player_stop();
 }
 
+/* BRNOMT-73: the playlist resolves the next record index during the pre-open
+ * window (a media-DB lookup on the target); the boundary must REUSE that
+ * resolution instead of repeating it inside the ring's cover. */
+static int g_resolve_calls;
+
+static int test_resolve(uint16_t idx, char *path, int cap)
+{
+    g_resolve_calls++;
+    path[0] = 't';
+    path[1] = (char)('0' + (int)(idx % 10));
+    path[2] = '\0';
+    strcpy(path + 2, ".mock");
+    (void)cap;
+    return 0;
+}
+
+static void test_playlist_resolve_cache(void)
+{
+    static const uint16_t idx[2] = {0, 1};
+    mock_codec_cfg_t cfg = {0};
+    int start0;
+
+    cfg.total_frames = 44100 * 2;      /* 2 s -> inside the pre-open window */
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+
+    ipc_b_init();
+    player_init();
+    player_register_codec("mock", mock_codec_get());
+    ipc_b_mock_set_b_decodes(1);
+    ipc_b_mock_set_b_eof(0);
+    player_set_resolver(test_resolve);
+
+    CHECK_EQI(player_play_list(idx, 2, 0), PLAYER_OK, "plcache: start list");
+    start0 = ipc_b_start_count();
+    g_resolve_calls = 0;               /* count only post-start resolutions */
+
+    CHECK_EQI(player_process(), PLAYER_OK, "plcache: pre-open pass");
+    CHECK_EQI(g_resolve_calls, 1, "plcache: resolved once for the pre-open");
+
+    ipc_b_mock_set_b_eof(1);
+    CHECK_EQI(player_process(), PLAYER_OK, "plcache: boundary");
+    CHECK_EQI(ipc_b_next_count(), 1, "plcache: gapless hand-off");
+    CHECK_EQI(ipc_b_start_count(), start0, "plcache: no B-core restart");
+    CHECK_EQI(g_resolve_calls, 1, "plcache: boundary reused the resolution");
+
+    ipc_b_mock_set_b_decodes(0);
+    ipc_b_mock_set_b_eof(0);
+    player_stop();
+}
+
 int main(void)
 {
     TEST("player gapless");
@@ -333,6 +386,7 @@ int main(void)
     test_gapless_core_b_format_change();
     test_preopen_trigger();
     test_pending_open_adopt();
+    test_playlist_resolve_cache();
     if (failures == 0) {
         printf("test_player_gapless: OK\n");
         return 0;

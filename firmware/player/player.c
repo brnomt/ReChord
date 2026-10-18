@@ -69,6 +69,14 @@ typedef struct
     long            pending_duration;
     int32_t         pending_rg_gain;
 
+    /* Next record index resolved during the pre-open window (BRNOMT-73): the
+     * resolver is a media-DB lookup (~47 ms on the target) and must not run
+     * inside the ring's cover at the boundary. Reused only when the index the
+     * playlist actually lands on matches. */
+    int             peek_valid;
+    uint16_t        peek_ridx;
+    char            peek_path[PLAYER_PATH_MAX];
+
     int             volume_db;
     int             rg_mode;
     int32_t         rg_gain_q16;          /* cached Q16 gain for open track   */
@@ -255,6 +263,7 @@ static void close_codec_only(void)
 static void close_track(void)
 {
     close_codec_only();
+    g.peek_valid = 0;               /* a new track invalidates the resolution */
     if (g.state == PLAYER_PLAYING || g.state == PLAYER_PAUSED) {
         ipc_b_stop();
         ipc_b_flush();
@@ -444,6 +453,10 @@ static int next_path_peek(char *out, int cap)
             return 0;
         if (s_resolve == 0 || s_resolve(ridx, p, (int)sizeof p) != 0)
             return 0;
+        /* Remember the resolution: the boundary must not repeat the lookup. */
+        g.peek_ridx = ridx;
+        str_copy(g.peek_path, (unsigned)sizeof g.peek_path, p);
+        g.peek_valid = 1;
         str_copy(out, (unsigned)cap, p);
         return 1;
     }
@@ -561,6 +574,7 @@ static int advance_to(const char *path, int hard)
     int same_fmt;
     int rc;
 
+    g.peek_valid = 0;               /* the peek only serves one advance */
     if (prev_valid)
         prev = g.fmt;
 
@@ -655,12 +669,18 @@ static int advance_playlist(int hard)
         return PLAYER_ERR_EMPTY;
     }
     ridx = playlist_current(&g.list);
-    if (s_resolve == 0 || ridx == PLAYLIST_IDX_NONE ||
-        s_resolve(ridx, path, (int)sizeof path) != 0) {
+    if (g.peek_valid && g.peek_ridx == ridx) {
+        /* Resolved during the pre-open window: skip the media-DB lookup, which
+         * would otherwise run inside the ring's cover (BRNOMT-73). */
+        str_copy(path, (unsigned)sizeof path, g.peek_path);
+    } else if (s_resolve == 0 || ridx == PLAYLIST_IDX_NONE ||
+               s_resolve(ridx, path, (int)sizeof path) != 0) {
+        g.peek_valid = 0;
         player_stop();
         emit(PLAYER_EV_ERROR);
         return PLAYER_ERR;
     }
+    g.peek_valid = 0;
     return advance_to(path, hard);
 }
 
