@@ -4,8 +4,11 @@
 #include "test_util.h"
 #include "ui.h"
 #include "screens/screens.h"
+#include "theme.h"
 #include "mock_display.h"
 #include "mock_services.h"
+
+#include <string.h>
 
 static int s_selected[3];
 
@@ -147,6 +150,35 @@ static void test_menu_screen_keys(void)
     CHECK(mock_display_text_find("One") >= 0);
     CHECK(mock_display_text_find("Two") >= 0);
     CHECK(mock_display_text_find("v1") >= 0);
+
+    /* BRNOMT-72: the selected row ("Two", cursor 1) must be a TRUE INVERSION —
+     * a solid foreground bar with the label drawn in the background color —
+     * and a plain row must keep background cells with dim text. */
+    {
+        int i, bar = 0, sel_label = 0, plain_label = 0;
+
+        for (i = 0; i < mock_display_rect_count(); i++) {
+            const mock_rect_t *r = mock_display_rect(i);
+
+            if (r->color == THEME_COLOR_FG && r->x0 == 0 &&
+                r->x1 == DISPLAY_W - 1 &&
+                r->y0 == THEME_MENU_TOP + THEME_ITEM_H)
+                bar = 1;
+        }
+        for (i = 0; i < mock_display_text_count(); i++) {
+            const mock_text_t *t = mock_display_text(i);
+
+            if (strcmp(t->text, "Two") == 0 &&
+                t->bg == THEME_COLOR_FG && t->fg == THEME_COLOR_BG)
+                sel_label = 1;
+            if (strcmp(t->text, "One") == 0 &&
+                t->bg == THEME_COLOR_BG && t->fg == THEME_COLOR_DIM)
+                plain_label = 1;
+        }
+        CHECK(bar);
+        CHECK(sel_label);
+        CHECK(plain_label);
+    }
 }
 
 void test_menu_nav(void)

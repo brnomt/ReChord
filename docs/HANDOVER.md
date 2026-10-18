@@ -4034,3 +4034,33 @@ torn last line and CRLF, serialize→rewrite hand-off, round-trip, truncation,
 error mapping) plus the player test above. All suites green.
 
 AP5M CRC `0x1AB310AA`, packer `RESULT: PASS`. Not flashed.
+
+## BJ. Session 2026-10-18 — BRNOMT-72: monochrome UI foundation
+
+- **Theme**: new **Mono** palette (pure black/white + ONE grey step, no colored
+  surfaces) installed as the FIRST built-in, so it is the boot default;
+  `Classic`/`Paper`/`Night` stay selectable by name (and via `theme.cfg`).
+  `theme_validate()`'s rules are respected (`danger != success`: 0xC618 vs
+  0xFFFF).
+- **Selection**: `menu_draw_item()` now draws a TRUE **INVERSION** (solid FG bar,
+  glyphs punched out in the BG) instead of a palette tint — the single choke
+  point every list shares (menu, library, categories, settings, browser).
+  `menu_draw()` adds a 1 px rule under the title, matching Now Playing.
+- **Now Playing**: title at 24 with the **artist** beneath (dim, omitted when
+  absent), state at 48, format (left) + `i/N` (right) at 60, a **2 px** progress
+  bar on a 1 px dim baseline (mono-safe: a surface-colored trough is invisible on
+  black), elapsed/total at 84, and a bottom row with only the **ACTIVE** modes
+  (`SHUF` / `REP1`) plus the volume value; the `R:one S` diagnostic string and
+  the "Volume" label are gone. New `player_screen_set_artist()`.
+- **Root menu**: task-oriented only — Now Playing, Library, Files, USB storage,
+  Settings, **System**. Every diagnostic (DAC test, USB console, rebuild/index,
+  keys, eMMC, SD, USB, USB diag) moved behind a new **System** screen with its
+  own view (the shared `menu_screen` holds one model). The title row carries the
+  live volume; a battery indication waits on **BRNOMT-83** (no driver exists).
+- **Tests**: `test_menu_nav` now asserts the inversion (solid FG bar, inverted
+  label cells, plain rows); the theme host test passes with 4 built-ins.
+
+Remaining for BRNOMT-72: battery indication (blocked on BRNOMT-83), per-screen
+empty/loading polish, and the on-device look check.
+
+AP5M CRC `0x9FDCD4D3`, packer `RESULT: PASS`. Not flashed.

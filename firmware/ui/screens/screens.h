@@ -43,6 +43,9 @@ typedef struct menu_model {
     const char        *title;
     const menu_item_t *items;
     int                item_count;
+    /* Optional right-aligned status on the title row (volume, mode, ...);
+     * NULL = none. Placed last so existing initializers keep working. */
+    const char *(*status_text)(void);
 } menu_model_t;
 
 /* Scrollable view state — the navigation state machine (host-tested). */

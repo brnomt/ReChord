@@ -802,24 +802,96 @@ static void usb_storage_run(void)
     usb_session();
 }
 
-static const menu_item_t k_root_items[] = {
-    { "DAC test",    NULL,      dac_test_run },
-    { "USB console", NULL,      usb_console_run },
-    { "USB storage", NULL,      usb_storage_entry },
-    { "Files",       NULL,      open_files },
-    { "Library",     NULL,      open_library },
-    { "Rebuild index", NULL,    index_rebuild_run },
-    { "Index",       index_text, NULL },
-    { "Now Playing", NULL,      open_player },
-    { "Settings",    NULL,      open_settings },
-    { "Keys",        keys_text, NULL },
-    { "eMMC",        emmc_text, NULL },
-    { "SD",          sd_text,   NULL },
-    { "USB",         usb_text,  NULL },
-    { "USB diag",    usbd_text, NULL },
+/* ---- System: the explicit diagnostic view (BRNOMT-72) -------------------- */
+/* Everything that used to clutter the root menu (hardware probes, USB console,
+ * index maintenance) lives here. Same list mechanics as every other menu, but
+ * with its own view: the shared menu_screen holds ONE model/view, so pushing it
+ * twice would clobber the root's cursor. */
+static const menu_item_t k_sys_items[] = {
+    { "DAC test",      NULL,       dac_test_run },
+    { "USB console",   NULL,       usb_console_run },
+    { "Rebuild index", NULL,       index_rebuild_run },
+    { "Index",         index_text, NULL },
+    { "Keys",          keys_text,  NULL },
+    { "eMMC",          emmc_text,  NULL },
+    { "SD",            sd_text,    NULL },
+    { "USB",           usb_text,   NULL },
+    { "USB diag",      usbd_text,  NULL },
 };
+#define SYS_ITEM_COUNT ((int)(sizeof k_sys_items / sizeof k_sys_items[0]))
+
+static menu_view_t s_sys_view;
+static const menu_model_t k_sys = { "System", k_sys_items, SYS_ITEM_COUNT, NULL };
+
+static void system_screen_on_enter(void)
+{
+    menu_view_init(&s_sys_view);
+}
+
+static void system_screen_draw(void)
+{
+    menu_draw(&k_sys, &s_sys_view);
+}
+
+static void system_screen_handle_event(const input_event_t *ev)
+{
+    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
+        return;                       /* listings act on PRESS/REPEAT only */
+
+    switch (ev->type) {
+    case KEY_UP:
+        menu_view_move(&s_sys_view, -1, SYS_ITEM_COUNT, menu_page_size());
+        ui_invalidate_all();
+        break;
+    case KEY_DOWN:
+        menu_view_move(&s_sys_view, +1, SYS_ITEM_COUNT, menu_page_size());
+        ui_invalidate_all();
+        break;
+    case KEY_SELECT:
+        if (s_sys_view.cursor >= 0 && s_sys_view.cursor < SYS_ITEM_COUNT &&
+            k_sys_items[s_sys_view.cursor].on_select != 0)
+            k_sys_items[s_sys_view.cursor].on_select();
+        ui_invalidate_all();
+        break;
+    case KEY_BACK:
+        ui_pop_screen();
+        break;
+    default:
+        break;
+    }
+}
+
+static const ui_screen_t system_screen_entry = {
+    "system", system_screen_on_enter, NULL, system_screen_draw,
+    system_screen_handle_event,
+};
+
+static void open_system(void) { ui_push_screen(&system_screen_entry); }
+
+/* ---- root menu ---------------------------------------------------------- */
+/* Task-oriented entries only; diagnostics live under System. The title row
+ * carries the live volume (a battery indication waits on BRNOMT-83). */
+static const char *vol_status(void)
+{
+    static char buf[16];
+
+    snprintf(buf, sizeof buf, "%d dB", player_get_volume());
+    return buf;
+}
+
+static const menu_item_t k_root_items[] = {
+    { "Now Playing", NULL, open_player },
+    { "Library",     NULL, open_library },
+    { "Files",       NULL, open_files },
+    { "USB storage", NULL, usb_storage_entry },
+    { "Settings",    NULL, open_settings },
+    { "System",      NULL, open_system },
+};
+#define ROOT_ITEM_COUNT ((int)(sizeof k_root_items / sizeof k_root_items[0]))
+
 #define RC_BUILD "m7a"
-static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 14 };
+static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
+                                     ROOT_ITEM_COUNT, vol_status };
 
 /* ---- resume state (BRNOMT-87) ------------------------------------------- */
 /* Deferred write, same idea as the volume: a change arms a short quiet timer so

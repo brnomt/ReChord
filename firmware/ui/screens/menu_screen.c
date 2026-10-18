@@ -120,6 +120,19 @@ void menu_draw(const menu_model_t *model, const menu_view_t *view)
     display_fill_rect(0, THEME_TITLE_H - 1, DISPLAY_W - 1, THEME_TITLE_H - 1,
                       THEME_COLOR_FG);
 
+    /* optional right-aligned status on the title row (BRNOMT-72) */
+    if (model->status_text != 0) {
+        const char *st = model->status_text();
+
+        if (st != 0 && st[0] != '\0') {
+            int tx = DISPLAY_W - THEME_PAD - THEME_TEXT_W((int)strlen(st));
+
+            if (tx > THEME_PAD)
+                display_draw_text(tx, THEME_TITLE_TEXT_Y + THEME_TEXT_YOFF,
+                                  st, THEME_COLOR_DIM, THEME_COLOR_TITLE_BG);
+        }
+    }
+
     /* visible rows */
     for (row = 0; row < page; row++) {
         int idx = view->top + row;

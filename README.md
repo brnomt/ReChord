@@ -27,9 +27,11 @@ byte-mod of the stock binary.
 ## What works today
 
 - **Boots standalone** — ROM → our reset → our `Main`; the stock AP layer is gone.
-- **UI** — menus, keys, file browser over eMMC + microSD (FAT16/32/exFAT), themes,
-  Now Playing with position/duration, stream format, `i/N` and the repeat/shuffle
-  mode, plus list wrap-around and cursor memory.
+- **UI** — monochrome house look (black/white + one grey, inverted selection,
+  1 px rules, no debug clutter outside the System view); menus, keys, file
+  browser over eMMC + microSD (FAT16/32/exFAT), themes, Now Playing with
+  title/artist, position/duration, stream format, `i/N` and `SHUF`/`REP1`, plus
+  list wrap-around and cursor memory.
 - **Storage & USB** — eMMC read/write, microSD read, USB mass storage,
   self-updater. With a cable in, "off" parks the player (dark + silent + still
   charging) and a power press wakes it — the rail cut only works on battery.
