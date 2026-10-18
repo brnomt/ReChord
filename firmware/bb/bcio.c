@@ -64,6 +64,7 @@ static long bcio_read(void *ctx, void *buf, long len)
 {
     uint8_t *d = (uint8_t *)buf;
     long got = 0;
+    uint32_t spins = 0;
 
     (void)ctx;
     if (buf == 0 || len <= 0)
@@ -79,9 +80,19 @@ static long bcio_read(void *ctx, void *buf, long len)
             /* End of file, or A stopped serving. */
             if (CTRL[s_w[W_EOF]] || !CTRL[s_w[W_OPEN]])
                 break;
+            /* BOUNDED wait: a read that never returns would wedge the command
+             * channel (A blocks in b_cmd_wait for this core's ACK) — the
+             * field symptom was "cmd 1 no ack after ~1500 ms" plus silence.
+             * Report the stall and fail the read instead. */
+            if (++spins >= BCIO_WAIT) {
+                CTRL[IPC_C_BSTALL]++;
+                dmb();
+                break;
+            }
             dmb();
             continue;                   /* wait for the read-ahead */
         }
+        spins = 0;
 
         n = avail;
         if ((uint32_t)(len - got) < n)

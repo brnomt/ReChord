@@ -3811,3 +3811,45 @@ pending open) and there is no heap on the target — all decoder state is static
 getting the bytes.
 
 All host suites green. AP5M CRC `0x596E7005`, packer `RESULT: PASS`. Not flashed.
+
+## BC. Session 2026-10-18 — the field "1-2 s" was a wedged command channel
+
+The field log settled three things at once:
+
+```
+10.805 ipc: B eof
+10.805 ipc: next 44100 Hz 2 ch 16 b     <- 0 ms: the pending open works
+10.853 ipc: cmd 4 ack 48 ms
+0.478  ipc: start 96000 Hz 2 ch 24 b    <- the material is 24/96
+4.323  ipc: start 44100 Hz 2 ch 16 b
+5.873  ipc: cmd 1 no ack after 1517 ms  <- THE BUG: a hard OPEN never completed
+```
+
+Cause: Core B's `bcio_read()` spun **unbounded** while the ring read `OPEN=1` and
+`EOF=0`, and `bfs_promote()` retired the previous track's ring **without clearing
+its OPEN flag** — that ring then looked open with `s->io == 0`, so `poll_svc()`
+had nothing to refill. B never progressed, the AP blocked in `b_cmd_wait()` for
+the ACK, timed out (~1.5 s), took `PLAYER_ERROR` and went silent — heard as "it
+skipped the track".
+
+Fixes:
+- `bfs_promote()` clears the retired ring's OPEN (a ring with no file must never
+  read as open).
+- `bcio_read()` got a bounded spin (`BCIO_WAIT`): a stall bumps `IPC_C_BSTALL`
+  and fails the read instead of wedging the command channel.
+- Failure logs now carry `(bstate N berr N bstall N)`.
+
+Logging (asked for in the field report):
+- Every start/next logs the file NAME: `ipc: track <name>`.
+- An AP-side codec open failure now logs too (`ipc: open failed (AP codec)`)
+  with the name — previously that case produced no line at all.
+- `LOG_BUFFER_LINES` 12 -> 48: the old ring was dropping 14 lines per session.
+
+24/96 note (checked, not changed): the rate IS in `dac_rates` and the I2S
+divider is right (`mclk/(rate<<6)` = 4 at 96k, like 48k). But every time-based
+budget halves at 96k — PCM cover ~162 -> ~74 ms, pre-open ring ~130 -> ~60 ms,
+and the TX-FIFO refill margin ~0.33 -> ~0.15 ms (the feeder only fills to the
+SDK threshold `0x1D`). That last one is the likely source of the small crackles
+on 96k material; the fix would be to fill the FIFO higher (rate-aware).
+
+All host suites green. AP5M CRC `0x44461735`, packer `RESULT: PASS`. Not flashed.

@@ -100,8 +100,9 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_C_PRE_MAXBLOCK 40u   /* AP: FLAC max block size (samples)       */
 #define IPC_C_PRE_CHANNELS 41u   /* AP: stream channels (1..2)              */
 #define IPC_C_PRE_SEEKTABLE 42u  /* AP: SEEKTABLE bytes in the stream       */
+#define IPC_C_BSTALL   43u   /* B: increments when a ring read stalls out  */
 
-#define IPC_SH_COUNT   43u
+#define IPC_SH_COUNT   44u
 
 #define IPC_SH_MAGIC_VAL  0x42524459u   /* 'BRDY' */
 

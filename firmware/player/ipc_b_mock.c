@@ -130,6 +130,11 @@ void ipc_b_set_prescan(const codec_prescan_t *p)
     (void)p;
 }
 
+void ipc_b_note_open_failed(const char *path)
+{
+    (void)path;
+}
+
 int ipc_b_stop(void)
 {
     g_started = 0;

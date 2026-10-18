@@ -256,6 +256,13 @@ int bfs_promote(void)
     s_pre_valid = 0;
     s_pre_path[0] = '\0';
 
+    /* Retire the old ring explicitly. Left flagged open with no file behind
+     * it, Core B would spin forever in bcio_read waiting for a refill that can
+     * never come while the AP waits for its ACK (BRNOMT-73: observed as
+     * "cmd 1 no ack after 1517 ms" plus silence). */
+    CTRL[k_w[s_pre.slot][W_OPEN]] = 0;
+    dmb();
+
     if (old != 0)
         cio_close(old);                 /* previous track fully consumed */
     return slot;

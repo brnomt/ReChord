@@ -48,6 +48,38 @@ static void sh_set(unsigned i, uint32_t v)
     dmb();
 }
 
+/* Log the file NAME (not the whole path) so a field log names the track being
+ * started or handed off — without it a session cannot be read back. */
+static void log_track(const char *path)
+{
+    char name[72];
+    const char *b = path;
+    const char *p;
+    unsigned i = 0;
+
+    if (path == 0 || path[0] == '\0')
+        return;
+    for (p = path; *p != '\0'; p++) {
+        if (*p == '/')
+            b = p + 1;
+    }
+    while (b[i] != '\0' && i < (unsigned)sizeof(name) - 1u) {
+        name[i] = b[i];
+        i++;
+    }
+    name[i] = '\0';
+    log_printf("ipc: track %s", name);
+}
+
+/* The AP's own codec open failed for `path` (no B command is ever sent in that
+ * case, so without this the log would show nothing at the boundary). */
+void ipc_b_note_open_failed(const char *path)
+{
+    if (path != 0 && path[0] != '\0')
+        log_track(path);
+    log_printf("ipc: open failed (AP codec)");
+}
+
 /* Copy n bytes into the ring at byte offset `off` (wrap-aware). Frames are
  * 8 bytes and the ring is 64 KiB, so a frame never straddles the boundary. */
 static void ring_copy_in(uint32_t off, const void *src, uint32_t n)
@@ -148,18 +180,20 @@ static int b_cmd_wait(uint32_t seq)
             break;
         ms = log_now_ms() - t0;
         if (ms >= 1500UL || ++guard > 40000000UL) {
-            log_printf("ipc: cmd %u no ack after %lu ms (bstate %u berr %d)",
-                       (unsigned)cmd, ms, (unsigned)CTRL[IPC_C_BSTATE],
-                       (int)CTRL[IPC_C_BERR]);
+            log_printf("ipc: cmd %u no ack after %lu ms (bstate %u berr %d "
+                       "bstall %u)", (unsigned)cmd, ms,
+                       (unsigned)CTRL[IPC_C_BSTATE], (int)CTRL[IPC_C_BERR],
+                       (unsigned)CTRL[IPC_C_BSTALL]);
             return -1;
         }
         delay_loops(2000);              /* ~10 us: brief, do not starve bus */
     }
     if (CTRL[IPC_C_BSTATE] != IPC_BS_OPEN) {
         /* B answered but did not open: its codec refused the file. */
-        log_printf("ipc: cmd %u open failed after %lu ms (bstate %u berr %d)",
-                   (unsigned)cmd, log_now_ms() - t0,
-                   (unsigned)CTRL[IPC_C_BSTATE], (int)CTRL[IPC_C_BERR]);
+        log_printf("ipc: cmd %u open failed after %lu ms (bstate %u berr %d "
+                   "bstall %u)", (unsigned)cmd, log_now_ms() - t0,
+                   (unsigned)CTRL[IPC_C_BSTATE], (int)CTRL[IPC_C_BERR],
+                   (unsigned)CTRL[IPC_C_BSTALL]);
         return -1;
     }
 
@@ -285,6 +319,7 @@ int ipc_b_start(const ipc_b_track_t *track)
      * the NEXT boundary (BRNOMT-73). */
     log_printf("ipc: start %ld Hz %d ch %d b", track->sample_rate,
                track->channels, track->bits);
+    log_track(track->path);
 
     /* Stop the feed, reset the ring indices, publish the format. */
     sh_set(IPC_SH_STATE, IPC_SH_IDLE);
@@ -462,6 +497,7 @@ int ipc_b_next(const ipc_b_track_t *track)
 
     log_printf("ipc: next %ld Hz %d ch %d b", track->sample_rate,
                track->channels, track->bits);
+    log_track(track->path);
 
     /* Gapless (BRNOMT-73): B reopens its codec reading the PRE-OPENED ring —
      * the next file is already in RAM, so the boundary pays no SD open.

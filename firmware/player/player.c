@@ -285,14 +285,19 @@ static int open_codec_only(const char *path)
     ipc_b_set_prescan(0);        /* a new open invalidates the old geometry */
 
     c = codec_registry_find(path);
-    if (c == 0)
+    if (c == 0) {
+        ipc_b_note_open_failed(path);
         return PLAYER_ERR_UNSUPPORTED;
-    if (c->state_size <= 0 || c->state_size > PLAYER_CODEC_STATE_MAX)
+    }
+    if (c->state_size <= 0 || c->state_size > PLAYER_CODEC_STATE_MAX) {
+        ipc_b_note_open_failed(path);
         return PLAYER_ERR;
+    }
 
     mem_zero(codec_state(), (unsigned)c->state_size);
     rc = c->open(codec_state(), path);
     if (rc < 0) {
+        ipc_b_note_open_failed(path);
         do_error();
         return rc;
     }
@@ -305,11 +310,13 @@ static int open_codec_only(const char *path)
     fmt.bits = 16;
     if (c->format != 0 && c->format(codec_state(), &fmt) < 0) {
         close_codec_only();
+        ipc_b_note_open_failed(path);
         do_error();
         return PLAYER_ERR;
     }
     if (fmt.channels < 1 || fmt.channels > 2 || fmt.sample_rate <= 0) {
         close_codec_only();
+        ipc_b_note_open_failed(path);
         do_error();
         return PLAYER_ERR;
     }
