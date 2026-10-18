@@ -152,3 +152,7 @@ User flashed `0x88C41346`: 16/44.1 and 96k/24 (Hyperdrama) play with **no
 crackles**, UI fluid; a **slight lag remains** (minor, accepted). The
 Library → All Songs audio cut is **gone at the root** (B no longer depends on
 the AP pumping). BRNOMT-68 can be closed as far as this phase goes.
+
+DFIU: incident `6d0ae36b` (Library → All Songs cut) **verified_resolved**
+(effective pass, reproduction, 2026-10-17). Logged-out item: a slight lag
+remains (accepted, not blocking).
