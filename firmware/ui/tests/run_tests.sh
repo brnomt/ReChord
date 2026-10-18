@@ -18,7 +18,7 @@ $CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
     test_settings_keys.c test_browser_pagination.c \
     ../ui.c ../screens/*.c ../settings_schema.c \
     ../../services/media_query.c ../../services/scratch.c \
-    ../../theme/theme.c ../../theme/themes_builtin.c \
+    ../../theme/theme.c ../../theme/themes_builtin.c ../../theme/theme_pkg.c \
     mock_display.c mock_services.c -lm
 
 .work/ui_tests

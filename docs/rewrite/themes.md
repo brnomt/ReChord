@@ -147,12 +147,24 @@ placeholder glyph).
   so writing `theme.cfg` needs the in-place path (pre-created file +
   `fs_target_file_rewrite`) that milestone B introduces; today persistence is by
   editing `theme.cfg`, which boot already reads.
-- **B.** Package enumeration + manifest parse/validate (`/.rechord/themes/`),
-  host tests for the parser/limits, and the reference `mono-nothing` package as
-  data in the repo.
-- **C.** Renderer API + the layout DSL applied to **Now Playing** first (the
-  screen with the most value), still bounded by §4.
-- **D.** Layouts for Main Menu, Library and Settings; per-screen previews.
+- **B/C/D. DONE (2026-10-18)** — first complete pass:
+  - `firmware/theme/theme_pkg.{h,c}`: the **layout DSL** (`pad`, `title_h`,
+    `item_h` + the Now Playing origins) read from the same `theme.cfg`,
+    **all-or-nothing** (any bad/out-of-range value rejects the whole layout and
+    the previous/defaults stay), bounded, no heap.
+  - The UI reads it **live**: `THEME_PAD/TITLE_H/ITEM_H/MENU_TOP` and the
+    `PLAYER_*` origins are `theme_layout()` expressions, so one package moves
+    every list (menu/library/categories/settings/browser) **and** Now Playing
+    with no per-screen code.
+  - Boot applies the package: `theme_boot_load()` (palette) +
+    `theme_layout_load(THEME_FILE_PATH)` (layout). The Settings Theme row still
+    cycles the built-in palettes live.
+  - Reference package: `docs/rewrite/examples/mono-nothing/theme.cfg`.
+  - Host tests: `test_theme_pkg` (defaults, partial override, comments/sections,
+    out-of-range and malformed rejection, missing file) — 22 checks.
+  - Measured `.bss_end 0x030460A8` (gate `0x0304A000`, ~15.8 KiB free).
+  - Deferred: multi-package enumeration/preview (`/.rechord/themes/*`), the
+    bitmap blit (`r_bitmap1`) + asset cache, and persisting the Settings choice.
 
 Acceptance for every milestone: host tests (format/limits/fallback), all suites
 green, packer `RESULT: PASS`, and a measured `.bss_end` recorded here.

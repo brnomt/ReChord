@@ -4128,3 +4128,29 @@ AP5M CRC `0xC82B3C36`, packer `RESULT: PASS`. Not flashed.
   handler. `.bss_end 0x03046070` (gate 0x0304A000 → ~15.9 KiB free).
 
 AP5M CRC `0x44BAB1D6`, packer `RESULT: PASS`. Not flashed.
+
+## BN. Session 2026-10-18 — BRNOMT-69 B/C/D: the layout DSL live in every screen
+
+- `firmware/theme/theme_pkg.{h,c}`: a **bounded layout DSL** read from the same
+  `theme.cfg` (`pad`, `title_h`, `item_h`, `np_*_y`, `np_bar_h`, `np_vol_h`).
+  Parsing is **all-or-nothing**: a malformed or out-of-range value rejects the
+  whole layout and the caller keeps the previous/default one. No heap, fixed
+  struct, `fgets`-bounded read through the read-only stdio shim.
+- The UI consumes it **live**: `THEME_PAD/TITLE_H/ITEM_H/MENU_TOP` (ui/theme.h)
+  and the `PLAYER_*` origins (player_screen.c) are now `theme_layout()`
+  expressions. So one package re-flows **every list** (menu, library,
+  categories, settings, browser) **and** Now Playing — milestones C and D in a
+  single, small change rather than per-screen code.
+- Boot: `theme_boot_load()` (palette) + `theme_layout_load(THEME_FILE_PATH)`
+  (layout). The Settings Theme row still cycles the built-in palettes live.
+- Reference package: `docs/rewrite/examples/mono-nothing/theme.cfg`
+  (palette + layout; copy the dir to `/.rechord/themes/<id>/` and the file to
+  `/.rechord/theme.cfg`).
+- Tests: `test_theme_pkg` — defaults, partial override, comments/sections,
+  out-of-range and malformed rejection, missing file (22 checks); the existing
+  theme/palette test still passes.
+- Deferred: enumerating multiple packages with a preview, `r_bitmap1` + the
+  asset cache, and persisting the Settings choice.
+
+`.bss_end 0x030460A8` (gate 0x0304A000 → ~15.8 KiB free).
+AP5M CRC `0x7F01A011`, packer `RESULT: PASS`. Not flashed.

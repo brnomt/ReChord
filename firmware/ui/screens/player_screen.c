@@ -14,22 +14,22 @@
 #include "../theme.h"
 #include "../internal/hal.h"
 
-#define PLAYER_BAR_X0   THEME_PAD
-#define PLAYER_BAR_X1   (DISPLAY_W - 1 - THEME_PAD)
+#define PLAYER_BAR_X0   (theme_layout()->pad)
+#define PLAYER_BAR_X1   (DISPLAY_W - 1 - theme_layout()->pad)
 #define PLAYER_BAR_W    (PLAYER_BAR_X1 - PLAYER_BAR_X0 + 1)
 
-/* Layout (BRNOMT-72): compact top metadata, prominent title, artist beneath,
- * a minimal progress bar, and active playback modes pinned to the bottom. */
-#define PLAYER_TITLE_Y   24
-#define PLAYER_ARTIST_Y  36
-#define PLAYER_STATE_Y   48
-#define PLAYER_INFO_Y    60
-#define PLAYER_BAR_Y     74
-#define PLAYER_BAR_H     2
-#define PLAYER_TIME_Y    84
-#define PLAYER_MODE_Y    148
-#define PLAYER_VOL_Y     162
-#define PLAYER_VOL_H     2
+/* Layout (BRNOMT-72/69): every origin comes from the active theme package,
+ * with built-in defaults equal to what this screen used before. */
+#define PLAYER_TITLE_Y   (theme_layout()->np_title_y)
+#define PLAYER_ARTIST_Y  (theme_layout()->np_artist_y)
+#define PLAYER_STATE_Y   (theme_layout()->np_state_y)
+#define PLAYER_INFO_Y    (theme_layout()->np_info_y)
+#define PLAYER_BAR_Y     (theme_layout()->np_bar_y)
+#define PLAYER_BAR_H     (theme_layout()->np_bar_h)
+#define PLAYER_TIME_Y    (theme_layout()->np_time_y)
+#define PLAYER_MODE_Y    (theme_layout()->np_mode_y)
+#define PLAYER_VOL_Y     (theme_layout()->np_vol_y)
+#define PLAYER_VOL_H     (theme_layout()->np_vol_h)
 
 static char     s_title[PLAYER_TITLE_MAX];
 static char     s_artist[PLAYER_TITLE_MAX];

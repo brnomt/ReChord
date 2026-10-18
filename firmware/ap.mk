@@ -111,6 +111,7 @@ AP_SERVICE_SRCS := \
 # Theme module (same set as $(THEME_SRCS) in firmware/theme/theme.mk).
 AP_THEME_SRCS := \
   firmware/theme/theme.c \
+  firmware/theme/theme_pkg.c \
   firmware/theme/themes_builtin.c \
   firmware/theme/theme_file.c
 

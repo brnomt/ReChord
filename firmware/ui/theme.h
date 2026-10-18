@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 #include "../theme/theme.h"
+#include "../theme/theme_pkg.h"
 
 /* ---- color helpers ---------------------------------------------------- */
 
@@ -44,12 +45,15 @@
 #define THEME_LINE_H           12  /* line pitch, px (contract)             */
 #define THEME_TEXT_YOFF        1   /* glyph top offset inside its line      */
 
-/* ---- layout geometry (contract-derived, not user data) ---------------- */
-#define THEME_PAD              4   /* outer padding, px                     */
-#define THEME_TITLE_H          16  /* title bar height, px                  */
+/* ---- layout geometry (theme package data; built-in defaults otherwise) - */
+/* These are LIVE: a package's [layout] keys move every list and Now Playing
+ * without recompiling (BRNOMT-69). theme_layout() always returns a valid
+ * struct, so no screen ever falls back to hardcoded coordinates. */
+#define THEME_PAD              (theme_layout()->pad)
+#define THEME_TITLE_H          (theme_layout()->title_h)
 #define THEME_TITLE_TEXT_Y     2   /* title text baseline offset in bar     */
-#define THEME_ITEM_H           THEME_LINE_H /* list row height, px          */
-#define THEME_MENU_TOP         THEME_TITLE_H /* first list row y            */
+#define THEME_ITEM_H           (theme_layout()->item_h)
+#define THEME_MENU_TOP         (theme_layout()->title_h)
 #define THEME_SCROLLBAR_W      3   /* right-edge scrollbar width, px        */
 #define THEME_TEXT_W(len)      ((int)(len) * THEME_FONT_W)
 

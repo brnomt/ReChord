@@ -14,6 +14,7 @@
 #include "audio/audio_output.h"
 #include "drivers/rknano_i2s.h"
 #include "drivers/battery.h"
+#include "theme/theme.h"
 #include "services/fs_target.h"
 #include "services/fw_update.h"
 #include "services/log.h"
@@ -1027,6 +1028,7 @@ void ap_ui_loop(void)
     /* User theme override from the internal volume (optional file, see
      * THEME_FILE_PATH). Before the first push so the first frame uses it. */
     (void)theme_boot_load();
+    (void)theme_layout_load(THEME_FILE_PATH);   /* BRNOMT-69: package layout */
     /* Volume is runtime state: the player owns it while playing, so load the
      * saved value into the player here and let the loop below persist later
      * changes. */
