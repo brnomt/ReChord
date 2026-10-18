@@ -275,6 +275,55 @@ static void test_preopen_trigger(void)
     player_stop();
 }
 
+/* BRNOMT-73 pending open: the next track's codec is opened during the pre-open
+ * window, so the boundary only adopts its metadata (no AP-side re-open). A
+ * user seek inside that window must still act on the PLAYING track. */
+static void test_pending_open_adopt(void)
+{
+    mock_codec_cfg_t cfg = {0};
+    track_info_t ti;
+    int start0;
+
+    cfg.total_frames = 44100 * 2;      /* 2 s -> inside the pre-open window */
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+
+    ipc_b_init();
+    player_init();
+    player_register_codec("mock", mock_codec_get());
+    ipc_b_mock_set_b_decodes(1);
+    ipc_b_mock_set_b_eof(0);
+
+    CHECK_EQI(player_open("a.mock"), PLAYER_OK, "pending: open A");
+    player_enqueue("b.mock");
+    CHECK_EQI(player_play(), PLAYER_OK, "pending: play A");
+    start0 = ipc_b_start_count();
+
+    CHECK_EQI(player_process(), PLAYER_OK, "pending: pre-open pass");
+    CHECK_EQI(ipc_b_preopen_count(), 1, "pending: next file pre-opened");
+
+    /* A seek during the window must re-target the PLAYING track, not the
+     * pre-opened next one. */
+    CHECK_EQI(player_seek(1000), PLAYER_OK, "pending: seek ok");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "pending: track after seek");
+    CHECK(strcmp(ti.path, "a.mock") == 0, "pending: seek kept track A");
+
+    /* Boundary: adopt the pre-opened codec, no storage access, no restart. */
+    ipc_b_mock_set_b_eof(1);
+    CHECK_EQI(player_process(), PLAYER_OK, "pending: boundary");
+    CHECK_EQI(ipc_b_next_count(), 1, "pending: ipc_b_next once");
+    CHECK_EQI(ipc_b_start_count(), start0, "pending: no B-core restart");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "pending: track query");
+    CHECK(strcmp(ti.path, "b.mock") == 0, "pending: adopted track B");
+    CHECK_EQI(ti.total_samples, 44100 * 2, "pending: adopted total samples");
+
+    ipc_b_mock_set_b_decodes(0);
+    ipc_b_mock_set_b_eof(0);
+    player_stop();
+}
+
 int main(void)
 {
     TEST("player gapless");
@@ -283,6 +332,7 @@ int main(void)
     test_gapless_core_b();
     test_gapless_core_b_format_change();
     test_preopen_trigger();
+    test_pending_open_adopt();
     if (failures == 0) {
         printf("test_player_gapless: OK\n");
         return 0;

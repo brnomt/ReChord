@@ -57,6 +57,18 @@ typedef struct
                                       /* ring to drain, then stop/start   */
     int             preload_done;     /* next-file pre-open already tried */
 
+    /* Next track opened ahead of the boundary (BRNOMT-73). While `pending_valid`
+     * the codec in codec_mem IS the next track's, but g.track/g.fmt keep
+     * describing the PLAYING one so the UI does not jump early. advance_to()
+     * adopts pending_* when its path matches; close_codec_only() drops it. */
+    int             pending_valid;
+    track_info_t    pending_track;
+    codec_format_t  pending_fmt;
+    codec_gapless_t pending_gapless;
+    long            pending_total;
+    long            pending_duration;
+    int32_t         pending_rg_gain;
+
     int             volume_db;
     int             rg_mode;
     int32_t         rg_gain_q16;          /* cached Q16 gain for open track   */
@@ -127,6 +139,15 @@ static void str_copy(char *dst, unsigned cap, const char *src)
         i++;
     }
     dst[i] = '\0';
+}
+
+static int str_eq(const char *a, const char *b)
+{
+    while (*a != '\0' && *a == *b) {
+        a++;
+        b++;
+    }
+    return *a == *b;
 }
 
 static void recalc_rg_gain(void);   /* defined with the player API below */
@@ -228,6 +249,7 @@ static void close_codec_only(void)
         g.codec->close(codec_state());
     g.codec_active = 0;
     g.codec = 0;
+    g.pending_valid = 0;   /* the open codec is gone: no pending metadata */
 }
 
 static void close_track(void)
@@ -432,6 +454,71 @@ static int next_path_peek(char *out, int cap)
     return 0;
 }
 
+/* Open the NEXT track's codec during the pre-open window so the gapless
+ * boundary pays no AP-side SD open + header parse (BRNOMT-73: field log showed
+ * ~84 ms between B's EOF and ipc_b_next, which pushed the boundary past the
+ * ring's ~180 ms of cover). The opened codec (codec_mem / g.codec) belongs to
+ * the NEXT track while g.track/g.fmt keep describing the PLAYING one, so the
+ * Now Playing screen does not jump ~3 s early. advance_to() adopts the pending
+ * metadata when the path matches; any other codec activity drops it (its first
+ * act is close_codec_only(), which clears pending_valid). */
+static int preopen_next_codec(const char *path)
+{
+    track_info_t    cur_track = g.track;
+    codec_format_t  cur_fmt = g.fmt;
+    codec_gapless_t cur_gap = g.gapless;
+    long cur_total = g.total_samples;
+    long cur_dur = g.duration_ms;
+    int32_t cur_rg = g.rg_gain_q16;
+    int cur_track_no = g.track_no;
+    int cur_valid = g.track_valid;
+    long cur_base = g.base_ms;
+    long cur_cons = g.frames_consumed;
+    long cur_at = g.frames_at_start;
+    long cur_dec = g.decoded_samples;
+    long cur_emit = g.emitted_samples;
+    int cur_lead = g.leading_trimmed;
+    int cur_eof = g.eof;
+    int cur_pl = g.preload_done;
+    int ok;
+
+    ok = (open_codec_only(path) == PLAYER_OK);
+    if (ok) {
+        /* g now describes the NEXT track, and codec_mem holds its decoder. */
+        g.pending_track = g.track;
+        g.pending_fmt = g.fmt;
+        g.pending_gapless = g.gapless;
+        g.pending_total = g.total_samples;
+        g.pending_duration = g.duration_ms;
+        g.pending_rg_gain = g.rg_gain_q16;
+        g.pending_valid = 1;
+    }
+
+    /* Restore everything that describes the PLAYING track (open_codec_only
+     * resets the cursors, bumps track_no and clears preload_done). On failure
+     * the probe also closed the playing codec, so bring it back. */
+    if (!ok && cur_valid)
+        (void)open_codec_only(cur_track.path);
+
+    g.track = cur_track;
+    g.track_valid = cur_valid;
+    g.fmt = cur_fmt;
+    g.gapless = cur_gap;
+    g.total_samples = cur_total;
+    g.duration_ms = cur_dur;
+    g.rg_gain_q16 = cur_rg;
+    g.track_no = cur_track_no;
+    g.base_ms = cur_base;
+    g.frames_consumed = cur_cons;
+    g.frames_at_start = cur_at;
+    g.decoded_samples = cur_dec;
+    g.emitted_samples = cur_emit;
+    g.leading_trimmed = cur_lead;
+    g.eof = cur_eof;
+    g.preload_done = cur_pl;
+    return ok ? 0 : -1;
+}
+
 /* Hard boundary for the ALREADY-OPEN codec: stop the B core / drain the ring,
  * reset the per-track cursors and start the stream fresh (player_play() ->
  * ipc_b_start(), which re-locks the DAC to g.fmt). Used for a format change
@@ -477,10 +564,33 @@ static int advance_to(const char *path, int hard)
     if (prev_valid)
         prev = g.fmt;
 
-    rc = open_codec_only(path);
-    if (rc != PLAYER_OK) {
-        emit(PLAYER_EV_ERROR);
-        return rc;
+    if (g.pending_valid && str_eq(g.pending_track.path, path)) {
+        /* The codec was opened during the pre-open window: adopt its metadata
+         * without touching storage (this is the whole point of BRNOMT-73's
+         * pending open — no SD open / header parse on the boundary). */
+        g.pending_valid = 0;
+        g.track = g.pending_track;
+        g.track_valid = 1;
+        g.fmt = g.pending_fmt;
+        g.gapless = g.pending_gapless;
+        g.total_samples = g.pending_total;
+        g.duration_ms = g.pending_duration;
+        g.rg_gain_q16 = g.pending_rg_gain;
+        g.track_no = g.pending_track.track_no;
+        g.eof = 0;
+        g.decoded_samples = 0;
+        g.emitted_samples = 0;
+        g.leading_trimmed = (g.gapless.delay_samples == 0) ? 1 : 0;
+        g.preload_done = 0;
+        rc = PLAYER_OK;
+    } else {
+        /* No (matching) pending codec: the first thing open_codec_only() does
+         * is close the current one, which also drops a stale pending. */
+        rc = open_codec_only(path);
+        if (rc != PLAYER_OK) {
+            emit(PLAYER_EV_ERROR);
+            return rc;
+        }
     }
     emit(PLAYER_EV_TRACK);
 
@@ -625,6 +735,15 @@ int player_stop(void)
     ipc_b_stop();
     ipc_b_flush();
 
+    if (g.pending_valid) {
+        /* The open codec is the pre-opened NEXT track: restore the playing
+         * track's codec so the rewind below acts on the right stream. */
+        int tn = g.track_no;
+
+        if (open_codec_only(g.track.path) == PLAYER_OK)
+            g.track_no = tn;
+    }
+
     /* Rewind semantics: stop then play restarts the track. */
     if (g.codec_active && g.codec != 0 && g.codec->seek != 0)
         g.codec->seek(codec_state(), 0);
@@ -648,6 +767,16 @@ int player_seek(long ms)
         return PLAYER_ERR_EMPTY;
     if (g.state == PLAYER_ERROR)
         return PLAYER_ERR_STATE;
+
+    if (g.pending_valid) {
+        /* The open codec is the pre-opened NEXT track: bring the playing one
+         * back before repositioning it (BRNOMT-73 pending open). */
+        int tn = g.track_no;
+
+        if (open_codec_only(g.track.path) != PLAYER_OK)
+            return PLAYER_ERR;
+        g.track_no = tn;
+    }
 
     if (ms < 0)
         ms = 0;
@@ -926,8 +1055,10 @@ int player_process(void)
                 char np[PLAYER_PATH_MAX];
 
                 g.preload_done = 1;
-                if (next_path_peek(np, (int)sizeof np))
-                    (void)ipc_b_preopen(np);
+                if (next_path_peek(np, (int)sizeof np)) {
+                    (void)ipc_b_preopen(np);       /* B's next-file ring    */
+                    (void)preopen_next_codec(np);  /* AP's pending codec    */
+                }
             }
         }
     } else {

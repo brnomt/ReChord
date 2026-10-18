@@ -3668,3 +3668,38 @@ run — detach/mask the feeder first, and keep the free-space math free of
 counter underflow.*
 
 AP5M CRC `0x105510CA`, packer `RESULT: PASS`. Not flashed.
+
+## AX. Session 2026-10-18 — GP: pending open removes the AP cost from the boundary
+
+Field log on the reverted build (`0x105510CA`) pinned the boundary budget:
+
+```
+13.949 ipc: B eof
+14.033 ipc: next 44100 Hz 2 ch 16 b     <- 84 ms of AP work
+14.059 ipc: cmd 4 ack 87 ms             <- Core B's codec reopen
+```
+
+171 ms against the ring's ~180 ms of cover (64 KiB minus the ~8 KiB Core B keeps
+free) — short, hence the audible seam. The 84 ms is `open_codec_only()`: an SD
+open + FLAC header/prescan on the AP, right where the ring is draining.
+
+Fix — **pending open**: at the ~3 s pre-open the player now also opens the NEXT
+track's codec. `open_codec_only()` closes the playing codec first, which frees
+the shared `workbuf` (a whole FLAC owns it while open, so the *current* codec had
+to go); the probe's metadata goes to `g.pending_*` and `g.track`/`g.fmt` are
+restored to the PLAYING track so Now Playing does not jump 3 s early. At the
+boundary `advance_to()` adopts `pending_*` when the path matches → **no storage
+access on the AP**, only Core B's 87 ms reopen, comfortably inside the cover.
+
+Invariants:
+- `close_codec_only()` clears `pending_valid` — any codec activity drops it, so
+  a stale pending can never be adopted.
+- While a pending is live the open codec belongs to the NEXT track, so
+  `player_seek()` / `player_stop()` re-open the playing track first.
+- `advance_to()` only adopts when `pending_track.path` equals the resolved path
+  (a user skip to another track falls back to the normal open).
+
+Tests: `test_pending_open_adopt` (adoption at the boundary, plus a seek inside
+the window keeping the playing track). Player/services/ui/drivers/modules green.
+
+AP5M CRC `0x4DD00D5E`, packer `RESULT: PASS`. Not flashed.
