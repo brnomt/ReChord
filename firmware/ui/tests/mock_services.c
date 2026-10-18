@@ -358,6 +358,33 @@ long player_get_position_ms(void)
     return s_pl_pos_ms;
 }
 
+/* BRNOMT-93: the Now Playing long-press shortcuts call these. */
+int player_next(void)
+{
+    if (!s_pl_present)
+        return PLAYER_ERR_EMPTY;
+    s_pl_state = PLAYER_PLAYING;
+    return PLAYER_OK;
+}
+
+int player_prev(void)
+{
+    if (!s_pl_present)
+        return PLAYER_ERR_EMPTY;
+    s_pl_state = PLAYER_PLAYING;
+    return PLAYER_OK;
+}
+
+int player_seek(long ms)
+{
+    if (!s_pl_present)
+        return PLAYER_ERR_EMPTY;
+    if (ms < 0)
+        ms = 0;
+    s_pl_pos_ms = ms;
+    return PLAYER_OK;
+}
+
 /* BRNOMT-90 stubs: the UI tests drive the screens, not the list engine. */
 void player_set_resolver(int (*fn)(uint16_t idx, char *path, int cap))
 {

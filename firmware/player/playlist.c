@@ -180,6 +180,21 @@ int playlist_next_manual(playlist_t *pl)
     return -1;
 }
 
+int playlist_prev_manual(playlist_t *pl)
+{
+    if (pl == 0 || pl->n <= 0)
+        return -1;
+    if (pl->pos > 0) {
+        pl->pos--;
+        return pl->pos;
+    }
+    if (pl->repeat == PLAYLIST_REPEAT_ALL) {
+        pl->pos = pl->n - 1;
+        return pl->pos;
+    }
+    return -1;
+}
+
 void playlist_set_shuffle(playlist_t *pl, int on)
 {
     uint16_t cur;

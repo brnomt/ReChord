@@ -23,6 +23,8 @@ static input_event_t ev(input_key_t key)
     input_event_t e;
     e.type = key;
     e.adc_value = 0;
+    e.kind = INPUT_PRESS;        /* screens act on PRESS/REPEAT (BRNOMT-93) */
+    e.long_press = 0;
     return e;
 }
 

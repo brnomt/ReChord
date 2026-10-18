@@ -148,6 +148,26 @@ static void test_peek_next(void)
     CHECK(playlist_peek_next(&pl, &n) == 0, "peek: empty list");
 }
 
+static void test_prev_manual(void)
+{
+    playlist_t pl;
+    const uint16_t idx[3] = { 10, 20, 30 };
+
+    memset(&pl, 0, sizeof pl);
+    playlist_set_repeat(&pl, PLAYLIST_REPEAT_OFF);
+    playlist_load(&pl, idx, 3, 1);               /* on 20 */
+    CHECK(playlist_prev_manual(&pl) == 0 && playlist_current(&pl) == 10,
+          "prev: moves back");
+    CHECK(playlist_prev_manual(&pl) == -1, "prev: start of list, repeat off");
+
+    playlist_set_repeat(&pl, PLAYLIST_REPEAT_ALL);
+    CHECK(playlist_prev_manual(&pl) == 2 && playlist_current(&pl) == 30,
+          "prev: repeat all wraps to the last");
+    playlist_set_repeat(&pl, PLAYLIST_REPEAT_ONE);
+    CHECK(playlist_prev_manual(&pl) == 1 && playlist_current(&pl) == 20,
+          "prev: manual ignores repeat one");
+}
+
 int main(void)
 {
     test_order_and_advance();
@@ -155,6 +175,7 @@ int main(void)
     test_empty();
     test_has_next();
     test_peek_next();
+    test_prev_manual();
 
     if (fails != 0) {
         printf("test_playlist: %d FAILURES\n", fails);

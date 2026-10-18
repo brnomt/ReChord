@@ -3591,3 +3591,28 @@ Tests: `test_playlist` peek cases; `test_player_gapless` pre-open trigger (fires
 inside the 3 s window, exactly once per track); `ipc_b_mock` counts pre-opens.
 AP5M CRC `0x57727463`, `_bss_end` 0x03042db8 (+228 B; `s_pre_path[208]`), Core B
 ~34 KB stack left, packer `RESULT: PASS`.
+
+## AU. Session 2026-10-18 — BRNOMT-93: Now Playing long-press, list wrap, nav memory
+
+- **Now Playing keys**: VOL+/- short = one volume step, applied on **RELEASE**
+  (so a hold does not bump the volume before its long action); VOL+ long =
+  **next track**; VOL- long = **seek to 0:00** when elapsed > 3 s, else
+  **previous track**; SELECT = play/pause. `INPUT_LONG_MS` 1000 -> **500 ms**
+  (the issue's threshold). New `player_prev()` + `playlist_prev_manual()`
+  (manual: back one, repeat-ALL wraps, no history for the legacy queue).
+- **The app loop now forwards all four event kinds.** It used to drop
+  LONG/RELEASE (`if (ev.kind != INPUT_PRESS && ev.kind != INPUT_REPEAT)
+  continue;`), so no screen could see them. Listings now ignore LONG/RELEASE
+  explicitly (they act on PRESS/REPEAT); the player screen consumes
+  LONG/RELEASE.
+- **Cyclic wrap-around** in every scrollable list: `menu_view_move` wraps for
+  ±1 (menu / settings / library; large deltas still clamp), plus the browser
+  and library-category lists which own their cursor code.
+- **Navigation memory**: `menu_screen` and `library_screen` no longer reset
+  their view in `on_enter` (popping back keeps the cursor/scroll); the browser
+  keeps top/cursor and restores the **parent folder's** cursor on BACK via a
+  10-deep per-level stack.
+- Tests: menu_nav/browser updated for wrap, `ev()` helpers set
+  `kind = INPUT_PRESS`, input hold window shortened to stay below the new
+  500 ms LONG, playlist prev covered. UI 292 checks; player + services green.
+  AP5M CRC `0x3BEF00DD`, packer `RESULT: PASS`. Not flashed.

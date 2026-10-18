@@ -46,7 +46,8 @@ static const menu_model_t k_model = { "Library", k_items, MQ_COUNT };
 
 static void lib_on_enter(void)
 {
-    menu_view_init(&s_view);
+    /* Preserve the category cursor when returning from a category or the
+     * player screen (BRNOMT-93); library_cat_open() resets on a new entry. */
     ui_invalidate_all();
 }
 
@@ -57,6 +58,9 @@ static void lib_draw(void)
 
 static void lib_handle_event(const input_event_t *ev)
 {
+    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
+        return;                       /* listings act on PRESS/REPEAT only */
+
     switch (ev->type) {
     case KEY_UP:
         menu_view_move(&s_view, -1, MQ_COUNT, menu_page_size());

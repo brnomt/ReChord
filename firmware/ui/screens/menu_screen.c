@@ -8,10 +8,11 @@
  *      the same.
  *
  * Navigation contract (host-tested in tests/test_menu_nav.c):
- *   KEY_UP/KEY_DOWN move the cursor by one, clamped at the list ends (no
- *   wrap — predictable on a device with a 5-key surface), and the view
- *   scrolls minimally so the cursor stays inside the visible page;
- *   KEY_SELECT runs the item's on_select; KEY_BACK pops the screen stack.
+ *   KEY_UP/KEY_DOWN move the cursor by one with cyclic wrap-around (UP at the
+ *   top goes to the bottom, DOWN at the bottom goes to the top, BRNOMT-93),
+ *   and the view scrolls minimally so the cursor stays inside the visible
+ *   page; KEY_SELECT runs the item's on_select; KEY_BACK pops the screen
+ *   stack. Only PRESS/REPEAT act — LONG/RELEASE are for other screens.
  */
 #include <string.h>
 
@@ -43,10 +44,16 @@ void menu_view_move(menu_view_t *v, int delta, int count, int page)
         page = 1;
 
     target = v->cursor + delta;
-    if (target < 0)
-        target = 0;
-    if (target > count - 1)
+    if (delta == 1 && v->cursor == count - 1)
+        target = 0;                   /* cyclic wrap-around (BRNOMT-93) */
+    else if (delta == -1 && v->cursor == 0)
         target = count - 1;
+    else {
+        if (target < 0)
+            target = 0;
+        if (target > count - 1)
+            target = count - 1;
+    }
     v->cursor = target;
 
     /* minimal scroll to keep the cursor visible */
@@ -121,7 +128,8 @@ void menu_draw(const menu_model_t *model, const menu_view_t *view)
 
 static void menu_screen_on_enter(void)
 {
-    menu_view_init(&s_view);
+    /* Keep cursor/scroll when a child screen pops back (BRNOMT-93);
+     * menu_screen_bind() resets it for a new model. */
 }
 
 static void menu_screen_draw(void)
@@ -132,8 +140,9 @@ static void menu_screen_draw(void)
 
 static void menu_screen_handle_event(const input_event_t *ev)
 {
-    if (s_model == NULL)
-        return;
+    if (s_model == NULL || ev->kind == INPUT_LONG ||
+        ev->kind == INPUT_RELEASE)
+        return;                       /* listings act on PRESS/REPEAT only */
 
     switch (ev->type) {
     case KEY_UP:

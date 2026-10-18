@@ -27,6 +27,13 @@
 static browser_state_t s_state;
 static char            s_root[BROWSER_PATH_MAX];
 
+/* One saved cursor/scroll per descent level, so BACK from a folder returns to
+ * the folder you came from instead of the top (BRNOMT-93). Depth is small
+ * (the scanner caps at 8); 10 leaves headroom. */
+#define BROWSER_NAV_DEPTH 10
+static struct { int cursor, top; } s_nav[BROWSER_NAV_DEPTH];
+static int             s_nav_depth;
+
 /* ---- listing / window -------------------------------------------------- */
 
 static int browser_page(void)
@@ -106,15 +113,22 @@ static bool browser_same_path(const char *a, const char *b)
     return la == lb && strncmp(a, b, la) == 0;
 }
 
-static void browser_load(const char *path)
+/* Load `path` with the given cursor/scroll (BRNOMT-93 state restoration). */
+static void browser_load_at(const char *path, int cursor, int top)
 {
     browser_path_copy(s_state.path, path, BROWSER_PATH_MAX);
-    s_state.cursor = 0;
-    s_state.top = 0;
-    s_state.win_start = 0;
+    s_state.cursor = cursor;
+    s_state.top = top;
+    s_state.win_start = (uint32_t)(top > 0 ? top : 0);
     s_state.win_count = 0;
     s_state.mounted = false;
     browser_ensure_visible();
+}
+
+/* A NEW directory starts at the top. */
+static void browser_load(const char *path)
+{
+    browser_load_at(path, 0, 0);
 }
 
 static void browser_enter_dir(const char *name)
@@ -133,6 +147,13 @@ static void browser_enter_dir(const char *name)
         next[len++] = '/';
     memcpy(next + len, name, nlen);
     next[len + nlen] = '\0';
+
+    /* Remember this level's cursor so BACK returns to the folder (BRNOMT-93). */
+    if (s_nav_depth < BROWSER_NAV_DEPTH) {
+        s_nav[s_nav_depth].cursor = s_state.cursor;
+        s_nav[s_nav_depth].top = s_state.top;
+        s_nav_depth++;
+    }
     browser_load(next);
 }
 
@@ -160,7 +181,15 @@ static bool browser_to_parent(void)
         strncmp(next, s_root, strlen(next)) == 0) {
         browser_path_copy(next, s_root, BROWSER_PATH_MAX);
     }
-    browser_load(next);
+    /* Restore the parent level's cursor/scroll (BRNOMT-93). */
+    if (s_nav_depth > 0)
+        s_nav_depth--;
+    if (s_nav_depth < BROWSER_NAV_DEPTH) {
+        browser_load_at(next, s_nav[s_nav_depth].cursor,
+                        s_nav[s_nav_depth].top);
+    } else {
+        browser_load(next);
+    }
     return true;
 }
 
@@ -170,9 +199,9 @@ static void browser_screen_on_enter(void)
 {
     if (s_state.path[0] == '\0')
         browser_path_copy(s_state.path, "/", BROWSER_PATH_MAX);
+    /* Preserve cursor/scroll when a child screen pops back (BRNOMT-93); force
+     * a refetch so an inserted/removed card is re-read. */
     s_state.mounted = false;
-    s_state.win_start = 0;
-    s_state.top = 0;
     browser_ensure_visible();
 }
 
@@ -221,17 +250,25 @@ static void browser_screen_draw(void)
 
 static void browser_screen_handle_event(const input_event_t *ev)
 {
+    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
+        return;                       /* listings act on PRESS/REPEAT only */
+
     switch (ev->type) {
     case KEY_UP:
-        if (s_state.cursor > 0) {
-            s_state.cursor--;
+        if (s_state.total > 0) {
+            /* cyclic wrap-around (BRNOMT-93) */
+            s_state.cursor = (s_state.cursor <= 0)
+                             ? (int)s_state.total - 1
+                             : s_state.cursor - 1;
             browser_ensure_visible();
             ui_invalidate_all();
         }
         break;
     case KEY_DOWN:
-        if (s_state.cursor < (int)s_state.total - 1) {
-            s_state.cursor++;
+        if (s_state.total > 0) {
+            s_state.cursor = (s_state.cursor >= (int)s_state.total - 1)
+                             ? 0
+                             : s_state.cursor + 1;
             browser_ensure_visible();
             ui_invalidate_all();
         }
@@ -362,6 +399,7 @@ void browser_screen_set_root(const char *path)
     s_state.win_count = 0;
     s_state.total = 0;
     s_state.mounted = false;
+    s_nav_depth = 0;
 }
 
 const browser_state_t *browser_screen_state(void)

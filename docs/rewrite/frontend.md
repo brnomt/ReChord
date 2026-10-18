@@ -74,7 +74,7 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
 | `screens/screens.h` | Public API of all screens (control functions + state introspection) |
 | `screens/boot_screen.c` | ReChord branding (own wordmark rendering, 1 px weight pass), version, divider, printf-style status lines at 12 px pitch (id × 12 px contract) |
 | `screens/menu_screen.c` | Generic list menu (title + scrollable items + selection + right-aligned values) AND the shared navigation/rendering helpers (`menu_view_move`, `menu_draw`, `menu_draw_item`) reused by the other lists |
-| `screens/browser_screen.c` | File browser over `fs_list_dir()` (names + counts only): window = one visible page fetched at the view top, cursor clamping, enter-dir/back path handling clamped at a configured root, footer counts |
+| `screens/browser_screen.c` | File browser over `fs_list_dir()` (names + counts only): window = one visible page fetched at the view top, cursor wrap-around, enter-dir/back path handling clamped at a configured root with the parent cursor restored on BACK, footer counts |
 | `screens/player_screen.c` | Now-playing skeleton: track title, progress bar, times, volume bar (-60..0 dB), play/pause toggle |
 | `screens/settings_screen.c` | Binds the 12 schema keys to a menu (label = key name, value = formatted config value), SELECT cycles values, BACK saves via `settings_save()`. Also owns runtime-state writes: `settings_screen_volume_changed()` adopts the player's volume into the view and arms a deferred save; `settings_screen_flush_pending()` writes it once the value has been quiet for `SETTINGS_FLUSH_QUIET_MS` (the caller passes its clock — ap_ui's loop) so a volume sweep is one write; `settings_screen_store()` covers any pending flush (BACK, power-off) |
 | `internal/hal.h` | The single include door to display + services |
@@ -92,8 +92,21 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
   repaints the screen (cheap framebuffer fills), but only dirty row bands
   reach the panel (expensive SPI/DCS transfer), merged when overlapping or
   adjacent. Overflow of the 8-band set degrades to bounding bands.
-- **Menu navigation clamps at the ends** (no wrap) — predictable with a
-  5-key surface; the page scrolls minimally to keep the cursor visible.
+- **Menu navigation wraps cyclically** (BRNOMT-93): UP at the first item
+  selects the last, DOWN at the last selects the first, and the page scrolls
+  minimally (the wrap lands on the terminal page). Shared by the menu,
+  settings and library lists (`menu_view_move`) plus the browser and category
+  lists, which have their own cursor code.
+- **Navigation memory** (BRNOMT-93): popping back to a list keeps its cursor
+  and scroll. `menu_screen`/`library_screen` no longer reset their view in
+  `on_enter`; the browser keeps top/cursor and restores the PARENT folder's
+  cursor on BACK through a small per-depth stack (10 levels).
+- **Now Playing keys** (BRNOMT-93): VOL+/- short = one volume step, applied on
+  RELEASE so a hold does not bump the volume first; VOL+ long (>= `INPUT_LONG_MS`
+  = 500 ms) = next track; VOL- long = seek to 0:00, or previous track when
+  still inside the first 3 s; SELECT = play/pause. Listings act on
+  PRESS/REPEAT only; the app loop forwards all four event kinds so the player
+  screen can also see LONG/RELEASE.
 - **Browser pagination**: one `fs_list_dir()` call fetches exactly one
   visible page starting at the view top; a stable listing order across
   calls is part of the fs service contract.
@@ -164,9 +177,9 @@ time — that is intentional.
 |---|---|
 | `test_screen_stack.c` | push/pop semantics, covered-screen re-enter, depth cap (4), NULL/full rejection, empty pop |
 | `test_ui_redraw.c` | dirty row bands: disjoint flushes, overlap/adjacency merging, clamping, overflow coalescing, flush-only-when-dirty |
-| `test_menu_nav.c` | `menu_view_move` clamping/minimal scrolling + `menu_screen` key handling (select fires actions, back pops) + rendering output |
+| `test_menu_nav.c` | `menu_view_move` cyclic wrap-around/minimal scrolling + `menu_screen` key handling (select fires actions, back pops) + rendering output |
 | `test_settings_keys.c` | exact 12 key names/order, per-key field mapping (cycle touches exactly one field), value formatting (`repeat_track`, `8`, `-23`, ...), wrap behavior, settings_screen menu binding + save-on-exit |
-| `test_browser_pagination.c` | fetch window == page at view top, refetch offsets, end/start clamping, enter-dir re-rooting, parent navigation, pop at root, rendered names/counts |
+| `test_browser_pagination.c` | fetch window == page at view top, refetch offsets, end/start wrap-around, enter-dir re-rooting, parent navigation with cursor restore, pop at root, rendered names/counts |
 
 Run: `cd firmware/ui && make test` (exits non-zero on any failure).
 

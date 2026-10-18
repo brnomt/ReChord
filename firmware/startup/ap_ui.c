@@ -807,11 +807,9 @@ void ap_ui_loop(void)
         input_scan(adc, power);
 
         while (input_poll(&ev) > 0) {
-            /* Short vs long press: PRESS acts once; REPEAT continues the
-             * action while held (volume / navigation). LONG and RELEASE
-             * are markers for consumers that need the distinction. */
-            if (ev.kind != INPUT_PRESS && ev.kind != INPUT_REPEAT)
-                continue;
+            /* All four kinds reach the top screen (BRNOMT-93): listings act on
+             * PRESS/REPEAT, Now Playing also uses LONG (next / seek-restart)
+             * and RELEASE{long_press=0} (one volume step per tap). */
             if (ev.type == KEY_MENU) {
                 while (ui_stack_depth() > 1)
                     ui_pop_screen();

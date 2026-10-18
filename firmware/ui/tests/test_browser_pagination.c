@@ -2,9 +2,10 @@
  * test_browser_pagination.c — browser pagination over fs_list_dir().
  *
  * Contract under test: the fetch window always starts at the view top,
- * one fetch == one visible page (BROWSER_WINDOW rows), the cursor clamps at
- * both ends of the listing, directory entry/leave re-roots the listing, and
- * BACK at the configured root pops the screen.
+ * one fetch == one visible page (BROWSER_WINDOW rows), the cursor wraps at
+ * both ends of the listing (BRNOMT-93), directory entry/leave re-roots the
+ * listing and restores the parent cursor/scroll, and BACK at the configured
+ * root pops the screen.
  */
 #include "test_util.h"
 #include "ui.h"
@@ -17,6 +18,8 @@ static input_event_t ev(input_key_t key)
     input_event_t e;
     e.type = key;
     e.adc_value = 0;
+    e.kind = INPUT_PRESS;        /* screens act on PRESS/REPEAT (BRNOMT-93) */
+    e.long_press = 0;
     return e;
 }
 
@@ -78,8 +81,8 @@ void test_browser_pagination(void)
     CHECK_EQ_INT(mock_fs_call_count(), 2);
     CHECK_EQ_INT((int)mock_fs_call_index(1), 1);
 
-    /* run to the end: cursor and top clamp at the listing bounds */
-    for (i = 0; i < 100; i++) {
+    /* run to the last item: top scrolls to the last page */
+    while (st->cursor < 39) {
         e = ev(KEY_DOWN);
         ui_handle_event(&e);
     }
@@ -87,8 +90,21 @@ void test_browser_pagination(void)
     CHECK_EQ_INT(st->top, 39 - BROWSER_WINDOW + 1);
     CHECK_EQ_INT((int)st->win_start, 39 - BROWSER_WINDOW + 1);
 
+    /* one more DOWN wraps to the first item (BRNOMT-93) */
+    e = ev(KEY_DOWN);
+    ui_handle_event(&e);
+    CHECK_EQ_INT(st->cursor, 0);
+    CHECK_EQ_INT(st->top, 0);
+    CHECK_EQ_INT((int)st->win_start, 0);
+
+    /* UP from the top wraps to the last item (BRNOMT-93) */
+    e = ev(KEY_UP);
+    ui_handle_event(&e);
+    CHECK_EQ_INT(st->cursor, 39);
+    CHECK_EQ_INT(st->top, 39 - BROWSER_WINDOW + 1);
+
     /* and back to the start */
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < 39; i++) {
         e = ev(KEY_UP);
         ui_handle_event(&e);
     }
@@ -105,11 +121,12 @@ void test_browser_pagination(void)
     CHECK_EQ_INT((int)st->win_start, 0);
     CHECK_STR_EQ(st->window[0].name, "s0");
 
-    /* nested paging inside the subdirectory */
+    /* nested paging inside the subdirectory: DOWN at the last wraps to 0 */
     e = ev(KEY_DOWN); ui_handle_event(&e);
     e = ev(KEY_DOWN); ui_handle_event(&e);
-    e = ev(KEY_DOWN); ui_handle_event(&e);   /* clamps at 2 */
     CHECK_EQ_INT(st->cursor, 2);
+    e = ev(KEY_DOWN); ui_handle_event(&e);   /* wraps to 0 (BRNOMT-93) */
+    CHECK_EQ_INT(st->cursor, 0);
     CHECK_EQ_INT(st->top, 0);                /* 3 entries fit one page */
 
     /* BACK returns to the parent with its listing restored */

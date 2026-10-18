@@ -162,7 +162,7 @@ static void test_scan(void)
     for (i = 1; i < INPUT_DEBOUNCE_SCANS; i++)
         CHECK(input_scan(250, 0) == 0);      /* play: 3-sample key */
     CHECK(input_scan(250, 0) == 1);          /* press play */
-    for (i = 0; i < 12; i++)
+    for (i = 0; i < 9; i++)                 /* < INPUT_LONG_MS of hold   */
         CHECK(input_scan((i & 1) ? 258 : 244, 0) == 0);   /* +-7 noise */
     CHECK(input_pending() == 5);            /* P,R,P,R,P (up,up,select)  */
     for (i = 0; i < INPUT_DEBOUNCE_SCANS - 1; i++)

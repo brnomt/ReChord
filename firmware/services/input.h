@@ -101,11 +101,11 @@ unsigned input_pending(void);
  * panel (~50-100 ms per pass), while the player screen's band redraws run
  * much faster. Time is now the unit; input_set_clock() supplies it.
  *
- * At the ~50-100 ms/pass of a listing this means: LONG after ~1 s of hold,
+ * At the ~50-100 ms/pass of a listing this means: LONG after ~0.5 s of hold,
  * one REPEAT every ~0.25 s, and — after INPUT_FAST_HOLD_MS more of holding —
  * one REPEAT every ~0.05 s, i.e. one per pass, the fastest the UI can move.
  * The ladder table in input.c takes one row per tier; these are the knobs. */
-#define INPUT_LONG_MS           1000
+#define INPUT_LONG_MS            500
 #define INPUT_REPEAT_MS          250
 /* Extra hold past LONG before the fast tier engages. */
 #define INPUT_FAST_HOLD_MS       800

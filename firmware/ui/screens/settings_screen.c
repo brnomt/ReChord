@@ -174,6 +174,9 @@ static void settings_screen_draw(void)
 
 static void settings_screen_handle_event(const input_event_t *ev)
 {
+    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
+        return;                       /* listings act on PRESS/REPEAT only */
+
     switch (ev->type) {
     case KEY_UP:
         menu_view_move(&s_view, -1, SETTING_KEY_COUNT, menu_page_size());

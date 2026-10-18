@@ -129,25 +129,51 @@ static void cat_play(int idx)
     }
 }
 
+/* Keep the cursor inside the visible window, clamped to the list (BRNOMT-93:
+ * the wrap itself happens in the key handler; this just fixes the viewport). */
+static void cat_ensure_visible(unsigned total)
+{
+    if (total == 0u) {
+        s_cat.cursor = 0;
+        s_cat.top = 0;
+        return;
+    }
+    if (s_cat.cursor < 0)
+        s_cat.cursor = 0;
+    if (s_cat.cursor >= (int)total)
+        s_cat.cursor = (int)total - 1;
+    if (s_cat.cursor < s_cat.top)
+        s_cat.top = s_cat.cursor;
+    if (s_cat.cursor >= s_cat.top + CAT_ROWS)
+        s_cat.top = s_cat.cursor - CAT_ROWS + 1;
+    if (s_cat.top < 0)
+        s_cat.top = 0;
+    if (s_cat.top > (int)total - CAT_ROWS)
+        s_cat.top = ((int)total > CAT_ROWS) ? (int)total - CAT_ROWS : 0;
+}
+
 static void cat_handle_event(const input_event_t *ev)
 {
     unsigned total = cat_total();
-    int rows = CAT_ROWS;
+
+    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
+        return;                       /* listings act on PRESS/REPEAT only */
 
     switch (ev->type) {
     case KEY_UP:
-        if (s_cat.cursor > 0) {
-            s_cat.cursor--;
-            if (s_cat.cursor < s_cat.top)
-                s_cat.top = s_cat.cursor;
+        if (total != 0u) {
+            /* cyclic wrap-around (BRNOMT-93) */
+            s_cat.cursor = (s_cat.cursor <= 0) ? (int)total - 1
+                                               : s_cat.cursor - 1;
+            cat_ensure_visible(total);
             ui_invalidate_all();
         }
         break;
     case KEY_DOWN:
-        if (total != 0u && s_cat.cursor + 1 < (int)total) {
-            s_cat.cursor++;
-            if (s_cat.cursor >= s_cat.top + rows)
-                s_cat.top = s_cat.cursor - rows + 1;
+        if (total != 0u) {
+            s_cat.cursor = (s_cat.cursor >= (int)total - 1) ? 0
+                                                            : s_cat.cursor + 1;
+            cat_ensure_visible(total);
             ui_invalidate_all();
         }
         break;

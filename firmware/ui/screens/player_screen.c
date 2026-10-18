@@ -143,18 +143,47 @@ static void player_screen_draw(void)
                       line, THEME_COLOR_FG, THEME_COLOR_BG);
 }
 
+/* Now Playing keys (BRNOMT-93):
+ *   VOL+/VOL- short  -> one volume step each. The step happens on RELEASE so a
+ *                       hold does not also bump the volume before the long
+ *                       action.
+ *   VOL+ long        -> next track in the current playlist/queue.
+ *   VOL- long        -> seek back to 0:00; if still inside the first 3 s,
+ *                       previous track instead.
+ *   SELECT           -> play/pause.  BACK -> leave (playback continues).
+ * A held key also sends REPEATs; on this screen they are not a volume sweep. */
 static void player_screen_handle_event(const input_event_t *ev)
 {
+    if (ev->kind == INPUT_REPEAT)
+        return;
+
     switch (ev->type) {
     case KEY_UP:
-    case KEY_DOWN: {
-        /* volume through the player module (it clamps -60..+20 dB) */
-        int db = player_get_volume() + (ev->type == KEY_UP ? 1 : -1);
-        player_set_volume(db);
-        player_screen_set_volume(player_get_volume());
+        if (s_status[0])
+            break;
+        if (ev->kind == INPUT_LONG) {
+            (void)player_next();
+        } else if (ev->kind == INPUT_RELEASE && !ev->long_press) {
+            player_set_volume(player_get_volume() + 1);
+            player_screen_set_volume(player_get_volume());
+        }
         break;
-    }
+    case KEY_DOWN:
+        if (s_status[0])
+            break;
+        if (ev->kind == INPUT_LONG) {
+            if (player_get_position_ms() > 3000)
+                (void)player_seek(0);
+            else
+                (void)player_prev();
+        } else if (ev->kind == INPUT_RELEASE && !ev->long_press) {
+            player_set_volume(player_get_volume() - 1);
+            player_screen_set_volume(player_get_volume());
+        }
+        break;
     case KEY_SELECT:
+        if (ev->kind != INPUT_PRESS)
+            break;
         if (s_status[0])
             break;                        /* error view: inert (BACK leaves) */
         if (s_playing) {
@@ -166,8 +195,8 @@ static void player_screen_handle_event(const input_event_t *ev)
         }
         break;
     case KEY_BACK:
-        /* playback continues in the background; re-entering re-syncs. */
-        ui_pop_screen();
+        if (ev->kind == INPUT_PRESS)
+            ui_pop_screen();   /* playback continues; re-entering re-syncs */
         break;
     default:
         break;

@@ -688,6 +688,23 @@ int player_next(void)
     return advance_queue(1);   /* user "next": hard boundary w/ B-core restart */
 }
 
+int player_prev(void)
+{
+    char path[PLAYER_PATH_MAX];
+    uint16_t ridx;
+
+    if (playlist_count(&g.list) <= 0 || playlist_prev_manual(&g.list) < 0)
+        return PLAYER_ERR_EMPTY;   /* the legacy queue has no history */
+
+    ridx = playlist_current(&g.list);
+    if (s_resolve == 0 || ridx == PLAYLIST_IDX_NONE ||
+        s_resolve(ridx, path, (int)sizeof path) != 0) {
+        emit(PLAYER_EV_ERROR);
+        return PLAYER_ERR;
+    }
+    return advance_to(path, 1);    /* user-driven: hard boundary */
+}
+
 /* ---- playlist (BRNOMT-90) ---- */
 
 void player_set_resolver(int (*fn)(uint16_t idx, char *path, int cap))

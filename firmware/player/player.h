@@ -123,6 +123,11 @@ int   player_pause(void);
 int   player_stop(void);
 int   player_seek(long ms);
 int   player_next(void);
+
+/* Previous track in the current playback list (BRNOMT-93). Manual: moves back
+ * one entry, ignoring repeat-ONE; wraps only for repeat-ALL. Without a list
+ * there is no history, so it returns PLAYER_ERR_EMPTY. */
+int   player_prev(void);
 int   player_get_state(void);
 long  player_get_position_ms(void);
 int   player_set_volume(int db);

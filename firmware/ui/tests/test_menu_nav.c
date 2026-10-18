@@ -27,6 +27,8 @@ static input_event_t ev(input_key_t key)
     input_event_t e;
     e.type = key;
     e.adc_value = 0;
+    e.kind = INPUT_PRESS;        /* screens act on PRESS/REPEAT (BRNOMT-93) */
+    e.long_press = 0;
     return e;
 }
 
@@ -38,8 +40,14 @@ static void test_menu_view_move(void)
     CHECK_EQ_INT(v.cursor, 0);
     CHECK_EQ_INT(v.top, 0);
 
-    /* clamped at the start */
+    /* wrap-around (BRNOMT-93): UP at the top lands on the last item and
+     * scrolls to show the last page */
     menu_view_move(&v, -1, 12, 5);
+    CHECK_EQ_INT(v.cursor, 11);
+    CHECK_EQ_INT(v.top, 7);
+
+    /* DOWN at the bottom lands on the first item and scrolls to the top */
+    menu_view_move(&v, +1, 12, 5);
     CHECK_EQ_INT(v.cursor, 0);
     CHECK_EQ_INT(v.top, 0);
 
@@ -48,12 +56,10 @@ static void test_menu_view_move(void)
     CHECK_EQ_INT(v.cursor, 1);
     CHECK_EQ_INT(v.top, 0);
 
-    /* clamp at the end + scroll to keep cursor on the last page */
+    /* only ±1 wraps; a large delta still clamps */
     menu_view_move(&v, +100, 12, 5);
     CHECK_EQ_INT(v.cursor, 11);
     CHECK_EQ_INT(v.top, 7);
-
-    /* back to the start */
     menu_view_move(&v, -100, 12, 5);
     CHECK_EQ_INT(v.cursor, 0);
     CHECK_EQ_INT(v.top, 0);
@@ -116,12 +122,13 @@ static void test_menu_screen_keys(void)
     CHECK_EQ_INT(s_selected[1], 1);
     CHECK_EQ_INT(s_selected[0], 0);
 
-    /* UP clamps at the top */
-    e = ev(KEY_UP);
-    ui_handle_event(&e);
+    /* UP from the top wraps to the last item (BRNOMT-93) */
     e = ev(KEY_UP);
     ui_handle_event(&e);
     CHECK_EQ_INT(menu_screen_view()->cursor, 0);
+    e = ev(KEY_UP);
+    ui_handle_event(&e);
+    CHECK_EQ_INT(menu_screen_view()->cursor, 2);
     CHECK_EQ_INT(s_selected[0], 0);   /* no stray select */
 
     /* BACK pops */

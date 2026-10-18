@@ -79,6 +79,10 @@ int playlist_peek_next(const playlist_t *pl, uint16_t *out);
  * Returns the new position, or -1 to stop. */
 int playlist_next_manual(playlist_t *pl);
 
+/* Manual "previous" (a key press): moves back, ignoring repeat-ONE; wraps to
+ * the last track only when repeat == ALL. Returns the new position, or -1. */
+int playlist_prev_manual(playlist_t *pl);
+
 /* Turn shuffle on/off. On enables: the CURRENT track is moved to the front of
  * a freshly shuffled order (so it keeps playing). Off restores the user
  * order and re-points the position at the current track. */
