@@ -138,10 +138,15 @@ placeholder glyph).
 
 ## 8. Milestones
 
-- **A (small).** Runtime theme switch from Settings: a Theme row (built-ins +
-  `theme.cfg`), applied live (`theme_load_named` + `ui_invalidate_all`), with the
-  measured headroom checks above. *No schema change: the row lives in the
-  Settings model, not the 14-key cfg.*
+- **A (small). DONE (2026-10-18).** Runtime theme switch from Settings: a 15th
+  "Theme" row (the schema and its 14-key on-disk layout are untouched) whose
+  value is `theme_get()->name`; SELECT cycles the built-ins with
+  `theme_load_named()` + `ui_invalidate_all()`, so every screen restyles
+  immediately — no reboot, no audio interruption. Measured `.bss_end
+  0x03046070`. Persisting the choice is **not** in A: `stdio_fs` is read-only,
+  so writing `theme.cfg` needs the in-place path (pre-created file +
+  `fs_target_file_rewrite`) that milestone B introduces; today persistence is by
+  editing `theme.cfg`, which boot already reads.
 - **B.** Package enumeration + manifest parse/validate (`/.rechord/themes/`),
   host tests for the parser/limits, and the reference `mono-nothing` package as
   data in the repo.

@@ -18,12 +18,17 @@
 
 static rechord_settings_t s_settings;
 static menu_view_t        s_view;
-static menu_item_t        s_items[SETTING_KEY_COUNT];
+/* The menu shows one row per schema key plus the live Theme row (BRNOMT-69
+ * milestone A) — the theme choice is NOT a cfg key, so the schema (and its
+ * 14-key on-disk layout) stays untouched. */
+#define SETTING_ROWS (SETTING_KEY_COUNT + 1)
+
+static menu_item_t        s_items[SETTING_ROWS];
 static unsigned           s_flush_at_ms;   /* volume flush deadline      */
 static int                s_volume_dirty;  /* a volume save is pending   */
 
 /* value_text callbacks must return stable storage: one scratch slot per key */
-static char s_value_buf[SETTING_KEY_COUNT][32];
+static char s_value_buf[SETTING_ROWS][32];
 
 static const char *value_text_0(void)  { return s_value_buf[0]; }
 static const char *value_text_1(void)  { return s_value_buf[1]; }
@@ -40,11 +45,14 @@ static const char *value_text_11(void) { return s_value_buf[11]; }
 static const char *value_text_12(void) { return s_value_buf[12]; }
 static const char *value_text_13(void) { return s_value_buf[13]; }
 
-static const char *(*const s_value_text_fn[SETTING_KEY_COUNT])(void) = {
+/* The active theme's name (from theme.c, no scratch buffer needed). */
+static const char *value_text_theme(void) { return theme_get()->name; }
+
+static const char *(*const s_value_text_fn[SETTING_ROWS])(void) = {
     value_text_0,  value_text_1,  value_text_2,  value_text_3,
     value_text_4,  value_text_5,  value_text_6,  value_text_7,
     value_text_8,  value_text_9,  value_text_10, value_text_11,
-    value_text_12, value_text_13,
+    value_text_12, value_text_13, value_text_theme,
 };
 
 static void on_select_0(void)  { settings_cycle(&setting_schema[0],  &s_settings, +1); }
@@ -68,17 +76,38 @@ static void on_select_13(void) {
     player_set_repeat(s_settings.repeat_mode);
 }
 
-static void (*const s_on_select_fn[SETTING_KEY_COUNT])(void) = {
+/* BRNOMT-69 milestone A: cycle the built-in palettes; the change applies to
+ * every screen immediately (the screens read THEME_* live). Persistence of the
+ * choice arrives with the package/manifest write in milestone B; today a
+ * user-level choice is made by editing theme.cfg. */
+static void on_select_theme(void)
+{
+    int n = theme_count();
+    int i, cur = 0;
+
+    if (n <= 1)
+        return;
+    for (i = 0; i < n; i++) {
+        if (strcmp(theme_name(i), theme_get()->name) == 0) {
+            cur = i;
+            break;
+        }
+    }
+    if (theme_load_named(theme_name((cur + 1) % n)) == 0)
+        ui_invalidate_all();
+}
+
+static void (*const s_on_select_fn[SETTING_ROWS])(void) = {
     on_select_0,  on_select_1,  on_select_2,  on_select_3,
     on_select_4,  on_select_5,  on_select_6,  on_select_7,
     on_select_8,  on_select_9,  on_select_10, on_select_11,
-    on_select_12, on_select_13,
+    on_select_12, on_select_13, on_select_theme,
 };
 
 static const menu_model_t s_model = {
     "Settings",
     s_items,
-    SETTING_KEY_COUNT,
+    SETTING_ROWS,
 };
 
 static void refresh_values(void)
@@ -99,6 +128,10 @@ static void build_items(void)
         s_items[i].value_text = s_value_text_fn[i];
         s_items[i].on_select = s_on_select_fn[i];
     }
+    /* Last row: the live theme switch (BRNOMT-69). */
+    s_items[SETTING_KEY_COUNT].label = "Theme";
+    s_items[SETTING_KEY_COUNT].value_text = s_value_text_fn[SETTING_KEY_COUNT];
+    s_items[SETTING_KEY_COUNT].on_select = s_on_select_fn[SETTING_KEY_COUNT];
 }
 
 /* ---- persistence ------------------------------------------------------- */

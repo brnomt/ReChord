@@ -4113,3 +4113,18 @@ Docs only: image CRC unchanged (`0x9FDCD4D3`).
 
 `.bss_end 0x03046040` (gate 0x0304A000 → ~15.9 KiB still free).
 AP5M CRC `0xC82B3C36`, packer `RESULT: PASS`. Not flashed.
+
+## BM. Session 2026-10-18 — BRNOMT-69 milestone A: live theme switch
+
+- The Settings menu gained a 15th row, **Theme** (the config schema and its
+  14-key on-disk layout are untouched). Its value is `theme_get()->name` and
+  SELECT cycles the built-ins via `theme_load_named()` + `ui_invalidate_all()`,
+  so every screen restyles immediately — no reboot, playback untouched.
+- Persistence is deliberately **not** in A: `stdio_fs` is read-only, so writing
+  `theme.cfg` needs the in-place path (a pre-created file +
+  `fs_target_file_rewrite`) that milestone B introduces. Today a persisted
+  choice is made by editing `theme.cfg`, which boot already reads.
+- `test_settings_keys` now expects 15 rows and asserts the Theme row's label and
+  handler. `.bss_end 0x03046070` (gate 0x0304A000 → ~15.9 KiB free).
+
+AP5M CRC `0x44BAB1D6`, packer `RESULT: PASS`. Not flashed.

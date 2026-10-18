@@ -186,10 +186,13 @@ static void test_settings_screen_binding(void)
     CHECK(ui_push_screen(&settings_screen));
 
     model = settings_screen_model();
-    CHECK_EQ_INT(model->item_count, SETTING_KEY_COUNT);
+    CHECK_EQ_INT(model->item_count, SETTING_KEY_COUNT + 1);  /* + Theme row */
     CHECK_STR_EQ(model->title, "Settings");
     for (i = 0; i < SETTING_KEY_COUNT; i++)
         CHECK_STR_EQ(model->items[i].label, k_expected_names[i]);
+    /* BRNOMT-69 milestone A: the live theme switch is the last row. */
+    CHECK_STR_EQ(model->items[SETTING_KEY_COUNT].label, "Theme");
+    CHECK(model->items[SETTING_KEY_COUNT].on_select != 0);
 
     /* defaults are live after enter */
     CHECK_EQ_INT(settings_screen_get()->screen_off_s, 30);
