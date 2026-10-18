@@ -45,10 +45,11 @@ ReplayGain / codec_io_fs — all covered by host tests in
 It is **linked into the AP image** (`AP_PLAYER_SRCS` in `firmware/ap.mk`;
 `make cfw-ap` links `build/cfw/rechord_ap.elf`; `make cfw-img` →
 `build/ReChord_AP5M.IMG` behind the packer's scatter gate, `RESULT: PASS`,
-md5 `5f2a55d301d8861711f762def778245b`). Still missing for audible sound:
-the PCM→DAC renderer (this fw1 has no B core; `ipc_b_target`'s doorbell is a
-placeholder), so the resident player decodes but stays silent until that
-landmark — plus the B-core IPC bring-up for the reference two-core path.
+md5 `5f2a55d301d8861711f762def778245b`). **Audio is live on hardware**: the
+DAC renderer landed (I2S1 TX-IRQ feeder over the shared PCM ring), and since
+phase 3c **Core B owns the decode** (B image in `firmware/bb/`, started by the
+AP); the AP serves the file over the A→B file ring and feeds the DAC. See
+`docs/rewrite/core-b-phase3.md`.
 
 ## 2. Files
 
@@ -93,8 +94,8 @@ firmware/player/
 > Steps 1–6 are **implemented and host-tested** (~340 checks across
 > `test_player_gapless`, `test_rg_math`, `test_player_replaygain`,
 > `test_codec_io_fs`, `test_tags`, `test_codec_mp3`, `test_codec_flac`).
-> Step 7 (DAC renderer) is the next landmark; step 8 (AP flash) is gated on
-> hardware + DFIU preflight.
+> Step 7 (DAC renderer) is DONE and audio is live (Core B decodes since phase
+> 3c); step 8 (AP flash) is gated on hardware + DFIU preflight.
 
 1. **fs_seek (portability).** DONE — `fs_seek(fs_file_t*, long offset)` added to
    `fs.h`, `fs_target.c` (set `f->pos`; the read loop re-derives the cluster)
@@ -172,15 +173,12 @@ firmware/player/
    (`is_header_shadow`) + Makefile (`build/cfw/*.d` deps) fixes landed in
    the same pass — see HANDOVER m6c.
 
-7. **DAC renderer (NEXT).** Consume the ipc_b ring → I2S/DAC in this fw1.
-   Full plan + evidence in **`docs/rewrite/dac.md`**: the mask ROM owns the
-   I2S/DMA/CS43131 bring-up (stock call sequence recovered from the
-   annotated section_3 decomp), so Exp 1 = ROM sequence sanity → Exp 2 =
-   tone → Exp 3 = player PCM into the ROM refill contract; the SDK
-   `driver/IIS/I2s.c` + datasheet §4.13 I²C driver is the documented
-   fallback (`docs/re/dac-output-path.md` has the SDK DMA-ISR path). Until
-   then the player decodes but is silent and the ipc_b supervisor reports
-   "no audio renderer".
+7. **DAC renderer — DONE.** The PCM ring feeds I2S1 → CS43131 through the
+   TX-empty IRQ feeder (`firmware/audio/rknano_i2s.c`), and since phase 3c the
+   ring is produced by **Core B** (the AP keeps the DAC bring-up and the
+   feeder). Full plan + evidence in **`docs/rewrite/dac.md`**; the reference
+   sequence is documented in `docs/re/dac-output-path.md`. Superseded note:
+   the earlier "player decodes but is silent" state no longer applies.
 
 8. **AP flash (hardware-gated).** DFIU `preflight_check` → scatter
    byte-revalidation → flash AP5M (debrick ready: docs/DEBRICK-LINUX.md) →

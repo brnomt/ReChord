@@ -5,7 +5,10 @@
 
 [!WARNING]
 Work in Progress (WIP)
-ReChord is currently in an early experimental stage and is not functional for everyday use yet (audio playback and low-level drivers are still under active development)
+ReChord is still experimental, but no longer silent: the from-source fw1 boots,
+the UI/library work, and audio plays from 16/44.1 up to 24-bit/96 kHz — Core B
+decodes and the AP drives the CS43131 DAC. Gapless across tracks, the 192 kHz
+edge case (FLAC block 16384) and the DSP chain are still in progress.
 Contributions, issues, and PRs are very welcome! However, please note that any driver or hardware-related changes must be tested and verified on physical hardware before being merged
 
 ## Objective (the whole point)
@@ -30,15 +33,15 @@ hardware mailbox (`MailBox A2B/B2A`):
 | **fw1 (AP)** | `0x0007B8 – 0x057820` | **UI + system** — menus, fonts, storage, USB, updates | **RKnanoD SDK** — App/UI build (`main.c` + `SDK_160_128/UI/`) |
 | **section_3 (BB)** | `0x081A14 – 0x9BAA0E` | **Audio** — codecs, DSP/EQ, playback engine | **RKnanoD SDK** — BB build (`Main2.c` + codecs) |
 
-- **Both firmwares are two builds of the same Rockchip RKnanoD SDK**
-  (confirmed by string match: fw1 = 223 RKnanoD_MP3 strings vs only 32
-  rk3399-table). The AP is the `main.c` + `UI/` build; the BB is the
-  `Main2.c` + codecs build.
-- **ReChord's current product is a from-source fw1 (AP)**: our own boot,
-  UI, storage, and player — the stock AP layer is gone. The BB/section_3
-  remains in the image (stock or SDK-built) for the hybrid-era paths; the
-  reference two-core audio protocol is being reimplemented clean-room
-  (`firmware/player/ipc_b.h`).
+- **ReChord ships a from-source fw1 (AP) plus its own Core B image.** fw1 is
+  our boot + UI + services + player; the Core B image (linked at
+  `0x01000000`, `firmware/bb/`) is embedded in fw1 and started by our own CRU
+  sequence. The AP keeps the DAC/I2S bring-up, serves the track bytes over a
+  shared file ring and drains the PCM ring in its I2S TX ISR; **Core B
+  decodes** (FLAC/MP3/WAV) and produces the ring. See
+  [`docs/rewrite/core-b-phase3.md`](docs/rewrite/core-b-phase3.md).
+- **section_3 is left stock** (preserved) as a fallback path; the boot ROM /
+  sec2 is stock forever.
 - The **mask ROM** (`0x00000000–0x02FFFFFF`) is the fixed hardware HAL
   (LCD, I2S, DAC, USB, keys) — it is *not* firmware we replace; it is the
   "BIOS" our code calls.
@@ -55,21 +58,29 @@ experimental compared to established alternatives.
 
 | Layer | Status |
 |-------|--------|
-| **fw1 (AP) boots standalone** (ROM → our reset → our Main) | ✅ on hardware (verdict #20 lineage) |
-| **UI**: menus, keys, file browser (eMMC + SD, FAT16/32/exFAT) | ✅ on hardware (m5a/m5b) |
-| **USB mass storage** (LUN0 = eMMC r/w, LUN1 = SD r/o) | ✅ on hardware (m3c) |
-| **Self-updater** (copy HIFIEC90.IMG, eject/power → install) | ✅ on hardware (verdict #24) |
-| **microSD driver** (DW-MMC, 4-bit, read-only) | ✅ on hardware (verdict #26) |
-| **Player module** (state machine, gapless, ReplayGain, fs-backed codec_io) | ✅ linked into fw1, host-tested (~340 asserts) |
-| **Codecs**: WAV (ours), MP3 (minimp3), FLAC (dr_flac) | ✅ vendored + host-tested; MP3/FLAC decoded losslessly in tests |
-| **DAC renderer** (I2S → CS43131) | ⬜ **next — no sound until this lands** |
-| **DSP effects** (`EffectProcess` hook) | 🟡 core written + host-tested (`firmware/dsp/`), waiting on the renderer |
-| **BB (section_3) SDK build** | ✅ compiles + links (`make build-bb`) |
+| **fw1 (AP) boots standalone** (ROM → our reset → our Main) | ✅ on hardware |
+| **UI**: menus, keys, file browser (eMMC + SD, FAT16/32/exFAT) | ✅ on hardware |
+| **USB mass storage** (LUN0 = eMMC r/w, LUN1 = SD r/o) | ✅ on hardware |
+| **Self-updater** (copy HIFIEC90.IMG, eject/power → install) | ✅ on hardware |
+| **microSD driver** (DW-MMC, 4-bit, read-only) | ✅ on hardware |
+| **DAC renderer** (I2S1 → CS43131) | ✅ on hardware — audible |
+| **Core B bring-up** (own image at `0x01000000`, CRU start, mailbox) | ✅ on hardware |
+| **Audio on Core B** (phase 3: B decodes, AP feeds the DAC from the ring) | ✅ on hardware |
+| **Hi-res**: 24-bit at 44.1/48/88.2/96 kHz, int32 left-justified path | ✅ on hardware |
+| **Library**: recursive index + Album/Artist/Genre/Year/Label/… + All Songs | ✅ on hardware |
+| **Playback list** (album/genre/folder queue, "i/N", shuffle, repeat) | 🟡 implemented; hard boundary per track (~2–3 s) |
+| **Gapless between tracks** | ⬜ next (B-side track switch, BRNOMT-73) |
+| **192 kHz / FLAC block 16384** | ⬜ needs a bigger decode window (~143 KB) |
+| **384 kHz** | ⬜ not in the rate table / untested |
+| **Player module** (state machine, ReplayGain, gapless trim on B, codecs) | ✅ linked, host-tested |
+| **Codecs**: WAV (ours), MP3 (minimp3), FLAC (dr_flac) | ✅ vendored + host-tested |
+| **DSP effects** (`EffectProcess` hook) | 🟡 core written + host-tested (`firmware/dsp/`), not in the 3c path |
+| **BB (section_3) SDK build** | ✅ compiles + links (`make build-bb`), stock preserved |
 
-- The player decodes WAV/MP3/FLAC and applies gapless trimming +
-  ReplayGain, but the PCM ring currently has **no consumer** in our fw1
-  (no B core in the image) — the DAC renderer is the next milestone
-  (`docs/rewrite/audio.md` step 7).
+- Audio flows: `Core B decodes -> shared PCM ring (0x01030000) -> AP I2S TX
+  ISR -> CS43131`. The AP serves the file through the A→B file ring; `bfs_poll`
+  keeps it filled. Tested on device: 16/44.1 and 24/96 clean; a slight lag and a
+  per-track gap remain.
 - Flash safety: images are packed behind a scatter-table gate (DFIU rules)
   and always installed via the official updater flow; stock/restorable via
   maskrom (`docs/DEBRICK-LINUX.md`).
@@ -80,11 +91,10 @@ Full details: [`docs/HANDOVER.md`](docs/HANDOVER.md) (start here) ·
 ## Quick build check
 
 ```bash
-# host tests (codecs, gapless, ReplayGain, player): ~340 assertions
+# host tests: player (codecs, playlist, gapless, ReplayGain), UI, services
 sh firmware/player/tests/run_tests.sh
-
-# UI host tests
-make -C firmware/ui test
+sh firmware/ui/tests/run_tests.sh
+sh firmware/services/tests/run_tests.sh
 
 # clean-room AP image (UI + player + codecs) → flashable IMGs
 make cfw-ap                 # build/cfw/rechord_ap.elf
@@ -112,8 +122,10 @@ firmware/                   # our from-source layer
   ├── ui/                   # screens (menu, browser, player, settings)
   ├── services/             # settings, log, input, FAT/exFAT fs, fw_update
   ├── drivers/              # panel, eMMC, SD (DW-MMC), USB MSC, input
-  ├── player/               # playback engine: codec_t + codecs/ (wav/mp3/flac)
+  ├── player/               # engine: player.c, playlist.c, ipc_b*, codecs/
   │   └── codecs/           #   minimp3 + dr_flac vendored (CC0 / MIT-0)
+  ├── bb/                   # Core B image: decoder + codec_io over the file ring
+  ├── audio/                # DAC/I2S HAL: CS43131 + rknano_i2s + TX-IRQ feeder
   ├── dsp/                  # effect modules (EQ, bass, volume) — host-tested
   └── theme/                # theme data + loader
 tools/                      # build, analyze, pack scripts
@@ -129,10 +141,16 @@ stock/                      # official firmware backups (not distributed)
 - [x] **AP (fw1) boots standalone with our own from-source UI**
 - [x] Storage: eMMC + microSD read, FAT/exFAT browser, USB MSC, self-update
 - [x] **Player linked into the AP**: gapless, ReplayGain, WAV/MP3/FLAC decode
-- [ ] **DAC renderer**: I2S out to the CS43131 DACs — first audible sound
-- [ ] **DSP effects**: custom EQ / bass / reverb in the render path
-- [ ] **Two-core audio**: reference AP↔BB protocol re-impl (`ipc_b`) or
-      single-core renderer, whichever the bring-up proves simpler
+- [x] **DAC renderer**: I2S1 → CS43131 — first audible sound
+- [x] **Two-core audio**: our Core B image started by our CRU sequence; B
+      renders the ring, then (phase 3c) decodes and produces it
+- [x] **Hi-res path**: int32 left-justified end-to-end, source depth to the
+      DAC (24-bit at 44.1/48/88.2/96 kHz verified)
+- [x] **Library**: recursive media index + category navigation + All Songs
+- [x] **Playback lists**: album/genre/folder queue, "i/N", shuffle, repeat
+- [ ] **Gapless on Core B**: switch tracks without stopping the ring (BRNOMT-73)
+- [ ] **192 kHz** (FLAC block 16384 needs a ~143 KB window) and **384 kHz**
+- [ ] **DSP effects**: custom EQ / bass in the playback path
 
 ## Safety / flashing
 

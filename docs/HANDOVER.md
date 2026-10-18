@@ -3383,3 +3383,22 @@ at end of track.
   at boot and when cycled.
 - Builds/tests: AP5M CRC `0xB100671E`, `_bss_end 0x03042950`; player/UI/services
   host suites all pass (new `test_playlist`, updated settings tests).
+
+**Follow-up fixes after the first hardware run (`0x5D3A52B3`):**
+
+- **Track skip cascade (any list)**: with Core B decoding, the gapless path in
+  `advance_to()` did NOT reopen B's codec, so B stayed at EOF and the player
+  advanced every pump — it jumped from track 1 to the end (reported in an album
+  and in a 5-song Genre). Fix: `advance_to()` forces the hard path
+  (`open_track` + `player_play` -> `ipc_b_start` -> `bfs_open` + OPEN) whenever
+  `ipc_b_b_decodes()`. Generic, not per-category.
+- **Right-aligned text clipped** (`i/N`, and the earlier format line): the font
+  is `font8x8` (advance **8 px**) but `THEME_FONT_W` said 6, so `THEME_TEXT_W`
+  under-measured and every right-aligned string overflowed. Fixed `THEME_FONT_W`
+  (and `THEME_FONT_NAME`) to 8.
+- **Now Playing format**: "16b/44.1k" -> "16/44.1kHz" (no `b`).
+- **List order**: the filter list followed the *index* order (FAT creation
+  order), so albums were not in track order and lists were only roughly
+  alphabetical. `media_query` now captures a sort key per matched record
+  (title for All Songs, album otherwise, plus `track_no`) and sorts in RAM:
+  All Songs = title order; a category's songs = album then track.

@@ -84,6 +84,18 @@ consumed since (`frames_consumed * 1000 / sample_rate`). It advances only
 while the sink consumes — on the host that is per `player_process()` tick
 (mock B core), which keeps the model deterministic.
 
+### Playback list (BRNOMT-90)
+
+`player_play_list(idx, n, start)` plays a list of **media_db record indices**
+(indices, not paths: 706 paths would be ~90 KB; `PLAYLIST_MAX 1024` = 2 KB).
+End-of-stream auto-advances within the list, `player_next()` follows it, and
+`player_open()` clears it. `player_set_resolver()` maps an index to a path (the
+app installs a `media_db_get`-backed resolver; host tests install stubs).
+Rockbox-style shuffle (reorder; current track kept first) and repeat
+off/all/one live in `playlist.c`; `track_info_t.playlist_pos/count` feed the
+UI's "i/N". With the decoder on Core B, every advance takes the hard boundary
+(B's codec must be reopened) — gapless on B is BRNOMT-73.
+
 ## 2. Codec interface (`codec.h`)
 
 ```c
@@ -103,7 +115,7 @@ typedef struct codec_s {
 Rules and rationale:
 
 - **State block**: the player allocates `state_size` bytes from a static
-  pool (`PLAYER_CODEC_STATE_MAX` = 4096, no malloc on target) and zeroes
+  pool (`PLAYER_CODEC_STATE_MAX` = 7296, no malloc on target) and zeroes
   it before `open`. Codecs own nothing else.
 - **Output format**: interleaved int32, left-justified to 32 bits, 1 or 2
   channels — matches the ring/DAC path (the wire slot word is the sample

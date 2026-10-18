@@ -24,7 +24,31 @@
 
 ---
 
-## What compiles today
+## Current status (2026-10-18) — supersedes the historical sections below
+
+The project is now a **from-source fw1 + our own Core B image** that boots and
+plays audio on hardware:
+
+- **Audio**: Core B decodes FLAC/MP3/WAV; the AP does the DAC/I2S bring-up,
+  serves the track bytes over the A→B file ring (`bfs`) and drains the PCM ring
+  in its I2S TX ISR. Verified: 16/44.1 and 24-bit 88.2/96 kHz clean; a slight
+  lag and a per-track gap remain.
+- **UI/library**: menus, browser, recursive media index, Album/Artist/Genre/
+  Year/Label/Album Artist/Composer, All Songs; Now Playing shows bit depth/rate
+  (`16/44.1kHz`) and the list position (`i/N`).
+- **Playback lists**: album/genre/folder queue with Rockbox-style shuffle and
+  repeat off/all/one (config keys `shuffle`, `repeat_mode`; 14-key schema).
+- **Memory** (vendor `B_Core.sct` + TRM): B code in HIGHRAM0
+  `0x01000000..0x01020000`; PCM ring `0x01030000`; A→B file ring `0x01021000`;
+  B data/pool/stack `0x01040000..0x01060000`.
+- **Open**: gapless on B (BRNOMT-73), 192 kHz / FLAC block 16384 (~143 KB
+  window), 384 kHz, DSP in the playback path, and the ~2–3 s per-track
+  boundary.
+- **History**: everything below is dated notes from the reverse-engineering and
+  bring-up phases; kept for provenance (some statements are superseded).
+
+---
+
 
 ### fw1 (AP/UI) = build App/UI del SDK RKnanoD — identificado 2026-08-12
 > **Corrección tras el match de strings**: fw1 (AP) **NO** es el SDK
