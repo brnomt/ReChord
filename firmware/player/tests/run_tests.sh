@@ -14,7 +14,7 @@ mkdir -p .work
 # adapter TUs' header includes (no separate build entries).
 PLAYER_SRCS="../player.c ../codecs/codec_registry.c ../codecs/wav.c \
              ../codecs/mp3.c ../codecs/flac.c ../tags.c ../ipc_b_mock.c \
-             ../bfs.c"
+             ../bfs.c ../playlist.c"
 
 # The shared codec_io dispatch wrappers now live in codec_io.c; both backends
 # (codec_io_stdio.c for host tests, codec_io_fs.c for the on-device FS path)
@@ -24,6 +24,9 @@ IO_DISPATCH=../codec_io.c
 
 # ringbuf: standalone (no codec_io).
 $CC $CFLAGS -I.. -o .work/test_ringbuf   test_ringbuf.c ../ringbuf.c
+
+# playlist: pure logic (order, repeat, shuffle) — standalone.
+$CC $CFLAGS -I.. -o .work/test_playlist  test_playlist.c ../playlist.c
 
 # Shared codec/update RAM region (flac.c + mp3.c now claim their buffers
 # from services/workbuf.c instead of file-statics).
@@ -83,6 +86,7 @@ $CC $CFLAGS -I.. -I../.. -o .work/test_ao_slots \
     test_ao_slots.c ../../audio/ao_rate_table.c
 
 .work/test_ringbuf
+.work/test_playlist
 .work/test_codec_wav
 .work/test_player_state
 .work/test_ipc_mock

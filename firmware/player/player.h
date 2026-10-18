@@ -73,6 +73,11 @@ typedef struct
     /* Stream format of the open track (for the Now-playing line). */
     int  bits;                  /* source depth: 16/24/32 */
     long sample_rate;           /* Hz                     */
+
+    /* Playback list (BRNOMT-90): 1-based position and total, 0 when the
+     * track was opened without a list. */
+    int  playlist_pos;
+    int  playlist_count;
 } track_info_t;
 
 /* Player states (player_get_state()). */
@@ -127,6 +132,24 @@ int   player_register_codec(const char *ext, const codec_t *codec);
 
 /* Append `path` to the next-track queue (FIFO, PLAYER_QUEUE_LEN deep). */
 int   player_enqueue(const char *path);
+
+/* ---- playback list (BRNOMT-90): album/artist/…/folder as a queue ---- */
+
+/* Resolve a list record index to a path. The app installs one backed by the
+ * media index (media_db_get); without it a list cannot advance. */
+void  player_set_resolver(int (*fn)(uint16_t idx, char *path, int cap));
+
+/* Play `n` record indices starting at `start` (0-based). Opens that track and
+ * plays; on end-of-stream the player advances within the list. Returns
+ * PLAYER_OK or a negative code. */
+int   player_play_list(const uint16_t *idx, int n, int start);
+
+/* Rockbox-style shuffle: reorders the list (current track kept playing).
+ * Repeat: PLAYLIST_REPEAT_OFF/ALL/ONE (see playlist.h). */
+void  player_set_shuffle(int on);
+int   player_get_shuffle(void);
+void  player_set_repeat(int mode);
+int   player_get_repeat(void);
 
 /* Text tags for a file WITHOUT opening it as a track — for listings (the file
  * browser reads the visible page) and for the scan a future metadata index

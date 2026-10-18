@@ -34,6 +34,7 @@ PLAYER_IPC_IMPL ?= $(PLAYER_DIR)/ipc_b_target.c
 PLAYER_SRCS := \
   $(PLAYER_DIR)/player.c \
   $(PLAYER_DIR)/ringbuf.c \
+  $(PLAYER_DIR)/playlist.c \
   $(PLAYER_DIR)/codec_io.c \
   $(PLAYER_CODEC_IO_IMPL) \
   $(PLAYER_DIR)/tags.c \

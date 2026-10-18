@@ -16,6 +16,7 @@
 #include "codecs/codec_registry.h"
 #include "ipc_b.h"
 #include "bfs.h"
+#include "playlist.h"
 #include "rg_math.h"
 #include "tags.h"
 
@@ -60,10 +61,16 @@ typedef struct
     int             q_count;
     int             track_no;         /* monotonically increasing         */
 
+    playlist_t      list;             /* BRNOMT-90 playback list          */
+
     int32_t         pcm[PLAYER_PUMP_FRAMES * 2];   /* staging (stereo)   */
 } player_t;
 
 static player_t g;
+
+/* Resolve a playlist record index to a path (installed by the app; the host
+ * tests install a mock). Without it a playlist cannot advance. */
+static int (*s_resolve)(uint16_t idx, char *path, int cap);
 
 /* Built-in codecs (self-describing descriptors, one file each under
  * player/codecs/: wav is ours; mp3 wraps minimp3, flac wraps dr_flac —
@@ -384,16 +391,9 @@ static int open_track(const char *path)
  * sample-accurately. On a format change (or a user-driven next()), a hard
  * boundary is taken: ipc_b_stop + ipc_b_start (the DAC re-locks to the new
  * rate). `hard` forces the hard path (used by player_next()). */
-static int advance_queue(int hard)
+static int advance_to(const char *path, int hard)
 {
-    char path[PLAYER_PATH_MAX];
     codec_format_t prev;
-
-    if (queue_pop(path) != 0) {
-        player_stop();
-        emit(PLAYER_EV_QUEUE_EMPTY);
-        return PLAYER_ERR_EMPTY;
-    }
 
     if (g.track_valid)
         prev = g.fmt;
@@ -417,15 +417,52 @@ static int advance_queue(int hard)
     /* Seamless gapless continuation: the B core is already RUNNING. Swap in
      * the next codec WITHOUT stopping the ring (close_codec_only), then
      * announce the new length on the live stream — no ipc_b_start. */
-    int rc = open_codec_only(path);
-    if (rc != PLAYER_OK) {
-        emit(PLAYER_EV_ERROR);
-        return rc;
+    {
+        int rc = open_codec_only(path);
+        if (rc != PLAYER_OK) {
+            emit(PLAYER_EV_ERROR);
+            return rc;
+        }
     }
     emit(PLAYER_EV_TRACK);
     ipc_b_track_change(g.duration_ms);
     set_state(PLAYER_PLAYING);
     return PLAYER_OK;
+}
+
+static int advance_queue(int hard)
+{
+    char path[PLAYER_PATH_MAX];
+
+    if (queue_pop(path) != 0) {
+        player_stop();
+        emit(PLAYER_EV_QUEUE_EMPTY);
+        return PLAYER_ERR_EMPTY;
+    }
+    return advance_to(path, hard);
+}
+
+/* Advance to the next playlist track (BRNOMT-90): resolve the record index to
+ * a path and open it (gapless when the format matches). Returns < 0 when the
+ * list is done — stop + END_OF_TRACK are already emitted. */
+static int advance_playlist(void)
+{
+    char path[PLAYER_PATH_MAX];
+    uint16_t ridx;
+
+    if (playlist_advance(&g.list) < 0) {
+        player_stop();
+        emit(PLAYER_EV_END_OF_TRACK);
+        return PLAYER_ERR_EMPTY;
+    }
+    ridx = playlist_current(&g.list);
+    if (s_resolve == 0 || ridx == PLAYLIST_IDX_NONE ||
+        s_resolve(ridx, path, (int)sizeof path) != 0) {
+        player_stop();
+        emit(PLAYER_EV_ERROR);
+        return PLAYER_ERR;
+    }
+    return advance_to(path, 0);
 }
 
 /* ---- public API ---- */
@@ -454,6 +491,7 @@ int player_open(const char *path)
     int rc;
     if (path == 0 || path[0] == '\0')
         return PLAYER_ERR;
+    playlist_reset(&g.list);        /* a single open ends any playback list */
     rc = open_track(path);
     return rc;
 }
@@ -568,7 +606,62 @@ int player_seek(long ms)
 
 int player_next(void)
 {
+    if (playlist_count(&g.list) > 0)
+        return advance_playlist();          /* BRNOMT-90: next in the list */
     return advance_queue(1);   /* user "next": hard boundary w/ B-core restart */
+}
+
+/* ---- playlist (BRNOMT-90) ---- */
+
+void player_set_resolver(int (*fn)(uint16_t idx, char *path, int cap))
+{
+    s_resolve = fn;
+}
+
+void player_set_shuffle(int on)
+{
+    playlist_set_shuffle(&g.list, on);
+}
+
+int player_get_shuffle(void)
+{
+    return g.list.shuffle;
+}
+
+void player_set_repeat(int mode)
+{
+    playlist_set_repeat(&g.list, mode);
+}
+
+int player_get_repeat(void)
+{
+    return g.list.repeat;
+}
+
+int player_play_list(const uint16_t *idx, int n, int start)
+{
+    char path[PLAYER_PATH_MAX];
+    uint16_t ridx;
+    int rc;
+
+    if (idx == 0 || n <= 0 || s_resolve == 0)
+        return PLAYER_ERR;
+    if (n > PLAYLIST_MAX)
+        n = PLAYLIST_MAX;
+    if (start < 0)
+        start = 0;
+    if (start >= n)
+        start = n - 1;
+
+    ridx = idx[start];
+    if (s_resolve(ridx, path, (int)sizeof path) != 0)
+        return PLAYER_ERR;
+
+    rc = player_open(path);         /* clears any previous list */
+    if (rc != PLAYER_OK)
+        return rc;
+    playlist_load(&g.list, idx, n, start);
+    return player_play();
 }
 
 int player_get_state(void)
@@ -668,6 +761,8 @@ int player_get_track(track_info_t *out)
         return PLAYER_ERR_EMPTY;
 
     *out = g.track;
+    out->playlist_pos = playlist_position(&g.list);      /* BRNOMT-90: "i/N" */
+    out->playlist_count = playlist_count(&g.list);
     return PLAYER_OK;
 }
 
@@ -783,7 +878,11 @@ int player_process(void)
 
     /* End of track: decoder drained AND the sink consumed everything. */
     if (g.eof && st.ring_wr == st.ring_rd) {
-        if (g.q_count > 0) {
+        if (playlist_count(&g.list) > 0) {
+            int rc = advance_playlist();  /* BRNOMT-90: next in the list */
+            if (rc != PLAYER_OK)
+                return rc;           /* events already emitted */
+        } else if (g.q_count > 0) {
             int rc = advance_queue(0);   /* auto-advance: gapless if same fmt */
             if (rc != PLAYER_OK)
                 return rc;           /* events already emitted */
