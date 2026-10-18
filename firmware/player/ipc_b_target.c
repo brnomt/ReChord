@@ -162,31 +162,37 @@ static uint32_t cmd_start(uint32_t cmd)
  * cmd_start(). The old 200 ms budget fell back to a hard restart (stop + DAC
  * relock) too eagerly, which is the ~1 s gap BRNOMT-73 is about. `bfs_poll`
  * keeps the file ring(s) fed while B opens a codec and reads its headers. */
+/* Wait (bounded) for Core B to acknowledge `seq`, keeping its file ring fed —
+ * B's commands read the file headers, and those reads are served right here.
+ * Real time from the log clock, with an iteration guard so a frozen clock can
+ * never spin forever. Returns 0 when B acknowledged. */
+static int b_wait_ack(uint32_t seq, unsigned long budget_ms)
+{
+    unsigned long t0 = log_now_ms();
+    unsigned long guard = 0;
+
+    for (;;) {
+        bfs_poll();
+        if (CTRL[IPC_C_ACK] == seq)
+            return 0;
+        if (log_now_ms() - t0 >= budget_ms || ++guard > 40000000UL)
+            return -1;
+        delay_loops(2000);              /* ~10 us: brief, do not starve bus */
+    }
+}
+
 static int b_cmd_wait(uint32_t seq)
 {
     uint32_t cmd = CTRL[IPC_C_CMD];
     unsigned long t0 = log_now_ms();
     unsigned long ms;
-    unsigned long guard = 0;
 
-    /* Poll TIGHTLY. Core B's open walks the file headers and its seeks are
-     * served by bfs_poll() right here, so the old dac_delay_ms(1) between
-     * polls (~3 ms, that loop is calibrated loosely) was throttling the very
-     * open it was waiting on. The real-time budget is unchanged (1500 ms), now
-     * measured on the log clock instead of counted in iterations. */
-    for (;;) {
-        bfs_poll();
-        if (CTRL[IPC_C_ACK] == seq)
-            break;
-        ms = log_now_ms() - t0;
-        if (ms >= 1500UL || ++guard > 40000000UL) {
-            log_printf("ipc: cmd %u no ack after %lu ms (bstate %u berr %d "
-                       "bstall %u)", (unsigned)cmd, ms,
-                       (unsigned)CTRL[IPC_C_BSTATE], (int)CTRL[IPC_C_BERR],
-                       (unsigned)CTRL[IPC_C_BSTALL]);
-            return -1;
-        }
-        delay_loops(2000);              /* ~10 us: brief, do not starve bus */
+    if (b_wait_ack(seq, 1500UL) != 0) {
+        log_printf("ipc: cmd %u no ack after %lu ms (bstate %u berr %d "
+                   "bstall %u)", (unsigned)cmd, log_now_ms() - t0,
+                   (unsigned)CTRL[IPC_C_BSTATE], (int)CTRL[IPC_C_BERR],
+                   (unsigned)CTRL[IPC_C_BSTALL]);
+        return -1;
     }
     if (CTRL[IPC_C_BSTATE] != IPC_BS_OPEN) {
         /* B answered but did not open: its codec refused the file. */
@@ -362,7 +368,15 @@ int ipc_b_start(const ipc_b_track_t *track)
 int ipc_b_stop(void)
 {
     if (s_b_decodes) {
-        (void)cmd_start(IPC_C_CLOSE);   /* fire-and-forget */
+        /* Quiesce Core B BEFORE the rings are torn down. Firing CLOSE off and
+         * immediately calling bfs_close() (which pulls the file out from under
+         * it) left B spinning in a ring read; the following OPEN paid for it —
+         * field logs showed hard restarts at ~1000 ms where a clean start from
+         * stopped took ~106 ms. The wait is bounded so a wedged core cannot
+         * hang the stop itself. */
+        uint32_t seq = cmd_start(IPC_C_CLOSE);
+
+        (void)b_wait_ack(seq, 200UL);
         s_b_decodes = 0;
     }
     rknano_i2s_detach();

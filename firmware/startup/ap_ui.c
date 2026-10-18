@@ -48,6 +48,7 @@ static uint32_t s_user;              /* user volume start, 0 = unknown */
 static char s_emmc[32], s_usb[32] = "plug in", s_sd[32];
 static int s_sd_in = -1;
 static int s_volume_seen;            /* last volume persisted (see loop) */
+static unsigned s_log_ms;            /* last periodic log flush (see loop) */
 static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 
 /* screen helpers defined further down (used by the USB/index screens) */
@@ -102,6 +103,15 @@ static void ap_clock_init(void)
  * and starts over (a rotating log: a session's forensics must not be wiped by
  * the next flush, which is what a rewrite did). */
 #define LOG_FILE_MAX (32u * 1024u)
+
+/* Flush policy (why): the log must be readable WITHOUT plugging the USB cable
+ * (field request) — but the internal volume is eMMC, so every write spends
+ * endurance. Therefore: persist only when there is something NEW (an idle
+ * player writes nothing at all), slowly while playing, and eagerly just before
+ * the RAM ring would start dropping lines. The file rotates at LOG_FILE_MAX,
+ * so the same small block range is reused instead of the file growing. */
+#define LOG_FLUSH_MS      30000u   /* slow periodic persist while dirty      */
+#define LOG_FLUSH_EAGER   32u      /* ...or immediately this many lines deep */
 
 static int log_write_file(const char *path, const char *text, unsigned len)
 {
@@ -830,6 +840,16 @@ void ap_ui_loop(void)
             settings_screen_volume_changed(s_volume_seen, ap_ms());
         }
         settings_screen_flush_pending(ap_ms());
+
+        /* Persist the RAM log without waiting for the USB cable (see the flush
+         * policy above): only when there is something new, and eagerly before
+         * the ring starts dropping lines. An idle player writes nothing. */
+        if (log_pending() > 0 &&
+            ((unsigned)(ap_ms() - s_log_ms) >= LOG_FLUSH_MS ||
+             log_pending() >= LOG_FLUSH_EAGER)) {
+            (void)log_flush("auto");
+            s_log_ms = ap_ms();          /* do not retry-storm on failure   */
+        }
 
         /* audio pump + Now Playing sync (no-ops without a playing track).
          * While a track plays, decode ahead into the 32 KiB PCM ring: the

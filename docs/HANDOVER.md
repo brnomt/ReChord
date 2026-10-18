@@ -3853,3 +3853,36 @@ SDK threshold `0x1D`). That last one is the likely source of the small crackles
 on 96k material; the fix would be to fill the FIFO higher (rate-aware).
 
 All host suites green. AP5M CRC `0x44461735`, packer `RESULT: PASS`. Not flashed.
+
+## BD. Session 2026-10-18 — quiesce B before a hard restart; the log persists itself
+
+Two things from the field session:
+
+**1. Hard restarts cost ~1 s.** With real-ms timing in place the log showed a
+clean start from stopped at `ipc: cmd 1 ack 106 ms` but hard restarts while
+playing at `949 / 1022 / 1024 ms` — same command, same codec, so the cost is the
+state it starts from. `ipc_b_stop()` fired CLOSE and immediately `bfs_close()`d
+the rings, pulling the file out from under Core B; B was left spinning in a ring
+read and the next OPEN paid for it. Now `ipc_b_stop()` sends CLOSE and waits —
+bounded, via the new `b_wait_ack()` — for B's ACK before tearing the rings down.
+`b_cmd_wait()` was refactored on top of the same helper.
+
+**2. The log only reached the file on USB attach / power-off**, so a session
+listened to without the cable left no trace (field complaint: "bb u ok suena
+perfecto pero no aparece en los logs"). The app loop now persists the RAM log
+itself:
+
+- only when there is **something new** (`log_pending() > 0`) — an idle player
+  writes nothing at all;
+- at most every `LOG_FLUSH_MS` (30 s), or **eagerly** at `LOG_FLUSH_EAGER` (32)
+  pending lines, i.e. before the 48-line ring starts dropping;
+- flushes append, and `log_write_file()` rotates the file at `LOG_FILE_MAX`
+  (32 KiB), so the same small block range is reused instead of the file growing.
+
+Wear: the internal volume is eMMC behind a controller with wear leveling, and a
+flush is a few hundred bytes to a few KB. Even a full ring (48 x 160 B ~ 7.7 KB)
+every 30 s while actively logging is ~0.9 MB/h worst case, and zero when nothing
+happens — orders of magnitude below the endurance budget. `LOG_FLUSH_MS` is the
+single knob to trade forensics freshness against writes.
+
+All host suites green. AP5M CRC `0x803A9E25`, packer `RESULT: PASS`. Not flashed.
