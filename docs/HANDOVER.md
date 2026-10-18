@@ -3447,3 +3447,42 @@ sin parar el ring/serializer".
   (docs/rewrite/architecture.md §5) is the next step; measure the reopen cost
   (bfs_open + B reading headers) against the ~85 ms ring margin to decide whether
   the next track needs pre-loading.
+
+## AR. Session 2026-10-18 — BRNOMT-92 phase 1: indexer hardening (host-tested)
+
+The media indexer already had the transactional part of the spec (A/B slots +
+header-last `fs_patch` commit, bounded RAM via the scratch region, depth cap 8),
+so phase 1 fixes what it actually lacked. Scope agreed on the issue: **phased**,
+**no pre-sorted tables**, keep the A/B commit (there is **no `rename`** in
+`fs.h`/`fs_target.c`, so the spec's `index.tmp` swap does not apply).
+
+- **Iterative traversal** (`media_scan.c`). `walk()` was recursive: frame ≈
+  `fs_dirent_t` (260 B) + 2 paths ≈ 460 B × depth 8 ≈ **3.7 KB of the AP's
+  16 KiB stack** (`firmware_ap.ld` SP `0x03004000`), shared with the tag reader
+  and ISRs. Replaced with an explicit frame stack (`{index, rel}` × 9 = 756 B)
+  in the **scratch** region and one reused `fs_dirent_t`. `_bss_end` grew only
+  `0x0304295c` -> `0x03042960` (**+4 B**, the new `s_chunk_recs` static).
+- **`media_db_begin(buf, bytes)`**. media_db no longer claims scratch itself;
+  the scanner takes ONE `scratch_claim(SCRATCH_OWNER_INDEX)` and partitions
+  `[stack | staging]`. Removes media_db's `scratch.h` dependency.
+- **Global CRC** (`media_db.c`). `crc` now covers the records **plus the header
+  words with the crc field zeroed**, so a corrupted header field is caught (the
+  old records-only CRC could not). `MEDIA_VERSION` 2 -> **3**; `media_db_open()`
+  now **falls back to the older slot** when the newest fails verify (it used to
+  return "no index").
+- **Strict tag text** (`player/tags.c`). One normalization rule for every
+  source: ISO-8859-1 transcode to UTF-8, UTF-16 LE/BE with or without BOM,
+  embedded NUL ends the value, C0/DEL/C1 and orphan UTF-8 bytes dropped, odd
+  trailing UTF-16 byte ignored, lone/paired surrogates -> `?`. This is the
+  "encoding traps" item; the index no longer stores raw high bytes or NUL-laced
+  strings.
+- **Test-harness fix**: `run_tests.sh` *ran* `.work/test_media_query` but never
+  compiled it (a stale binary was being executed). Added the build line; the
+  suite now compiles and passes it (26 checks).
+- **Not done (phase 2, needs its own approval)**: string pool + 32-40 B records
+  (a **flash** win, not RAM — RAM was already bounded — at the cost of 1 + N
+  pool seeks per row). Pre-sorted category tables deferred by decision.
+
+Tests: services + player + UI suites green (`test_media_db` 31, `test_media_query`
+26, `test_media_scan` 23 incl. a depth-9 tree, `test_tags` +7 encoding cases).
+AP5M CRC `0x08361845`, packer `RESULT: PASS`. Not flashed.

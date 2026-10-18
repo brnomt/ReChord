@@ -15,6 +15,7 @@
 #include "fs_host.h"
 #include "media_db.h"
 #include "media_scan.h"
+#include "scratch.h"
 
 static int s_checks;
 static int s_failures;
@@ -44,6 +45,19 @@ static int abort_now(uint32_t files, const char *name)
     (void)files;
     (void)name;
     return 1;
+}
+
+/* Is a record with this volume-relative path in the open index? */
+static int has_path(const char *p)
+{
+    media_rec_t r;
+    uint32_t i, n = media_db_count();
+
+    for (i = 0; i < n; i++) {
+        if (media_db_get(i, &r) == FS_OK && strcmp(r.path, p) == 0)
+            return 1;
+    }
+    return 0;
 }
 
 int main(void)
@@ -104,6 +118,59 @@ int main(void)
     CHECK(media_db_open() == FS_OK);
     CHECK(media_db_count() == 2);
     media_db_close();
+
+    /* Depth cap + iterative walk: a tree deeper than 8 must be ignored, and the
+     * walk must not grow the stack per level (it uses an explicit frame stack
+     * in the shared scratch region). The depth-9 file must not be indexed; the
+     * shallow files still must be. */
+    {
+        char host[160] = ".work/Internal/Music";
+        char dev[160] = "/Internal/Music";
+        int d;
+
+        for (d = 1; d <= 10; d++) {
+            size_t hl = strlen(host), dl = strlen(dev);
+
+            snprintf(host + hl, sizeof host - hl, "/L%d", d);
+            snprintf(dev + dl, sizeof dev - dl, "/L%d", d);
+            (void)mkdir(host, 0777);
+        }
+        {
+            size_t hl = strlen(host), dl = strlen(dev);
+
+            snprintf(host + hl, sizeof host - hl, "/deep.wav");
+            snprintf(dev + dl, sizeof dev - dl, "/deep.wav");
+            put(dev);
+        }
+    }
+    CHECK(media_scan_build(0) == 0);
+    CHECK(media_db_open() == FS_OK);
+    CHECK(has_path("Internal/Music/L1/L2/L3/L4/L5/L6/L7/L8/L9/L10/deep.wav")
+              == 0);
+    CHECK(has_path("Internal/Music/01 First.mp3") == 1);
+    media_db_close();
+
+    /* Ownership: the scan claims the shared region and releases it on every
+     * exit. After a successful build the region is free again; while another
+     * owner holds it the build fails cleanly (returns FS_ERR_IO, touches
+     * nothing) and the previous index stays current. */
+    CHECK(scratch_owner() == SCRATCH_OWNER_NONE);
+    {
+        uint32_t before = 0;
+
+        CHECK(media_db_open() == FS_OK);
+        before = media_db_count();
+        media_db_close();
+
+        CHECK(scratch_claim(SCRATCH_OWNER_USB) != 0);
+        CHECK(media_scan_build(0) == FS_ERR_IO);
+        scratch_release(SCRATCH_OWNER_USB);
+        CHECK(scratch_owner() == SCRATCH_OWNER_NONE);
+
+        CHECK(media_db_open() == FS_OK);   /* the previous index survived */
+        CHECK(media_db_count() == before);
+        media_db_close();
+    }
 
     if (s_failures == 0)
         printf("test_media_scan: %d checks, OK\n", s_checks);

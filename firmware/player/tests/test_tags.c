@@ -422,6 +422,84 @@ static int test_no_tags(void)
     return failures ? -1 : 0;
 }
 
+/* Build a one-frame ID3v2.3 file whose TIT2 body is `body`, read it back and
+ * copy the resulting title into `out`. Returns 0 on success. */
+static int id3_title(const unsigned char *body, long body_len, char *out,
+                     size_t cap)
+{
+    unsigned char blob[256];
+    long n;
+    codec_io_t *io;
+    codec_meta_t meta;
+
+    put_id3v2_header(blob, 3);
+    n = 10;
+    n = append_frame(blob, n, 3, "TIT2", body, body_len);
+    put_synchsafe(blob + 6, (unsigned int)(n - 10));
+
+    if (write_blob("/tmp/rechord_tags_enc.bin", blob, n) != 0)
+        return -1;
+    io = cio_open("/tmp/rechord_tags_enc.bin");
+    if (!io)
+        return -1;
+    (void)tags_read_id3v2(io, &meta, 0);
+    cio_close(io);
+    snprintf(out, cap, "%s", meta.title);
+    return 0;
+}
+
+/* BRNOMT-92: the encoding traps. Every source normalizes to bounded, clean
+ * text: Latin1 transcodes to UTF-8, UTF-16 is narrow-decoded with/without a
+ * BOM, an embedded NUL ends the value, controls and orphan bytes are dropped. */
+static int test_encoding_sanitize(void)
+{
+    char t[80];
+
+    {   /* Latin1 high byte (o-umlaut) -> UTF-8, never a raw 0xF6. */
+        unsigned char body[8] = { 0, 'B', 'j', 0xF6, 'r', 'k' };
+
+        if (id3_title(body, 6, t, sizeof t) != 0) return -1;
+        CHECK(strcmp(t, "Bj\xC3\xB6rk") == 0, "enc: Latin1 ö -> UTF-8");
+    }
+    {   /* UTF-16, no BOM (encoding 1 defaults to little endian). */
+        unsigned char body[8] = { 1, 'S', 0, 'a', 0, 'm', 0 };
+
+        if (id3_title(body, 7, t, sizeof t) != 0) return -1;
+        CHECK(strcmp(t, "Sam") == 0, "enc: UTF-16 no BOM -> LE");
+    }
+    {   /* UTF-16BE (encoding 2). */
+        unsigned char body[8] = { 2, 0, 'S', 0, 'a', 0, 'm' };
+
+        if (id3_title(body, 7, t, sizeof t) != 0) return -1;
+        CHECK(strcmp(t, "Sam") == 0, "enc: UTF-16BE");
+    }
+    {   /* Embedded NUL ends the value (v2.4 NUL-joined style). */
+        unsigned char body[8] = { 0, 'A', 'B', 0, 'C', 'D' };
+
+        if (id3_title(body, 6, t, sizeof t) != 0) return -1;
+        CHECK(strcmp(t, "AB") == 0, "enc: embedded NUL ends the value");
+    }
+    {   /* C0 control bytes are dropped, not stored. */
+        unsigned char body[8] = { 0, 'A', 0x01, 'B' };
+
+        if (id3_title(body, 4, t, sizeof t) != 0) return -1;
+        CHECK(strcmp(t, "AB") == 0, "enc: C0 control dropped");
+    }
+    {   /* A lone UTF-8 continuation byte is dropped. */
+        unsigned char body[8] = { 3, 'A', 0x80, 'B' };
+
+        if (id3_title(body, 4, t, sizeof t) != 0) return -1;
+        CHECK(strcmp(t, "AB") == 0, "enc: orphan continuation dropped");
+    }
+    {   /* UTF-16 odd trailing byte is ignored, not decoded as garbage. */
+        unsigned char body[8] = { 1, 0xFF, 0xFE, 'X', 0, 'Y' };
+
+        if (id3_title(body, 6, t, sizeof t) != 0) return -1;
+        CHECK(strcmp(t, "X") == 0, "enc: UTF-16 odd byte ignored");
+    }
+    return failures ? -1 : 0;
+}
+
 int main(void)
 {
     int failed = 0;
@@ -431,6 +509,7 @@ int main(void)
     if (test_id3v2_text(4) != 0) failed++;
     if (test_id3v2_utf16() != 0) failed++;
     if (test_id3v2_text_truncation() != 0) failed++;
+    if (test_encoding_sanitize() != 0) failed++;
     if (test_vorbis_comments() != 0) failed++;
     if (test_vorbis_no_vendor() != 0) failed++;
     if (test_no_tags() != 0) failed++;

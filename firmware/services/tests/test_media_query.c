@@ -15,6 +15,7 @@
 #include "fs_host.h"
 #include "media_db.h"
 #include "media_query.h"
+#include "scratch.h"
 
 static int s_checks, s_failures;
 #define CHECK(c) do { s_checks++; if (!(c)) { printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); s_failures++; } } while (0)
@@ -36,6 +37,7 @@ static void add(const char *title, const char *album, unsigned year,
 
 int main(void)
 {
+    static uint8_t s_dbbuf[SCRATCH_BYTES];   /* caller-supplied build staging */
     int i;
 
     printf("== media_query: names + filters ==\n");
@@ -46,7 +48,7 @@ int main(void)
     (void)remove(".work/Internal/.rechord/INDEX.A");
     (void)remove(".work/Internal/.rechord/INDEX.B");
 
-    CHECK(media_db_begin() == FS_OK);
+    CHECK(media_db_begin(s_dbbuf, (uint32_t)sizeof s_dbbuf) == FS_OK);
     add("A1", "Undefined", 2015, "Zed");
     add("A2", "Undefined", 2015, "Zed");
     add("B1", "Blue", 2012, "Amy");

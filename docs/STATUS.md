@@ -31,11 +31,16 @@ plays audio on hardware:
 
 - **Audio**: Core B decodes FLAC/MP3/WAV; the AP does the DAC/I2S bring-up,
   serves the track bytes over the A→B file ring (`bfs`) and drains the PCM ring
-  in its I2S TX ISR. Verified: 16/44.1 and 24-bit 88.2/96 kHz clean; a slight
-  lag and a per-track gap remain.
-- **UI/library**: menus, browser, recursive media index, Album/Artist/Genre/
-  Year/Label/Album Artist/Composer, All Songs; Now Playing shows bit depth/rate
-  (`16/44.1kHz`) and the list position (`i/N`).
+  in its I2S TX ISR. Verified: 16/44.1 and 24-bit 88.2/96 kHz clean; a slight UI
+  lag remains. Track changes hand the next file to Core B on the **live ring**
+  (BRNOMT-73, `ipc_b_next`) — implemented + host-tested, hardware verdict
+  pending.
+- **UI/library**: menus, browser, iterative media index (depth-capped, one
+  scratch claim), Album/Artist/Genre/Year/Label/Album Artist/Composer, All
+  Songs; Now Playing shows bit depth/rate (`16/44.1kHz`) and the list position
+  (`i/N`). The index format is **v3** (BRNOMT-92: global CRC covering the header,
+  strict UTF-8 text) — an index built by an older firmware is ignored, so
+  **rebuild it once from the menu** after flashing.
 - **Playback lists**: album/genre/folder queue with Rockbox-style shuffle and
   repeat off/all/one (config keys `shuffle`, `repeat_mode`; 14-key schema).
 - **Memory** (vendor `B_Core.sct` + TRM): B code in HIGHRAM0

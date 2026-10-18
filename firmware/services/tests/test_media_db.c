@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 
 #include "media_db.h"
+#include "scratch.h"
 #include "fs.h"
 #include "fs_host.h"
 
@@ -42,8 +43,9 @@ static void mkrec(media_rec_t *r, const char *path, const char *title,
 static int build(const char *t1, const char *t2, const char *t3)
 {
     media_rec_t r;
+    static uint8_t buf[SCRATCH_BYTES];   /* the caller now supplies staging */
 
-    if (media_db_begin() != FS_OK)
+    if (media_db_begin(buf, (uint32_t)sizeof buf) != FS_OK)
         return -1;
     mkrec(&r, "Internal/Music/01.flac", t1, 1);
     (void)media_db_add(&r);
@@ -71,6 +73,10 @@ int main(void)
     CHECK(media_db_open() == FS_ERR_OPEN);
     CHECK(media_db_count() == 0);
 
+    /* Argument guards on the caller-supplied staging buffer. */
+    CHECK(media_db_begin(0, 4096u) == FS_ERR_ARG);
+    CHECK(media_db_begin((void *)1, 0u) == FS_ERR_ARG);
+
     /* First build -> slot A, seq 1. */
     CHECK(build("One", "Two", "Three") == FS_OK);
     CHECK(media_db_open() == FS_OK);
@@ -89,6 +95,21 @@ int main(void)
     CHECK(media_db_count() == 3);
     CHECK(media_db_get(1, &r) == FS_OK);
     CHECK(strcmp(r.title, "Dos") == 0);
+    media_db_close();
+
+    /* Corrupt ONLY the newest slot's seq word: magic/version/count still pass
+     * the shape check, so the reader would trust it — but the global CRC
+     * covers the header, so it must reject B and fall back to A. The old
+     * records-only CRC could NOT catch a header field like this. */
+    {
+        uint32_t bad_seq = 0xFFFFFFFFu;
+
+        CHECK(fs_patch(MEDIA_DB_B, 8u, &bad_seq,
+                       (uint32_t)sizeof bad_seq) == FS_OK);
+    }
+    CHECK(media_db_open() == FS_OK);
+    CHECK(media_db_get(0, &r) == FS_OK);
+    CHECK(strcmp(r.title, "One") == 0);             /* the seq-1 build */
     media_db_close();
 
     /* Damage the newest slot's header: the older one must be used. */

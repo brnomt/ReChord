@@ -22,6 +22,13 @@
  * caller's struct, a tiny float reader for dB (gain) and 0..1 (peak)
  * values. Unsupported layouts (ID3v2.2, unsync/extended headers, frame
  * modifiers) are reported as "nothing found" instead of being misparsed.
+ *
+ * Text normalization is one rule for every source (`cp_store` /
+ * `sanitize_latin1` / `sanitize_utf8` / `sanitize_utf16`): ISO-8859-1 is
+ * transcoded to UTF-8, orphan UTF-8 bytes and C0/DEL/C1 controls are dropped,
+ * UTF-16 is narrow-decoded (BOM or forced endianness, odd byte ignored) and an
+ * embedded NUL ends the value — so the index never stores raw high bytes or
+ * NUL-laced strings (BRNOMT-92).
  */
 #include "tags.h"
 
@@ -194,71 +201,160 @@ static void rg_zero(codec_replaygain_t *rg)
     rg->album_peak_q15 = 0;
 }
 
-/* Copy a tag value into a bounded, NUL-terminated destination. Stops at a
- * NUL (Vorbis values and ID3 text can both carry one) and at `cap-1`.
- * Returns the number of bytes stored. */
-static int copy_text(char *dst, int cap, const char *src, long n)
+/* ---- text normalization (ONE rule for every tag source) ----
+ *
+ * The index stores display strings, so every field must come out bounded,
+ * NUL-terminated and free of the bytes that used to leak through: an embedded
+ * NUL (a v2.4 NUL-joined value, a Vorbis value with a stray NUL), lone
+ * continuation bytes, C0/DEL/C1 controls, and raw Latin1 high bytes ("Björk"
+ * arriving as 0xE9 broke the UTF-8 promise). Everything is normalized here, so
+ * media_db never has to care which container a field came from. */
+
+/* Append codepoint `cp` as UTF-8 (1-2 bytes; above U+07FF becomes '?', since
+ * the UI font is ASCII). Drops C0 controls (< 0x20) and DEL/C1 (0x7F..0x9F).
+ * Keeps room for the terminating NUL: needs `len + k < cap`. */
+static int cp_store(char *dst, int cap, int len, unsigned int cp)
 {
+    if (cp < 0x20u || (cp >= 0x7Fu && cp <= 0x9Fu))
+        return len;
+    if (cp < 0x80u) {
+        if (len < cap - 1)
+            dst[len++] = (char)cp;
+    } else if (cp < 0x800u) {
+        if (len < cap - 2) {
+            dst[len++] = (char)(0xC0u | (cp >> 6));
+            dst[len++] = (char)(0x80u | (cp & 0x3Fu));
+        }
+    } else if (len < cap - 1) {
+        dst[len++] = '?';               /* outside the font: one placeholder */
+    }
+    return len;
+}
+
+static void term(char *dst, int cap, int len)
+{
+    if (cap > 0)
+        dst[len < cap ? len : cap - 1] = '\0';
+}
+
+/* UTF-8 source (ID3 enc 3, Vorbis values): copy valid sequences, drop orphan
+ * continuation/lead bytes, stop at an embedded NUL. */
+static int sanitize_utf8(char *dst, int cap, const unsigned char *b, long n)
+{
+    long i = 0;
     int len = 0;
 
+    while (i < n && b[i] != '\0') {
+        unsigned int c = b[i];
+
+        if (c < 0x80u) {
+            len = cp_store(dst, cap, len, c);
+            i++;
+        } else if ((c & 0xE0u) == 0xC0u && i + 1 < n &&
+                   (b[i + 1] & 0xC0u) == 0x80u) {
+            len = cp_store(dst, cap, len,
+                           ((c & 0x1Fu) << 6) | (b[i + 1] & 0x3Fu));
+            i += 2;
+        } else if ((c & 0xF0u) == 0xE0u && i + 2 < n &&
+                   (b[i + 1] & 0xC0u) == 0x80u && (b[i + 2] & 0xC0u) == 0x80u) {
+            len = cp_store(dst, cap, len,
+                           ((c & 0x0Fu) << 12) | ((b[i + 1] & 0x3Fu) << 6) |
+                           (b[i + 2] & 0x3Fu));
+            i += 3;
+        } else if ((c & 0xF8u) == 0xF0u && i + 3 < n &&
+                   (b[i + 1] & 0xC0u) == 0x80u && (b[i + 2] & 0xC0u) == 0x80u &&
+                   (b[i + 3] & 0xC0u) == 0x80u) {
+            len = cp_store(dst, cap, len, 0x800u);   /* > BMP: placeholder */
+            i += 4;
+        } else {
+            i++;                        /* lone continuation / bad lead: drop */
+        }
+    }
+    term(dst, cap, len);
+    return len;
+}
+
+/* ISO-8859-1 (ID3 enc 0): every byte is a codepoint; >= 0x80 transcodes to
+ * UTF-8 instead of being copied raw. */
+static int sanitize_latin1(char *dst, int cap, const unsigned char *b, long n)
+{
+    long i;
+    int len = 0;
+
+    for (i = 0; i < n && b[i] != '\0'; i++)
+        len = cp_store(dst, cap, len, b[i]);
+    term(dst, cap, len);
+    return len;
+}
+
+/* UTF-16 (ID3 enc 1 = BOM, 2 = big-endian). A BOM overrides `be`; an odd
+ * trailing byte is ignored; a surrogate pair and a lone surrogate become '?'
+ * (they are outside the UI's reach). Stops at a U+0000. */
+static int sanitize_utf16(char *dst, int cap, const unsigned char *b, long n,
+                          int be)
+{
+    long i = 0;
+    int len = 0;
+
+    if (n >= 2) {
+        if (b[0] == 0xFFu && b[1] == 0xFEu) { be = 0; i = 2; }
+        else if (b[0] == 0xFEu && b[1] == 0xFFu) { be = 1; i = 2; }
+    }
+    for (; i + 1 < n; i += 2) {
+        unsigned int u = be ? (((unsigned int)b[i] << 8) | b[i + 1])
+                            : (((unsigned int)b[i + 1] << 8) | b[i]);
+
+        if (u == 0u)
+            break;
+        if (u >= 0xD800u && u <= 0xDBFFu && i + 3 < n) {
+            unsigned int lo = be ? (((unsigned int)b[i + 2] << 8) | b[i + 3])
+                                 : (((unsigned int)b[i + 3] << 8) | b[i + 2]);
+
+            if (lo >= 0xDC00u && lo <= 0xDFFFu) {
+                len = cp_store(dst, cap, len, 0x800u);   /* > BMP: placeholder */
+                i += 2;                 /* consume the low surrogate too */
+                continue;
+            }
+        }
+        if (u >= 0xD800u && u <= 0xDFFFu)
+            u = '?';                    /* lone surrogate */
+        len = cp_store(dst, cap, len, u);
+    }
+    term(dst, cap, len);
+    return len;
+}
+
+/* Copy a tag value into a bounded, NUL-terminated destination (Vorbis values
+ * are UTF-8). Stops at a NUL and at `cap-1`. Returns the stored length. */
+static int copy_text(char *dst, int cap, const char *src, long n)
+{
     if (cap <= 0)
         return 0;
     dst[0] = '\0';
     if (src == 0)
         return 0;
-    while (len < n && src[len] != '\0' && len < cap - 1) {
-        dst[len] = src[len];
-        len++;
-    }
-    dst[len] = '\0';
-    return len;
+    return sanitize_utf8(dst, cap, (const unsigned char *)src, n);
 }
 
-/* ID3v2 text-frame body -> narrow NUL-terminated string. Encodings 0
- * (ISO-8859-1) and 3 (UTF-8) are copied as bytes; 1/2 (UTF-16 with BOM /
- * UTF-16BE) are narrow-decoded so a UTF-16 tagged file still shows its
- * ASCII/Latin-1 text instead of NUL-separated garbage — the UI font is
- * ASCII-only, so anything above 0xFF becomes '?'. v2.4 NUL-joined values:
- * the first one wins. Returns the stored length. */
+/* ID3v2 text-frame body -> narrow, NUL-terminated, sanitized string. The body
+ * starts with the encoding: 0 = ISO-8859-1, 1 = UTF-16 with BOM, 2 = UTF-16BE,
+ * 3 = UTF-8; anything else yields an empty string. v2.4 NUL-joined values: the
+ * first one wins. Returns the stored length. */
 static int id3_text_narrow(char *dst, int cap, const unsigned char *b, long n)
 {
-    int len = 0;
-    int enc;
-    long i;
-
     if (cap <= 0)
         return 0;
     dst[0] = '\0';
     if (b == 0 || n <= 0)
         return 0;
 
-    enc = b[0];
-    i = 1;
-    if (enc == 0 || enc == 3) {
-        for (; i < n && b[i] != '\0'; i++) {
-            if (len >= cap - 1)
-                break;
-            dst[len++] = (char)b[i];
-        }
-    } else if (enc == 1 || enc == 2) {
-        int be = (enc == 2);
-
-        if (enc == 1 && i + 1 < n) {            /* BOM decides the order */
-            if (b[i] == 0xFF && b[i + 1] == 0xFE) { be = 0; i += 2; }
-            else if (b[i] == 0xFE && b[i + 1] == 0xFF) { be = 1; i += 2; }
-        }
-        for (; i + 1 < n; i += 2) {
-            unsigned int cp = be ? (((unsigned int)b[i] << 8) | b[i + 1])
-                                 : (((unsigned int)b[i + 1] << 8) | b[i]);
-            if (cp == 0)
-                break;
-            if (len >= cap - 1)
-                break;
-            dst[len++] = (char)(cp < 0x100 ? cp : '?');
-        }
+    switch (b[0]) {
+    case 0:  return sanitize_latin1(dst, cap, b + 1, n - 1);
+    case 1:  return sanitize_utf16(dst, cap, b + 1, n - 1, 0);
+    case 2:  return sanitize_utf16(dst, cap, b + 1, n - 1, 1);
+    case 3:  return sanitize_utf8(dst, cap, b + 1, n - 1);
+    default: return 0;
     }
-    dst[len] = '\0';
-    return len;
 }
 
 /* Read up to TAG_SLAB-1 bytes of a frame/entry body into `slab` and

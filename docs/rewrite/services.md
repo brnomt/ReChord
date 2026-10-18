@@ -177,6 +177,56 @@ sector writes). The store only ever touches the region the caller hands it
 (`lba .. lba+2*slot_sectors`) — placement is a caller contract, see
 BRNOMT-71 (settings) / BRNOMT-74 (media index). Costs no static RAM.
 
+### 3.6 media_db / media_scan / media_query (BRNOMT-74, hardened BRNOMT-92)
+
+The media index: `media_db.c` owns the on-disk format, `media_scan.c` builds it
+from the mounted volumes, `media_query.c` answers the Library category queries.
+
+```c
+/* build (caller supplies the staging buffer — no scratch claim inside) */
+int  media_db_begin(void *buf, uint32_t bytes);   /* BRNOMT-92 signature */
+int  media_db_add(const media_rec_t *r);
+int  media_db_end(void);                          /* commits the header    */
+void media_db_abort(void);
+/* read */
+int      media_db_open(void); uint32_t media_db_count(void);
+int      media_db_get(uint32_t i, media_rec_t *out); void media_db_close(void);
+int      media_scan_build(media_scan_progress_t progress);
+```
+
+Format: two slots `INDEX.A` / `INDEX.B` (`/Internal/.rechord`, BRNOMT-74),
+`[sector 0: header][record 0]…`. `MEDIA_VERSION` **3** (BRNOMT-92).
+`media_hdr_t` = magic `MDB1`, version, seq, count, rec_bytes, **global crc**.
+`media_rec_t` is a fixed-size record with inline text fields (the browse index
+keeps speed over density here).
+
+Crash safety (unchanged, and the reason we did **not** adopt the spec's
+`index.tmp` + rename — `fs.h` has no rename): a build targets the slot that is
+NOT current, appends records in chunks, and finally `fs_patch`es the header —
+that single-sector write is the commit. `media_db_open()` reads the newest valid
+slot and **falls back to the older one** when its global CRC fails.
+
+Hardening (BRNOMT-92):
+
+- **Iterative traversal.** `media_scan.c` walks with an explicit frame stack
+  (`{index, rel}` × 8) carved out of the shared scratch region together with
+  media_db's staging buffer — one `scratch_claim` for the whole build. No AP
+  stack growth per directory level (the old recursion used ~3.7 KB of the 16 KiB
+  AP stack), and one reused `fs_dirent_t`. Depth cap stays 8.
+- **Global CRC.** `crc` = CRC32 over the record bytes followed by the header
+  words with the crc field zeroed, so a corrupted *header* field (e.g. `seq`) is
+  caught, not just corrupted records. Verified in one streaming pass on open.
+- **Strict text.** Tag text is normalized in `player/tags.c` (one rule:
+  Latin1→UTF-8, UTF-16 LE/BE with/without BOM, embedded NUL ends the value,
+  C0/DEL/C1 and orphan UTF-8 bytes dropped) before it reaches the index.
+
+Deferred from the spec (documented decisions): the deduplicated string pool +
+small records (a flash-size win, not RAM; it would turn one record read into
+1 + N pool seeks — **phase 2**), and pre-sorted flash tables for the categories
+(the runtime sort is bounded by the scratch capacity and pumped with
+`mq_pump()`). Host tests: `test_media_db` / `test_media_scan` / `test_media_query`
+/ `test_tags`.
+
 ## 4. Format compatibility notes (drop-in facts)
 
 ### 4.1 `\RECHORD.CFG` — 12-key schema

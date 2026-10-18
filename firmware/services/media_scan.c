@@ -7,11 +7,13 @@
  * and feeds one fixed record per file to media_db. The title falls back to the
  * filename, so a library without tags still browses.
  *
- * The scan is deliberately frame-based, not recursive-descent-into-everything:
- * depth is capped, paths that would not fit the record are skipped (a truncated
- * path is useless as a key), and the progress callback gets a chance to abort
- * between files. An aborted or failed scan commits nothing: media_db targets
- * the slot that is not current, so the previous index survives.
+ * The scan is deliberately frame-based and **iterative**, not recursive: an
+ * explicit traversal stack lives in the shared scratch region (no .bss, no
+ * per-level AP stack frame), the depth is capped at 8, paths that would not fit
+ * the record are skipped (a truncated path is useless as a key), and the
+ * progress callback gets a chance to abort between files. An aborted or failed
+ * scan commits nothing: media_db targets the slot that is not current, so the
+ * previous index survives.
  */
 #include <stdio.h>
 #include <string.h>
@@ -19,12 +21,25 @@
 #include "fs.h"
 #include "media_db.h"
 #include "media_scan.h"
+#include "scratch.h"
 #include "log.h"
 
 #include "../player/codec.h"
 #include "../player/tags.h"
 
+/* Depth cap (levels below a volume root) and the explicit traversal stack. */
 #define SCAN_DEPTH_MAX 8
+#define SCAN_FRAMES    (SCAN_DEPTH_MAX + 1u)
+
+typedef struct {
+    uint32_t index;                    /* next entry to list at this level  */
+    char     rel[MEDIA_PATH_MAX];      /* volume-relative dir ("SD/A/B")    */
+} scan_frame_t;
+
+/* Carved out of the shared scratch region together with media_db's staging
+ * buffer: [stack | staging]. One bounded buffer instead of one AP stack frame
+ * per nested directory (BRNOMT-92). */
+#define SCAN_STACK_BYTES ((uint32_t)(sizeof(scan_frame_t) * SCAN_FRAMES))
 
 static media_scan_progress_t s_progress;
 static uint32_t s_files;
@@ -152,27 +167,46 @@ static int add_file(const char *rel)
     return media_db_add(&r);
 }
 
-static int walk(const char *dev_path, const char *rel_path, int depth)
+/* Iterative, depth-first walk of one volume. `stack` is the caller's frame
+ * array (SCAN_FRAMES deep); `root_rel` is the volume name ("Internal", "SD").
+ * The device path is "/" + rel, so a frame only stores the relative path.
+ * One reused fs_dirent_t, one bounded buffer, no recursion -> the walk costs
+ * a constant amount of the AP stack regardless of how deep the tree is. */
+static int walk_volume(const char *root_rel, scan_frame_t *stack)
 {
     fs_dirent_t e;
-    uint32_t i, count = 1, total = 0;
+    int sp = 1;
 
-    if (depth > SCAN_DEPTH_MAX)
-        return FS_OK;
-    for (i = 0; fs_list_dir(dev_path, i, &e, 1u, &count, &total) == FS_OK && count; i++) {
-        char sub_dev[MEDIA_PATH_MAX + 16u], sub_rel[MEDIA_PATH_MAX];
+    copy_field(stack[0].rel, sizeof stack[0].rel, root_rel);
+    stack[0].index = 0;
 
-        if (snprintf(sub_dev, sizeof sub_dev, "%s/%s", dev_path, e.name)
-                >= (int)sizeof sub_dev)
+    while (sp > 0) {
+        scan_frame_t *fr = &stack[sp - 1];
+        char dev[MEDIA_PATH_MAX + 16u];
+        char sub_rel[MEDIA_PATH_MAX];
+        uint32_t count = 1, total = 0;
+
+        if (snprintf(dev, sizeof dev, "/%s", fr->rel) >= (int)sizeof dev) {
+            sp--;                          /* cannot address it: skip */
             continue;
-        if (snprintf(sub_rel, sizeof sub_rel, "%s/%s", rel_path, e.name)
+        }
+        if (fs_list_dir(dev, fr->index, &e, 1u, &count, &total) != FS_OK ||
+            count == 0) {
+            sp--;                          /* directory exhausted */
+            continue;
+        }
+        fr->index++;                       /* consume this entry */
+
+        if (snprintf(sub_rel, sizeof sub_rel, "%s/%s", fr->rel, e.name)
                 >= (int)sizeof sub_rel)
             continue;                      /* too long to be a usable key */
-        if (e.is_dir) {
-            int r = walk(sub_dev, sub_rel, depth + 1);
 
-            if (r != FS_OK)
-                return r;
+        if (e.is_dir) {
+            if ((uint32_t)sp >= SCAN_FRAMES)
+                continue;                  /* depth cap: ignore deeper dirs */
+            copy_field(stack[sp].rel, sizeof stack[sp].rel, sub_rel);
+            stack[sp].index = 0;
+            sp++;
         } else if (is_audio(e.name)) {
             if (add_file(sub_rel) != FS_OK)
                 return FS_ERR_IO;
@@ -189,24 +223,42 @@ static int walk(const char *dev_path, const char *rel_path, int depth)
 
 int media_scan_build(media_scan_progress_t progress)
 {
+    uint8_t      *region;
+    scan_frame_t *stack;
+    uint8_t      *dbuf;
+    uint32_t      dbuf_bytes;
     int r;
 
     s_progress = progress;
     s_files = 0;
     s_aborted = 0;
-    r = media_db_begin();
+
+    /* One claim of the shared region: [traversal stack | record staging]. The
+     * stack lives here (not in .bss) so the walk costs no static RAM. */
+    region = (uint8_t *)scratch_claim(SCRATCH_OWNER_INDEX);
+    if (region == 0)
+        return FS_ERR_IO;
+    stack = (scan_frame_t *)region;
+    dbuf = region + SCAN_STACK_BYTES;
+    dbuf_bytes = SCRATCH_BYTES - SCAN_STACK_BYTES;
+
+    r = media_db_begin(dbuf, dbuf_bytes);
     log_printf("index: begin rc %d", r);
-    if (r != FS_OK)
+    if (r != FS_OK) {
+        scratch_release(SCRATCH_OWNER_INDEX);
         return r;
-    r = walk("/Internal", "Internal", 0);
+    }
+    r = walk_volume("Internal", stack);
     if (r == FS_OK)
-        r = walk("/SD", "SD", 0);
+        r = walk_volume("SD", stack);
     log_printf("index: scan rc %d, %lu files", r, (unsigned long)s_files);
     if (r != FS_OK) {
         media_db_abort();
+        scratch_release(SCRATCH_OWNER_INDEX);
         return r;
     }
     r = media_db_end();
+    scratch_release(SCRATCH_OWNER_INDEX);
     log_printf("index: end rc %d", r);
     return r;
 }
