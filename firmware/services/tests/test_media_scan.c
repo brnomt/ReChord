@@ -150,6 +150,51 @@ int main(void)
     CHECK(has_path("Internal/Music/01 First.mp3") == 1);
     media_db_close();
 
+    /* BRNOMT-92: long paths. A path over 80 chars must be indexed IN FULL and
+     * un-truncated (the old scanner relied on snprintf's return, which the
+     * freestanding vsnprintf reports TRUNCATED, so it stored a cut-off path and
+     * a garbage title -> blank / cut-off All Songs rows). One over the record
+     * capacity must be SKIPPED, never stored half-way. */
+    {
+        const char *dir =
+            "A Very Long Album Directory Name That Pushes The Path Past Eighty";
+        const char *full =
+            "Internal/A Very Long Album Directory Name That Pushes The Path Past Eighty/01 A Long Track Name.flac";
+        char hd[256], dd[256], df[320], zdir[240];
+        media_rec_t r;
+        uint32_t i, n;
+        int found = 0, k;
+
+        snprintf(hd, sizeof hd, ".work/Internal/%s", dir);
+        snprintf(dd, sizeof dd, "/Internal/%s", dir);
+        (void)mkdir(hd, 0777);
+        snprintf(df, sizeof df, "%s/01 A Long Track Name.flac", dd);
+        put(df);
+
+        for (k = 0; k < 230; k++)          /* a dir name that cannot fit */
+            zdir[k] = 'Z';
+        zdir[230] = '\0';
+        snprintf(hd, sizeof hd, ".work/Internal/%s", zdir);
+        snprintf(dd, sizeof dd, "/Internal/%s", zdir);
+        (void)mkdir(hd, 0777);
+        snprintf(df, sizeof df, "%s/too long.flac", dd);
+        put(df);
+
+        CHECK(media_scan_build(0) == 0);
+        CHECK(media_db_open() == FS_OK);
+        CHECK(has_path(full) == 1);        /* ~100-char path, kept whole */
+        CHECK(has_path("Internal/ZZZ") == 0);
+        n = media_db_count();
+        for (i = 0; i < n; i++) {
+            if (media_db_get(i, &r) == FS_OK && strcmp(r.path, full) == 0) {
+                found = 1;
+                CHECK(strcmp(r.title, "01 A Long Track Name") == 0);
+            }
+        }
+        CHECK(found == 1);
+        media_db_close();
+    }
+
     /* Ownership: the scan claims the shared region and releases it on every
      * exit. After a successful build the region is free again; while another
      * owner holds it the build fails cleanly (returns FS_ERR_IO, touches

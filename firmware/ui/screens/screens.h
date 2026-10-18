@@ -72,7 +72,7 @@ void menu_draw_item(int y, const char *label, const char *value, bool selected);
  * browser_screen — file browser over fs_list_dir() (names + counts only)
  * ====================================================================== */
 
-#define BROWSER_PATH_MAX 128
+#define BROWSER_PATH_MAX 208
 #define BROWSER_WINDOW   12   /* entries fetched per fs_list_dir() call ==
                                  visible page rows                          */
 

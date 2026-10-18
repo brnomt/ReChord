@@ -43,6 +43,7 @@ typedef struct {
 
 static media_scan_progress_t s_progress;
 static uint32_t s_files;
+static uint32_t s_skipped_long;    /* paths too long for a record (BRNOMT-92) */
 static int      s_aborted;
 
 static int is_audio(const char *name)
@@ -110,6 +111,38 @@ static void base_title(const char *name, char *out, size_t cap)
     out[n] = '\0';
 }
 
+/* Join `dir` + "/" + `name` into `out` (cap): the length, or -1 when it does
+ * not fit. Deliberately NOT snprintf: the freestanding vsnprintf returns the
+ * TRUNCATED length, not the would-be one, so the idiomatic `snprintf(...) >=
+ * sizeof` overflow check silently passes and over-long paths got indexed
+ * truncated — the blank / cut-off All Songs entries and the files lost inside
+ * long directories (BRNOMT-92, measured on device). */
+static int rel_join(char *out, size_t cap, const char *dir, const char *name)
+{
+    size_t a = strlen(dir), b = strlen(name);
+
+    if (a + 1u + b + 1u > cap)
+        return -1;
+    memcpy(out, dir, a);
+    out[a] = '/';
+    memcpy(out + a + 1u, name, b);
+    out[a + 1u + b] = '\0';
+    return (int)(a + 1u + b);
+}
+
+/* out = "/" + rel, the device path the fs.h calls take. -1 when it does not
+ * fit (same reason as rel_join). */
+static int dev_path(char *out, size_t cap, const char *rel)
+{
+    size_t n = strlen(rel);
+
+    if (n + 2u > cap)
+        return -1;
+    out[0] = '/';
+    memcpy(out + 1, rel, n + 1);
+    return (int)(n + 1u);
+}
+
 /* Category value normalisation (the user's rule): a field that cannot be shown
  * as-is -- empty, spaces only, or carrying control characters -- becomes
  * "Undefined". The views group on that string, so there is no blank row and no
@@ -145,8 +178,8 @@ static int add_file(const char *rel)
     char full[MEDIA_PATH_MAX + 2];
     char base[40];
 
-    full[0] = '/';
-    copy_field(full + 1, sizeof full - 1u, rel);
+    if (dev_path(full, sizeof full, rel) < 0)
+        return FS_OK;                  /* cannot key it: skip (unreachable) */
     memset(&meta, 0, sizeof meta);
     (void)tags_read_file(full, &meta, 0);  /* 0 = no tags: filename fallback */
 
@@ -182,11 +215,11 @@ static int walk_volume(const char *root_rel, scan_frame_t *stack)
 
     while (sp > 0) {
         scan_frame_t *fr = &stack[sp - 1];
-        char dev[MEDIA_PATH_MAX + 16u];
+        char dev[MEDIA_PATH_MAX + 2u];
         char sub_rel[MEDIA_PATH_MAX];
         uint32_t count = 1, total = 0;
 
-        if (snprintf(dev, sizeof dev, "/%s", fr->rel) >= (int)sizeof dev) {
+        if (dev_path(dev, sizeof dev, fr->rel) < 0) {
             sp--;                          /* cannot address it: skip */
             continue;
         }
@@ -197,9 +230,10 @@ static int walk_volume(const char *root_rel, scan_frame_t *stack)
         }
         fr->index++;                       /* consume this entry */
 
-        if (snprintf(sub_rel, sizeof sub_rel, "%s/%s", fr->rel, e.name)
-                >= (int)sizeof sub_rel)
-            continue;                      /* too long to be a usable key */
+        if (rel_join(sub_rel, sizeof sub_rel, fr->rel, e.name) < 0) {
+            s_skipped_long++;              /* too long to be a usable key */
+            continue;
+        }
 
         if (e.is_dir) {
             if ((uint32_t)sp >= SCAN_FRAMES)
@@ -231,6 +265,7 @@ int media_scan_build(media_scan_progress_t progress)
 
     s_progress = progress;
     s_files = 0;
+    s_skipped_long = 0;
     s_aborted = 0;
 
     /* One claim of the shared region: [traversal stack | record staging]. The
@@ -251,7 +286,8 @@ int media_scan_build(media_scan_progress_t progress)
     r = walk_volume("Internal", stack);
     if (r == FS_OK)
         r = walk_volume("SD", stack);
-    log_printf("index: scan rc %d, %lu files", r, (unsigned long)s_files);
+    log_printf("index: scan rc %d, %lu files, %lu too long", r,
+               (unsigned long)s_files, (unsigned long)s_skipped_long);
     if (r != FS_OK) {
         media_db_abort();
         scratch_release(SCRATCH_OWNER_INDEX);

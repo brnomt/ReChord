@@ -24,7 +24,8 @@
 #define PLAYER_PUMP_FRAMES      512   /* decode staging buffer (frames)   */
 #define PLAYER_PUMP_MIN_FRAMES  128   /* min ring room to bother decoding */
 #define PLAYER_PUMP_ROUNDS      8     /* bounded pump loop per process()  */
-#define PLAYER_PATH_MAX         128
+/* PLAYER_PATH_MAX is the public path capacity (player.h) — the queues, the
+ * resolver call and track_info_t.path share it. */
 #define PLAYER_VOL_MIN_DB       (-60)
 #define PLAYER_VOL_MAX_DB       20
 

@@ -3486,3 +3486,52 @@ so phase 1 fixes what it actually lacked. Scope agreed on the issue: **phased**,
 Tests: services + player + UI suites green (`test_media_db` 31, `test_media_query`
 26, `test_media_scan` 23 incl. a depth-9 tree, `test_tags` +7 encoding cases).
 AP5M CRC `0x08361845`, packer `RESULT: PASS`. Not flashed.
+
+## AS. Session 2026-10-18 — BRNOMT-92: long-path index corruption (found on device)
+
+First hardware run of the v3 index (user, build `1003831`): 690 of 710 tracks,
+12 blank rows at the top of All Songs, and titles cut mid-word ("1-03 Giorgio
+b", "1-06 Lose Your"). Diagnosed by parsing the on-device `INDEX.A` directly
+(the user had the device on USB): the records held **79-char truncated paths**
+and titles derived from them.
+
+Root cause, two parts:
+
+1. **`vsnprintf` returns the TRUNCATED length**, not the would-be length C
+   requires (`libc/stdio_min.c`: `return (int)(p - buf)`, and `out_char` only
+   advances `p` while there is room). So the idiomatic
+   `if (snprintf(sub_rel, sizeof sub_rel, ...) >= (int)sizeof sub_rel) continue;`
+   overflow guard in `media_scan.c` **never fired**: every path longer than 79
+   chars was truncated and indexed anyway. A directory whose path was truncated
+   ended up ending in `/` -> `base_name` gave "" -> the 12 blank All Songs rows;
+   a truncated *file* path -> the tag read opened a non-existent file -> no tags
+   -> the filename fallback title, itself cut to what fit. Directories whose
+   truncated dev path did not resolve were never listed, losing their files
+   (the missing ~20).
+2. **`MEDIA_PATH_MAX` 80 was simply too small**: the library has **127 files
+   over 79 chars, max 199** ("Arcane League of Legends Season 2 (...)/
+   Stromae & Pomme - Ma Meilleure Ennemie (...).flac").
+
+Fix (this session):
+
+- `media_scan.c` builds paths with `rel_join`/`dev_path` (measure with `strlen`,
+  return -1 when it does not fit) instead of `snprintf`'s return; over-long
+  entries are **skipped and counted** (`index: scan rc %d, N files, M too long`).
+- Path capacity raised to **208 end to end**: `MEDIA_PATH_MAX` (record 248 -> 376
+  B), `PLAYER_PATH_MAX` (now public in `player.h`), `track_info_t.path`,
+  `BROWSER_PATH_MAX`. `_bss_end` 0x03042960 -> 0x03042cd4 (+884 B; the queues
+  and the scan frame stack).
+- `libc/stdio_min.c`: a loud WARNING comment on the non-standard return (not
+  fixed: `log.c` / `ap_ui.c` use the return as an offset and the SDK debug path
+  may link it — a proper fix audits those first).
+
+Tests: `test_media_scan` +6 (a ~100-char path must be indexed whole and
+un-truncated; a 230-char dir must be skipped, never stored half-way). services +
+player + UI green. AP5M CRC `0xDDAB52EA`, packer `RESULT: PASS`. Not flashed.
+
+**GP is NOT fixed by this** — see AQ/BRNOMT-73: with the device handoff (7e5ba95)
+the boundary is still ~1 s because `bfs_open` + B reopening the codec costs more
+than the 64 KiB PCM ring covers (~85 ms). The issue thread asks for preloading
+the next file 2-3 s early; the PCM ring cannot grow (0x01030000..0x01040000 is
+exactly the window below Core B's data), so it needs a pre-open/2nd-file design,
+plus BRNOMT-94 (crossfade) later.

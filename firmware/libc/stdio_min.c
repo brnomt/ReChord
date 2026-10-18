@@ -75,6 +75,14 @@ static int out_num(char **p, char *end, unsigned long v, int base, int upper,
     return written;
 }
 
+/* WARNING — NON-STANDARD RETURN: this returns the number of bytes ACTUALLY
+ * written (truncated), NOT the would-be length C requires. So the idiomatic
+ * overflow guard `if (snprintf(buf, sizeof buf, ...) >= (int)sizeof buf)` NEVER
+ * fires here and silently truncates — it corrupted the media index paths and
+ * titles until BRNOMT-92 (see media_scan.c rel_join/dev_path, which no longer
+ * trust this return). Do not rely on the return for overflow detection; measure
+ * with strlen, or fix this function (and audit log.c / ap_ui.c, which use the
+ * return as an offset) as its own change. */
 int vsnprintf(char *buf, size_t cap, const char *fmt, va_list ap)
 {
     char *p = buf;

@@ -219,6 +219,17 @@ Hardening (BRNOMT-92):
 - **Strict text.** Tag text is normalized in `player/tags.c` (one rule:
   Latin1→UTF-8, UTF-16 LE/BE with/without BOM, embedded NUL ends the value,
   C0/DEL/C1 and orphan UTF-8 bytes dropped) before it reaches the index.
+- **Long paths (2026-10-18).** `MEDIA_PATH_MAX` is **208** (was 80): real
+  libraries have ~200-char paths and the old limit silently truncated them, so
+  the index held cut-off paths, blank/`base_name`-empty titles and lost the
+  files inside long directories. The scan now builds paths with
+  `rel_join`/`dev_path`, which measure with `strlen` and **skip** what cannot
+  fit — they deliberately do NOT trust `snprintf`'s return, because the
+  freestanding `vsnprintf` reports the **truncated** length, not the would-be
+  one, so the idiomatic `>= sizeof` overflow guard never fires (the root cause
+  of the on-device corruption; see the warning in `libc/stdio_min.c`).
+  `PLAYER_PATH_MAX`, `track_info_t.path` and `BROWSER_PATH_MAX` were raised to
+  208 to match end-to-end.
 
 Deferred from the spec (documented decisions): the deduplicated string pool +
 small records (a flash-size win, not RAM; it would turn one record read into

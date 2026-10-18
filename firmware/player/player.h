@@ -44,13 +44,18 @@
 
 #include "codec.h"   /* player_register_codec() takes codec descriptors   */
 
+/* Longest track path the player carries (device path from the media index).
+ * Matches MEDIA_PATH_MAX + 1: real libraries have paths well over 128 chars
+ * (BRNOMT-92), and a truncated path opens the wrong file. */
+#define PLAYER_PATH_MAX 208
+
 typedef struct
 {
     char title[64];
     char artist[64];
     char album[64];
     char genre[32];
-    char path[128];
+    char path[PLAYER_PATH_MAX];
     int  track_no;              /* player's open-sequence counter (not ID3) */
     int  tag_track_no;          /* TRCK / TRACKNUMBER tag, 0 = unknown      */
     long duration_ms;

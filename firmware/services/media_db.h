@@ -42,7 +42,7 @@
 #define MEDIA_MAGIC     0x4D444231u   /* "MDB1" */
 #define MEDIA_VERSION   3u
 #define MEDIA_HDR_BYTES 512u
-#define MEDIA_PATH_MAX  80
+#define MEDIA_PATH_MAX  208
 #define MEDIA_TEXT_MAX  24
 
 typedef struct media_rec {
@@ -62,7 +62,7 @@ typedef struct media_rec {
 /* The record size is derived, never written by hand: the header stores it and
  * the reader rejects a mismatch (that is the format-version check in practice). */
 #define MEDIA_REC_BYTES ((uint32_t)sizeof(media_rec_t))
-_Static_assert(sizeof(media_rec_t) <= 256u, "media_rec_t grew too far");
+_Static_assert(sizeof(media_rec_t) <= 512u, "media_rec_t grew too far");
 
 typedef struct media_hdr {
     uint32_t magic;
