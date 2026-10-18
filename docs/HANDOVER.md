@@ -4064,3 +4064,33 @@ Remaining for BRNOMT-72: battery indication (blocked on BRNOMT-83), per-screen
 empty/loading polish, and the on-device look check.
 
 AP5M CRC `0x9FDCD4D3`, packer `RESULT: PASS`. Not flashed.
+
+## BK. Session 2026-10-18 — BRNOMT-69 design + BRNOMT-83 battery plan
+
+**BRNOMT-69** (modular themes) is a multi-milestone feature and the issue
+requires budgets *before* implementation, so `docs/rewrite/themes.md` now holds
+the contract:
+
+- package layout `/.rechord/themes/<id>/` (`theme.cfg` + `assets/`) in the same
+  key=value dialect (plus `[section]` lines), a renderer API (`r_fill`,
+  `r_bitmap1`, `r_text`, `r_bar`, `r_rule`, `r_text_width`), a read-only
+  `theme_state_t`, and hard bounds (16 themes, 4 KiB manifest, ≤ 8 KiB asset
+  cache, ≤ 512 evaluation steps per frame, coords 0..319 / 0..169, text caps).
+- **Measured budgets**: `.bss_end 0x03046030` against the hard `0x0304A000`
+  gate → **~16 KiB free**, theme runtime budget **≤ 10 KiB**; fw1 payload
+  207,132 B of a 356,456 B region → **~149 KiB flash free**.
+- Milestones: **A** runtime switch from Settings (built-ins + `theme.cfg`,
+  live); **B** package enumeration/validation + host tests + the reference
+  package; **C** the DSL on Now Playing; **D** the remaining screens. Every
+  milestone records its measured `.bss_end`.
+
+**BRNOMT-83** (battery): **no REA needed for the approximation** — the stock
+code is already vendored in-tree (`system/sysservice/battery.c/.h`,
+`driver/ADC/Adc.h`): `RealBattValue = ((adc<<1)*2500)>>10`, SARADC **channel 0**
+(keys use 1), 5-step ladder 3350/3500/3600/3800/4000 mV (`BATTERY_LEVEL 5`).
+`docs/re/battery.md` records the AP plan — a small `drivers/battery.c` reusing
+the keys' SARADC sequence, an 8-sample average, a cached level refreshed every
+~15 s and shown in the main-menu status row — plus, optionally, what an REA pass
+would look for (icon map, hysteresis, low-battery shutdown).
+
+Docs only: image CRC unchanged (`0x9FDCD4D3`).
