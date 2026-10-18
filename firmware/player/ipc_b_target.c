@@ -148,14 +148,18 @@ static int b_cmd_wait(uint32_t seq)
             break;
         ms = log_now_ms() - t0;
         if (ms >= 1500UL || ++guard > 40000000UL) {
-            log_printf("ipc: cmd %u no ack after %lu ms", (unsigned)cmd, ms);
+            log_printf("ipc: cmd %u no ack after %lu ms (bstate %u berr %d)",
+                       (unsigned)cmd, ms, (unsigned)CTRL[IPC_C_BSTATE],
+                       (int)CTRL[IPC_C_BERR]);
             return -1;
         }
         delay_loops(2000);              /* ~10 us: brief, do not starve bus */
     }
     if (CTRL[IPC_C_BSTATE] != IPC_BS_OPEN) {
-        log_printf("ipc: cmd %u no ack after %lu ms", (unsigned)cmd,
-                   log_now_ms() - t0);
+        /* B answered but did not open: its codec refused the file. */
+        log_printf("ipc: cmd %u open failed after %lu ms (bstate %u berr %d)",
+                   (unsigned)cmd, log_now_ms() - t0,
+                   (unsigned)CTRL[IPC_C_BSTATE], (int)CTRL[IPC_C_BERR]);
         return -1;
     }
 
