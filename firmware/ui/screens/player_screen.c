@@ -17,13 +17,22 @@
 #define PLAYER_BAR_X0   THEME_PAD
 #define PLAYER_BAR_X1   (DISPLAY_W - 1 - THEME_PAD)
 #define PLAYER_BAR_W    (PLAYER_BAR_X1 - PLAYER_BAR_X0 + 1)
-#define PLAYER_BAR_Y    78
-#define PLAYER_BAR_H    10
 
-#define PLAYER_VOL_Y    122
-#define PLAYER_VOL_H    6
+/* Layout (BRNOMT-72): compact top metadata, prominent title, artist beneath,
+ * a minimal progress bar, and active playback modes pinned to the bottom. */
+#define PLAYER_TITLE_Y   24
+#define PLAYER_ARTIST_Y  36
+#define PLAYER_STATE_Y   48
+#define PLAYER_INFO_Y    60
+#define PLAYER_BAR_Y     74
+#define PLAYER_BAR_H     2
+#define PLAYER_TIME_Y    84
+#define PLAYER_MODE_Y    148
+#define PLAYER_VOL_Y     162
+#define PLAYER_VOL_H     2
 
 static char     s_title[PLAYER_TITLE_MAX];
+static char     s_artist[PLAYER_TITLE_MAX];
 static uint32_t s_duration_s;
 static uint32_t s_position_s;
 static int      s_volume_db;   /* -60..0 */
@@ -58,8 +67,10 @@ static void format_time(char *buf, int cap, uint32_t sec)
 
 static void draw_bar(int y, int h, int fill_w)
 {
-    display_fill_rect(PLAYER_BAR_X0, y, PLAYER_BAR_X1, y + h - 1,
-                      THEME_COLOR_BAR_BG);
+    /* Mono-safe trough: a surface-colored trough vanishes on black, so the bar
+     * sits on a 1 px dim baseline and only the filled part is solid. */
+    display_fill_rect(PLAYER_BAR_X0, y + h, PLAYER_BAR_X1, y + h,
+                      THEME_COLOR_DIM);
     if (fill_w > 0) {
         if (fill_w > PLAYER_BAR_W)
             fill_w = PLAYER_BAR_W;
@@ -85,78 +96,79 @@ static void player_screen_draw(void)
                       THEME_COLOR_TITLE_BG);
     display_draw_text(THEME_PAD, THEME_TITLE_TEXT_Y + THEME_TEXT_YOFF,
                       "Now playing", THEME_COLOR_ACCENT, THEME_COLOR_TITLE_BG);
+    /* Same 1 px header rule as every list screen (BRNOMT-72). */
+    display_fill_rect(0, THEME_TITLE_H - 1, DISPLAY_W - 1, THEME_TITLE_H - 1,
+                      THEME_COLOR_FG);
 
-    /* track title (truncated to fit one line) */
+    /* title, artist beneath */
     snprintf(line, sizeof(line), "%s", s_title);
-    display_draw_text(THEME_PAD, 32 + THEME_TEXT_YOFF, line,
+    display_draw_text(THEME_PAD, PLAYER_TITLE_Y + THEME_TEXT_YOFF, line,
                       THEME_COLOR_FG, THEME_COLOR_BG);
+    if (s_artist[0] != '\0')
+        display_draw_text(THEME_PAD, PLAYER_ARTIST_Y + THEME_TEXT_YOFF,
+                          s_artist, THEME_COLOR_DIM, THEME_COLOR_BG);
 
     /* play state (or a status line: unsupported file, no renderer, ...) */
     {
         const char *state_line = s_status[0] ? s_status
                                              : (s_playing ? "Playing" : "Paused");
-        display_draw_text(THEME_PAD, 48 + THEME_TEXT_YOFF, state_line,
+        display_draw_text(THEME_PAD, PLAYER_STATE_Y + THEME_TEXT_YOFF, state_line,
                           s_status[0] ? THEME_COLOR_WARM
                                       : (s_playing ? THEME_COLOR_WARM
                                                    : THEME_COLOR_DIM),
                           THEME_COLOR_BG);
     }
 
-    /* repeat / shuffle mode, right-aligned on the play-state row: the mode the
-     * PLAYER has must be visible, not only what Settings shows (BRNOMT-90). */
-    {
-        char mo[20];
-        const char *rep = (s_repeat == PLAYLIST_REPEAT_ONE) ? "one"
-                        : (s_repeat == PLAYLIST_REPEAT_ALL) ? "all" : "off";
-
-        snprintf(mo, sizeof(mo), "R:%s%s", rep, s_shuffle ? " S" : "");
-        display_draw_text(DISPLAY_W - THEME_PAD - THEME_TEXT_W((int)strlen(mo)),
-                          48 + THEME_TEXT_YOFF, mo,
-                          THEME_COLOR_DIM, THEME_COLOR_BG);
-    }
-
-    /* progress bar + times */
-    draw_bar(PLAYER_BAR_Y, PLAYER_BAR_H,
-             player_bar_width(PLAYER_BAR_W, s_position_s, s_duration_s));
-    format_time(t_now, (int)sizeof(t_now), s_position_s);
-    format_time(t_end, (int)sizeof(t_end), s_duration_s);
-    snprintf(line, sizeof(line), "%s / %s", t_now, t_end);
-    display_draw_text(THEME_PAD, PLAYER_BAR_Y + PLAYER_BAR_H + 4,
-                      line, THEME_COLOR_DIM, THEME_COLOR_BG);
-
-    /* stream format on its own line: e.g. "24b/96.0k" */
+    /* stream format (left) + playlist position (right) */
     if (s_bits > 0 && s_rate > 0) {
         char f[40];
         long k10 = s_rate / 100;      /* tenths of kHz, no float printf */
 
         snprintf(f, sizeof(f), "%d/%ld.%ldkHz", s_bits, k10 / 10, k10 % 10);
-        display_draw_text(THEME_PAD, 64 + THEME_TEXT_YOFF,
+        display_draw_text(THEME_PAD, PLAYER_INFO_Y + THEME_TEXT_YOFF,
                           f, THEME_COLOR_DIM, THEME_COLOR_BG);
     }
-
-    /* playlist position ("i/N"), right-aligned on the same line */
     if (s_pl_count > 0) {
         char pl[24];
-        int  plen;
 
         snprintf(pl, sizeof(pl), "%d/%d", s_pl_pos, s_pl_count);
-        plen = (int)strlen(pl);
-        display_draw_text(DISPLAY_W - THEME_PAD - THEME_TEXT_W(plen),
-                          64 + THEME_TEXT_YOFF,
+        display_draw_text(DISPLAY_W - THEME_PAD - THEME_TEXT_W((int)strlen(pl)),
+                          PLAYER_INFO_Y + THEME_TEXT_YOFF,
                           pl, THEME_COLOR_DIM, THEME_COLOR_BG);
     }
 
-    /* volume bar (-60..0 dB maps to 0..full width) */
-    display_draw_text(THEME_PAD, PLAYER_VOL_Y - THEME_LINE_H + 2,
-                      "Volume", THEME_COLOR_DIM, THEME_COLOR_BG);
+    /* progress bar + elapsed / total */
+    draw_bar(PLAYER_BAR_Y, PLAYER_BAR_H,
+             player_bar_width(PLAYER_BAR_W, s_position_s, s_duration_s));
+    format_time(t_now, (int)sizeof(t_now), s_position_s);
+    format_time(t_end, (int)sizeof(t_end), s_duration_s);
+    snprintf(line, sizeof(line), "%s / %s", t_now, t_end);
+    display_draw_text(THEME_PAD, PLAYER_TIME_Y + THEME_TEXT_YOFF, line,
+                      THEME_COLOR_DIM, THEME_COLOR_BG);
+
+    /* bottom: only the ACTIVE playback modes (SHUF / REP1), no clutter */
+    {
+        int x = THEME_PAD;
+
+        if (s_shuffle) {
+            display_draw_text(x, PLAYER_MODE_Y + THEME_TEXT_YOFF, "SHUF",
+                              THEME_COLOR_FG, THEME_COLOR_BG);
+            x += THEME_TEXT_W(4) + 8;
+        }
+        if (s_repeat == PLAYLIST_REPEAT_ONE)
+            display_draw_text(x, PLAYER_MODE_Y + THEME_TEXT_YOFF, "REP1",
+                              THEME_COLOR_FG, THEME_COLOR_BG);
+    }
+
+    /* volume: value on that row, slim bar at the very bottom (no label) */
+    snprintf(line, sizeof(line), "%d dB", s_volume_db);
+    display_draw_text(DISPLAY_W - THEME_PAD - THEME_TEXT_W((int)strlen(line)),
+                      PLAYER_MODE_Y + THEME_TEXT_YOFF,
+                      line, THEME_COLOR_FG, THEME_COLOR_BG);
     vol_w = (s_volume_db + 60) * PLAYER_BAR_W / 60;
     if (vol_w < 0)
         vol_w = 0;
     draw_bar(PLAYER_VOL_Y, PLAYER_VOL_H, vol_w);
-    snprintf(line, sizeof(line), "%d dB", s_volume_db);
-    display_draw_text(DISPLAY_W - THEME_PAD - THEME_TEXT_W((int)strlen(line)),
-                      PLAYER_VOL_Y - THEME_LINE_H + 2,
-                      line, THEME_COLOR_FG, THEME_COLOR_BG);
 }
 
 /* Now Playing keys (BRNOMT-93):
@@ -233,6 +245,7 @@ static void player_screen_on_enter(void)
     player_screen_set_track(ti.title,
                             ti.duration_ms > 0
                                 ? (uint32_t)(ti.duration_ms / 1000) : 0);
+    player_screen_set_artist(ti.artist);
     player_screen_set_volume(player_get_volume());
     player_screen_set_format(ti.bits, ti.sample_rate);
     player_screen_set_playlist(ti.playlist_pos, ti.playlist_count);
@@ -257,11 +270,18 @@ void player_screen_set_track(const char *title, uint32_t duration_s)
     ui_invalidate_all();
 }
 
+void player_screen_set_artist(const char *artist)
+{
+    snprintf(s_artist, sizeof(s_artist), "%s", artist ? artist : "");
+    ui_invalidate(0, PLAYER_TITLE_Y, DISPLAY_W - 1,
+                  PLAYER_ARTIST_Y + THEME_LINE_H);
+}
+
 void player_screen_set_position(uint32_t position_s)
 {
     s_position_s = position_s;
     ui_invalidate(0, PLAYER_BAR_Y, DISPLAY_W - 1,
-                  PLAYER_BAR_Y + PLAYER_BAR_H + THEME_LINE_H);
+                  PLAYER_TIME_Y + THEME_LINE_H);
 }
 
 void player_screen_set_volume(int volume_db)
@@ -271,8 +291,8 @@ void player_screen_set_volume(int volume_db)
     if (volume_db > 0)
         volume_db = 0;
     s_volume_db = volume_db;
-    ui_invalidate(0, PLAYER_VOL_Y - THEME_LINE_H,
-                  DISPLAY_W - 1, PLAYER_VOL_Y + PLAYER_VOL_H);
+    ui_invalidate(0, PLAYER_MODE_Y, DISPLAY_W - 1,
+                  PLAYER_VOL_Y + PLAYER_VOL_H);
 }
 
 void player_screen_set_playlist(int pos, int count)
@@ -281,7 +301,8 @@ void player_screen_set_playlist(int pos, int count)
         return;
     s_pl_pos = pos;
     s_pl_count = count;
-    ui_invalidate(0, 64, DISPLAY_W - 1, 64 + THEME_LINE_H);
+    ui_invalidate(0, PLAYER_INFO_Y, DISPLAY_W - 1,
+                  PLAYER_INFO_Y + THEME_LINE_H);
 }
 
 void player_screen_set_format(int bits, long sample_rate)
@@ -290,13 +311,15 @@ void player_screen_set_format(int bits, long sample_rate)
         return;
     s_bits = bits;
     s_rate = sample_rate;
-    ui_invalidate(0, 64, DISPLAY_W - 1, 64 + THEME_LINE_H);
+    ui_invalidate(0, PLAYER_INFO_Y, DISPLAY_W - 1,
+                  PLAYER_INFO_Y + THEME_LINE_H);
 }
 
 void player_screen_set_playing(bool playing)
 {
     s_playing = playing;
-    ui_invalidate(0, 48, DISPLAY_W - 1, 48 + THEME_LINE_H);
+    ui_invalidate(0, PLAYER_STATE_Y, DISPLAY_W - 1,
+                  PLAYER_STATE_Y + THEME_LINE_H);
 }
 
 /* Repeat / shuffle mode indicator (BRNOMT-90). Shows what the PLAYER has, so
@@ -307,13 +330,15 @@ void player_screen_set_modes(int repeat, int shuffle)
         return;
     s_repeat = repeat;
     s_shuffle = shuffle ? 1 : 0;
-    ui_invalidate(0, 48, DISPLAY_W - 1, 48 + THEME_LINE_H);
+    ui_invalidate(0, PLAYER_MODE_Y, DISPLAY_W - 1,
+                  PLAYER_MODE_Y + THEME_LINE_H);
 }
 
 void player_screen_set_status(const char *msg)
 {
     snprintf(s_status, sizeof(s_status), "%s", msg ? msg : "");
-    ui_invalidate(0, 48, DISPLAY_W - 1, 48 + THEME_LINE_H);
+    ui_invalidate(0, PLAYER_STATE_Y, DISPLAY_W - 1,
+                  PLAYER_STATE_Y + THEME_LINE_H);
 }
 
 /* Pulled from the app loop every pass: updates position + play state from
@@ -344,6 +369,7 @@ void player_screen_refresh(void)
         player_screen_set_track(ti.title,
                                 ti.duration_ms > 0
                                     ? (uint32_t)(ti.duration_ms / 1000) : 0);
+        player_screen_set_artist(ti.artist);
     }
     pos = (uint32_t)(player_get_position_ms() / 1000);
     if (pos != s_position_s)
