@@ -15,6 +15,7 @@
 #include "drivers/rknano_i2s.h"
 #include "drivers/battery.h"
 #include "theme/theme.h"
+#include "theme/theme_pkg.h"
 #include "services/fs_target.h"
 #include "services/fw_update.h"
 #include "services/log.h"
@@ -55,6 +56,7 @@ static unsigned s_log_ms;            /* last periodic log flush (see loop) */
 static unsigned s_batt_ms;           /* last battery poll (see loop) */
 static int      s_resume_done;       /* boot resume restore ran (BRNOMT-87) */
 static int      s_resume_wait;       /* passes after the first probe        */
+static unsigned s_face_ms;           /* companion face frame tick           */
 static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 
 /* BRNOMT-87 resume state: defined with the loop, used by the power paths. */
@@ -900,7 +902,7 @@ static const menu_item_t k_root_items[] = {
 
 #define RC_BUILD "m7a"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
-                                     ROOT_ITEM_COUNT, vol_status };
+                                     ROOT_ITEM_COUNT, vol_status, 1 };
 
 /* ---- resume state (BRNOMT-87) ------------------------------------------- */
 /* Deferred write, same idea as the volume: a change arms a short quiet timer so
@@ -1147,6 +1149,15 @@ void ap_ui_loop(void)
             s_batt_ms = ap_ms();
             if (battery_percent() != before)
                 ui_invalidate(0, 0, DISPLAY_W - 1, 16);
+        }
+
+        /* companion-bot: animate the face (~8 fps) while the root menu is up.
+         * Only the reserved band is invalidated, so the cost is one row strip. */
+        if (theme_layout()->face_h > 0 && ui_stack_depth() == 1 &&
+            (unsigned)(ap_ms() - s_face_ms) >= 125u) {
+            s_face_ms = ap_ms();
+            ui_invalidate(0, theme_layout()->title_h, DISPLAY_W - 1,
+                          theme_layout()->title_h + theme_layout()->face_h);
         }
 
         /* Persist the RAM log without waiting for the USB cable (see the flush

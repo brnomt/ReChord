@@ -46,6 +46,9 @@ typedef struct menu_model {
     /* Optional right-aligned status on the title row (volume, mode, ...);
      * NULL = none. Placed last so existing initializers keep working. */
     const char *(*status_text)(void);
+    /* 1 = paint the procedural companion face in the reserved band (theme
+     * with face_h > 0); only the root menu sets it (BRNOMT-69). */
+    int face;
 } menu_model_t;
 
 /* Scrollable view state — the navigation state machine (host-tested). */

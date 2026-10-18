@@ -18,7 +18,7 @@ typedef struct
 
 /* Order matters: the parser writes l->field[index] through this table. */
 enum {
-    F_PAD, F_TITLE_H, F_ITEM_H,
+    F_PAD, F_TITLE_H, F_ITEM_H, F_FACE_H,
     F_NP_TITLE_Y, F_NP_ARTIST_Y, F_NP_STATE_Y, F_NP_INFO_Y,
     F_NP_BAR_Y, F_NP_BAR_H, F_NP_TIME_Y, F_NP_MODE_Y,
     F_NP_VOL_Y, F_NP_VOL_H, F_COUNT
@@ -31,6 +31,7 @@ static const layout_key_t k_keys[] = {
     { "pad",          F_PAD,         0, 16  },
     { "title_h",      F_TITLE_H,     0, 32  },
     { "item_h",       F_ITEM_H,      8, 24  },
+    { "face_h",       F_FACE_H,      0, 80  },
     { "np_title_y",   F_NP_TITLE_Y,  0, H   },
     { "np_artist_y",  F_NP_ARTIST_Y, 0, H   },
     { "np_state_y",   F_NP_STATE_Y,  0, H   },
@@ -54,6 +55,7 @@ static int *field_ptr(theme_layout_t *l, int f)
     case F_PAD:         return &l->pad;
     case F_TITLE_H:     return &l->title_h;
     case F_ITEM_H:      return &l->item_h;
+    case F_FACE_H:      return &l->face_h;
     case F_NP_TITLE_Y:  return &l->np_title_y;
     case F_NP_ARTIST_Y: return &l->np_artist_y;
     case F_NP_STATE_Y:  return &l->np_state_y;
@@ -75,6 +77,7 @@ void theme_layout_defaults(theme_layout_t *l)
     l->pad = 4;
     l->title_h = 16;
     l->item_h = 12;
+    l->face_h = 0;
     l->np_title_y = 24;
     l->np_artist_y = 36;
     l->np_state_y = 48;

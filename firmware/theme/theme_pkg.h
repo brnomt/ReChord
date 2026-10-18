@@ -22,6 +22,7 @@ typedef struct
     int pad;          /* left/right margin                      */
     int title_h;      /* header band height                     */
     int item_h;       /* list row height                        */
+    int face_h;       /* reserved face band under the header    */
 
     /* Now Playing element origins. */
     int np_title_y;

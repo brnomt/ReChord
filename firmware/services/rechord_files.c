@@ -80,6 +80,16 @@ static const char k_theme_night[] =
     "accent=0x23B6\ndanger=0xB2AA\nsuccess=0x44AC\nspacing=8\nradius=6\n"
     THEME_LAYOUT_TAIL;
 
+static const char k_theme_companion[] =
+    "# ReChord Companion Bot (procedural face; see firmware/ui/screens/companion.c)\n"
+    "name=Companion Bot\n"
+    "background=0x0000\nsurface=0x0000\ntext=0xFFFF\ntext_dim=0x8410\n"
+    "accent=0xFFFF\ndanger=0xC618\nsuccess=0xFFFF\nspacing=8\nradius=0\n"
+    "pad=6\ntitle_h=14\nitem_h=14\nface_h=52\n"
+    "np_title_y=26\nnp_artist_y=38\nnp_state_y=50\nnp_info_y=62\n"
+    "np_bar_y=78\nnp_bar_h=2\nnp_time_y=88\nnp_mode_y=150\n"
+    "np_vol_y=162\nnp_vol_h=2\n";
+
 static const struct
 {
     const char *dir;
@@ -94,6 +104,8 @@ static const struct
       k_theme_paper },
     { RECHORD_THEMES_DIR "/night",   RECHORD_THEMES_DIR "/night/theme.cfg",
       k_theme_night },
+    { RECHORD_THEMES_DIR "/companion-bot",
+      RECHORD_THEMES_DIR "/companion-bot/theme.cfg", k_theme_companion },
 };
 
 static int ensure_file(const char *path, uint32_t bytes, const char *template_text)

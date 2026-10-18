@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include "screens.h"
+#include "companion.h"
 #include "../theme.h"
 #include "../internal/hal.h"
 
@@ -131,6 +132,13 @@ void menu_draw(const menu_model_t *model, const menu_view_t *view)
                 display_draw_text(tx, THEME_TITLE_TEXT_Y + THEME_TEXT_YOFF,
                                   st, THEME_COLOR_DIM, THEME_COLOR_TITLE_BG);
         }
+    }
+
+    /* Procedural companion face in the reserved band (companion-bot theme):
+     * only the root model asks for it; the band is always part of the layout. */
+    if (model->face != 0 && theme_layout()->face_h > 0) {
+        companion_draw(0, THEME_TITLE_H, DISPLAY_W, theme_layout()->face_h,
+                       player_get_state() == PLAYER_PLAYING, view->cursor);
     }
 
     /* visible rows */
