@@ -14,9 +14,12 @@
  * services/workbuf + the codec state) and the stack in the B data region
  * 0x01040000..0x01060000.
  *
- * Commands come through the control block (ipc_shared.h): OPEN/SEEK/CLOSE via
- * IPC_C_*, play/pause/stop via IPC_SH_STATE. ReplayGain (Q16) and the gapless
- * trim (delay/padding/total) come in IPC_C_RG / IPC_C_GAP_*.
+ * Commands come through the control block (ipc_shared.h): OPEN/NEXT/SEEK/CLOSE
+ * via IPC_C_* (each carries a sequence number in IPC_C_SEQ; B echoes it in
+ * IPC_C_ACK so a repeated command is not dropped), play/pause/stop via
+ * IPC_SH_STATE. NEXT is a gapless track change (BRNOMT-73): it reopens the
+ * codec exactly like OPEN but the PCM ring keeps flowing. ReplayGain (Q16) and
+ * the gapless trim (delay/padding/total) come in IPC_C_RG / IPC_C_GAP_*.
  */
 #include <stdint.h>
 #include <string.h>
@@ -112,13 +115,19 @@ static const codec_t *codec_by_id(uint32_t id)
 
 static void handle_command(void)
 {
-    uint32_t cmd = CTRL[IPC_C_CMD];
+    uint32_t seq = CTRL[IPC_C_SEQ];
+    uint32_t cmd;
 
-    if (cmd == CTRL[IPC_C_ACK])
+    /* Sequence-based handshake: a repeated command (two NEXTs, two SEEKs to
+     * the same ms) still has a fresh sequence, so it is not dropped. */
+    if (seq == CTRL[IPC_C_ACK])
         return;
 
+    cmd = CTRL[IPC_C_CMD];
+
     switch (cmd) {
-    case IPC_C_OPEN: {
+    case IPC_C_OPEN:
+    case IPC_C_NEXT: {         /* NEXT = OPEN-style reopen on the live ring */
         unsigned i;
         codec_format_t f;
 
@@ -163,7 +172,7 @@ static void handle_command(void)
         break;
     }
     dmb();
-    CTRL[IPC_C_ACK] = cmd;
+    CTRL[IPC_C_ACK] = seq;        /* acknowledge the command sequence */
     dmb();
 }
 

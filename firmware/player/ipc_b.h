@@ -175,6 +175,17 @@ int ipc_b_flush(void);
  * Returns non-negative on acceptance. */
 int ipc_b_track_change(long duration_ms);
 
+/* Gapless track change on Core B (BRNOMT-73). Hand the next track to Core B
+ * ON THE LIVE STREAM: the AP opens the new file (bfs_open) and asks B to
+ * reopen its codec (IPC_C_OPEN), while the PCM ring cursors and the
+ * DAC/serializer stay untouched — same-format adjacent tracks join
+ * sample-accurately with no click/silence. The AP must have set the new
+ * track's trim/RG in the shared block first (this call does it from `track`).
+ * Only legal while Core B is the decoder (ipc_b_b_decodes()); a format change
+ * must NOT use this (the DAC has to re-lock — take the hard boundary).
+ * Returns 0 on success, < 0 if Core B is not the decoder or did not ACK. */
+int ipc_b_next(const ipc_b_track_t *track);
+
 /* ---- phase 3c: decode on Core B ---- */
 
 /* 1 when Core B is decoding (it is the PCM-ring producer; the AP must not

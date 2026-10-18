@@ -62,6 +62,12 @@ uint16_t playlist_current(const playlist_t *pl);    /* PLAYLIST_IDX_NONE if none
  * On a real advance pl->pos is updated; returns the new position, or -1. */
 int playlist_advance(playlist_t *pl);
 
+/* 1 when playlist_advance() would advance rather than end the list: a real
+ * next track, a repeat-ALL wrap, or a repeat-ONE replay. Pure — does not
+ * mutate `pl`. The player uses it to decide, at end-of-stream, whether to
+ * hand the next track off (gapless) or drain to END_OF_TRACK. */
+int playlist_has_next(const playlist_t *pl);
+
 /* Manual "next" (a key press): always moves forward, ignoring repeat-ONE
  * (which only applies to end-of-stream). Wraps only when repeat == ALL.
  * Returns the new position, or -1 to stop. */

@@ -47,7 +47,13 @@ typedef struct
 
     long            base_ms;          /* playhead at last seek/rewind     */
     long            frames_consumed;  /* cache from last ipc_b poll       */
+    long            frames_at_start;  /* frames_consumed when this track  */
+                                      /* started (gapless: the counter is */
+                                      /* NOT reset, so position is relative)*/
     int             eof;              /* decoder hit end of stream        */
+    int             restart_pending;  /* deferred hard restart (format    */
+                                      /* change on Core B): wait for the  */
+                                      /* ring to drain, then stop/start   */
 
     int             volume_db;
     int             rg_mode;
@@ -375,6 +381,7 @@ static int open_track(const char *path)
 
     g.base_ms = 0;
     g.frames_consumed = 0;
+    g.frames_at_start = 0;
     g.leading_trimmed = (g.gapless.delay_samples == 0) ? 1 : 0;
 
     set_state(PLAYER_STOPPED);
@@ -382,58 +389,97 @@ static int open_track(const char *path)
     return PLAYER_OK;
 }
 
-/* Auto/manual advance to the next queued track.
+/* Build the ipc_b track descriptor for the currently-open track (g.fmt /
+ * g.gapless / g.rg_gain_q16). Shared by player_play() and the gapless
+ * hand-off so both describe a track identically. */
+static void build_ipc_track(ipc_b_track_t *t)
+{
+    t->sample_rate = g.fmt.sample_rate;
+    t->channels = g.fmt.channels;
+    t->bits = g.fmt.bits;
+    t->duration_ms = g.duration_ms;
+    t->path = g.track.path;
+    t->total_samples = g.total_samples;
+    t->gapless_delay = g.gapless.delay_samples;
+    t->gapless_padding = g.gapless.padding_samples;
+    t->rg_gain_q16 = g.rg_gain_q16;
+}
+
+/* Hard boundary for the ALREADY-OPEN codec: stop the B core / drain the ring,
+ * reset the per-track cursors and start the stream fresh (player_play() ->
+ * ipc_b_start(), which re-locks the DAC to g.fmt). Used for a format change
+ * and for a user-driven next(). */
+static int restart_stream(void)
+{
+    ipc_b_stop();
+    ipc_b_flush();
+
+    g.base_ms = 0;
+    g.frames_consumed = 0;
+    g.frames_at_start = 0;
+    g.eof = 0;
+    g.decoded_samples = 0;
+    g.emitted_samples = 0;
+    g.leading_trimmed = (g.gapless.delay_samples == 0) ? 1 : 0;
+    g.restart_pending = 0;
+
+    set_state(PLAYER_STOPPED);   /* player_play() needs a non-PLAYING state */
+    return player_play();
+}
+
+/* Advance to the next track (BRNOMT-73: gapless on Core B).
  *
- * Gapless rule (docs/re/write/audio.md §3): on the AUTO-advance (EOF) path,
- * if the next track's format matches the current one, the B core is NOT
- * restarted — the codec is swapped with the ring kept live and
- * ipc_b_track_change() announces the new length, so adjacent tracks join
- * sample-accurately. On a format change (or a user-driven next()), a hard
- * boundary is taken: ipc_b_stop + ipc_b_start (the DAC re-locks to the new
- * rate). `hard` forces the hard path (used by player_next()). */
+ * The next codec is opened FIRST so the two formats can be compared (the old
+ * codec is closed; every path below plays the new track). Then:
+ *   - format change (or a user-driven next()): hard boundary. When Core B
+ *     holds the decoder the stop/start is DEFERRED to the ring-empty handler
+ *     (restart_pending) so the previous track's tail plays out first — a new
+ *     format cannot continue on the old DAC stream, but it must not truncate.
+ *   - same format, Core B decoding: ipc_b_next() reopens B's codec on the LIVE
+ *     PCM ring (bfs_open + OPEN) — the ring cursors and the DAC are untouched,
+ *     so the boundary is sample-accurate.
+ *   - same format, AP decoding (host mock / B fallback): ipc_b_track_change()
+ *     extends the live stream length (the phase-2 gapless path). */
 static int advance_to(const char *path, int hard)
 {
     codec_format_t prev;
+    int prev_valid = g.track_valid;
+    int same_fmt;
+    int rc;
 
-    /* Phase 3c: when Core B holds the decoder, a "gapless continuation" is not
-     * possible through the shared ring — B's codec must be reopened for the new
-     * file. Force the hard path (open_track + player_play -> ipc_b_start ->
-     * bfs_open + OPEN) so B actually switches tracks instead of staying at EOF
-     * and making the player skip ahead. */
-    if (ipc_b_b_decodes())
-        hard = 1;
-
-    if (g.track_valid)
+    if (prev_valid)
         prev = g.fmt;
-    else
-        prev.sample_rate = prev.channels = 0;
 
-    if (hard || prev.sample_rate == 0 ||
-        prev.sample_rate != g.fmt.sample_rate ||
-        prev.channels != g.fmt.channels) {
-        /* Hard boundary (format change, or a user-driven next()): stop the
-         * old stream and start the new one so the B core relocks to the new
-         * format. open_track + player_play() does the full restart. */
-        int rc = open_track(path);
-        if (rc != PLAYER_OK) {
-            emit(PLAYER_EV_ERROR);
-            return rc;
-        }
-        return player_play();
-    }
-
-    /* Seamless gapless continuation: the B core is already RUNNING. Swap in
-     * the next codec WITHOUT stopping the ring (close_codec_only), then
-     * announce the new length on the live stream — no ipc_b_start. */
-    {
-        int rc = open_codec_only(path);
-        if (rc != PLAYER_OK) {
-            emit(PLAYER_EV_ERROR);
-            return rc;
-        }
+    rc = open_codec_only(path);
+    if (rc != PLAYER_OK) {
+        emit(PLAYER_EV_ERROR);
+        return rc;
     }
     emit(PLAYER_EV_TRACK);
-    ipc_b_track_change(g.duration_ms);
+
+    same_fmt = prev_valid &&
+               prev.sample_rate == g.fmt.sample_rate &&
+               prev.channels    == g.fmt.channels &&
+               prev.bits        == g.fmt.bits;
+
+    if (hard || !same_fmt) {
+        if (ipc_b_b_decodes() && !hard) {
+            g.restart_pending = 1;   /* let the tail drain, then stop/start */
+            return PLAYER_OK;
+        }
+        return restart_stream();
+    }
+
+    if (ipc_b_b_decodes()) {
+        ipc_b_track_t t;
+
+        build_ipc_track(&t);
+        if (ipc_b_next(&t) != 0)
+            return restart_stream();     /* B refused: fall back to hard */
+    } else {
+        ipc_b_track_change(g.duration_ms);
+    }
+    g.frames_at_start = g.frames_consumed;   /* per-track position base */
     set_state(PLAYER_PLAYING);
     return PLAYER_OK;
 }
@@ -452,8 +498,9 @@ static int advance_queue(int hard)
 
 /* Advance to the next playlist track (BRNOMT-90): resolve the record index to
  * a path and open it (gapless when the format matches). Returns < 0 when the
- * list is done — stop + END_OF_TRACK are already emitted. */
-static int advance_playlist(void)
+ * list is done — stop + END_OF_TRACK are already emitted. `hard` forces a hard
+ * boundary (a user-driven next()). */
+static int advance_playlist(int hard)
 {
     char path[PLAYER_PATH_MAX];
     uint16_t ridx;
@@ -470,7 +517,7 @@ static int advance_playlist(void)
         emit(PLAYER_EV_ERROR);
         return PLAYER_ERR;
     }
-    return advance_to(path, 0);
+    return advance_to(path, hard);
 }
 
 /* ---- public API ---- */
@@ -520,20 +567,13 @@ int player_play(void)
     } else {
         /* STOPPED: bring the B core up for this track ("B start ... at
          * 400 MHz", then the mock/target negotiates its steady clock). */
-        t.sample_rate = g.fmt.sample_rate;
-        t.channels = g.fmt.channels;
-        t.bits = g.fmt.bits;
-        t.duration_ms = g.duration_ms;
-        t.path = g.track.path;
-        t.total_samples = g.total_samples;
-        t.gapless_delay = g.gapless.delay_samples;
-        t.gapless_padding = g.gapless.padding_samples;
-        t.rg_gain_q16 = g.rg_gain_q16;
+        build_ipc_track(&t);
         if (ipc_b_start(&t) < 0) {
             do_error();
             return PLAYER_ERR;
         }
         g.frames_consumed = 0;   /* per-stream counter, post-start */
+        g.frames_at_start = 0;
     }
 
     set_state(PLAYER_PLAYING);
@@ -563,6 +603,7 @@ int player_stop(void)
         g.codec->seek(codec_state(), 0);
     g.base_ms = 0;
     g.frames_consumed = 0;
+    g.frames_at_start = 0;
     g.eof = 0;
     g.decoded_samples = 0;
     g.emitted_samples = 0;
@@ -594,6 +635,7 @@ int player_seek(long ms)
 
     g.base_ms = ms;
     g.frames_consumed = 0;
+    g.frames_at_start = 0;
     g.eof = 0;
     /* Gapless: a seek repositions the audible stream, so the trim cursors
      * must reset — the leading delay is re-applied from the new position and
@@ -615,7 +657,7 @@ int player_seek(long ms)
 int player_next(void)
 {
     if (playlist_count(&g.list) > 0)
-        return advance_playlist();          /* BRNOMT-90: next in the list */
+        return advance_playlist(1);         /* BRNOMT-90: next in the list */
     return advance_queue(1);   /* user "next": hard boundary w/ B-core restart */
 }
 
@@ -685,11 +727,19 @@ long player_get_position_ms(void)
         return 0;
 
     pos = g.base_ms;
-    if (g.fmt.sample_rate > 0)
+    if (g.fmt.sample_rate > 0) {
+        /* Count from this track's start: on a gapless Core-B boundary the
+         * sink's frames counter is NOT reset (the stream is continuous), so
+         * frames_at_start carries the baseline for the new track. */
+        int64_t frames = (int64_t)g.frames_consumed - (int64_t)g.frames_at_start;
+
+        if (frames < 0)
+            frames = 0;
         /* int64 math: frames*1000 wraps a 32-bit `long` after ~49 s at
          * 44.1 kHz, which pushed the playhead negative -> the Now Playing
          * bar slammed to full and the elapsed time went huge (BRNOMT-66). */
-        pos += (long)(((int64_t)g.frames_consumed * 1000) / g.fmt.sample_rate);
+        pos += (long)((frames * 1000) / g.fmt.sample_rate);
+    }
     return pos;
 }
 
@@ -793,15 +843,34 @@ int player_process(void)
     }
 
     if (ipc_b_b_decodes()) {
-        /* Phase 3c: Core B decodes. Keep serving its file reads and end the
-         * track when B's decoder drains (the ring then empties behind it). */
+        /* Phase 3c: Core B decodes. Keep serving its file reads. When B's
+         * decoder drains, hand the next track off WHILE THE RING STILL HOLDS
+         * THE TAIL (~85 ms) so the boundary is sample-accurate — do NOT wait
+         * for the ring to empty (that was the 2-3 s hard boundary). A format
+         * change defers its hard restart to the ring-empty handler
+         * (restart_pending) so the previous tail is not truncated. */
         bfs_poll();
         if (st.b_error) {
             do_error();
             return PLAYER_ERR;
         }
-        if (st.b_eof)
+        if (st.b_eof && !g.eof) {
             g.eof = 1;
+            if (playlist_count(&g.list) > 0) {
+                if (playlist_has_next(&g.list)) {
+                    int rc = advance_playlist(0);
+                    if (rc != PLAYER_OK)
+                        return rc;      /* events already emitted */
+                    return PLAYER_OK;  /* gapless (or deferred) hand-off */
+                }
+            } else if (g.q_count > 0) {
+                int rc = advance_queue(0);
+                if (rc != PLAYER_OK)
+                    return rc;
+                return PLAYER_OK;
+            }
+            /* No next track: let the ring drain -> END_OF_TRACK below. */
+        }
     } else {
     frame_b = g.fmt.channels * 4;   /* int32 left-justified per sample */
     for (i = 0; i < PLAYER_PUMP_ROUNDS; i++) {
@@ -884,10 +953,13 @@ int player_process(void)
 
     } /* else: AP decodes (phase-2 fallback) */
 
-    /* End of track: decoder drained AND the sink consumed everything. */
-    if (g.eof && st.ring_wr == st.ring_rd) {
+    /* Final boundary: the decoder drained AND the sink consumed everything
+     * (AP-decode path), or a deferred Core-B hard restart is due. */
+    if ((g.eof || g.restart_pending) && st.ring_wr == st.ring_rd) {
+        if (g.restart_pending)
+            return restart_stream();     /* format change: drain done */
         if (playlist_count(&g.list) > 0) {
-            int rc = advance_playlist();  /* BRNOMT-90: next in the list */
+            int rc = advance_playlist(0);
             if (rc != PLAYER_OK)
                 return rc;           /* events already emitted */
         } else if (g.q_count > 0) {

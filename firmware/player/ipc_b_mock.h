@@ -24,6 +24,15 @@ void ipc_b_mock_set_sink(ipc_b_mock_sink_fn fn, void *user);
 /* Force the supervisor into IPC_B_FAULT ("B is gone") on the next poll. */
 void ipc_b_mock_set_fault(int on);
 
+/* Phase 3c knobs: pretend Core B is the PCM producer (the player then skips
+ * its own decode and takes the B-side gapless hand-off path). `b_eof` is the
+ * scripted "B's decoder drained" signal the player reacts to. */
+void ipc_b_mock_set_b_decodes(int on);
+void ipc_b_mock_set_b_eof(int on);
+
+/* Host-only: number of ipc_b_next() calls (gapless Core-B track changes). */
+int  ipc_b_next_count(void);
+
 /* Host-only: number of times ipc_b_start() was called (B-core restarts).
  * Tests use this to assert a gapless transition does NOT restart the core. */
 int ipc_b_start_count(void);

@@ -41,9 +41,12 @@ plays audio on hardware:
 - **Memory** (vendor `B_Core.sct` + TRM): B code in HIGHRAM0
   `0x01000000..0x01020000`; PCM ring `0x01030000`; A→B file ring `0x01021000`;
   B data/pool/stack `0x01040000..0x01060000`.
-- **Open**: gapless on B (BRNOMT-73), 192 kHz / FLAC block 16384 (~143 KB
-  window), 384 kHz, DSP in the playback path, and the ~2–3 s per-track
-  boundary.
+- **Gapless on B (BRNOMT-73)**: implemented + host-tested — at B's decoder EOF
+  the AP hands the next same-format track to B on the live ring
+  (`ipc_b_next` → `IPC_C_NEXT`, no DAC/ring restart); the B command channel is
+  sequence-numbered. **Hardware verdict pending.**
+- **Open**: 192 kHz / FLAC block 16384 (~143 KB window), 384 kHz, and DSP in the
+  playback path.
 - **History**: everything below is dated notes from the reverse-engineering and
   bring-up phases; kept for provenance (some statements are superseded).
 

@@ -3407,3 +3407,43 @@ at end of track.
   stayed from the previously selected track (reported: "Look at the Sky" showing
   **1:34**, the previous track's length, while the audio kept playing past it).
   It now watches `track_info.track_no` and re-sets title/duration on a change.
+
+## AQ. Session 2026-10-18 — BRNOMT-73: gapless with Core B decoding (host-tested, HW pending)
+
+Fixes the phase-3c regression where every track change took a hard boundary
+(~2–3 s + micro-silence) because B owns the decoder. Issue comment:
+"añadir a B un comando de cambio de pista que reabra el codec (bfs_open + OPEN)
+sin parar el ring/serializer".
+
+- **Gapless track change on the live ring.** New `ipc_b_next(track)` (A side) +
+  `IPC_C_NEXT` (B side, handled exactly like `IPC_C_OPEN`). At B's decoder EOF
+  the AP opens the next file (`bfs_open`) and asks B to reopen its codec; the PCM
+  ring cursors, the frames counter and the DAC/serializer are deliberately
+  untouched, so same-format adjacent tracks join sample-accurately. B's OPEN
+  handler never reset the PCM ring (that lives in `ipc_b_start`), so no B change
+  was needed for the reopen itself.
+- **Hand-off at EOF, not at ring-empty.** `player_process()` now reacts to
+  `st.b_eof` (while the 64 KiB ring still holds ~85 ms of the previous tail)
+  instead of waiting for `ring_wr == ring_rd`. That wait was the audible gap.
+- **Format change stays hard, but does not truncate.** `advance_to()` opens the
+  next codec first to compare formats (the old code compared `g.fmt` to itself,
+  so it never actually checked). On a format change with Core B decoding the
+  stop/start is deferred (`restart_pending`) until the ring drains.
+- **Command protocol is now sequence-numbered** (`IPC_C_SEQ`/`IPC_C_ACK`, B
+  echoes the seq). The old `cmd == ack` test silently dropped a repeated command
+  — two gapless `NEXT`s in a row, or (pre-existing bug) two `SEEK`s to the same
+  ms. `IPC_SH_COUNT` 28 → 29.
+- **Position per track.** On a gapless Core-B boundary the sink's frames counter
+  is not reset, so `player_get_position_ms()` counts from `frames_at_start`
+  (set at the hand-off); otherwise the new track's elapsed time inherited the
+  previous track's.
+- **Tests.** `test_player_gapless`: Core-B hand-off (asserts `ipc_b_next` is
+  called and `ipc_b_start` is NOT) + the deferred format-change restart.
+  `test_playlist`: `playlist_has_next`. `ipc_b_mock` gained
+  `set_b_decodes`/`set_b_eof`/`next_count` knobs and now fills `b_eof`/`b_error`
+  (it never did; harmless until the player started reading them).
+- **Build.** All player host tests green; AP5M CRC `0x37569138`, `_bss_end`
+  `0x0304295c`, packer `RESULT: PASS`. **Not flashed** — hardware verdict
+  (docs/rewrite/architecture.md §5) is the next step; measure the reopen cost
+  (bfs_open + B reading headers) against the ~85 ms ring margin to decide whether
+  the next track needs pre-loading.

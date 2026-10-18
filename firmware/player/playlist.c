@@ -132,6 +132,17 @@ int playlist_advance(playlist_t *pl)
     return -1;                          /* end of list, repeat off */
 }
 
+int playlist_has_next(const playlist_t *pl)
+{
+    if (pl == 0 || pl->n <= 0)
+        return 0;
+    if (pl->repeat == PLAYLIST_REPEAT_ONE)
+        return 1;                       /* replays the current track */
+    if (pl->pos + 1 < pl->n)
+        return 1;
+    return pl->repeat == PLAYLIST_REPEAT_ALL;
+}
+
 int playlist_next_manual(playlist_t *pl)
 {
     if (pl == 0 || pl->n <= 0)

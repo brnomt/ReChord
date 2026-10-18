@@ -59,9 +59,13 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_F_SEEK_ACK 17u   /* A: copies SEQ once the seek is applied    */
 
 /* ---- command channel (phase 3c): AP -> B decode control ---- */
+/* Sequencing: the AP increments IPC_C_SEQ on every command and B copies it
+ * into IPC_C_ACK once done. Comparing SEQUENCE numbers (not the command word)
+ * lets B see a repeated command — two SEEKs to the same ms, two gapless NEXTs
+ * — which an "cmd == ack" test would silently drop. */
 #define IPC_C_CMD      18u   /* AP writes IPC_C_* command                 */
 #define IPC_C_ARG      19u   /* AP: command argument (ext code / seek ms) */
-#define IPC_C_ACK      20u   /* B: last completed command                 */
+#define IPC_C_ACK      20u   /* B: sequence number of the last done cmd   */
 #define IPC_C_BSTATE   21u   /* B: 0 idle, 1 open, 2 eof, 3 error         */
 #define IPC_C_BEOF     22u   /* B: 1 = decoder drained                    */
 #define IPC_C_BERR     23u   /* B: negative codec error                   */
@@ -69,8 +73,9 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_C_GAP_DELAY 25u  /* AP: leading trim samples (encoder delay)  */
 #define IPC_C_GAP_PAD  26u   /* AP: trailing trim samples (encoder pad)   */
 #define IPC_C_GAP_TOTAL 27u  /* AP: exact total samples (0 = unknown)     */
+#define IPC_C_SEQ      28u   /* AP: command sequence (increments per cmd) */
 
-#define IPC_SH_COUNT   28u
+#define IPC_SH_COUNT   29u
 
 #define IPC_SH_MAGIC_VAL  0x42524459u   /* 'BRDY' */
 
@@ -83,6 +88,8 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_C_OPEN        1u   /* ARG = codec id (0 wav, 1 mp3, 2 flac)   */
 #define IPC_C_SEEK        2u   /* ARG = milliseconds                      */
 #define IPC_C_CLOSE       3u
+#define IPC_C_NEXT        4u   /* gapless track change (BRNOMT-73): same  */
+                               /* ARG/GAP/RG as OPEN, but on the LIVE ring */
 
 /* B states (IPC_C_BSTATE). */
 #define IPC_BS_IDLE       0u

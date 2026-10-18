@@ -126,6 +126,22 @@ firmware/player/
    WAV (hard boundary). Host test: `test_player_gapless` (trim + seamless
    boundary, asserts the B core is not restarted).
 
+   **Phase 3c update (BRNOMT-73): gapless with Core B decoding.** With B owning
+   the decoder the AP-side swap above no longer applies. At B's end-of-stream
+   the player now takes `advance_to()`: it opens the next codec first (so the two
+   formats can be compared), and on a same-format boundary calls
+   `ipc_b_next()` → `IPC_C_NEXT`. B reopens its codec on the same file ring
+   (`bfs_open` + OPEN-style) **without** touching the PCM ring cursors or the
+   DAC/serializer, so the boundary is sample-accurate. The hand-off fires at B's
+   decoder EOF — while the 64 KiB PCM ring still holds ~85 ms of the previous
+   tail — instead of at ring-empty (which was the ~2–3 s hard boundary). A format
+   change is a hard boundary; when B decodes it is deferred (`restart_pending`)
+   until the ring drains so the tail is not truncated. The command channel is now
+   **sequence-numbered** (`IPC_C_SEQ`/`IPC_C_ACK`): the old `cmd == ack` test
+   dropped any repeated command (two `NEXT`s, or two `SEEK`s to the same ms).
+   Host test: `test_player_gapless` gains the Core-B hand-off (no restart) and
+   the deferred format-change restart.
+
 4. **ReplayGain parse.** DONE — `tags.c`/`tags.h` expose
    `tags_replaygain_id3v2(io, &rg)` (ID3v2 v2.3/v2.4 `TXXX` keys) and
    `tags_replaygain_vorbis(io, offset, length, &rg)` (Vorbis comments), both

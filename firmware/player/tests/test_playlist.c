@@ -97,11 +97,37 @@ static void test_empty(void)
     CHECK(playlist_advance(&pl) == -1, "advance on empty stops");
 }
 
+static void test_has_next(void)
+{
+    playlist_t pl;
+    const uint16_t idx[3] = { 1, 2, 3 };
+
+    memset(&pl, 0, sizeof pl);
+    playlist_set_repeat(&pl, PLAYLIST_REPEAT_OFF);
+    playlist_load(&pl, idx, 3, 0);
+    CHECK(playlist_has_next(&pl) == 1, "has_next: mid-list");
+    playlist_advance(&pl);
+    CHECK(playlist_has_next(&pl) == 1, "has_next: second track");
+    playlist_advance(&pl);               /* now on the last track */
+    CHECK(playlist_current(&pl) == 3, "has_next: on the last track");
+    CHECK(playlist_has_next(&pl) == 0, "has_next: last, repeat off");
+
+    playlist_set_repeat(&pl, PLAYLIST_REPEAT_ALL);
+    CHECK(playlist_has_next(&pl) == 1, "has_next: repeat all wraps");
+
+    playlist_set_repeat(&pl, PLAYLIST_REPEAT_ONE);
+    CHECK(playlist_has_next(&pl) == 1, "has_next: repeat one replays");
+
+    playlist_reset(&pl);
+    CHECK(playlist_has_next(&pl) == 0, "has_next: empty list");
+}
+
 int main(void)
 {
     test_order_and_advance();
     test_shuffle();
     test_empty();
+    test_has_next();
 
     if (fails != 0) {
         printf("test_playlist: %d FAILURES\n", fails);

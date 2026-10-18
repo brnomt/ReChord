@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static int      g_count;
 static int32_t *g_sink;
@@ -160,11 +161,96 @@ out:
     g_sink = 0;
 }
 
+/* Core B gapless (BRNOMT-73): at B's decoder EOF the player hands the next
+ * track to B on the LIVE ring (ipc_b_next), NOT a core restart, and does not
+ * wait for the ring to empty. */
+static void test_gapless_core_b(void)
+{
+    mock_codec_cfg_t cfg = {0};
+    track_info_t ti;
+    int start0;
+
+    cfg.total_frames = 44100;
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.gapless_delay = 0;
+    cfg.gapless_padding = 0;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+
+    ipc_b_init();
+    player_init();
+    player_register_codec("mock", mock_codec_get());
+    ipc_b_mock_set_b_decodes(1);       /* pretend Core B is the decoder */
+    ipc_b_mock_set_b_eof(0);
+
+    CHECK_EQI(player_open("a.mock"), PLAYER_OK, "core-b: open A");
+    player_enqueue("b.mock");
+    CHECK_EQI(player_play(), PLAYER_OK, "core-b: play A");
+    start0 = ipc_b_start_count();
+
+    ipc_b_mock_set_b_eof(1);           /* "B's decoder drained" */
+    CHECK_EQI(player_process(), PLAYER_OK, "core-b: process at B EOF");
+    CHECK_EQI(ipc_b_next_count(), 1, "core-b: ipc_b_next called once");
+    CHECK_EQI(ipc_b_start_count(), start0, "core-b: no B-core restart");
+    CHECK_EQI(player_get_state(), PLAYER_PLAYING, "core-b: still playing");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "core-b: track query");
+    CHECK(strcmp(ti.path, "b.mock") == 0, "core-b: advanced to B");
+
+    ipc_b_mock_set_b_decodes(0);
+    ipc_b_mock_set_b_eof(0);
+    player_stop();
+}
+
+/* Core B format change: the boundary must be hard, but the stop/start is
+ * DEFERRED until the ring drains so the previous track's tail is not cut. */
+static void test_gapless_core_b_format_change(void)
+{
+    mock_codec_cfg_t cfg = {0};
+    int start0;
+
+    cfg.total_frames = 44100;
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+
+    ipc_b_init();
+    player_init();
+    player_register_codec("mock", mock_codec_get());
+    ipc_b_mock_set_b_decodes(1);
+    ipc_b_mock_set_b_eof(0);
+
+    CHECK_EQI(player_open("a.mock"), PLAYER_OK, "core-b fmt: open A");
+    player_enqueue("b.mock");
+    player_play();
+    start0 = ipc_b_start_count();
+
+    /* The next track has a different rate. */
+    cfg.sample_rate = 48000;
+    mock_codec_configure(&cfg);
+
+    ipc_b_mock_set_b_eof(1);
+    CHECK_EQI(player_process(), PLAYER_OK, "core-b fmt: EOF hand-off");
+    CHECK_EQI(ipc_b_start_count(), start0, "core-b fmt: restart deferred");
+    CHECK_EQI(player_get_state(), PLAYER_PLAYING, "core-b fmt: still playing");
+
+    /* Ring is empty (B idle) -> the deferred restart now runs. */
+    CHECK_EQI(player_process(), PLAYER_OK, "core-b fmt: deferred restart");
+    CHECK_EQI(ipc_b_start_count(), start0 + 1, "core-b fmt: B restarted");
+
+    ipc_b_mock_set_b_decodes(0);
+    ipc_b_mock_set_b_eof(0);
+    player_stop();
+}
+
 int main(void)
 {
     TEST("player gapless");
     test_gapless_trim();
     test_gapless_continuity();
+    test_gapless_core_b();
+    test_gapless_core_b_format_change();
     if (failures == 0) {
         printf("test_player_gapless: OK\n");
         return 0;

@@ -37,13 +37,34 @@ static long g_tick = 0;
 static long g_total_frames = 0;
 static int  g_start_count = 0;   /* ipc_b_start calls (host test hook)     */
 
-static int g_frames_per_tick = 256;
+static int  g_frames_per_tick = 256;
 static ipc_b_mock_sink_fn g_sink_fn = 0;
 static void *g_sink_user = 0;
+
+/* Phase 3c test knobs: pretend Core B is the decoder so the player takes the
+ * B-side gapless path; `b_eof` is the scripted "B's decoder drained" signal. */
+static int g_b_decodes = 0;
+static int g_b_eof = 0;
+static int g_next_count = 0;
 
 void ipc_b_mock_set_frames_per_tick(int frames)
 {
     g_frames_per_tick = (frames > 0) ? frames : 0;
+}
+
+void ipc_b_mock_set_b_decodes(int on)
+{
+    g_b_decodes = on ? 1 : 0;
+}
+
+void ipc_b_mock_set_b_eof(int on)
+{
+    g_b_eof = on ? 1 : 0;
+}
+
+int ipc_b_next_count(void)
+{
+    return g_next_count;
 }
 
 void ipc_b_mock_set_sink(ipc_b_mock_sink_fn fn, void *user)
@@ -72,6 +93,9 @@ int ipc_b_init(void)
     g_tick = 0;
     g_total_frames = 0;
     g_start_count = 0;
+    g_b_decodes = 0;
+    g_b_eof = 0;
+    g_next_count = 0;
     return 0;
 }
 
@@ -156,7 +180,7 @@ int ipc_b_poll_state(ipc_b_status_t *out)
             /* Documented negotiation: "B /1 -> /4 (100 MHz)". */
             if (g_tick >= MOCK_TICKS_TO_NEGOTIATE)
                 g_clock_div = 4;
-            if (!g_paused)
+            if (!g_paused && !g_b_decodes)   /* b_decodes: B produces, not AP */
                 mock_consume();
             if (g_total_frames > 0 && rb_used(&g_ring) == 0 &&
                 g_frames_consumed >= g_total_frames)
@@ -174,6 +198,8 @@ int ipc_b_poll_state(ipc_b_status_t *out)
         out->busy_pct = (int)((rb_used(&g_ring) * 100) /
                               (rb_capacity(&g_ring) + 1));
         out->volume_db = g_volume_db;
+        out->b_eof = g_b_decodes ? g_b_eof : 0;
+        out->b_error = 0;
     }
     return (int)g_state;
 }
@@ -220,15 +246,31 @@ int ipc_b_track_change(long duration_ms)
     return 0;
 }
 
-/* Phase 3c: the host mock always plays the AP-decode model (the mock codec
- * produces), so Core B is never the producer here. */
+/* Phase 3c: the host mock normally plays the AP-decode model (the mock codec
+ * produces). The host tests can flip `b_decodes` on to exercise the player's
+ * Core-B gapless path without a decoder. */
 int ipc_b_b_decodes(void)
 {
-    return 0;
+    return g_b_decodes;
 }
 
 int ipc_b_b_eof(void)
 {
+    return g_b_decodes ? g_b_eof : 0;
+}
+
+/* Gapless track change on the mock: keep the ring and the consumed counter
+ * intact (PCM flows continuously), and clear the scripted EOF (B reopened). */
+int ipc_b_next(const ipc_b_track_t *track)
+{
+    (void)track;
+    if (!g_b_decodes)
+        return -1;
+    g_next_count++;
+    g_b_eof = 0;
+    if (g_state == IPC_B_DRAINED || g_state == IPC_B_OFF ||
+        g_state == IPC_B_STARTING)
+        g_state = IPC_B_RUNNING;
     return 0;
 }
 

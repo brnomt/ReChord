@@ -106,9 +106,26 @@ static uint32_t codec_id_for(const char *path)
     return 0;
 }
 
-/* Ask Core B to open the track. A must have opened the file for it first. */
-static int b_handoff(const char *path)
+/* Publish an AP->B command and return its sequence number. B acts when
+ * IPC_C_SEQ != IPC_C_ACK, so a repeated command is not dropped. */
+static uint32_t cmd_start(uint32_t cmd)
 {
+    uint32_t seq;
+
+    CTRL[IPC_C_CMD] = cmd;
+    dmb();
+    seq = CTRL[IPC_C_SEQ] + 1u;
+    CTRL[IPC_C_SEQ] = seq;
+    dmb();
+    return seq;
+}
+
+/* Ask Core B to open the track with command `cmd` (IPC_C_OPEN for a fresh
+ * start, IPC_C_NEXT for a gapless change on the live ring). A must have
+ * opened the file for it first (bfs_open). */
+static int b_open_cmd(const char *path, uint32_t cmd)
+{
+    uint32_t seq;
     int i;
 
     if (path == 0)
@@ -118,20 +135,25 @@ static int b_handoff(const char *path)
 
     CTRL[IPC_C_ARG] = codec_id_for(path);
     dmb();
-    CTRL[IPC_C_CMD] = IPC_C_OPEN;
-    dmb();
+    seq = cmd_start(cmd);
 
     for (i = 0; i < 200; i++) {         /* ~200 ms, B opens + reads headers */
         bfs_poll();
-        if (CTRL[IPC_C_ACK] == IPC_C_OPEN)
+        if (CTRL[IPC_C_ACK] == seq)
             break;
         dac_delay_ms(1);
     }
-    if (CTRL[IPC_C_ACK] != IPC_C_OPEN || CTRL[IPC_C_BSTATE] != IPC_BS_OPEN) {
+    if (CTRL[IPC_C_ACK] != seq || CTRL[IPC_C_BSTATE] != IPC_BS_OPEN) {
         bfs_close();
         return -1;
     }
     return 0;
+}
+
+/* Ask Core B to open the track. A must have opened the file for it first. */
+static int b_handoff(const char *path)
+{
+    return b_open_cmd(path, IPC_C_OPEN);
 }
 
 int ipc_b_init(void)
@@ -202,8 +224,7 @@ int ipc_b_start(const ipc_b_track_t *track)
 int ipc_b_stop(void)
 {
     if (s_b_decodes) {
-        CTRL[IPC_C_CMD] = IPC_C_CLOSE;
-        dmb();
+        (void)cmd_start(IPC_C_CLOSE);   /* fire-and-forget */
         s_b_decodes = 0;
     }
     rknano_i2s_detach();
@@ -320,6 +341,27 @@ int ipc_b_track_change(long duration_ms)
     return 0;
 }
 
+int ipc_b_next(const ipc_b_track_t *track)
+{
+    if (track == NULL || !s_b_decodes)
+        return -1;
+
+    /* Gapless (BRNOMT-73): publish the new track's PCM post-processing (B reads
+     * these in its OPEN handler through trim_reset), then have B reopen its
+     * codec over the same file ring. Deliberately NO ipc_b_stop/flush and NO
+     * audio_output_configure: the PCM ring cursors, the frames counter and the
+     * DAC/serializer must all stay live across the boundary. B's IPC_C_OPEN
+     * handler already preserves the ring (the ring reset lives in
+     * ipc_b_start, not in B), so the boundary is sample-accurate. */
+    sh_set(IPC_C_RG, (uint32_t)track->rg_gain_q16);
+    sh_set(IPC_C_GAP_DELAY, (uint32_t)track->gapless_delay);
+    sh_set(IPC_C_GAP_PAD, (uint32_t)track->gapless_padding);
+    sh_set(IPC_C_GAP_TOTAL, (uint32_t)track->total_samples);
+    if (b_open_cmd(track->path, IPC_C_NEXT) != 0)
+        return -1;              /* B did not ACK: caller falls back to hard */
+    return 0;
+}
+
 int ipc_b_b_decodes(void)
 {
     return s_b_decodes;
@@ -339,6 +381,7 @@ int ipc_b_set_replaygain(int gain_q16)
 
 int ipc_b_seek(long ms)
 {
+    uint32_t seq;
     int i;
 
     if (!s_b_decodes)
@@ -350,11 +393,10 @@ int ipc_b_seek(long ms)
 
     CTRL[IPC_C_ARG] = (uint32_t)ms;
     dmb();
-    CTRL[IPC_C_CMD] = IPC_C_SEEK;
-    dmb();
+    seq = cmd_start(IPC_C_SEEK);
     for (i = 0; i < 500; i++) {          /* ~500 ms: file service repositions */
         bfs_poll();
-        if (CTRL[IPC_C_ACK] == IPC_C_SEEK)
+        if (CTRL[IPC_C_ACK] == seq)
             break;
         dac_delay_ms(1);
     }

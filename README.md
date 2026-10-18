@@ -78,8 +78,8 @@ Details: [`docs/rewrite/core-b-phase3.md`](docs/rewrite/core-b-phase3.md) ·
 | Core B bring-up + audio (B decodes, AP feeds) | ✅ |
 | Hi-res 24-bit @ 44.1/48/88.2/96 kHz | ✅ |
 | Library index + category navigation | ✅ |
-| Playback lists, `i/N`, shuffle, repeat | 🟡 hard boundary per track (~2–3 s) |
-| Gapless between tracks | ⬜ BRNOMT-73 |
+| Playback lists, `i/N`, shuffle, repeat | ✅ |
+| Gapless between tracks (Core B, BRNOMT-73) | 🟡 implemented + host-tested, HW verdict pending |
 | 192 kHz (FLAC block 16384) | ⬜ needs a ~143 KB decode window |
 | 384 kHz | ⬜ not in the rate table / untested |
 | DSP effects in the playback path | 🟡 core written + host-tested |
@@ -143,7 +143,9 @@ stock/                        # official firmware backups (not distributed)
 - [x] **Hi-res path**: int32 end-to-end, source depth to the DAC
 - [x] **Library**: recursive index + category navigation + All Songs
 - [x] **Playback lists**: queue, `i/N`, shuffle, repeat
-- [ ] **Gapless on Core B** — switch tracks without stopping the ring
+- [ ] **Gapless on Core B** — implemented + host-tested (BRNOMT-73); the AP hands
+      the next track to B on the live ring (`ipc_b_next` + `IPC_C_NEXT`) instead
+      of restarting the stream. Awaiting the on-device verdict.
 - [ ] **192 kHz** (bigger decode window) and **384 kHz**
 - [ ] **DSP effects** in the playback path
 

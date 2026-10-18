@@ -93,8 +93,22 @@ End-of-stream auto-advances within the list, `player_next()` follows it, and
 app installs a `media_db_get`-backed resolver; host tests install stubs).
 Rockbox-style shuffle (reorder; current track kept first) and repeat
 off/all/one live in `playlist.c`; `track_info_t.playlist_pos/count` feed the
-UI's "i/N". With the decoder on Core B, every advance takes the hard boundary
-(B's codec must be reopened) — gapless on B is BRNOMT-73.
+UI's "i/N".
+
+**Gapless on Core B (BRNOMT-73).** With the decoder on Core B, the phase-2
+"swap the AP codec on the live ring" trick does not apply — B owns the decoder.
+Instead, at B's end-of-stream the AP opens the next file (`bfs_open`) and sends
+B a **gapless track change** (`ipc_b_next` → `IPC_C_NEXT`): B reopens its codec
+on the same file ring while the PCM ring cursors and the DAC/serializer stay
+live, so same-format adjacent tracks join sample-accurately. The hand-off fires
+at B's decoder EOF, while the 64 KiB PCM ring still holds the previous tail
+(~85 ms), not at ring-empty. A format change is a hard boundary; when Core B
+holds the decoder that stop/start is deferred (`restart_pending`) until the ring
+drains so the previous tail is not truncated. The command channel is
+**sequence-numbered** (`IPC_C_SEQ`/`IPC_C_ACK`): the old "cmd == ack" test
+silently dropped a repeated command — two gapless `NEXT`s in a row, or two
+`SEEK`s to the same ms. `advance_to()` opens the next codec first so the two
+formats can be compared before committing to gapless vs hard.
 
 ## 2. Codec interface (`codec.h`)
 
