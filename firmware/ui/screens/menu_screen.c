@@ -77,20 +77,29 @@ int menu_page_size(void)
 void menu_draw_item(int y, const char *label, const char *value, bool selected)
 {
     int vy = y + THEME_TEXT_YOFF;
+    uint16_t row_bg = THEME_COLOR_BG;
+    uint16_t label_fg = THEME_COLOR_DIM;
+    uint16_t value_fg = THEME_COLOR_FG;
 
-    display_fill_rect(0, y, DISPLAY_W - 1, y + THEME_ITEM_H - 1,
-                      selected ? THEME_COLOR_SELECT_BG : THEME_COLOR_BG);
+    if (selected) {
+        /* True INVERSION (solid bar, glyphs punched out of it), the one focus
+         * treatment every list shares (BRNOMT-72). A tinted highlight cannot
+         * express this with the monochrome palette. */
+        display_fill_rect(0, y, DISPLAY_W - 1, y + THEME_ITEM_H - 1,
+                          THEME_COLOR_FG);
+        row_bg = THEME_COLOR_FG;
+        label_fg = THEME_COLOR_BG;
+        value_fg = THEME_COLOR_BG;
+    }
+
     display_draw_text(THEME_PAD, vy,
                       label ? label : "",
-                      selected ? THEME_COLOR_FG : THEME_COLOR_DIM,
-                      selected ? THEME_COLOR_SELECT_BG : THEME_COLOR_BG);
+                      label_fg, row_bg);
     if (value && value[0] != '\0') {
         int x = DISPLAY_W - THEME_PAD - THEME_TEXT_W((int)strlen(value));
         if (x < THEME_PAD)
             x = THEME_PAD;
-        display_draw_text(x, vy, value,
-                          selected ? THEME_COLOR_ACCENT : THEME_COLOR_FG,
-                          selected ? THEME_COLOR_SELECT_BG : THEME_COLOR_BG);
+        display_draw_text(x, vy, value, value_fg, row_bg);
     }
 }
 
@@ -107,6 +116,9 @@ void menu_draw(const menu_model_t *model, const menu_view_t *view)
     display_draw_text(THEME_PAD, THEME_TITLE_TEXT_Y + THEME_TEXT_YOFF,
                       model->title ? model->title : "",
                       THEME_COLOR_ACCENT, THEME_COLOR_TITLE_BG);
+    /* One-pixel rule under the title: grouping without a colored band. */
+    display_fill_rect(0, THEME_TITLE_H - 1, DISPLAY_W - 1, THEME_TITLE_H - 1,
+                      THEME_COLOR_FG);
 
     /* visible rows */
     for (row = 0; row < page; row++) {

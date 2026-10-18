@@ -11,6 +11,10 @@
  * approximate 8-bit RGB triple it decodes to ((r>>3)<<11 | (g>>2)<<5 | b>>3).
  *
  * Palette design notes:
+ *   Mono    — the ReChord house look (BRNOMT-72): pure black/white with ONE
+ *             grey step for secondary text. `surface` is black too, so the
+ *             title band and bar troughs add no color; the selection is a
+ *             real INVERSION drawn by menu_draw_item(), not a palette tint.
  *   Classic — dark slate UI, the reference look; full-contrast text.
  *   Paper   — warm light/sepia, for bright environments and eye comfort
  *             (no pure white/pure black pair: reduces halation).
@@ -22,6 +26,19 @@
 
 static const theme_t builtin_themes[] =
 {
+    {   /* Mono — black/white, one grey step (default) */
+        "Mono",
+        0x0000,   /* background  RGB(  0,  0,  0) */
+        0x0000,   /* surface     RGB(  0,  0,  0) no band */
+        0xFFFF,   /* text        RGB(255,255,255) */
+        0x8410,   /* text_dim    RGB(128,128,128) */
+        0xFFFF,   /* accent      RGB(255,255,255) */
+        0xC618,   /* danger      RGB(198,198,198) still prominent */
+        0xFFFF,   /* success     RGB(255,255,255) "Playing" */
+        8,        /* spacing px                  */
+        0,        /* radius px                   */
+        0         /* font id (driver default)    */
+    },
     {   /* Classic — dark */
         "Classic",
         0x1083,   /* background  RGB( 18, 18, 24) */
