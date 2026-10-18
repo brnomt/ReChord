@@ -4154,3 +4154,24 @@ AP5M CRC `0x44BAB1D6`, packer `RESULT: PASS`. Not flashed.
 
 `.bss_end 0x030460A8` (gate 0x0304A000 → ~15.8 KiB free).
 AP5M CRC `0x7F01A011`, packer `RESULT: PASS`. Not flashed.
+
+## BO. Session 2026-10-18 — field feedback: Theme row + resume diagnostics
+
+Field test of `0x7F01A011`: 9 of 11 items fine (mono look, root menu, Now
+Playing, System, lists, theme package, GP same-format, USB power).
+
+- **Theme row not found**: it was the LAST of 15 Settings rows and only 12 fit
+  on screen. Moved to the **FIRST** row (it is a live picker, not a cfg key);
+  `test_settings_keys` updated (screen_off is now menu index 3).
+- **Resume "nothing playing"**: the schema default is `folder`, which by design
+  restores only the browser — `track` must be selected in Settings. Added field
+  diagnostics: boot logs `resume: mode N track '<path>' pos <ms> row <n>`
+  (an empty track means nothing was ever saved), `resume: open failed '<path>'`
+  when the restore cannot open it, and a once-per-run `resume: save failed`.
+- **Warm device** (not in stock): our AP busy-polls its loop and never parks the
+  core; `cpu_mode` exists but nothing acts on it. This is a real power/CPU task
+  (WFI/idle + clock scaling) — tracked separately, not in this change.
+- Suggestion noted (not implemented): show the codec next to the format, e.g.
+  `FLAC | 16/44.1kHz`.
+
+AP5M CRC `0xDA1A49C9`, packer `RESULT: PASS`. Not flashed.

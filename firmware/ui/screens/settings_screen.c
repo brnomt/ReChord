@@ -123,15 +123,17 @@ static void build_items(void)
 {
     int i;
 
+    /* Theme first: it is a live picker, not a config key, and with 15 rows the
+     * last position was easy to miss (field report). */
+    s_items[0].label = "Theme";
+    s_items[0].value_text = s_value_text_fn[SETTING_KEY_COUNT];
+    s_items[0].on_select = s_on_select_fn[SETTING_KEY_COUNT];
+
     for (i = 0; i < SETTING_KEY_COUNT; i++) {
-        s_items[i].label = setting_schema[i].name;
-        s_items[i].value_text = s_value_text_fn[i];
-        s_items[i].on_select = s_on_select_fn[i];
+        s_items[i + 1].label = setting_schema[i].name;
+        s_items[i + 1].value_text = s_value_text_fn[i];
+        s_items[i + 1].on_select = s_on_select_fn[i];
     }
-    /* Last row: the live theme switch (BRNOMT-69). */
-    s_items[SETTING_KEY_COUNT].label = "Theme";
-    s_items[SETTING_KEY_COUNT].value_text = s_value_text_fn[SETTING_KEY_COUNT];
-    s_items[SETTING_KEY_COUNT].on_select = s_on_select_fn[SETTING_KEY_COUNT];
 }
 
 /* ---- persistence ------------------------------------------------------- */

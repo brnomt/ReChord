@@ -188,20 +188,22 @@ static void test_settings_screen_binding(void)
     model = settings_screen_model();
     CHECK_EQ_INT(model->item_count, SETTING_KEY_COUNT + 1);  /* + Theme row */
     CHECK_STR_EQ(model->title, "Settings");
+    /* BRNOMT-69: the live theme picker is the FIRST row (discoverability). */
+    CHECK_STR_EQ(model->items[0].label, "Theme");
+    CHECK(model->items[0].on_select != 0);
     for (i = 0; i < SETTING_KEY_COUNT; i++)
-        CHECK_STR_EQ(model->items[i].label, k_expected_names[i]);
-    /* BRNOMT-69 milestone A: the live theme switch is the last row. */
-    CHECK_STR_EQ(model->items[SETTING_KEY_COUNT].label, "Theme");
-    CHECK(model->items[SETTING_KEY_COUNT].on_select != 0);
+        CHECK_STR_EQ(model->items[i + 1].label, k_expected_names[i]);
 
     /* defaults are live after enter */
     CHECK_EQ_INT(settings_screen_get()->screen_off_s, 30);
     CHECK_EQ_INT(settings_screen_get()->brightness, 8);
 
-    /* navigate to "screen_off" (index 2) and cycle it */
+    /* navigate to "screen_off" (schema index 2 -> menu index 3, Theme is 0)
+     * and cycle it */
     e = ev(KEY_DOWN); ui_handle_event(&e);
     e = ev(KEY_DOWN); ui_handle_event(&e);
-    CHECK_EQ_INT(settings_screen_view()->cursor, 2);
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_screen_view()->cursor, 3);
     e = ev(KEY_SELECT); ui_handle_event(&e);
     CHECK_EQ_INT(settings_screen_get()->screen_off_s, 60);
     CHECK_EQ_INT(settings_screen_get()->brightness, 8);   /* untouched */

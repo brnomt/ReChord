@@ -972,7 +972,15 @@ static void resume_poll(unsigned now, int force)
         s_res_due = force ? now : now + RESUME_QUIET_MS;
 
     if (s_res_due != 0 && (int)(now - s_res_due) >= 0) {
-        (void)resume_save(&s_res);
+        static int s_save_failed;   /* log once per failure run */
+
+        if (resume_save(&s_res) != 0) {
+            if (!s_save_failed)
+                log_printf("resume: save failed");
+            s_save_failed = 1;
+        } else {
+            s_save_failed = 0;
+        }
         s_res_saved_ms = now;
         s_res_due = 0;
     }
@@ -993,6 +1001,10 @@ static void resume_boot_restore(void)
         return;
     if (resume_load(&st) != 0)
         return;
+    /* Field diagnostics: this line tells whether the state file was written and
+     * what it holds (no track = nothing was ever saved). */
+    log_printf("resume: mode %d track '%s' pos %lu row %d",
+               mode, st.track, st.pos_ms, st.row);
 
     if (st.folder[0] == '/') {
         browser_screen_set_root("/");
@@ -1004,6 +1016,8 @@ static void resume_boot_restore(void)
             if (st.pos_ms > 0)
                 (void)player_seek((long)st.pos_ms);
             ui_push_screen(&player_screen);
+        } else {
+            log_printf("resume: open failed '%s'", st.track);
         }
     }
 
