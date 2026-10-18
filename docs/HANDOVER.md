@@ -3999,3 +3999,38 @@ parallel sweeps) and fixed what misled:
 BRNOMT-81 stays open on purpose: docs drift as the code moves.
 
 All host suites green. AP5M CRC `0x57109205`, packer `RESULT: PASS`. Not flashed.
+
+## BI. Session 2026-10-18 — BRNOMT-87: playback/browse resume
+
+Approved design (option B) implemented — a SEPARATE state file, never cfg keys.
+
+- **`firmware/services/resume.{h,c}`** own `/.rechord/state` (created at first
+  boot, 4 KiB). Plain `key=value`: `track=`, `pos_ms=`, `folder=`, `row=`, with
+  its own small scanner (the cfg parser is hard-wired to the 14 settings keys)
+  and the SAME write path as the config: `fs_target_file_rewrite()` on the
+  pre-allocated file (data sectors + dirent size; no allocation, no FAT writes).
+  A torn write costs that one save, nothing else.
+- **`browser_screen_open_at(path, row)`** opens the browser at a folder/row
+  without touching the BACK clamp (`browser_load_at` already existed,
+  file-private).
+- **`player_play()` honours `g.base_ms`**: a seek made while STOPPED (resume, or
+  the plain stop→seek→play sequence) now reaches the NEW stream through
+  `ipc_b_seek()` instead of being lost when Core B opens the file at 0. Pinned
+  by `test_stopped_seek_then_play`.
+- **Boot** (`ap_ui_loop`, right after the menu is pushed):
+  `resume_boot_restore()` applies the `resume` setting — `folder` pushes the
+  browser at the saved folder/row; `track` also opens the last track at
+  `pos_ms` and pushes Now Playing. It **never autoplays**: the player is left
+  STOPPED (the UI renders that as "Paused") and SELECT resumes from there.
+- **Write policy** (mirrors the volume): a change arms a 2 s quiet timer (a
+  burst of navigation is one save), the position refreshes at most every 60 s
+  while playing, and both power paths (power-hold and the USB long-hold) flush
+  with `resume_poll(ap_ms(), 1)` before `power_off()`.
+- **Precedence**: the state file's `folder`/`row` are the source of truth; the
+  dormant `browse`/`cursor` settings keys are left untouched.
+
+Tests: `test_resume` (services — defaults on a missing file, parser including a
+torn last line and CRLF, serialize→rewrite hand-off, round-trip, truncation,
+error mapping) plus the player test above. All suites green.
+
+AP5M CRC `0x1AB310AA`, packer `RESULT: PASS`. Not flashed.

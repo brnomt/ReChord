@@ -761,6 +761,11 @@ int player_play(void)
         }
         g.frames_consumed = 0;   /* per-stream counter, post-start */
         g.frames_at_start = 0;
+        /* A seek performed while STOPPED (resume at a position, or the plain
+         * stop -> seek -> play sequence) must reach the NEW stream: Core B
+         * opens the file at 0, so reposition it here. */
+        if (g.base_ms > 0)
+            (void)player_seek(g.base_ms);
     }
 
     set_state(PLAYER_PLAYING);

@@ -44,6 +44,9 @@ byte-mod of the stock binary.
 - **Playback lists** — playing a song inside a list queues that list, shows
   **`i/N`**, auto-advances, with Rockbox-style **shuffle** (reorders the list)
   and **repeat off/all/one**, both persisted in `rechord.cfg`.
+- **Resume** — the `resume` setting (off/folder/track) restores the last track
+  at its position plus the browser folder/row from `/.rechord/state`, written
+  in place and deferred. It opens **paused** (never autoplays).
 - **Diagnostics** — a RAM log that persists itself (append + rotate at 32 KiB,
   written when there is news, at most every 30 s) so a session can be read back
   without plugging the USB cable.
@@ -173,6 +176,8 @@ stock/                        # official firmware backups (not distributed)
 - [x] **Playback lists**: `i/N`, shuffle, repeat (+ persistence)
 - [x] **Gapless between same-format tracks** on Core B — verified on device; a
       format change stays a hard boundary (the DAC must re-lock)
+- [x] **Resume**: last track/position + browser folder/row in `/.rechord/state`
+      (`resume` off/folder/track), restored paused
 - [ ] **96 kHz margins** — 96k halves the ring cover and the TX-FIFO refill
       margin; occasional crackles there are still being chased
 - [ ] **192 kHz** (bigger decode window) and **384 kHz**

@@ -14,6 +14,7 @@ rm -rf .work && mkdir -p .work
 
 $CC $CFLAGS -I.. -o .work/test_settings test_settings.c ../settings.c ../settings_fs.c ../fs_host.c
 $CC $CFLAGS -I.. -o .work/test_settings_store test_settings_store.c ../settings.c ../settings_store.c
+$CC $CFLAGS -I.. -o .work/test_resume test_resume.c ../resume.c
 $CC $CFLAGS -I.. -o .work/test_log     test_log.c     ../log.c     ../fs_host.c
 $CC $CFLAGS -I.. -o .work/test_input   test_input.c   ../input.c
 $CC $CFLAGS -I.. -o .work/test_fs      test_fs.c      ../fs_host.c
@@ -25,6 +26,7 @@ $CC $CFLAGS -I.. -I../.. -o .work/test_media_scan test_media_scan.c ../media_sca
 
 .work/test_settings
 .work/test_settings_store
+.work/test_resume
 .work/test_log
 .work/test_input
 .work/test_fs

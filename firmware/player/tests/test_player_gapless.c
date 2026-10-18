@@ -434,6 +434,33 @@ static void test_repeat_modes(void)
     player_stop();
 }
 
+/* BRNOMT-87 resume: a seek made while STOPPED must reach the NEW stream — the
+ * restored track plays from pos_ms, not from 0. */
+static void test_stopped_seek_then_play(void)
+{
+    mock_codec_cfg_t cfg = {0};
+
+    cfg.total_frames = 44100 * 4;      /* 4 s */
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+
+    ipc_b_init();
+    player_init();
+    player_register_codec("mock", mock_codec_get());
+    ipc_b_mock_set_b_decodes(0);
+    ipc_b_mock_set_b_eof(0);
+
+    CHECK_EQI(player_open("resume.mock"), PLAYER_OK, "resume: open");
+    CHECK_EQI(player_get_state(), PLAYER_STOPPED, "resume: opened stopped");
+    CHECK_EQI(player_seek(2000), PLAYER_OK, "resume: seek while stopped");
+    CHECK_EQI(player_play(), PLAYER_OK, "resume: play");
+    CHECK_EQI(player_get_position_ms(), 2000,
+              "resume: starts at the saved position");
+    player_stop();
+}
+
 int main(void)
 {
     TEST("player gapless");
@@ -445,6 +472,7 @@ int main(void)
     test_pending_open_adopt();
     test_playlist_resolve_cache();
     test_repeat_modes();
+    test_stopped_seek_then_play();
     if (failures == 0) {
         printf("test_player_gapless: OK\n");
         return 0;

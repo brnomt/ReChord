@@ -406,3 +406,15 @@ const browser_state_t *browser_screen_state(void)
 {
     return &s_state;
 }
+
+/* Open the browser at `path` with the cursor on `row` (BRNOMT-87 resume).
+ * The BACK clamp (s_root) is deliberately left alone, so navigation keeps
+ * walking up the real tree; on_enter refetches the listing. */
+void browser_screen_open_at(const char *path, int row)
+{
+    if (path == NULL || path[0] != '/')
+        return;
+    if (row < 0)
+        row = 0;
+    browser_load_at(path, row, row > 3 ? row - 3 : 0);
+}

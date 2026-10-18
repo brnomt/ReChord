@@ -22,6 +22,7 @@ SERVICES_COMMON_SRCS := \
 SERVICES_TARGET_SRCS := \
   $(SERVICES_COMMON_SRCS) \
   $(SERVICES_DIR)/settings_store.c \
+  $(SERVICES_DIR)/resume.c \
   $(SERVICES_DIR)/fs_target.c \
   $(SERVICES_DIR)/rechord_files.c
 

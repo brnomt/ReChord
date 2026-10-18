@@ -20,6 +20,7 @@
 #include "services/media_scan.h"
 #include "services/media_query.h"
 #include "services/rechord_files.h"
+#include "services/resume.h"
 #include "services/input.h"
 #include "player.h"
 #include "ui/ui.h"
@@ -50,6 +51,9 @@ static int s_sd_in = -1;
 static int s_volume_seen;            /* last volume persisted (see loop) */
 static unsigned s_log_ms;            /* last periodic log flush (see loop) */
 static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
+
+/* BRNOMT-87 resume state: defined with the loop, used by the power paths. */
+static void resume_poll(unsigned now, int force);
 
 /* screen helpers defined further down (used by the USB/index screens) */
 static void line(int row, const char *s);
@@ -501,6 +505,7 @@ static void usb_session(void)
          * the PC sees a clean disconnect first). On VBUS the SoC itself stays
          * powered by the host — the rail cut only takes effect on battery. */
         s_usb_power_off = 0;
+        resume_poll(ap_ms(), 1);      /* persist the last position first */
         settings_screen_store();
         (void)log_flush("power");
         power_off();                  /* does not return */
@@ -816,6 +821,121 @@ static const menu_item_t k_root_items[] = {
 #define RC_BUILD "m7a"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items, 14 };
 
+/* ---- resume state (BRNOMT-87) ------------------------------------------- */
+/* Deferred write, same idea as the volume: a change arms a short quiet timer so
+ * a burst of navigation is ONE save, and while playing the position is
+ * refreshed at most every RESUME_SAVE_MS (a power cut loses at most that). */
+#define RESUME_SAVE_MS  60000u
+#define RESUME_QUIET_MS 2000u
+
+static resume_state_t s_res;
+static unsigned s_res_due;          /* 0 = nothing armed */
+static unsigned s_res_saved_ms;
+
+static int text_eq(const char *a, const char *b)
+{
+    while (*a != '\0' && *a == *b) {
+        a++;
+        b++;
+    }
+    return *a == *b;
+}
+
+static void text_copy(char *dst, unsigned cap, const char *src)
+{
+    unsigned i = 0;
+
+    if (cap == 0)
+        return;
+    while (src[i] != '\0' && i + 1u < cap) {
+        dst[i] = src[i];
+        i++;
+    }
+    dst[i] = '\0';
+}
+
+/* Capture the player + browser state; write when it moved, or when `force`
+ * (the power paths call it with force=1 so the last position is on disk). */
+static void resume_poll(unsigned now, int force)
+{
+    track_info_t ti;
+    const browser_state_t *bs;
+    int moved = 0;
+
+    if (player_get_track(&ti) == PLAYER_OK && ti.path[0] != '\0') {
+        unsigned long pos = (unsigned long)player_get_position_ms();
+
+        if (!text_eq(s_res.track, ti.path)) {
+            text_copy(s_res.track, (unsigned)sizeof s_res.track, ti.path);
+            s_res.pos_ms = pos;
+            moved = 1;
+        } else if (pos != s_res.pos_ms) {
+            /* While playing: one refresh per RESUME_SAVE_MS. Paused/stopped:
+             * capture the position the moment it changes. */
+            if (player_get_state() != PLAYER_PLAYING ||
+                (unsigned long)(now - s_res_saved_ms) >= RESUME_SAVE_MS) {
+                s_res.pos_ms = pos;
+                moved = 1;
+            }
+        }
+    }
+
+    bs = browser_screen_state();
+    if (bs != 0 && bs->mounted) {
+        if (!text_eq(s_res.folder, bs->path) || s_res.row != bs->cursor) {
+            text_copy(s_res.folder, (unsigned)sizeof s_res.folder, bs->path);
+            s_res.row = bs->cursor;
+            moved = 1;
+        }
+    }
+
+    if (moved || force)
+        s_res_due = force ? now : now + RESUME_QUIET_MS;
+
+    if (s_res_due != 0 && (int)(now - s_res_due) >= 0) {
+        (void)resume_save(&s_res);
+        s_res_saved_ms = now;
+        s_res_due = 0;
+    }
+}
+
+/* BRNOMT-87: land where the user left off, per `resume`:
+ *   off    -> plain root menu
+ *   folder -> the browser at the saved folder/row
+ *   track  -> that, plus the last track opened at pos_ms
+ * Never autoplays: the restored track is opened + seeked and left STOPPED
+ * (shown as "Paused"); SELECT/PLAY resumes from there. */
+static void resume_boot_restore(void)
+{
+    resume_state_t st;
+    int mode = settings_screen_get()->resume_mode;
+
+    if (mode <= 0)
+        return;
+    if (resume_load(&st) != 0)
+        return;
+
+    if (st.folder[0] == '/') {
+        browser_screen_set_root("/");
+        browser_screen_open_at(st.folder, st.row);
+        ui_push_screen(&browser_screen);
+    }
+    if (mode >= 2 && st.track[0] == '/') {
+        if (player_open(st.track) == PLAYER_OK) {
+            if (st.pos_ms > 0)
+                (void)player_seek((long)st.pos_ms);
+            ui_push_screen(&player_screen);
+        }
+    }
+
+    /* Seed the comparison state so the first poll does not re-save it. */
+    text_copy(s_res.track, (unsigned)sizeof s_res.track, st.track);
+    text_copy(s_res.folder, (unsigned)sizeof s_res.folder, st.folder);
+    s_res.pos_ms = st.pos_ms;
+    s_res.row = st.row;
+    s_res_saved_ms = ap_ms();
+}
+
 void ap_ui_loop(void)
 {
     input_event_t ev;
@@ -840,6 +960,7 @@ void ap_ui_loop(void)
     s_volume_seen = player_get_volume();
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
+    resume_boot_restore();   /* BRNOMT-87: may push browser/player on top */
     for (;;) {
         int adc = keys_adc(), power = keys_power(), cable = usb_cable();
 
@@ -861,6 +982,7 @@ void ap_ui_loop(void)
         /* power-hold: debounced (see power_hold_step); ~2 s of held power
          * turns the device off. Flush any pending settings write first. */
         if (power_hold_step(power)) {
+            resume_poll(ap_ms(), 1);  /* persist the last position first */
             settings_screen_store();
             (void)log_flush("power");
             power_off();
@@ -899,6 +1021,7 @@ void ap_ui_loop(void)
             settings_screen_volume_changed(s_volume_seen, ap_ms());
         }
         settings_screen_flush_pending(ap_ms());
+        resume_poll(ap_ms(), 0);      /* BRNOMT-87: deferred position save */
 
         /* Persist the RAM log without waiting for the USB cable (see the flush
          * policy above): only when there is something new, and eagerly before

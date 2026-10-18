@@ -94,6 +94,7 @@ AP_AUDIO_SRCS := \
 AP_SERVICE_SRCS := \
   firmware/services/settings.c \
   firmware/services/settings_store.c \
+  firmware/services/resume.c \
   firmware/services/log.c \
   firmware/services/input.c \
   firmware/services/store.c \

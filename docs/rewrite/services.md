@@ -31,6 +31,7 @@ firmware/services/
 ├── media_scan.c              iterative directory walk (depth-capped)
 ├── media_query.c             sorted category/All Songs queries (case-insensitive)
 ├── settings_store.c          settings <-> on-disk persistence glue
+├── resume.h / resume.c       playback/browse resume state (/.rechord/state)
 ├── rechord_files.c           /.rechord bootstrap (cfg + state + index)
 ├── fw_update.h / fw_update.c self-updater (scan, install, retire)
 ├── scratch.h / scratch.c     shared working region (USB MSC / media index)
