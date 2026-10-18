@@ -28,6 +28,7 @@
 #include "player.h"
 #include "ui/ui.h"
 #include "ui/screens/screens.h"
+#include "ui/screens/companion.h"
 #include "player/bfs.h"     /* phase 3: A-side file service for Core B */
 
 /* BRNOMT-90: playlist record index -> track path (player_play_list). */
@@ -376,6 +377,7 @@ static void update_prompt(void)
 
     screen("Looking for a firmware update");
     r = fw_update_find(s_user, &img, update_progress);
+    log_printf("fw: scan rc %d '%s'", r, img.name);
     if (r == FWU_NONE || (r && !img.name[0]))
         return;
     if (r) {
@@ -507,25 +509,32 @@ static void usb_session(void)
                r, (unsigned long)usb_msc_diag, (unsigned long)rd,
                (unsigned long)wr);
     (void)log_flush("usb-exit");
-    if (s_usb_power_off) {
-        /* Held power: switch off now (USB storage is already stopped above, so
-         * the PC sees a clean disconnect first). On VBUS the SoC itself stays
-         * powered by the host — the rail cut only takes effect on battery. */
-        s_usb_power_off = 0;
-        resume_poll(ap_ms(), 1);      /* persist the last position first */
-        settings_screen_store();
-        (void)log_flush("power");
-        power_off();                  /* does not return */
+    {
+        int powered_off = s_usb_power_off;
+
+        if (powered_off) {
+            /* Held power: switch off now (USB storage is already stopped above,
+             * so the PC sees a clean disconnect first). On VBUS the SoC itself
+             * stays powered by the host — the rail cut only takes effect on
+             * battery. */
+            s_usb_power_off = 0;
+            resume_poll(ap_ms(), 1);  /* persist the last position first */
+            settings_screen_store();
+            (void)log_flush("power");
+            power_off();              /* may return on VBUS (park) */
+        }
+        while (keys_power())          /* don't leak the exit press */
+            panel_io_delay_ms(1);
+
+        /* Scan on ANY non-power-off exit. The old reason list (EJECT/UNPLUG/
+         * USER) missed NO_HOST/SUSPEND/IO, so a session that ended without the
+         * host resetting the bus skipped the scan, left the previous screen up
+         * and made flashing impossible (field report). */
+        if (!powered_off) {
+            log_printf("usb: exit %d, scanning for an update", r);
+            update_prompt();
+        }
     }
-    while (keys_power())                 /* don't leak the exit press */
-        panel_io_delay_ms(1);
-    /* Scan for an update on ANY session exit the screen advertises:
-     * eject (LoEj), unplug (VBUS gone), AND the power key — the screen
-     * says "eject on the PC or press power", and the reference updater
-     * scans after "usb: exit key pressed" too (ECHOLOG). With no image
-     * present fw_update_find returns FWU_NONE and we return seamlessly. */
-    if (r == USB_EXIT_EJECT || r == USB_EXIT_UNPLUG || r == USB_EXIT_USER)
-        update_prompt();
     ui_invalidate_all();
 }
 
@@ -1065,6 +1074,11 @@ void ap_ui_loop(void)
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
+    /* companion-bot: the theme's home (face + 3-item horizontal bar) sits above
+     * the classic menu, which stays reachable with BACK (Files/USB/System). */
+    companion_home_set_actions(open_library, open_player, open_settings);
+    if (theme_layout()->face_h > 0)
+        ui_push_screen(&companion_home_screen);
     /* BRNOMT-87: the resume restore runs inside the loop, AFTER the first
      * sd_probe() — opening a /SD track before the volume is mounted fails
      * (field log: "resume: open failed" at 0.021 s). */
@@ -1153,11 +1167,11 @@ void ap_ui_loop(void)
 
         /* companion-bot: animate the face (~8 fps) while the root menu is up.
          * Only the reserved band is invalidated, so the cost is one row strip. */
-        if (theme_layout()->face_h > 0 && ui_stack_depth() == 1 &&
+        if (theme_layout()->face_h > 0 &&
             (unsigned)(ap_ms() - s_face_ms) >= 125u) {
             s_face_ms = ap_ms();
-            ui_invalidate(0, theme_layout()->title_h, DISPLAY_W - 1,
-                          theme_layout()->title_h + theme_layout()->face_h);
+            /* the home draws the face above the bar (y 6..~96) */
+            ui_invalidate(0, 0, DISPLAY_W - 1, 104);
         }
 
         /* Persist the RAM log without waiting for the USB cable (see the flush
