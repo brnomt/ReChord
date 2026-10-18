@@ -3616,3 +3616,24 @@ AP5M CRC `0x57727463`, `_bss_end` 0x03042db8 (+228 B; `s_pre_path[208]`), Core B
   `kind = INPUT_PRESS`, input hold window shortened to stay below the new
   500 ms LONG, playlist prev covered. UI 292 checks; player + services green.
   AP5M CRC `0x3BEF00DD`, packer `RESULT: PASS`. Not flashed.
+
+## AV. Session 2026-10-18 — GP: soft restart for skips + boundary instrumentation
+
+The field log settled it: the gapless path IS taken (`ipc: next 44100 Hz 2 ch
+16 b` → `cmd 4 ack 87 ms`), so the remaining boundary gap is margin (87 ms
+reopen + AP work vs the 64 KiB ring = 186 ms @44.1k), while **every hard
+start** (play / skip / previous) logs `cmd 1 ack 87-91 ms` AND pays a full
+DAC bring-up — that is the "tarda algo" the user reports.
+
+- **`ipc_b_soft_restart()`** (target): when Core B is playing and the new
+  track has the same rate/channels/bits, keep the DAC and the I2S serializer
+  up: fade, flush the PCM ring, CLOSE → bfs_open → OPEN (ring 0), kick the
+  feeder, fade in, RUN. `restart_stream()` tries it first and falls back to
+  the full stop/reconfigure/start. The host mock returns -1 (no DAC), so the
+  AP-decode tests keep the old path.
+- **`ipc: B eof`** log: timestamps Core B's EOF detection, so the next field
+  log separates the AP's reaction + metadata-open cost from B's 87 ms reopen.
+
+AP5M CRC `0xCE4CCACE`, packer `RESULT: PASS`. Not flashed. Next field log
+tells whether the boundary still exceeds the ring margin (then the AP's
+`open_codec_only` must leave the critical path) or the gap is gone.

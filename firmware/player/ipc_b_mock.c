@@ -124,6 +124,13 @@ int ipc_b_start(const ipc_b_track_t *track)
     return 0;
 }
 
+/* Host mock: there is no DAC to keep up, so callers take the full restart. */
+int ipc_b_soft_restart(const ipc_b_track_t *track)
+{
+    (void)track;
+    return -1;
+}
+
 int ipc_b_stop(void)
 {
     g_started = 0;
