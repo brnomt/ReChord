@@ -3402,3 +3402,8 @@ at end of track.
   alphabetical. `media_query` now captures a sort key per matched record
   (title for All Songs, album otherwise, plus `track_no`) and sorts in RAM:
   All Songs = title order; a category's songs = album then track.
+- **Now Playing did not follow track changes**: `player_screen_refresh()` only
+  updated position/format/i-N, so after an auto-advance the title and duration
+  stayed from the previously selected track (reported: "Look at the Sky" showing
+  **1:34**, the previous track's length, while the audio kept playing past it).
+  It now watches `track_info.track_no` and re-sets title/duration on a change.
