@@ -19,6 +19,11 @@ without giving up the host-testable, no-heap model.
 
 ## 2. Package layout
 
+> The repo ships copies of the four built-in themes under `themes/<id>/theme.cfg`
+> (`mono`, `classic`, `paper`, `night`). The built-ins themselves are COMPILED IN
+> (`themes_builtin.c`), so boot creates **no** device folder: a package exists on
+> the device only once it is copied there. Install notes: `themes/README.md`.
+
 ```
 /<volume>/.rechord/themes/<theme_id>/
   theme.cfg        # manifest + layout declarations (text, bounded)
