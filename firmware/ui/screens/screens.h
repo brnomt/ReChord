@@ -69,6 +69,9 @@ void menu_view_init(menu_view_t *v);
  * cursor inside a window of `page` visible rows. */
 void menu_view_move(menu_view_t *v, int delta, int count, int page);
 int  menu_page_size(void);   /* visible rows below the title bar            */
+/* Same, but accounts for a model that reserves the theme's face band (the
+ * main menu). Every other list must use the plain menu_page_size(). */
+int  menu_page_size_for(const menu_model_t *model);
 
 /* Rendering helpers (shared with settings_screen / browser_screen). */
 void menu_draw(const menu_model_t *model, const menu_view_t *view);
@@ -79,8 +82,8 @@ void menu_draw_item(int y, const char *label, const char *value, bool selected);
  * ====================================================================== */
 
 #define BROWSER_PATH_MAX 208
-#define BROWSER_WINDOW   12   /* entries fetched per fs_list_dir() call ==
-                                 visible page rows                          */
+#define BROWSER_WINDOW   12   /* max entries fetched per fs_list_dir() call;
+                                 the actual page is browser_page_rows()     */
 
 typedef struct browser_state {
     char        path[BROWSER_PATH_MAX];
@@ -95,6 +98,8 @@ typedef struct browser_state {
 
 extern const ui_screen_t browser_screen;
 
+/* Footer-safe visible rows (and fetch window) for the current theme. */
+int browser_page_rows(void);
 /* Set the root directory the browser starts in (call before pushing). */
 void browser_screen_set_root(const char *path);
 /* Open at `path` with the cursor on `row` (resume); the BACK clamp is kept. */

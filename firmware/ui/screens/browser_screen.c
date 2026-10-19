@@ -4,9 +4,10 @@
  *
  * Pagination model (host-tested in tests/test_browser_pagination.c):
  *   - the listing is a flat, stable-ordered sequence of `total` entries;
- *   - the visible page is [top, top + page) with page == BROWSER_WINDOW;
- *   - the fetch window always starts at `top`: whenever the view scrolls,
- *     fs_list_dir(path, top, window, BROWSER_WINDOW, ...) refetches;
+ *   - the visible page is [top, top + page), page = browser_page_rows();
+ *   - the fetch window always starts at `top` and is exactly that page:
+ *     whenever the view scrolls, fs_list_dir(path, top, window, page, ...)
+ *     refetches (never during draw);
  *   - cursor movement clamps at both ends of the listing.
  *
  * Navigation:
@@ -36,9 +37,22 @@ static int             s_nav_depth;
 
 /* ---- listing / window -------------------------------------------------- */
 
+/* Footer-safe page: the i/N row is drawn at DISPLAY_H - item_h, so the list
+ * must stop short of it. The fetch window is exactly this page (BRNOMT-72). */
+int browser_page_rows(void)
+{
+    int rows = (DISPLAY_H - THEME_ITEM_H - THEME_MENU_TOP) / THEME_ITEM_H;
+
+    if (rows > BROWSER_WINDOW)
+        rows = BROWSER_WINDOW;
+    if (rows < 1)
+        rows = 1;
+    return rows;
+}
+
 static int browser_page(void)
 {
-    return BROWSER_WINDOW;   /* one fetch == one visible page */
+    return browser_page_rows();
 }
 
 static void browser_clamp_view(void)
@@ -62,7 +76,7 @@ static void browser_fetch_window(void)
     int rc;
 
     rc = fs_list_dir(s_state.path, s_state.win_start, s_state.window,
-                     (uint32_t)BROWSER_WINDOW, &got, &total);
+                     (uint32_t)browser_page_rows(), &got, &total);
     if (rc != 0) {
         log_printf("browser: list '%s' failed (%d)", s_state.path, rc);
         s_state.win_count = 0;

@@ -53,7 +53,11 @@
 #define THEME_TITLE_H          (theme_layout()->title_h)
 #define THEME_TITLE_TEXT_Y     2   /* title text baseline offset in bar     */
 #define THEME_ITEM_H           (theme_layout()->item_h)
-#define THEME_MENU_TOP         (theme_layout()->title_h + theme_layout()->face_h)
+/* Lists start right under the title bar. The face band (companion theme) is
+ * reserved ONLY by a list that actually paints the face — the main menu — so
+ * library, category, browser and settings lists keep the full panel height. */
+#define THEME_MENU_TOP         (theme_layout()->title_h)
+#define THEME_FACE_TOP         (theme_layout()->title_h + theme_layout()->face_h)
 #define THEME_SCROLLBAR_W      3   /* right-edge scrollbar width, px        */
 #define THEME_TEXT_W(len)      ((int)(len) * THEME_FONT_W)
 

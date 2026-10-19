@@ -68,9 +68,26 @@ void menu_view_move(menu_view_t *v, int delta, int count, int page)
         v->top = 0;
 }
 
+/* First row y for a model: only a list that paints the face reserves its
+ * band; every other list starts right under the title bar (BRNOMT-72). */
+static int menu_top(const menu_model_t *model)
+{
+    return THEME_MENU_TOP +
+           ((model != 0 && model->face != 0) ? theme_layout()->face_h : 0);
+}
+
+int menu_page_size_for(const menu_model_t *model)
+{
+    int top = menu_top(model);
+
+    if (top < 0)
+        top = 0;
+    return (DISPLAY_H - top) / THEME_ITEM_H;
+}
+
 int menu_page_size(void)
 {
-    return (DISPLAY_H - THEME_MENU_TOP) / THEME_ITEM_H;
+    return menu_page_size_for(0);
 }
 
 /* ---- rendering --------------------------------------------------------- */
@@ -106,7 +123,8 @@ void menu_draw_item(int y, const char *label, const char *value, bool selected)
 
 void menu_draw(const menu_model_t *model, const menu_view_t *view)
 {
-    int page = menu_page_size();
+    int page = menu_page_size_for(model);
+    int top = menu_top(model);
     int row;
 
     display_clear(THEME_COLOR_BG);
@@ -149,7 +167,7 @@ void menu_draw(const menu_model_t *model, const menu_view_t *view)
 
         if (idx >= model->item_count)
             break;
-        y = THEME_MENU_TOP + row * THEME_ITEM_H;
+        y = top + row * THEME_ITEM_H;
         it = &model->items[idx];
         menu_draw_item(y, it->label,
                        it->value_text ? it->value_text() : NULL,
@@ -179,11 +197,13 @@ static void menu_screen_handle_event(const input_event_t *ev)
 
     switch (ev->type) {
     case KEY_UP:
-        menu_view_move(&s_view, -1, s_model->item_count, menu_page_size());
+        menu_view_move(&s_view, -1, s_model->item_count,
+                       menu_page_size_for(s_model));
         ui_invalidate_all();
         break;
     case KEY_DOWN:
-        menu_view_move(&s_view, +1, s_model->item_count, menu_page_size());
+        menu_view_move(&s_view, +1, s_model->item_count,
+                       menu_page_size_for(s_model));
         ui_invalidate_all();
         break;
     case KEY_SELECT:

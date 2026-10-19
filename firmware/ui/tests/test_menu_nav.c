@@ -8,6 +8,7 @@
 #include "mock_display.h"
 #include "mock_services.h"
 
+#include <stdio.h>
 #include <string.h>
 
 static int s_selected[3];
@@ -181,8 +182,57 @@ static void test_menu_screen_keys(void)
     }
 }
 
+/* BRNOMT-72: the face band is reserved ONLY by the list that paints the face
+ * (the main menu). Plain lists start right under the title bar, and the
+ * footer-bearing lists stop above the i/N row. */
+static void test_face_band_only_on_main_menu(void)
+{
+    static const menu_item_t items[1] = { { "X", NULL, NULL } };
+    static const menu_model_t plain = { "Library", items, 1, NULL, 0 };
+    static const menu_model_t faced = { "Main",    items, 1, NULL, 1 };
+    menu_view_t v;
+    FILE *f;
+    int idx;
+
+    f = fopen("rechord_test_layout.cfg", "w");
+    CHECK(f != NULL);
+    if (f == NULL)
+        return;
+    fputs("face_h=52\npad=6\ntitle_h=14\nitem_h=14\n", f);
+    fclose(f);
+    CHECK_EQ_INT(theme_layout_load("rechord_test_layout.cfg"), 0);
+    remove("rechord_test_layout.cfg");
+
+    CHECK_EQ_INT(menu_page_size_for(&plain),
+                 (DISPLAY_H - THEME_MENU_TOP) / THEME_ITEM_H);
+    CHECK_EQ_INT(menu_page_size_for(&faced),
+                 (DISPLAY_H - THEME_FACE_TOP) / THEME_ITEM_H);
+    CHECK_EQ_INT(browser_page_rows(),
+                 (DISPLAY_H - THEME_ITEM_H - THEME_MENU_TOP) / THEME_ITEM_H);
+
+    menu_view_init(&v);
+    mock_display_reset();
+    menu_draw(&plain, &v);
+    idx = mock_display_text_find("X");
+    CHECK(idx >= 0);
+    if (idx >= 0)
+        CHECK_EQ_INT(mock_display_text(idx)->y,
+                     THEME_MENU_TOP + THEME_TEXT_YOFF);
+
+    mock_display_reset();
+    menu_draw(&faced, &v);
+    idx = mock_display_text_find("X");
+    CHECK(idx >= 0);
+    if (idx >= 0)
+        CHECK_EQ_INT(mock_display_text(idx)->y,
+                     THEME_FACE_TOP + THEME_TEXT_YOFF);
+
+    theme_layout_reset();
+}
+
 void test_menu_nav(void)
 {
     test_menu_view_move();
     test_menu_screen_keys();
+    test_face_band_only_on_main_menu();
 }

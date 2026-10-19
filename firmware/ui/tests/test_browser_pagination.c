@@ -2,7 +2,7 @@
  * test_browser_pagination.c — browser pagination over fs_list_dir().
  *
  * Contract under test: the fetch window always starts at the view top,
- * one fetch == one visible page (BROWSER_WINDOW rows), the cursor wraps at
+ * one fetch == one visible page (browser_page_rows() rows), the cursor wraps at
  * both ends of the listing (BRNOMT-93), directory entry/leave re-roots the
  * listing and restores the parent cursor/scroll, and BACK at the configured
  * root pops the screen.
@@ -45,6 +45,7 @@ void test_browser_pagination(void)
 {
     const browser_state_t *st;
     input_event_t e;
+    int page;
     int i;
 
     ui_init();
@@ -52,6 +53,8 @@ void test_browser_pagination(void)
     mock_services_reset();
     build_tree();
 
+    page = browser_page_rows();
+    CHECK(page > 0 && page <= BROWSER_WINDOW);
     browser_screen_set_root("/t");
     CHECK(ui_push_screen(&browser_screen));
     st = browser_screen_state();
@@ -60,7 +63,7 @@ void test_browser_pagination(void)
     CHECK_STR_EQ(st->path, "/t");
     CHECK_EQ_INT((int)st->total, 40);
     CHECK_EQ_INT((int)st->win_start, 0);
-    CHECK_EQ_INT((int)st->win_count, BROWSER_WINDOW);
+    CHECK_EQ_INT((int)st->win_count, page);
     CHECK_EQ_INT(st->cursor, 0);
     CHECK_EQ_INT(st->top, 0);
     CHECK_STR_EQ(st->window[0].name, "sub");
@@ -70,11 +73,11 @@ void test_browser_pagination(void)
     CHECK_EQ_INT((int)mock_fs_call_index(0), 0);
 
     /* scroll past the first page: the window refetches at the new top */
-    for (i = 0; i < BROWSER_WINDOW; i++) {
+    for (i = 0; i < page; i++) {
         e = ev(KEY_DOWN);
         ui_handle_event(&e);
     }
-    CHECK_EQ_INT(st->cursor, BROWSER_WINDOW);
+    CHECK_EQ_INT(st->cursor, page);
     CHECK_EQ_INT(st->top, 1);
     CHECK_EQ_INT((int)st->win_start, 1);          /* window start == top */
     CHECK_STR_EQ(st->window[0].name, "f00");      /* listing index 1    */
@@ -87,8 +90,8 @@ void test_browser_pagination(void)
         ui_handle_event(&e);
     }
     CHECK_EQ_INT(st->cursor, 39);
-    CHECK_EQ_INT(st->top, 39 - BROWSER_WINDOW + 1);
-    CHECK_EQ_INT((int)st->win_start, 39 - BROWSER_WINDOW + 1);
+    CHECK_EQ_INT(st->top, 39 - page + 1);
+    CHECK_EQ_INT((int)st->win_start, 39 - page + 1);
 
     /* one more DOWN wraps to the first item (BRNOMT-93) */
     e = ev(KEY_DOWN);
@@ -101,7 +104,7 @@ void test_browser_pagination(void)
     e = ev(KEY_UP);
     ui_handle_event(&e);
     CHECK_EQ_INT(st->cursor, 39);
-    CHECK_EQ_INT(st->top, 39 - BROWSER_WINDOW + 1);
+    CHECK_EQ_INT(st->top, 39 - page + 1);
 
     /* and back to the start */
     for (i = 0; i < 39; i++) {

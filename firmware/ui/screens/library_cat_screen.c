@@ -18,7 +18,13 @@
 #include "../../services/media_db.h"
 #include "../../services/media_query.h"
 
-#define CAT_ROWS 8             /* page == window; rows end well above the footer */
+/* Rows that fit between the list top and the footer row; page == window. */
+static int cat_rows(void)
+{
+    int rows = (DISPLAY_H - THEME_ITEM_H - THEME_MENU_TOP) / THEME_ITEM_H;
+
+    return rows < 1 ? 1 : rows;
+}
 
 typedef struct {
     int  cat;
@@ -86,7 +92,7 @@ static void cat_draw(void)
                        s_cat.mode ? "no matches" : "empty index", NULL, false);
         return;
     }
-    for (row = 0; row < CAT_ROWS; row++) {
+    for (row = 0; row < cat_rows(); row++) {
         int abs_idx = s_cat.top + row;
         media_rec_t rec;
         const char *label;
@@ -133,6 +139,8 @@ static void cat_play(int idx)
  * the wrap itself happens in the key handler; this just fixes the viewport). */
 static void cat_ensure_visible(unsigned total)
 {
+    int rows = cat_rows();
+
     if (total == 0u) {
         s_cat.cursor = 0;
         s_cat.top = 0;
@@ -144,12 +152,12 @@ static void cat_ensure_visible(unsigned total)
         s_cat.cursor = (int)total - 1;
     if (s_cat.cursor < s_cat.top)
         s_cat.top = s_cat.cursor;
-    if (s_cat.cursor >= s_cat.top + CAT_ROWS)
-        s_cat.top = s_cat.cursor - CAT_ROWS + 1;
+    if (s_cat.cursor >= s_cat.top + rows)
+        s_cat.top = s_cat.cursor - rows + 1;
     if (s_cat.top < 0)
         s_cat.top = 0;
-    if (s_cat.top > (int)total - CAT_ROWS)
-        s_cat.top = ((int)total > CAT_ROWS) ? (int)total - CAT_ROWS : 0;
+    if (s_cat.top > (int)total - rows)
+        s_cat.top = ((int)total > rows) ? (int)total - rows : 0;
 }
 
 static void cat_handle_event(const input_event_t *ev)
