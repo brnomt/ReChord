@@ -81,4 +81,24 @@ void test_screen_stack(void)
     CHECK_EQ_INT(s_enter[0], 4);
     CHECK_EQ_INT(s_enter[1], 3);
     CHECK_EQ_INT(s_enter[2], 2);
+
+    /* BRNOMT-69: replace a covered screen without disturbing the top one
+     * (the theme picker swaps the home renderer under open Settings). */
+    ui_init();
+    CHECK(ui_push_screen(&screen_a));
+    CHECK(ui_insert_screen(1, &screen_b));
+    CHECK_EQ_INT(ui_stack_depth(), 2);
+    CHECK(ui_stack_at(0) == &screen_a);
+    CHECK(ui_stack_at(1) == &screen_b);
+    CHECK(ui_push_screen(&screen_c));
+    CHECK_EQ_INT(ui_stack_depth(), 3);
+    CHECK(ui_remove_screen(1));           /* drop B, C stays on top */
+    CHECK_EQ_INT(ui_stack_depth(), 2);
+    CHECK(ui_stack_at(0) == &screen_a);
+    CHECK(ui_stack_at(1) == &screen_c);
+    CHECK(ui_top_screen() == &screen_c);
+    CHECK(!ui_remove_screen(-1));
+    CHECK(!ui_remove_screen(ui_stack_depth()));
+    CHECK(!ui_insert_screen(UI_STACK_MAX + 1, &screen_b));
+    CHECK(ui_stack_at(ui_stack_depth()) == NULL);
 }

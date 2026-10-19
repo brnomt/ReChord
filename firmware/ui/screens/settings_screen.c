@@ -14,6 +14,8 @@
 
 #include "screens.h"
 #include "../theme.h"
+#include "../../theme/theme_runtime.h"
+#include "../../services/rechord_files.h"
 #include "../internal/hal.h"
 
 static rechord_settings_t s_settings;
@@ -76,25 +78,47 @@ static void on_select_13(void) {
     player_set_repeat(s_settings.repeat_mode);
 }
 
-/* BRNOMT-69 milestone A: cycle the built-in palettes; the change applies to
- * every screen immediately (the screens read THEME_* live). Persistence of the
- * choice arrives with the package/manifest write in milestone B; today a
- * user-level choice is made by editing theme.cfg. */
+/* The app registers this so a live theme change can swap the home renderer
+ * under the open Settings screen without leaving it (BRNOMT-69). */
+static void (*s_theme_applied)(void);
+
+void settings_screen_set_theme_applied(void (*cb)(void))
+{
+    s_theme_applied = cb;
+}
+
+/* BRNOMT-69: cycle the installed packages (not just the compiled palettes).
+ * A package is applied atomically (palette + layout + home renderer); the
+ * selection is persisted in the pre-created active file, and the app syncs
+ * the home screen that the new package declares. */
 static void on_select_theme(void)
 {
-    int n = theme_count();
-    int i, cur = 0;
+    static theme_pkg_info_t themes[THEME_PKG_MAX];
+    const char *active = theme_pkg_active_id();
+    int n, i, cur = -1;
 
-    if (n <= 1)
+    n = theme_pkg_scan(RECHORD_THEMES_DIR, themes, THEME_PKG_MAX);
+    if (n <= 0)
         return;
+
     for (i = 0; i < n; i++) {
-        if (strcmp(theme_name(i), theme_get()->name) == 0) {
+        if (strcmp(themes[i].id, active) == 0) {
             cur = i;
             break;
         }
     }
-    if (theme_load_named(theme_name((cur + 1) % n)) == 0)
+
+    for (i = 1; i <= n; i++) {
+        int idx = (cur + i + n) % n;
+
+        if (theme_pkg_apply(RECHORD_THEMES_DIR, themes[idx].id) != 0)
+            continue;                 /* broken package: try the next one */
+        (void)theme_pkg_store(RECHORD_ACTIVE_THEME, themes[idx].id);
+        if (s_theme_applied != 0)
+            s_theme_applied();
         ui_invalidate_all();
+        return;
+    }
 }
 
 static void (*const s_on_select_fn[SETTING_ROWS])(void) = {
@@ -214,15 +238,15 @@ static void settings_screen_handle_event(const input_event_t *ev)
 
     switch (ev->type) {
     case KEY_UP:
-        menu_view_move(&s_view, -1, SETTING_KEY_COUNT, menu_page_size());
+        menu_view_move(&s_view, -1, SETTING_ROWS, menu_page_size());
         ui_invalidate_all();
         break;
     case KEY_DOWN:
-        menu_view_move(&s_view, +1, SETTING_KEY_COUNT, menu_page_size());
+        menu_view_move(&s_view, +1, SETTING_ROWS, menu_page_size());
         ui_invalidate_all();
         break;
     case KEY_SELECT:
-        if (s_view.cursor >= 0 && s_view.cursor < SETTING_KEY_COUNT)
+        if (s_view.cursor >= 0 && s_view.cursor < SETTING_ROWS)
             s_items[s_view.cursor].on_select();
         ui_invalidate_all();
         break;

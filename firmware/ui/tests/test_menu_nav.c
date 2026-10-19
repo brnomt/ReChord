@@ -182,14 +182,12 @@ static void test_menu_screen_keys(void)
     }
 }
 
-/* BRNOMT-72: the face band is reserved ONLY by the list that paints the face
- * (the main menu). Plain lists start right under the title bar, and the
- * footer-bearing lists stop above the i/N row. */
-static void test_face_band_only_on_main_menu(void)
+/* BRNOMT-72/69: list geometry comes from the package, and the companion face
+ * band belongs to the companion home only — a plain list never reserves it. */
+static void test_theme_layout_drives_list_metrics(void)
 {
     static const menu_item_t items[1] = { { "X", NULL, NULL } };
-    static const menu_model_t plain = { "Library", items, 1, NULL, 0 };
-    static const menu_model_t faced = { "Main",    items, 1, NULL, 1 };
+    static const menu_model_t plain = { "Library", items, 1, NULL };
     menu_view_t v;
     FILE *f;
     int idx;
@@ -198,15 +196,17 @@ static void test_face_band_only_on_main_menu(void)
     CHECK(f != NULL);
     if (f == NULL)
         return;
-    fputs("face_h=52\npad=6\ntitle_h=14\nitem_h=14\n", f);
+    fputs("format=1\nhome=companion\nhome_nav=horizontal\nface_h=52\n"
+          "home_bar_y=150\nhome_bar_h=14\n"
+          "pad=6\ntitle_h=14\nitem_h=14\n", f);
     fclose(f);
     CHECK_EQ_INT(theme_layout_load("rechord_test_layout.cfg"), 0);
     remove("rechord_test_layout.cfg");
 
-    CHECK_EQ_INT(menu_page_size_for(&plain),
+    CHECK_EQ_INT(theme_layout()->home, THEME_HOME_COMPANION);
+    CHECK_EQ_INT(theme_layout()->home_nav, THEME_NAV_HORIZONTAL);
+    CHECK_EQ_INT(menu_page_size(),
                  (DISPLAY_H - THEME_MENU_TOP) / THEME_ITEM_H);
-    CHECK_EQ_INT(menu_page_size_for(&faced),
-                 (DISPLAY_H - THEME_FACE_TOP) / THEME_ITEM_H);
     CHECK_EQ_INT(browser_page_rows(),
                  (DISPLAY_H - THEME_ITEM_H - THEME_MENU_TOP) / THEME_ITEM_H);
 
@@ -219,14 +219,6 @@ static void test_face_band_only_on_main_menu(void)
         CHECK_EQ_INT(mock_display_text(idx)->y,
                      THEME_MENU_TOP + THEME_TEXT_YOFF);
 
-    mock_display_reset();
-    menu_draw(&faced, &v);
-    idx = mock_display_text_find("X");
-    CHECK(idx >= 0);
-    if (idx >= 0)
-        CHECK_EQ_INT(mock_display_text(idx)->y,
-                     THEME_FACE_TOP + THEME_TEXT_YOFF);
-
     theme_layout_reset();
 }
 
@@ -234,5 +226,5 @@ void test_menu_nav(void)
 {
     test_menu_view_move();
     test_menu_screen_keys();
-    test_face_band_only_on_main_menu();
+    test_theme_layout_drives_list_metrics();
 }

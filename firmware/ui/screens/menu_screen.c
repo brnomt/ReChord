@@ -17,7 +17,6 @@
 #include <string.h>
 
 #include "screens.h"
-#include "companion.h"
 #include "../theme.h"
 #include "../internal/hal.h"
 
@@ -68,26 +67,9 @@ void menu_view_move(menu_view_t *v, int delta, int count, int page)
         v->top = 0;
 }
 
-/* First row y for a model: only a list that paints the face reserves its
- * band; every other list starts right under the title bar (BRNOMT-72). */
-static int menu_top(const menu_model_t *model)
-{
-    return THEME_MENU_TOP +
-           ((model != 0 && model->face != 0) ? theme_layout()->face_h : 0);
-}
-
-int menu_page_size_for(const menu_model_t *model)
-{
-    int top = menu_top(model);
-
-    if (top < 0)
-        top = 0;
-    return (DISPLAY_H - top) / THEME_ITEM_H;
-}
-
 int menu_page_size(void)
 {
-    return menu_page_size_for(0);
+    return (DISPLAY_H - THEME_MENU_TOP) / THEME_ITEM_H;
 }
 
 /* ---- rendering --------------------------------------------------------- */
@@ -123,8 +105,8 @@ void menu_draw_item(int y, const char *label, const char *value, bool selected)
 
 void menu_draw(const menu_model_t *model, const menu_view_t *view)
 {
-    int page = menu_page_size_for(model);
-    int top = menu_top(model);
+    int page = menu_page_size();
+    int top = THEME_MENU_TOP;
     int row;
 
     display_clear(THEME_COLOR_BG);
@@ -150,13 +132,6 @@ void menu_draw(const menu_model_t *model, const menu_view_t *view)
                 display_draw_text(tx, THEME_TITLE_TEXT_Y + THEME_TEXT_YOFF,
                                   st, THEME_COLOR_DIM, THEME_COLOR_TITLE_BG);
         }
-    }
-
-    /* Procedural companion face in the reserved band (companion-bot theme):
-     * only the root model asks for it; the band is always part of the layout. */
-    if (model->face != 0 && theme_layout()->face_h > 0) {
-        companion_draw(0, THEME_TITLE_H, DISPLAY_W, theme_layout()->face_h,
-                       player_get_state() == PLAYER_PLAYING, view->cursor);
     }
 
     /* visible rows */
@@ -189,35 +164,40 @@ static void menu_screen_draw(void)
         menu_draw(s_model, &s_view);
 }
 
-static void menu_screen_handle_event(const input_event_t *ev)
+int menu_handle_event(const menu_model_t *model, menu_view_t *view,
+                      const input_event_t *ev)
 {
-    if (s_model == NULL || ev->kind == INPUT_LONG ||
-        ev->kind == INPUT_RELEASE)
-        return;                       /* listings act on PRESS/REPEAT only */
+    if (model == NULL || view == NULL || ev == NULL)
+        return 0;
+    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
+        return 0;                     /* listings act on PRESS/REPEAT only */
 
     switch (ev->type) {
     case KEY_UP:
-        menu_view_move(&s_view, -1, s_model->item_count,
-                       menu_page_size_for(s_model));
+        menu_view_move(view, -1, model->item_count, menu_page_size());
         ui_invalidate_all();
-        break;
+        return 1;
     case KEY_DOWN:
-        menu_view_move(&s_view, +1, s_model->item_count,
-                       menu_page_size_for(s_model));
+        menu_view_move(view, +1, model->item_count, menu_page_size());
         ui_invalidate_all();
-        break;
+        return 1;
     case KEY_SELECT:
-        if (s_view.cursor >= 0 && s_view.cursor < s_model->item_count &&
-            s_model->items[s_view.cursor].on_select)
-            s_model->items[s_view.cursor].on_select();
+        if (view->cursor >= 0 && view->cursor < model->item_count &&
+            model->items[view->cursor].on_select)
+            model->items[view->cursor].on_select();
         ui_invalidate_all();
-        break;
+        return 1;
     case KEY_BACK:
         ui_pop_screen();
-        break;
+        return 1;
     default:
-        break;   /* KEY_POWER etc.: core/global policy, ignore here */
+        return 0;   /* KEY_POWER etc.: core/global policy, ignore here */
     }
+}
+
+static void menu_screen_handle_event(const input_event_t *ev)
+{
+    (void)menu_handle_event(s_model, &s_view, ev);
 }
 
 const ui_screen_t menu_screen = {

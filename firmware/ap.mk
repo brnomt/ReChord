@@ -113,6 +113,7 @@ AP_SERVICE_SRCS := \
 AP_THEME_SRCS := \
   firmware/theme/theme.c \
   firmware/theme/theme_pkg.c \
+  firmware/theme/theme_runtime.c \
   firmware/theme/themes_builtin.c \
   firmware/theme/theme_file.c
 

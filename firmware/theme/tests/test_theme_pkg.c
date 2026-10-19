@@ -33,7 +33,10 @@ int main(void)
 
     /* 1. defaults are the pre-package geometry. */
     theme_layout_defaults(&l);
+    CHECK(l.format == 1);
+    CHECK(l.home == THEME_HOME_MENU && l.home_nav == THEME_NAV_VERTICAL);
     CHECK(l.pad == 4 && l.title_h == 16 && l.item_h == 12);
+    CHECK(l.home_bar_y == 152 && l.home_bar_h == 14);
     CHECK(l.np_title_y == 24 && l.np_artist_y == 36 && l.np_state_y == 48);
     CHECK(l.np_info_y == 60 && l.np_bar_y == 74 && l.np_bar_h == 2);
     CHECK(l.np_time_y == 84 && l.np_mode_y == 148);
@@ -81,6 +84,48 @@ int main(void)
     CHECK(theme_layout_load("/nonexistent/rechord/theme.cfg") < 0);
     CHECK(theme_layout() != 0);
     CHECK(theme_layout()->pad == 4 && theme_layout()->np_bar_h == 2);
+
+    /* 7. the package selects the home renderer and its navigation axis. */
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("home=companion\nhome_nav=horizontal\n"
+                             "face_h=52\nhome_bar_y=150\nhome_bar_h=14\n",
+                             &l) == 0);
+    CHECK(l.home == THEME_HOME_COMPANION);
+    CHECK(l.home_nav == THEME_NAV_HORIZONTAL);
+    CHECK(l.face_h == 52 && l.home_bar_y == 150 && l.home_bar_h == 14);
+
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("home=menu\nhome_nav=vertical\n", &l) == 0);
+    CHECK(l.home == THEME_HOME_MENU && l.home_nav == THEME_NAV_VERTICAL);
+
+    /* 8. an unknown renderer/value rejects the whole layout. */
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("home=coverflow\n", &l) != 0);
+    CHECK(l.home == THEME_HOME_MENU);
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("home=companion\nface_h=52\nhome_nav=diagonal\n",
+                             &l) != 0);
+    CHECK(l.home == THEME_HOME_MENU && l.home_nav == THEME_NAV_VERTICAL);
+
+    /* 9. companion without a usable face band is rejected. */
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("home=companion\n", &l) != 0);
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("home=companion\nface_h=10\n", &l) != 0);
+
+    /* 10. legacy manifests (no home key) infer the renderer from face_h. */
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("face_h=52\n", &l) == 0);
+    CHECK(l.home == THEME_HOME_COMPANION && l.home_nav == THEME_NAV_HORIZONTAL);
+
+    /* 11. unsupported format versions reject. */
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("format=2\n", &l) != 0);
+    CHECK(l.format == 1);
+
+    /* 12. theme_layout_set commits a validated struct atomically. */
+    theme_layout_set(&l);
+    CHECK(theme_layout()->format == 1);
 
     printf("%d checks, %d failures\n", checks, fails);
     return fails == 0 ? 0 : 1;

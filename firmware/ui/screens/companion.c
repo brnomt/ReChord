@@ -1,5 +1,8 @@
 /*
- * companion.c — "companion-bot" home: procedural eyes + 3-item bar.
+ * companion.c — "companion-bot" home renderer: procedural eyes + 3-item band.
+ *
+ * Selected by the active theme package (`home=companion`); a menu-only package
+ * never enters this file. Face band, item band and axis are package data.
  *
  * Eyes ported from intellar/oled_eye_display (MIT, control_display.ino):
  *   - solid filled ROUNDED RECTANGLES, no pupil (drawRBox semantics)
@@ -21,8 +24,11 @@
 #include "../internal/hal.h"
 
 #define FPS           8      /* the app ticks the home ~8x/s          */
-#define BAR_H         14
-#define BAR_Y         (DISPLAY_H - 18)
+/* The package owns the item band geometry and the motion axis; the renderer
+ * only draws what the active theme declares (BRNOMT-69). */
+#define BAR_H         (theme_layout()->home_bar_h)
+#define BAR_Y         (theme_layout()->home_bar_y)
+#define BAR_AXIS      (theme_layout()->home_nav)
 #define BASE_W        40     /* reference eye size                    */
 #define BASE_H        40
 #define EYE_GAP       14
@@ -197,6 +203,21 @@ static void bar_draw(int sel)
     int total = 0;
     int x, i;
 
+    if (BAR_AXIS == THEME_NAV_VERTICAL) {
+        /* Column layout: the same three actions, one per row, starting at the
+         * theme's band origin. The renderer shares the inverted-row treatment
+         * with every list so the focus state stays consistent. */
+        int y = BAR_Y;
+
+        if (y + 3 * THEME_ITEM_H > DISPLAY_H)
+            y = DISPLAY_H - 3 * THEME_ITEM_H;
+        if (y < 0)
+            y = 0;
+        for (i = 0; i < 3; i++)
+            menu_draw_item(y + i * THEME_ITEM_H, k_labels[i], NULL, i == sel);
+        return;
+    }
+
     for (i = 0; i < 3; i++) {
         widths[i] = THEME_TEXT_W((int)strlen(k_labels[i]));
         total += widths[i];
@@ -231,12 +252,13 @@ static void home_draw(void)
 {
     int band = theme_layout()->face_h;
 
-    if (band < 90)
-        band = 90;          /* room for the reference-size eyes           */
     display_clear(THEME_COLOR_BG);
-    companion_draw(0, 6, DISPLAY_W, band, player_get_state() == PLAYER_PLAYING,
-                   s_sel);
-    display_fill_rect(0, BAR_Y - 6, DISPLAY_W - 1, BAR_Y - 6, THEME_COLOR_DIM);
+    if (band > 0)
+        companion_draw(THEME_PAD, THEME_PAD, DISPLAY_W - 2 * THEME_PAD, band,
+                       player_get_state() == PLAYER_PLAYING, s_sel);
+    if (BAR_AXIS != THEME_NAV_VERTICAL)
+        display_fill_rect(0, BAR_Y - 6, DISPLAY_W - 1, BAR_Y - 6,
+                          THEME_COLOR_DIM);
     bar_draw(s_sel);
 }
 

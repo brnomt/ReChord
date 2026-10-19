@@ -165,11 +165,14 @@ subset (fopen/fgets/fgetc/feof/fclose, read-only, pooled streams) over
 `services/fs.h`. It is target-only, so it is deliberately not in
 `libc.mk` (the host links real stdio).
 
-At boot, `ap_ui_loop()` calls `theme_boot_load()` (theme_file.c), which
-loads `THEME_FILE_PATH` = `/.rechord/theme.cfg` from the internal volume on
-top of the active built-in theme, `theme_validate()`s the result and adopts
-it only if sane — a bad file must never leave the UI with a broken theme.
-Missing file = no-op. Accepted keys (case-insensitive, override style):
+At boot, `ap_ui_loop()` calls `theme_pkg_boot()` (`theme_runtime.c`), which
+reads the package id from `/.rechord/active_theme`, loads
+`/.rechord/themes/<id>/theme.cfg` from the internal volume, parses palette +
+layout from that one text, validates both and commits them together. A missing
+or malformed package falls back to `mono`, then to the built-in defaults — a
+bad file must never leave the UI with a broken theme. Settings → Theme rewrites
+the active id in place, so the choice persists. Accepted palette keys
+(case-insensitive, override style):
 
 ```
 name=My Theme          ; up to THEME_NAME_MAX-1 chars

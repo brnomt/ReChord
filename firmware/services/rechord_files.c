@@ -52,6 +52,7 @@ static const char k_log_template[] =
  * authoring copies shipped in themes/<id>/theme.cfg. Created once; a later boot
  * never overwrites a file the user may have edited. */
 #define THEME_LAYOUT_TAIL \
+    "format=1\nhome=menu\nhome_nav=vertical\n" \
     "pad=4\ntitle_h=16\nitem_h=12\nnp_title_y=24\nnp_artist_y=36\n" \
     "np_state_y=48\nnp_info_y=60\nnp_bar_y=74\nnp_bar_h=2\nnp_time_y=84\n" \
     "np_mode_y=148\nnp_vol_y=162\nnp_vol_h=2\n"
@@ -82,10 +83,12 @@ static const char k_theme_night[] =
 
 static const char k_theme_companion[] =
     "# ReChord Companion Bot (procedural face; see firmware/ui/screens/companion.c)\n"
+    "format=1\nhome=companion\nhome_nav=horizontal\n"
     "name=Companion Bot\n"
     "background=0x0000\nsurface=0x0000\ntext=0xFFFF\ntext_dim=0x8410\n"
     "accent=0xFFFF\ndanger=0xC618\nsuccess=0xFFFF\nspacing=8\nradius=0\n"
     "pad=6\ntitle_h=14\nitem_h=14\nface_h=52\n"
+    "home_bar_y=152\nhome_bar_h=14\n"
     "np_title_y=26\nnp_artist_y=38\nnp_state_y=50\nnp_info_y=62\n"
     "np_bar_y=78\nnp_bar_h=2\nnp_time_y=88\nnp_mode_y=150\n"
     "np_vol_y=162\nnp_vol_h=2\n";
@@ -193,5 +196,7 @@ int rechord_files_init(void)
     /* Active manifest starts as Mono (theme_boot_load reads THEME_FILE_PATH,
      * the same path). Never overwritten once the user edits it. */
     (void)ensure_file("/Internal/.rechord/theme.cfg", 1024u, k_theme_mono);
+    /* Active package id: the Settings picker rewrites this file in place. */
+    (void)ensure_file(RECHORD_ACTIVE_THEME, 64u, "mono\n");
     return FS_OK;
 }

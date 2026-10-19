@@ -49,6 +49,13 @@ bool ui_pop_screen(void);                       /* false if already empty   */
 const ui_screen_t *ui_top_screen(void);
 int ui_stack_depth(void);
 
+/* Order editing for screens that live *below* the top one (the theme system
+ * swaps the home renderer while Settings stays open). `index` is 0-based;
+ * insert accepts 0..depth, remove accepts 0..depth-1. */
+const ui_screen_t *ui_stack_at(int index);
+bool ui_insert_screen(int index, const ui_screen_t *screen);
+bool ui_remove_screen(int index);
+
 /* ---- redraw model (dirty row bands, inclusive y) ---------------------- */
 
 void ui_invalidate(int x0, int y0, int x1, int y1); /* mark rows y0..y1    */

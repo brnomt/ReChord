@@ -16,6 +16,7 @@
 #include "drivers/battery.h"
 #include "theme/theme.h"
 #include "theme/theme_pkg.h"
+#include "theme/theme_runtime.h"
 #include "services/fs_target.h"
 #include "services/fw_update.h"
 #include "services/log.h"
@@ -911,7 +912,29 @@ static const menu_item_t k_root_items[] = {
 
 #define RC_BUILD "m7a"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
-                                     ROOT_ITEM_COUNT, vol_status, 1 };
+                                     ROOT_ITEM_COUNT, vol_status };
+
+/* Keep the stack's root pair in sync with the active package: the classic menu
+ * is always the root, and the companion home is inserted above it only while
+ * the package declares home=companion. Called at boot and after a live theme
+ * change; Settings (the top screen) is never disturbed. */
+static void home_stack_sync(void)
+{
+    int want = (theme_layout()->home == THEME_HOME_COMPANION);
+    int i, found = -1;
+
+    for (i = 0; i < ui_stack_depth(); i++)
+        if (ui_stack_at(i) == &companion_home_screen) {
+            found = i;
+            break;
+        }
+
+    if (want && found < 0 && ui_stack_depth() >= 1)
+        (void)ui_insert_screen(1, &companion_home_screen);
+    else if (!want && found >= 0)
+        (void)ui_remove_screen(found);
+    ui_invalidate_all();
+}
 
 /* ---- resume state (BRNOMT-87) ------------------------------------------- */
 /* Deferred write, same idea as the volume: a change arms a short quiet timer so
@@ -1058,10 +1081,9 @@ void ap_ui_loop(void)
     mq_set_pump(player_process);  /* keep audio fed during library scans */
     ui_init();
     ap_clock_init();     /* ms clock for the input hold ladder */
-    /* User theme override from the internal volume (optional file, see
-     * THEME_FILE_PATH). Before the first push so the first frame uses it. */
-    (void)theme_boot_load();
-    (void)theme_layout_load(THEME_FILE_PATH);   /* BRNOMT-69: package layout */
+    /* Active package from /.rechord/active_theme: palette + layout + home
+     * renderer, committed atomically. Falls back to Mono, never blank. */
+    (void)theme_pkg_boot(RECHORD_THEMES_DIR, RECHORD_ACTIVE_THEME, "mono");
     /* Volume is runtime state: the player owns it while playing, so load the
      * saved value into the player here and let the loop below persist later
      * changes. */
@@ -1074,11 +1096,12 @@ void ap_ui_loop(void)
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
-    /* companion-bot: the theme's home (face + 3-item horizontal bar) sits above
-     * the classic menu, which stays reachable with BACK (Files/USB/System). */
+    /* The package decides the home: a menu-only theme keeps the classic list;
+     * one that declares home=companion gets the face home inserted above it
+     * (BACK still reaches Files/USB/System). */
     companion_home_set_actions(open_library, open_player, open_settings);
-    if (theme_layout()->face_h > 0)
-        ui_push_screen(&companion_home_screen);
+    settings_screen_set_theme_applied(home_stack_sync);
+    home_stack_sync();
     /* BRNOMT-87: the resume restore runs inside the loop, AFTER the first
      * sd_probe() — opening a /SD track before the volume is mounted fails
      * (field log: "resume: open failed" at 0.021 s). */
@@ -1139,8 +1162,10 @@ void ap_ui_loop(void)
                 ui_handle_event(&ev);
             }
         }
-        if (ui_stack_depth() == 0)       /* BACK on the root menu */
+        if (ui_stack_depth() == 0) {     /* BACK on the root menu */
             ui_push_screen(&menu_screen);
+            home_stack_sync();
+        }
 
         /* Volume is owned by the player module while playing, so watch it
          * here rather than in the player screen (which has no clock): adopt
@@ -1165,9 +1190,10 @@ void ap_ui_loop(void)
                 ui_invalidate(0, 0, DISPLAY_W - 1, 16);
         }
 
-        /* companion-bot: animate the face (~8 fps) while the root menu is up.
-         * Only the reserved band is invalidated, so the cost is one row strip. */
-        if (theme_layout()->face_h > 0 &&
+        /* companion home: animate the face (~8 fps) only while that renderer
+         * is the visible screen and the active package declares it. */
+        if (theme_layout()->home == THEME_HOME_COMPANION &&
+            ui_top_screen() == &companion_home_screen &&
             (unsigned)(ap_ms() - s_face_ms) >= 125u) {
             s_face_ms = ap_ms();
             /* the home draws the face above the bar (y 6..~96) */

@@ -15,6 +15,7 @@ void test_ui_redraw(void);
 void test_menu_nav(void);
 void test_settings_keys(void);
 void test_browser_pagination(void);
+void test_home_theme(void);
 
 static void run(const char *name, void (*fn)(void))
 {
@@ -34,6 +35,7 @@ int main(void)
     run("menu_nav", test_menu_nav);
     run("settings_keys", test_settings_keys);
     run("browser_pagination", test_browser_pagination);
+    run("home_theme", test_home_theme);
 
     printf("----\n%d checks, %d failures\n", test_checks, test_failures);
     return (test_failures == 0) ? 0 : 1;

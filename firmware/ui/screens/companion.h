@@ -1,12 +1,13 @@
 /*
- * companion.h — "companion-bot" theme engine (BRNOMT-69).
+ * companion.h — "companion-bot" home renderer (BRNOMT-69).
  *
  * The eyes are PROCEDURAL (no bitmaps, no allocation): solid rounded
  * rectangles, as in intellar/oled_eye_display (MIT) — no pupils. States:
  * WAKEUP, BLINK (short/long), SACCADE, SLEEP and HAPPY (lower-eyelid mask).
  *
- * The theme's home screen is a face over a 3-item horizontal bar
- * (Library / Now Playing / Settings); the app registers the actions.
+ * The renderer runs ONLY when the active package declares `home=companion`
+ * (theme_layout()->home). Its face band, item band and navigation axis come
+ * from the same manifest. The app registers the three actions.
  */
 #ifndef RECHORD_UI_COMPANION_H
 #define RECHORD_UI_COMPANION_H

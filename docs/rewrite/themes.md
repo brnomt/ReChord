@@ -1,21 +1,32 @@
 # Modular theme system (BRNOMT-69)
 
-> Status: **design + budgets** (implementation in milestones, see §8). The issue
-> requires explicit memory/time budgets *before* implementation, so this file is
-> the contract the milestones are built against.
+> Status: **implemented through milestone E** (discovery, live package switch,
+> package-selected home renderer, persistence). Assets/bitmap blit remain the
+> next step (see §8). The issue requires explicit memory/time budgets *before*
+> implementation, so this file is the contract the milestones are built
+> against.
 
 ## 1. Today
 
 - `firmware/theme/`: `theme_t` (7 RGB565 colors + 3 unused metrics), 4 built-in
   palettes (`Mono` default, `Classic`, `Paper`, `Night`), a `theme.cfg` file
-  loader (`theme_file.c`, key=value, partial overrides) and `theme_boot_load()`.
+  loader (`theme_file.c`, key=value, partial overrides).
+- **Packages are live** (`theme_runtime.c`): `/.rechord/themes/<id>/theme.cfg`
+  is enumerated, applied atomically (palette + layout + home renderer) and the
+  selection is persisted in `/.rechord/active_theme`. Settings → Theme cycles
+  the installed packages at runtime; no reboot, no recompilation.
 - Screens never hardcode colors: they ask `theme_get()` through the
   `THEME_COLOR_*` macros (`firmware/ui/theme.h`), so a palette swap restyles
-  every screen live.
-- Layout is currently **code** (coordinates in each screen), not data.
-
-So "modular" today = palettes only. This design adds packages + layouts + assets
-without giving up the host-testable, no-heap model.
+  every screen live. Geometry comes from `theme_layout()`.
+- The **home renderer is data**: `home=menu|companion` plus `home_nav=
+  vertical|horizontal`. `companion` is a bounded engine renderer selected by
+  the package; a menu-only package never runs it. `face_h`/`home_bar_*` are
+  package geometry.
+- Layout DSL (`firmware/theme/theme_pkg.{h,c}`): shared list metrics, Now
+  Playing origins, home selection/axis and the companion band. All-or-nothing,
+  bounded, no heap.
+- Still pending: bitmap assets (`r_bitmap1` + cache) and broader per-screen
+  layout records. Nothing in the current UI falls back to hardcoded styling.
 
 ## 2. Package layout
 
@@ -130,15 +141,19 @@ placeholder glyph).
 
 ## 7. Hot reload + fallback
 
-1. Settings → Theme: enumerate `/.rechord/themes/*` + the built-ins, show name
-   and a preview line.
-2. On selection: read + validate the manifest into a *scratch* struct; on any
-   error keep the current theme and show a one-line reason.
-3. On success: copy the scratch into the active struct (atomic pointer swap),
-   invalidate all rows, redraw. No reboot, no audio touch (the theme runtime
-   never runs inside the audio path).
-4. Boot: `theme_boot_load()` keeps its current behavior (cfg override →
-   built-in default), then the package layer overlays layouts/assets if present.
+1. Settings → Theme: `theme_pkg_scan()` enumerates `/.rechord/themes/*` (each
+   readable `theme.cfg` is a package) and SELECT cycles them by id.
+2. On selection: `theme_pkg_apply()` reads the manifest once, parses palette
+   (over the built-in Mono base) + layout into scratch structs and validates
+   both. Any error keeps the current theme and the picker tries the next
+   package.
+3. On success: palette + layout are committed together, the id is written to
+   `/.rechord/active_theme` (pre-created file, in-place rewrite), and the app
+   inserts/removes the companion home so `home=` takes effect without leaving
+   Settings. `ui_invalidate_all()` repaints; audio is never touched.
+4. Boot: `theme_pkg_boot()` reads the stored id and applies that package; a
+   missing/unknown package falls back to `mono`, then to the built-in palette
+   and default layout.
 5. Any failure anywhere → **built-in `Mono`**, never a blank screen.
 
 ## 8. Milestones
@@ -170,6 +185,31 @@ placeholder glyph).
   - Measured `.bss_end 0x030460A8` (gate `0x0304A000`, ~15.8 KiB free).
   - Deferred: multi-package enumeration/preview (`/.rechord/themes/*`), the
     bitmap blit (`r_bitmap1`) + asset cache, and persisting the Settings choice.
+- **E. DONE (2026-10-19)** — real package-level theming:
+  - `theme_runtime.{h,c}`: `theme_pkg_scan()` (fixed 16-entry table, sorted by
+    id), `theme_pkg_apply()` (one manifest read; palette + layout validated
+    together and committed atomically), `theme_pkg_store()` (in-place rewrite
+    of the pre-created `/.rechord/active_theme`) and `theme_pkg_boot()`
+    (active id → package → `mono` → built-in defaults).
+  - Package manifest now carries **behavior**, not only values:
+    `home=menu|companion` selects the home renderer and
+    `home_nav=vertical|horizontal` selects the item axis. The companion is
+    only inserted into the stack when the active package declares it, so a
+    simple list theme never runs the animated renderer. `face_h` and
+    `home_bar_y`/`home_bar_h` are package geometry; `face_h` >= 20 is required
+    for `home=companion`. Legacy manifests without `home=` infer the renderer
+    from `face_h`.
+  - Settings → Theme now cycles **installed packages** (not the compiled
+    palettes), persists the selection and syncs the home renderer under the
+    open Settings screen (`ui_insert_screen`/`ui_remove_screen`).
+  - `menu_draw()` no longer paints the companion; the face belongs to the
+    companion home only. Library/category/browser/settings/Now Playing keep
+    reading the live layout.
+  - Tests: `test_theme_pkg` (home/nav/renderer validation, legacy inference,
+    format rejection) and `test_theme_runtime` (scan, atomic apply, invalid
+    package keeps the active theme, persistence, boot fallback); UI
+    `test_home_theme` covers horizontal/vertical companion items.
+  - Measured `.bss_end 0x030474B0` (gate `0x0304A000`, ~10.8 KiB free).
 
 Acceptance for every milestone: host tests (format/limits/fallback), all suites
 green, packer `RESULT: PASS`, and a measured `.bss_end` recorded here.

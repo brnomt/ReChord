@@ -46,9 +46,6 @@ typedef struct menu_model {
     /* Optional right-aligned status on the title row (volume, mode, ...);
      * NULL = none. Placed last so existing initializers keep working. */
     const char *(*status_text)(void);
-    /* 1 = paint the procedural companion face in the reserved band (theme
-     * with face_h > 0); only the root menu sets it (BRNOMT-69). */
-    int face;
 } menu_model_t;
 
 /* Scrollable view state — the navigation state machine (host-tested). */
@@ -69,9 +66,12 @@ void menu_view_init(menu_view_t *v);
  * cursor inside a window of `page` visible rows. */
 void menu_view_move(menu_view_t *v, int delta, int count, int page);
 int  menu_page_size(void);   /* visible rows below the title bar            */
-/* Same, but accounts for a model that reserves the theme's face band (the
- * main menu). Every other list must use the plain menu_page_size(). */
-int  menu_page_size_for(const menu_model_t *model);
+
+/* Shared key handling for a bound model/view pair (the menu screen and the
+ * root wrapper use the exact same navigation contract). Returns nonzero when
+ * the event was consumed. */
+int  menu_handle_event(const menu_model_t *model, menu_view_t *view,
+                       const input_event_t *ev);
 
 /* Rendering helpers (shared with settings_screen / browser_screen). */
 void menu_draw(const menu_model_t *model, const menu_view_t *view);
@@ -136,6 +136,10 @@ int player_bar_width(int width, uint32_t pos, uint32_t dur);
  * ====================================================================== */
 
 extern const ui_screen_t settings_screen;
+
+/* Live theme selection changed: the app syncs the home renderer while this
+ * screen remains open (BRNOMT-69). */
+void settings_screen_set_theme_applied(void (*cb)(void));
 
 extern const ui_screen_t library_screen;       /* category menu */
 extern const ui_screen_t library_cat_screen;   /* names -> songs  */

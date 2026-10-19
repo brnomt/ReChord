@@ -153,6 +153,54 @@ int ui_stack_depth(void)
     return s_depth;
 }
 
+const ui_screen_t *ui_stack_at(int index)
+{
+    if (index < 0 || index >= s_depth)
+        return NULL;
+    return s_stack[index];
+}
+
+bool ui_insert_screen(int index, const ui_screen_t *screen)
+{
+    int i;
+
+    if (screen == NULL || s_depth >= UI_STACK_MAX ||
+        index < 0 || index > s_depth)
+        return false;
+
+    for (i = s_depth; i > index; i--)
+        s_stack[i] = s_stack[i - 1];
+    s_stack[index] = screen;
+    s_depth++;
+    if (screen->on_enter)
+        screen->on_enter();
+    ui_invalidate_all();
+    return true;
+}
+
+bool ui_remove_screen(int index)
+{
+    int i;
+
+    if (index < 0 || index >= s_depth)
+        return false;
+
+    if (s_stack[index]->on_exit)
+        s_stack[index]->on_exit();
+    for (i = index; i + 1 < s_depth; i++)
+        s_stack[i] = s_stack[i + 1];
+    s_depth--;
+
+    /* Removing the top is a pop: the screen below re-enters. Removing a
+     * covered screen leaves the visible top untouched. */
+    if (index == s_depth && s_depth > 0 &&
+        s_stack[s_depth - 1]->on_enter)
+        s_stack[s_depth - 1]->on_enter();
+
+    ui_invalidate_all();
+    return true;
+}
+
 /* ---- event dispatch --------------------------------------------------- */
 
 void ui_handle_event(const input_event_t *ev)

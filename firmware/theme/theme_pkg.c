@@ -18,7 +18,8 @@ typedef struct
 
 /* Order matters: the parser writes l->field[index] through this table. */
 enum {
-    F_PAD, F_TITLE_H, F_ITEM_H, F_FACE_H,
+    F_FORMAT, F_PAD, F_TITLE_H, F_ITEM_H, F_FACE_H,
+    F_HOME_BAR_Y, F_HOME_BAR_H,
     F_NP_TITLE_Y, F_NP_ARTIST_Y, F_NP_STATE_Y, F_NP_INFO_Y,
     F_NP_BAR_Y, F_NP_BAR_H, F_NP_TIME_Y, F_NP_MODE_Y,
     F_NP_VOL_Y, F_NP_VOL_H, F_COUNT
@@ -28,10 +29,13 @@ enum {
 #define H THEME_LAYOUT_MAX_H
 
 static const layout_key_t k_keys[] = {
+    { "format",       F_FORMAT,      1, 1   },
     { "pad",          F_PAD,         0, 16  },
     { "title_h",      F_TITLE_H,     0, 32  },
     { "item_h",       F_ITEM_H,      8, 24  },
     { "face_h",       F_FACE_H,      0, 80  },
+    { "home_bar_y",   F_HOME_BAR_Y,  0, H   },
+    { "home_bar_h",   F_HOME_BAR_H,  8, 32  },
     { "np_title_y",   F_NP_TITLE_Y,  0, H   },
     { "np_artist_y",  F_NP_ARTIST_Y, 0, H   },
     { "np_state_y",   F_NP_STATE_Y,  0, H   },
@@ -52,10 +56,13 @@ static int s_ready;
 static int *field_ptr(theme_layout_t *l, int f)
 {
     switch (f) {
+    case F_FORMAT:      return &l->format;
     case F_PAD:         return &l->pad;
     case F_TITLE_H:     return &l->title_h;
     case F_ITEM_H:      return &l->item_h;
     case F_FACE_H:      return &l->face_h;
+    case F_HOME_BAR_Y:  return &l->home_bar_y;
+    case F_HOME_BAR_H:  return &l->home_bar_h;
     case F_NP_TITLE_Y:  return &l->np_title_y;
     case F_NP_ARTIST_Y: return &l->np_artist_y;
     case F_NP_STATE_Y:  return &l->np_state_y;
@@ -74,10 +81,15 @@ void theme_layout_defaults(theme_layout_t *l)
 {
     if (l == 0)
         return;
+    l->format = 1;
+    l->home = THEME_HOME_MENU;
+    l->home_nav = THEME_NAV_VERTICAL;
     l->pad = 4;
     l->title_h = 16;
     l->item_h = 12;
     l->face_h = 0;
+    l->home_bar_y = 152;
+    l->home_bar_h = 14;
     l->np_title_y = 24;
     l->np_artist_y = 36;
     l->np_state_y = 48;
@@ -115,10 +127,48 @@ static int parse_int(const char *s, int len, int *out)
     return 0;
 }
 
+/* Trimmed, case-insensitive one-word match. */
+static int word_is(const char *s, int len, const char *word)
+{
+    int i = 0;
+    int end;
+    int n;
+
+    while (i < len && (s[i] == ' ' || s[i] == '\t'))
+        i++;
+    end = i;
+    while (end < len && s[end] != ' ' && s[end] != '\t')
+        end++;
+    n = end - i;
+    while (end < len && (s[end] == ' ' || s[end] == '\t'))
+        end++;
+    if (end != len || n != (int)strlen(word))
+        return 0;
+    for (int k = 0; k < n; k++) {
+        char a = s[i + k];
+        char b = word[k];
+
+        if (a >= 'A' && a <= 'Z')
+            a = (char)(a - ('A' - 'a'));
+        if (b >= 'A' && b <= 'Z')
+            b = (char)(b - ('A' - 'a'));
+        if (a != b)
+            return 0;
+    }
+    return 1;
+}
+
+static int key_is(const char *k, int klen, const char *word)
+{
+    return (int)strlen(word) == klen && strncmp(k, word, (size_t)klen) == 0;
+}
+
 int theme_layout_parse(const char *text, theme_layout_t *l)
 {
     theme_layout_t tmp;
     const char *p = text;
+    int home_seen = 0;
+    int nav_seen = 0;
 
     if (l == 0)
         return -1;
@@ -140,25 +190,71 @@ int theme_layout_parse(const char *text, theme_layout_t *l)
             ;
         if (eq < eol) {
             int klen = (int)(eq - p);
+            const char *v = eq + 1;
+            int vlen = (int)(eol - v);
             int i;
+
+            /* String-valued keys that select engine behavior. Unknown values
+             * reject the whole layout: a theme must never silently fall back
+             * to a renderer it did not ask for. */
+            if (key_is(p, klen, "home")) {
+                if (word_is(v, vlen, "menu"))
+                    tmp.home = THEME_HOME_MENU;
+                else if (word_is(v, vlen, "companion"))
+                    tmp.home = THEME_HOME_COMPANION;
+                else
+                    return -1;
+                home_seen = 1;
+                p = (*eol != '\0') ? eol + 1 : eol;
+                continue;
+            }
+            if (key_is(p, klen, "home_nav")) {
+                if (word_is(v, vlen, "vertical"))
+                    tmp.home_nav = THEME_NAV_VERTICAL;
+                else if (word_is(v, vlen, "horizontal"))
+                    tmp.home_nav = THEME_NAV_HORIZONTAL;
+                else
+                    return -1;
+                nav_seen = 1;
+                p = (*eol != '\0') ? eol + 1 : eol;
+                continue;
+            }
 
             for (i = 0; i < KEY_COUNT; i++) {
                 const layout_key_t *k = &k_keys[i];
 
                 if ((int)strlen(k->key) == klen &&
                     strncmp(p, k->key, (size_t)klen) == 0) {
-                    int v = 0;
+                    int n = 0;
 
-                    if (parse_int(eq + 1, (int)(eol - (eq + 1)), &v) != 0 ||
-                        v < k->min || v > k->max)
+                    if (parse_int(v, vlen, &n) != 0 ||
+                        n < k->min || n > k->max)
                         return -1;            /* reject the whole layout */
-                    *field_ptr(&tmp, k->field) = v;
+                    *field_ptr(&tmp, k->field) = n;
                     break;
                 }
             }
         }
         p = (*eol != '\0') ? eol + 1 : eol;
     }
+
+    /* Backward-compatible default for manifests written before `home`
+     * existed: a non-zero face band means the package wants the companion
+     * renderer. An explicit `home=` always wins. */
+    if (!home_seen && tmp.face_h > 0)
+        tmp.home = THEME_HOME_COMPANION;
+    if (!nav_seen && tmp.home == THEME_HOME_COMPANION)
+        tmp.home_nav = THEME_NAV_HORIZONTAL;
+
+    /* The companion renderer cannot work without a band to paint the face,
+     * and its item band must stay inside the panel. */
+    if (tmp.home == THEME_HOME_COMPANION) {
+        if (tmp.face_h < 20)
+            return -1;
+        if (tmp.home_bar_y + tmp.home_bar_h > H)
+            return -1;
+    }
+
     *l = tmp;                             /* commit only on success */
     return 0;
 }
@@ -210,6 +306,14 @@ const theme_layout_t *theme_layout(void)
         s_ready = 1;
     }
     return &s_layout;
+}
+
+void theme_layout_set(const theme_layout_t *l)
+{
+    if (l == 0)
+        return;
+    s_layout = *l;
+    s_ready = 1;
 }
 
 void theme_layout_reset(void)

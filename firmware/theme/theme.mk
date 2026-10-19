@@ -15,7 +15,9 @@ THEME_DIR := firmware/theme
 THEME_SRCS := \
   $(THEME_DIR)/theme.c \
   $(THEME_DIR)/themes_builtin.c \
-  $(THEME_DIR)/theme_file.c
+  $(THEME_DIR)/theme_file.c \
+  $(THEME_DIR)/theme_pkg.c \
+  $(THEME_DIR)/theme_runtime.c
 
 # Host-side per-module tests (run with cc, see docs/rewrite/customization.md).
 THEME_TEST_SRCS := \

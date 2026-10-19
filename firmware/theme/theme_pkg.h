@@ -16,13 +16,36 @@
 #define THEME_LAYOUT_MAX_W 320
 #define THEME_LAYOUT_MAX_H 170
 
+/* Home renderer selected by the package. The engine ships bounded renderers;
+ * a package only chooses one, so switching packages never leaves compiled-in
+ * theme code running behind the scenes. */
+enum {
+    THEME_HOME_MENU = 0,       /* classic vertical list                  */
+    THEME_HOME_COMPANION = 1   /* procedural companion face + bar        */
+};
+
+/* Axis the home renderer uses for its items (BRNOMT-69 navigation data):
+ * vertical = a column, horizontal = a row. The physical UP/DOWN pair drives
+ * "previous / next" either way, so a theme decides whether it feels like
+ * up/down or left/right. */
+enum {
+    THEME_NAV_VERTICAL = 0,
+    THEME_NAV_HORIZONTAL = 1
+};
+
 typedef struct
 {
+    int format;       /* manifest version (only 1 is accepted)  */
+    int home;         /* THEME_HOME_* renderer                  */
+    int home_nav;     /* THEME_NAV_* axis for the home items    */
+
     /* Shared list metrics (menu/library/categories/settings/browser). */
     int pad;          /* left/right margin                      */
     int title_h;      /* header band height                     */
     int item_h;       /* list row height                        */
-    int face_h;       /* reserved face band under the header    */
+    int face_h;       /* reserved face band (companion only)    */
+    int home_bar_y;   /* companion item band origin             */
+    int home_bar_h;   /* companion item band height             */
 
     /* Now Playing element origins. */
     int np_title_y;
@@ -52,6 +75,10 @@ int theme_layout_load(const char *path);
 
 /* Active layout — never NULL; defaults when no package is loaded. */
 const theme_layout_t *theme_layout(void);
+
+/* Commit a fully parsed layout (used by the package runtime after it has
+ * validated palette + layout together; nothing is ever half-applied). */
+void theme_layout_set(const theme_layout_t *l);
 
 /* Back to the built-in layout. */
 void theme_layout_reset(void);
