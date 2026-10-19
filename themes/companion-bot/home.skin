@@ -7,7 +7,7 @@
 #
 # Engineering notes:
 # - The reference is 128x64. This skin scales the 40x40 eyes / 10px gap to
-#   96x96 / 24px on the 320x170 panel (~2.4x) and keeps the same proportions.
+#   100x100 / 25px on the 320x170 panel (2.5x) and keeps the same proportions.
 # - Both eyes follow the selected item (`gaze`) but their saccades use
 #   different periods, so they move independently and smoothly.
 # - `blink_*`, `idle_h`, `happy_*` are pure functions of t/idle; no compiled

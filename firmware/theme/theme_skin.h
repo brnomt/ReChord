@@ -32,6 +32,10 @@
 #define THEME_SKIN_TEXT_MAX  4096
 #define THEME_SKIN_ITEMS_MAX 4
 
+/* Interpreter revision, logged at boot so a device can prove which engine is
+ * running (v2 = vector roundrect/triangle + [vars]). */
+#define THEME_SKIN_ENGINE 2
+
 /* Key codes match input_key_t (services/input.h) without pulling it in. */
 enum {
     THEME_SKIN_KEY_UP = 1,
