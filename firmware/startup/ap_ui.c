@@ -17,6 +17,7 @@
 #include "theme/theme.h"
 #include "theme/theme_pkg.h"
 #include "theme/theme_runtime.h"
+#include "theme/theme_skin.h"
 #include "services/fs_target.h"
 #include "services/fw_update.h"
 #include "services/log.h"
@@ -29,7 +30,7 @@
 #include "player.h"
 #include "ui/ui.h"
 #include "ui/screens/screens.h"
-#include "ui/screens/companion.h"
+#include "ui/screens/skin_screen.h"
 #include "player/bfs.h"     /* phase 3: A-side file service for Core B */
 
 /* BRNOMT-90: playlist record index -> track path (player_play_list). */
@@ -58,7 +59,7 @@ static unsigned s_log_ms;            /* last periodic log flush (see loop) */
 static unsigned s_batt_ms;           /* last battery poll (see loop) */
 static int      s_resume_done;       /* boot resume restore ran (BRNOMT-87) */
 static int      s_resume_wait;       /* passes after the first probe        */
-static unsigned s_face_ms;           /* companion face frame tick           */
+static unsigned s_face_ms;           /* skin animation refresh tick        */
 static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 
 /* BRNOMT-87 resume state: defined with the loop, used by the power paths. */
@@ -910,27 +911,27 @@ static const menu_item_t k_root_items[] = {
 };
 #define ROOT_ITEM_COUNT ((int)(sizeof k_root_items / sizeof k_root_items[0]))
 
-#define RC_BUILD "m8a"
+#define RC_BUILD "m9a"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
                                      ROOT_ITEM_COUNT, vol_status };
 
 /* Keep the stack's root pair in sync with the active package: the classic menu
- * is always the root, and the companion home is inserted above it only while
- * the package declares home=companion. Called at boot and after a live theme
- * change; Settings (the top screen) is never disturbed. */
+ * is always the root, and the skin home is inserted above it only while the
+ * package declares home=skin. Called at boot and after a live theme change;
+ * Settings (the top screen) is never disturbed. */
 static void home_stack_sync(void)
 {
-    int want = (theme_layout()->home == THEME_HOME_COMPANION);
+    int want = (theme_layout()->home == THEME_HOME_SKIN);
     int i, found = -1;
 
     for (i = 0; i < ui_stack_depth(); i++)
-        if (ui_stack_at(i) == &companion_home_screen) {
+        if (ui_stack_at(i) == &skin_home_screen) {
             found = i;
             break;
         }
 
     if (want && found < 0 && ui_stack_depth() >= 1)
-        (void)ui_insert_screen(1, &companion_home_screen);
+        (void)ui_insert_screen(1, &skin_home_screen);
     else if (!want && found >= 0)
         (void)ui_remove_screen(found);
     ui_invalidate_all();
@@ -1113,9 +1114,9 @@ void ap_ui_loop(void)
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
     /* The package decides the home: a menu-only theme keeps the classic list;
-     * one that declares home=companion gets the face home inserted above it
+     * one that declares home=skin gets the declarative home inserted above it
      * (BACK still reaches Files/USB/System). */
-    companion_home_set_actions(open_library, open_player, open_settings);
+    skin_home_set_actions(open_library, open_player, open_settings);
     settings_screen_set_theme_applied(home_stack_sync);
     home_stack_sync();
     /* BRNOMT-87: the resume restore runs inside the loop, AFTER the first
@@ -1206,14 +1207,21 @@ void ap_ui_loop(void)
                 ui_invalidate(0, 0, DISPLAY_W - 1, 16);
         }
 
-        /* companion home: animate the face (~8 fps) only while that renderer
-         * is the visible screen and the active package declares it. */
-        if (theme_layout()->home == THEME_HOME_COMPANION &&
-            ui_top_screen() == &companion_home_screen &&
-            (unsigned)(ap_ms() - s_face_ms) >= 125u) {
+        /* Skin home: the clock feeds the theme's expressions; refresh only
+         * the animated band the package declares. */
+        skin_home_tick(ap_ms());
+        if (theme_layout()->home == THEME_HOME_SKIN &&
+            ui_top_screen() == &skin_home_screen &&
+            (unsigned)(ap_ms() - s_face_ms) >=
+                (unsigned)theme_skin_refresh_ms()) {
+            int h = theme_skin_refresh_h();
+
             s_face_ms = ap_ms();
-            /* the home draws the face above the bar (y 6..~96) */
-            ui_invalidate(0, 0, DISPLAY_W - 1, 104);
+            if (h <= 0)
+                h = theme_layout()->face_h;
+            if (h <= 0 || h > DISPLAY_H)
+                h = DISPLAY_H;
+            ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
         }
 
         /* Persist the RAM log without waiting for the USB cable (see the flush

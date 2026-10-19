@@ -1,10 +1,8 @@
 # Modular theme system (BRNOMT-69)
 
-> Status: **implemented through milestone E** (discovery, live package switch,
-> package-selected home renderer, persistence). Assets/bitmap blit remain the
-> next step (see §8). The issue requires explicit memory/time budgets *before*
-> implementation, so this file is the contract the milestones are built
-> against.
+> Status: **implemented through milestone F** (package discovery, live switch,
+> persistence, and a declarative skin interpreter with package assets). The
+> firmware embeds no theme content or theme code.
 
 ## 1. Today
 
@@ -20,66 +18,60 @@
 - Screens never hardcode colors: they ask `theme_get()` through the
   `THEME_COLOR_*` macros (`firmware/ui/theme.h`), so a palette swap restyles
   every screen live. Geometry comes from `theme_layout()`.
-- The **home renderer is data**: `home=menu|companion` plus `home_nav=
-  vertical|horizontal`. `companion` is a bounded engine renderer selected by
-  the package; a menu-only package never runs it. `face_h`/`home_bar_*` are
-  package geometry.
+- The **home is interpreted, not compiled**: `home=menu|skin` selects either
+  the classic list or the generic skin interpreter. A skin package ships
+  `home.skin` (meters + expressions) and its 1-bit assets; the engine
+  (`firmware/theme/theme_skin.c`) has no theme-specific code.
 - Layout DSL (`firmware/theme/theme_pkg.{h,c}`): shared list metrics, Now
-  Playing origins, home selection/axis and the companion band. All-or-nothing,
-  bounded, no heap.
-- Still pending: bitmap assets (`r_bitmap1` + cache) and broader per-screen
-  layout records. Nothing in the current UI falls back to hardcoded styling.
+  Playing origins, home selector, skin path and asset declarations.
+  All-or-nothing, bounded, no heap.
+- The firmware seeds **no theme content**. `/.rechord/themes/<id>/` is created
+  empty; packages (theme.cfg + skin + assets) are installed from storage.
+- 1-bit assets: `display_bitmap1()` + a 2 KiB bounded cache
+  (`theme_assets.c`). A declared-but-unreadable asset rejects the package.
 
 ## 2. Package layout
 
-> The repo ships copies of the four built-in themes under `themes/<id>/theme.cfg`
-> (`mono`, `classic`, `paper`, `night`). The built-ins themselves are COMPILED IN
-> (`themes_builtin.c`), so boot creates **no** device folder: a package exists on
-> the device only once it is copied there. Install notes: `themes/README.md`.
+The repo ships authoring copies under `themes/<id>/`. The firmware seeds **no**
+theme content; a package exists on the device only once its directory is
+copied to storage. The built-in palettes (`themes_builtin.c`) remain only as
+the safe fallback when no package is usable.
 
 ```
 /<volume>/.rechord/themes/<theme_id>/
-  theme.cfg        # manifest + layout declarations (text, bounded)
-  assets/          # 1-bit bitmaps/sprites/fonts, declared in the manifest
+  theme.cfg        # palette + list geometry + home selector + asset declarations
+  home.skin        # optional declarative home screen (meters + expressions)
+  assets/          # 1-bit bitmaps referenced by home.skin
 ```
 
-`theme.cfg` is the same `key=value` dialect as `rechord.cfg` (no new parser
-engine), with two extensions: `[section]` lines and `asset`/`layout` records.
-Example (also shipped as the reference package):
+`theme.cfg` is the same `key=value` dialect as `rechord.cfg` (sections are
+ignored by the flat parser). A skin package adds:
 
 ```
-format=1
-id=mono-nothing
-name=Nothing Mono
-author=ReChord
-colors=#000000,#FFFFFF,#808080,#C6C6C6,#FFFFFF,#FFFFFF
-
-[now_playing]
-title.x=4   title.y=24  title.font=builtin-8x8  title.tag=title
-artist.x=4  artist.y=36 artist.tag=artist       artist.style=dim
-meta.x=4    meta.y=60   meta.tag=fmt+i/N        meta.align=left,right
-bar.x=4 bar.y=74 bar.w=312 bar.h=2
-time.x=4 time.y=84 time.tag=elapsed+total
-bottom.x=4 bottom.y=148 bottom.tag=modes,volume
+home=skin
+skin=home.skin
+asset_eye_open=assets/eye_open.bin,64,64
 ```
 
-Rules: one `key=value` per line, `#` comments, unknown keys are ignored (forward
-compatibility), and **every value is bounded** (§4).
+`home.skin` is the theme's logic: `[section]` meters (`fill`, `bitmap`,
+`text`, `bar`, `list`) whose properties are expressions over runtime state and
+time. Full syntax and limits: `themes/README.md`.
 
 ## 3. Renderer API (theme-independent)
 
-The theme describes intent; the renderer owns the panel. Small C surface, no
-allocations, explicit clipping:
+The theme describes intent; the renderer owns the panel. The engine uses the
+small `display_*` surface (no allocations, explicit clipping):
 
 ```c
-void r_fill(int x, int y, int w, int h, uint16_t color);
-void r_bitmap1(int x, int y, const uint8_t *bits, int w, int h, int stride,
-               uint16_t fg, uint16_t bg);           /* 1-bit, MSB-first     */
-void r_text(int x, int y, const char *s, int max_w, uint16_t fg, uint16_t bg);
-void r_bar(int x, int y, int w, int h, int fill_px, uint16_t fg, uint16_t bg);
-void r_rule(int x0, int y, int x1, uint16_t color);
-void r_text_width(const char *s);                   /* for right/centre align */
+void display_fill_rect(int x0, int y0, int x1, int y1, uint16_t color);
+void display_bitmap1(int x, int y, int w, int h, int stride,
+                     const uint8_t *bits, uint16_t fg, uint16_t bg);
+void display_draw_text(int x, int y, const char *s, uint16_t fg, uint16_t bg);
 ```
+
+The skin interpreter adds the layout/state layer: `fill`, `bitmap`, `text`,
+`bar` and an interactive `list` meter. Coordinates and colors come from the
+skin's expressions; the engine only executes them.
 
 Existing `display_*` primitives map 1:1 (`fill_rect`, `draw_text`); `bitmap1`
 is the only new one (row-major MSB-first, stride from the manifest, clipped).
@@ -149,10 +141,11 @@ placeholder glyph).
    (over the built-in Mono base) + layout into scratch structs and validates
    both. Any error keeps the current theme and the picker tries the next
    package.
-3. On success: palette + layout are committed together, the id is written as
-   `theme=<id>` in `/.rechord/rechord.cfg` (and mirrored to the legacy
-   `/.rechord/active_theme`), and the app inserts/removes the companion home
-   so `home=` takes effect without leaving Settings. `ui_invalidate_all()`
+3. On success: palette + layout are committed together, the skin text and
+   assets are loaded from the package, the id is written as `theme=<id>` in
+   `/.rechord/rechord.cfg` (and mirrored to the legacy
+   `/.rechord/active_theme`), and the app inserts/removes the skin home so
+   `home=` takes effect without leaving Settings. `ui_invalidate_all()`
    repaints; audio is never touched.
 4. Boot: the cfg `theme=` id is applied; configs without it fall back to
    `active_theme`, then to `mono`, then to the built-in palette/default layout.
@@ -187,30 +180,32 @@ placeholder glyph).
   - Measured `.bss_end 0x030460A8` (gate `0x0304A000`, ~15.8 KiB free).
   - Deferred: multi-package enumeration/preview (`/.rechord/themes/*`), the
     bitmap blit (`r_bitmap1`) + asset cache, and persisting the Settings choice.
-- **E. DONE (2026-10-19)** — real package-level theming:
+- **E. DONE (2026-10-19)** — live package switching:
   - `theme_runtime.{h,c}`: `theme_pkg_scan()` (fixed 16-entry table, sorted by
     id), `theme_pkg_apply()` (one manifest read; palette + layout validated
     together and committed atomically), `theme_pkg_boot()` (cfg `theme=` id →
     legacy `active_theme` → `mono` → built-in defaults).
-  - Package manifest now carries **behavior**, not only values:
-    `home=menu|companion` selects the home renderer and
-    `home_nav=vertical|horizontal` selects the item axis. The companion is
-    only inserted into the stack when the active package declares it, so a
-    simple list theme never runs the animated renderer. `face_h` and
-    `home_bar_y`/`home_bar_h` are package geometry; `face_h` >= 20 is required
-    for `home=companion`. Legacy manifests without `home=` infer the renderer
-    from `face_h`.
-  - Settings → Theme now cycles **installed packages** (not the compiled
-    palettes), persists the selection and syncs the home renderer under the
-    open Settings screen (`ui_insert_screen`/`ui_remove_screen`).
-  - `menu_draw()` no longer paints the companion; the face belongs to the
-    companion home only. Library/category/browser/settings/Now Playing keep
-    reading the live layout.
-  - Tests: `test_theme_pkg` (home/nav/renderer validation, legacy inference,
-    format rejection) and `test_theme_runtime` (scan, atomic apply, invalid
-    package keeps the active theme, persistence, boot fallback); UI
-    `test_home_theme` covers horizontal/vertical companion items.
-  - Measured `.bss_end 0x030474B0` (gate `0x0304A000`, ~10.8 KiB free).
+  - Settings → Theme cycles **installed packages** (not compiled palettes),
+    persists the selection and syncs the home screen under the open Settings
+    screen (`ui_insert_screen`/`ui_remove_screen`).
+- **F. DONE (2026-10-19)** — no theme code in the firmware:
+  - `theme_skin.{h,c}`: bounded declarative interpreter. Sections + meters
+    (`fill`, `bitmap`, `text`, `bar`, `list`) whose properties are expressions
+    over `t idle playing volume W H sel n aw ah title ...`, with
+    `min max abs clamp mod noise sin seq if`. The interactive list carries its
+    own labels/actions and `prev`/`next` key bindings.
+  - `theme_assets.{h,c}`: 1-bit assets loaded from the package into a 2 KiB
+    cache; declared-but-unreadable assets reject the package.
+  - `display_bitmap1()` blits raw MSB-first rows; `skin_screen.c` is a generic
+    UI adapter (no theme symbols).
+  - `themes/companion-bot/` now contains `theme.cfg` + `home.skin` +
+    `assets/*.bin`; the firmware seeds no theme content. The Companion
+    animation (blink, saccade, sleep, happy) is data.
+  - Tests: `test_skin_home` loads the real package, verifies expressions,
+    bitmap blits and `prev=down`/`next=up` mapping; `test_theme_pkg` covers
+    skin/asset validation; `test_theme_runtime` covers atomic apply + skin
+    loading.
+  - Measured `.bss_end 0x030492B8` (gate `0x0304A000`, ~3.4 KiB free).
 
 Acceptance for every milestone: host tests (format/limits/fallback), all suites
 green, packer `RESULT: PASS`, and a measured `.bss_end` recorded here.

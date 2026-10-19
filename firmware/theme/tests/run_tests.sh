@@ -18,7 +18,7 @@ $CC $CFLAGS -I.. -o .work/test_theme_pkg \
 
 $CC $CFLAGS -I.. -o .work/test_theme_runtime \
     test_theme_runtime.c ../theme.c ../themes_builtin.c ../theme_file.c \
-    ../theme_pkg.c ../theme_runtime.c
+    ../theme_pkg.c ../theme_runtime.c ../theme_assets.c ../theme_skin.c
 .work/test_theme_runtime
 
 echo "ALL THEME TESTS PASSED"

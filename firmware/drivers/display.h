@@ -78,6 +78,15 @@ void display_fill_rect(int x0, int y0, int x1, int y1, uint16_t rgb565);
 void display_draw_text(int x, int y, const char *s, uint16_t fg, uint16_t bg);
 
 /*
+ * Blit a 1-bit bitmap (MSB-first, row-major, `stride` bytes per row) with
+ * its top-left corner at (x, y). Set bits use `fg`, clear bits use `bg`.
+ * Clipped pixel by pixel against the screen; NULL/short input is a no-op.
+ * Framebuffer only -- flush to make visible.
+ */
+void display_bitmap1(int x, int y, int w, int h, int stride,
+                     const uint8_t *bits, uint16_t fg, uint16_t bg);
+
+/*
  * Push framebuffer rows y0..y1 (INCLUSIVE) to the panel via
  * CASET/RASET/RAMWR. Row indexes are clamped to 0..DISPLAY_H-1; a
  * reversed or empty range is a no-op. Sends the full row width.

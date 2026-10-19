@@ -1,0 +1,61 @@
+# Companion Bot — declarative home skin (BRNOMT-69).
+#
+# This file is THE theme. The firmware interprets it; nothing here is
+# compiled. Expressions run every refresh with:
+#   t idle playing paused stopped volume W H sel n aw ah
+# and the palette names. Functions: min max abs clamp mod noise sin seq if.
+#
+# Assets are declared in theme.cfg and read from ./assets.
+
+[skin]
+refresh_ms=110
+refresh_h=112
+
+[background]
+type=fill
+x=0
+y=0
+w=W
+h=H
+color=background
+
+# --- eyes ---------------------------------------------------------------
+# The left and right eyes share the blink sequence. `seq` returns "eye_open"
+# outside the blink window, then walks eye_open -> eye_half -> eye_closed ->
+# eye_half -> eye_open. Happy frames are selected while audio plays; after
+# ~6 s without input the face sleeps (thin line).
+[eye_left]
+type=bitmap
+asset=(playing ? "eye_happy_left" : (idle > 6000 ? "eye_closed" : seq(t, 3800, 700, "eye_open,eye_half,eye_closed,eye_half,eye_open")))
+x=(W/2 - 12 - 32) - aw/2 + noise(t / 700, 8)
+y=56 - ah/2 + noise(t / 900, 4)
+
+[eye_right]
+type=bitmap
+asset=(playing ? "eye_happy_right" : (idle > 6000 ? "eye_closed" : seq(t, 3800, 700, "eye_open,eye_half,eye_closed,eye_half,eye_open")))
+x=(W/2 + 12 + 32) - aw/2 + noise(t / 700, 8)
+y=56 - ah/2 + noise(t / 900, 4)
+
+# --- separator ----------------------------------------------------------
+[rule]
+type=fill
+x=0
+y=146
+w=W
+h=1
+color=text_dim
+
+# --- home items ---------------------------------------------------------
+# prev/next are the logical keys bound to movement. The physical vol+ is
+# mapped to DOWN on this hardware, so prev=down makes vol+ move left.
+[items]
+type=list
+axis=horizontal
+y=152
+height=14
+selected=1
+prev=down
+next=up
+item0=LIBRARY:library
+item1=NOW PLAYING:player
+item2=SETTINGS:settings

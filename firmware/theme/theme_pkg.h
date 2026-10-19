@@ -16,22 +16,28 @@
 #define THEME_LAYOUT_MAX_W 320
 #define THEME_LAYOUT_MAX_H 170
 
-/* Home renderer selected by the package. The engine ships bounded renderers;
- * a package only chooses one, so switching packages never leaves compiled-in
- * theme code running behind the scenes. */
+#define THEME_ASSET_MAX      8
+#define THEME_ASSET_NAME_MAX 16
+#define THEME_ASSET_PATH_MAX 48
+
+/* Home renderer selected by the package. SKIN is the generic interpreter
+ * that reads the package's skin file; MENU is the classic built-in list. */
 enum {
-    THEME_HOME_MENU = 0,       /* classic vertical list                  */
-    THEME_HOME_COMPANION = 1   /* procedural companion face + bar        */
+    THEME_HOME_MENU = 0,
+    THEME_HOME_SKIN = 1
 };
 
-/* Axis the home renderer uses for its items (BRNOMT-69 navigation data):
- * vertical = a column, horizontal = a row. The physical UP/DOWN pair drives
- * "previous / next" either way, so a theme decides whether it feels like
- * up/down or left/right. */
+/* Axis the generic home list uses. */
 enum {
     THEME_NAV_VERTICAL = 0,
     THEME_NAV_HORIZONTAL = 1
 };
+
+typedef struct theme_asset_decl {
+    char name[THEME_ASSET_NAME_MAX];
+    char path[THEME_ASSET_PATH_MAX];   /* relative to the theme directory */
+    int  w, h;
+} theme_asset_decl_t;
 
 typedef struct
 {
@@ -43,9 +49,17 @@ typedef struct
     int pad;          /* left/right margin                      */
     int title_h;      /* header band height                     */
     int item_h;       /* list row height                        */
-    int face_h;       /* reserved face band (companion only)    */
-    int home_bar_y;   /* companion item band origin             */
-    int home_bar_h;   /* companion item band height             */
+    int face_h;       /* animated band height (skin refresh hint) */
+    int home_bar_y;   /* generic home item band origin            */
+    int home_bar_h;   /* generic home item band height            */
+
+    /* Declarative skin file (relative to the theme directory). Required for
+     * home=skin; the engine interprets it, no theme code is compiled in. */
+    char skin[THEME_ASSET_PATH_MAX];
+
+    /* 1-bit assets shipped inside the package. */
+    int asset_count;
+    theme_asset_decl_t assets[THEME_ASSET_MAX];
 
     /* Now Playing element origins. */
     int np_title_y;

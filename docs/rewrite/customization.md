@@ -166,13 +166,14 @@ subset (fopen/fgets/fgetc/feof/fclose, read-only, pooled streams) over
 `libc.mk` (the host links real stdio).
 
 At boot, `ap_ui_loop()` reads the `theme=` id from `rechord.cfg`, loads
-`/.rechord/themes/<id>/theme.cfg` from the internal volume, parses palette +
-layout from that one text, validates both and commits them together. A missing
-or malformed package falls back to `mono`, then to the built-in defaults — a
-bad file must never leave the UI with a broken theme. Configs without
-`theme=` keep using the legacy `/.rechord/active_theme`; Settings → Theme
-writes both files. Accepted palette keys
-(case-insensitive, override style):
+`/.rechord/themes/<id>/theme.cfg`, and applies palette + layout atomically. If
+the package declares `home=skin`, its `skin=` file and every declared 1-bit
+asset are loaded from the same directory; the generic interpreter renders the
+home and no theme code is compiled in. A missing or malformed package falls
+back to `mono`, then to the built-in defaults — a bad file must never leave the
+UI with a broken theme. Configs without `theme=` keep using the legacy
+`/.rechord/active_theme`; Settings → Theme writes both files. Accepted palette
+keys (case-insensitive, override style):
 
 ```
 name=My Theme          ; up to THEME_NAME_MAX-1 chars

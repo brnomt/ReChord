@@ -64,7 +64,7 @@ AP_UI_SRCS := \
   firmware/ui/screens/settings_screen.c \
   firmware/ui/screens/library_screen.c \
   firmware/ui/screens/library_cat_screen.c \
-  firmware/ui/screens/companion.c
+  firmware/ui/screens/skin_screen.c
 
 # Drivers: the TARGET panel backend + the panel init sequence tables
 # (same set as $(DRIVERS_TARGET_SRCS) in firmware/drivers/drivers.mk,
@@ -114,6 +114,8 @@ AP_THEME_SRCS := \
   firmware/theme/theme.c \
   firmware/theme/theme_pkg.c \
   firmware/theme/theme_runtime.c \
+  firmware/theme/theme_assets.c \
+  firmware/theme/theme_skin.c \
   firmware/theme/themes_builtin.c \
   firmware/theme/theme_file.c
 

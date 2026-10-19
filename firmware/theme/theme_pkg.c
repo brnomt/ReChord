@@ -33,7 +33,7 @@ static const layout_key_t k_keys[] = {
     { "pad",          F_PAD,         0, 16  },
     { "title_h",      F_TITLE_H,     0, 32  },
     { "item_h",       F_ITEM_H,      8, 24  },
-    { "face_h",       F_FACE_H,      0, 80  },
+    { "face_h",       F_FACE_H,      0, H   },
     { "home_bar_y",   F_HOME_BAR_Y,  0, H   },
     { "home_bar_h",   F_HOME_BAR_H,  8, 32  },
     { "np_title_y",   F_NP_TITLE_Y,  0, H   },
@@ -90,6 +90,8 @@ void theme_layout_defaults(theme_layout_t *l)
     l->face_h = 0;
     l->home_bar_y = 152;
     l->home_bar_h = 14;
+    l->skin[0] = '\0';
+    l->asset_count = 0;
     l->np_title_y = 24;
     l->np_artist_y = 36;
     l->np_state_y = 48;
@@ -163,12 +165,97 @@ static int key_is(const char *k, int klen, const char *word)
     return (int)strlen(word) == klen && strncmp(k, word, (size_t)klen) == 0;
 }
 
+/* Trimmed integer span: surrounding spaces/tabs are ignored. */
+static int span_int(const char *s, int len, int *out)
+{
+    int start = 0;
+    int end = len;
+
+    while (start < end && (s[start] == ' ' || s[start] == '\t'))
+        start++;
+    while (end > start && (s[end - 1] == ' ' || s[end - 1] == '\t'))
+        end--;
+    return parse_int(s + start, end - start, out);
+}
+
+/* Relative asset path: no absolute paths, no '\\', no "..". */
+static int valid_asset_path(const char *p, int len)
+{
+    int i;
+
+    if (p == 0 || len <= 0 || len >= THEME_ASSET_PATH_MAX || p[0] == '/')
+        return 0;
+    for (i = 0; i < len; i++) {
+        if (p[i] == '\\')
+            return 0;
+        if (p[i] == '.' && i + 1 < len && p[i + 1] == '.')
+            return 0;
+    }
+    return 1;
+}
+
+static int parse_asset_key(const char *key, int klen, const char *v, int vlen,
+                           theme_layout_t *l)
+{
+    const char *name = key + 6;          /* after "asset_" */
+    int nlen = klen - 6;
+    int c1 = -1, c2 = -1;
+    int start, end, w, h, i;
+
+    if (nlen <= 0 || nlen >= THEME_ASSET_NAME_MAX ||
+        l->asset_count >= THEME_ASSET_MAX)
+        return -1;
+    for (i = 0; i < vlen; i++) {
+        if (v[i] == ',') {
+            if (c1 < 0)
+                c1 = i;
+            else if (c2 < 0)
+                c2 = i;
+            else
+                return -1;
+        }
+    }
+    if (c1 < 0 || c2 < 0)
+        return -1;
+
+    start = 0;
+    end = c1;
+    while (start < end && (v[start] == ' ' || v[start] == '\t'))
+        start++;
+    while (end > start && (v[end - 1] == ' ' || v[end - 1] == '\t'))
+        end--;
+    if (!valid_asset_path(v + start, end - start))
+        return -1;
+    if (span_int(v + c1 + 1, c2 - c1 - 1, &w) != 0 ||
+        span_int(v + c2 + 1, vlen - c2 - 1, &h) != 0)
+        return -1;
+    if (w < 1 || w > 64 || h < 1 || h > 64 || (w + 7) / 8 > 8)
+        return -1;
+
+    for (i = 0; i < l->asset_count; i++) {
+        if ((int)strlen(l->assets[i].name) == nlen &&
+            strncmp(l->assets[i].name, name, (size_t)nlen) == 0)
+            return -1;                   /* duplicate asset name */
+    }
+
+    memcpy(l->assets[l->asset_count].name, name, (size_t)nlen);
+    l->assets[l->asset_count].name[nlen] = '\0';
+    memcpy(l->assets[l->asset_count].path, v + start,
+           (size_t)(end - start));
+    l->assets[l->asset_count].path[end - start] = '\0';
+    l->assets[l->asset_count].w = w;
+    l->assets[l->asset_count].h = h;
+    l->asset_count++;
+    return 0;
+}
+
 int theme_layout_parse(const char *text, theme_layout_t *l)
 {
     theme_layout_t tmp;
     const char *p = text;
     int home_seen = 0;
     int nav_seen = 0;
+    int skin_seen = 0;
 
     if (l == 0)
         return -1;
@@ -200,8 +287,9 @@ int theme_layout_parse(const char *text, theme_layout_t *l)
             if (key_is(p, klen, "home")) {
                 if (word_is(v, vlen, "menu"))
                     tmp.home = THEME_HOME_MENU;
-                else if (word_is(v, vlen, "companion"))
-                    tmp.home = THEME_HOME_COMPANION;
+                else if (word_is(v, vlen, "skin") ||
+                         word_is(v, vlen, "companion"))
+                    tmp.home = THEME_HOME_SKIN;
                 else
                     return -1;
                 home_seen = 1;
@@ -216,6 +304,29 @@ int theme_layout_parse(const char *text, theme_layout_t *l)
                 else
                     return -1;
                 nav_seen = 1;
+                p = (*eol != '\0') ? eol + 1 : eol;
+                continue;
+            }
+            if (key_is(p, klen, "skin")) {
+                int start = 0;
+                int end = vlen;
+
+                while (start < end && (v[start] == ' ' || v[start] == '\t'))
+                    start++;
+                while (end > start &&
+                       (v[end - 1] == ' ' || v[end - 1] == '\t'))
+                    end--;
+                if (!valid_asset_path(v + start, end - start))
+                    return -1;
+                memcpy(tmp.skin, v + start, (size_t)(end - start));
+                tmp.skin[end - start] = '\0';
+                skin_seen = 1;
+                p = (*eol != '\0') ? eol + 1 : eol;
+                continue;
+            }
+            if (klen > 6 && strncmp(p, "asset_", 6) == 0) {
+                if (parse_asset_key(p, klen, v, vlen, &tmp) != 0)
+                    return -1;
                 p = (*eol != '\0') ? eol + 1 : eol;
                 continue;
             }
@@ -238,22 +349,17 @@ int theme_layout_parse(const char *text, theme_layout_t *l)
         p = (*eol != '\0') ? eol + 1 : eol;
     }
 
-    /* Backward-compatible default for manifests written before `home`
-     * existed: a non-zero face band means the package wants the companion
-     * renderer. An explicit `home=` always wins. */
-    if (!home_seen && tmp.face_h > 0)
-        tmp.home = THEME_HOME_COMPANION;
-    if (!nav_seen && tmp.home == THEME_HOME_COMPANION)
+    /* Backward-compatible default: a non-zero face band only selects the
+     * skin renderer when the package actually ships a skin file. Old
+     * companion manifests without one fall back to the classic menu. */
+    if (!home_seen && tmp.face_h > 0 && skin_seen)
+        tmp.home = THEME_HOME_SKIN;
+    if (!nav_seen && tmp.home == THEME_HOME_SKIN)
         tmp.home_nav = THEME_NAV_HORIZONTAL;
 
-    /* The companion renderer cannot work without a band to paint the face,
-     * and its item band must stay inside the panel. */
-    if (tmp.home == THEME_HOME_COMPANION) {
-        if (tmp.face_h < 20)
-            return -1;
-        if (tmp.home_bar_y + tmp.home_bar_h > H)
-            return -1;
-    }
+    /* The generic skin renderer needs its declarative file. */
+    if (tmp.home == THEME_HOME_SKIN && tmp.skin[0] == '\0')
+        return -1;
 
     *l = tmp;                             /* commit only on success */
     return 0;

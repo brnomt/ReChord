@@ -85,14 +85,21 @@ int main(void)
     CHECK(theme_layout() != 0);
     CHECK(theme_layout()->pad == 4 && theme_layout()->np_bar_h == 2);
 
-    /* 7. the package selects the home renderer and its navigation axis. */
+    /* 7. the package selects the generic skin renderer + its file. */
     theme_layout_defaults(&l);
-    CHECK(theme_layout_parse("home=companion\nhome_nav=horizontal\n"
-                             "face_h=52\nhome_bar_y=150\nhome_bar_h=14\n",
+    CHECK(theme_layout_parse("home=skin\nhome_nav=horizontal\n"
+                             "skin=home.skin\n"
+                             "face_h=112\nhome_bar_y=150\nhome_bar_h=14\n",
                              &l) == 0);
-    CHECK(l.home == THEME_HOME_COMPANION);
+    CHECK(l.home == THEME_HOME_SKIN);
     CHECK(l.home_nav == THEME_NAV_HORIZONTAL);
-    CHECK(l.face_h == 52 && l.home_bar_y == 150 && l.home_bar_h == 14);
+    CHECK(strcmp(l.skin, "home.skin") == 0);
+    CHECK(l.face_h == 112 && l.home_bar_y == 150 && l.home_bar_h == 14);
+
+    /* `companion` stays accepted as a legacy alias for the same interpreter. */
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("home=companion\nskin=old.skin\n", &l) == 0);
+    CHECK(l.home == THEME_HOME_SKIN && strcmp(l.skin, "old.skin") == 0);
 
     theme_layout_defaults(&l);
     CHECK(theme_layout_parse("home=menu\nhome_nav=vertical\n", &l) == 0);
@@ -103,27 +110,46 @@ int main(void)
     CHECK(theme_layout_parse("home=coverflow\n", &l) != 0);
     CHECK(l.home == THEME_HOME_MENU);
     theme_layout_defaults(&l);
-    CHECK(theme_layout_parse("home=companion\nface_h=52\nhome_nav=diagonal\n",
+    CHECK(theme_layout_parse("home=skin\nskin=home.skin\nhome_nav=diagonal\n",
                              &l) != 0);
     CHECK(l.home == THEME_HOME_MENU && l.home_nav == THEME_NAV_VERTICAL);
 
-    /* 9. companion without a usable face band is rejected. */
+    /* 9. skin without a skin file, and unsafe paths, are rejected. */
     theme_layout_defaults(&l);
-    CHECK(theme_layout_parse("home=companion\n", &l) != 0);
+    CHECK(theme_layout_parse("home=skin\n", &l) != 0);
     theme_layout_defaults(&l);
-    CHECK(theme_layout_parse("home=companion\nface_h=10\n", &l) != 0);
+    CHECK(theme_layout_parse("home=skin\nskin=../home.skin\n", &l) != 0);
 
-    /* 10. legacy manifests (no home key) infer the renderer from face_h. */
+    /* 10. legacy manifests without a skin file stay on the classic menu. */
     theme_layout_defaults(&l);
     CHECK(theme_layout_parse("face_h=52\n", &l) == 0);
-    CHECK(l.home == THEME_HOME_COMPANION && l.home_nav == THEME_NAV_HORIZONTAL);
+    CHECK(l.home == THEME_HOME_MENU);
 
-    /* 11. unsupported format versions reject. */
+    /* 11. package assets are declared, bounded and validated. */
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("asset_eye_open=assets/eye_open.bin,64,64\n"
+                             "asset_eye_closed=assets/eye_closed.bin,64,6\n",
+                             &l) == 0);
+    CHECK(l.asset_count == 2);
+    CHECK(strcmp(l.assets[0].name, "eye_open") == 0);
+    CHECK(strcmp(l.assets[0].path, "assets/eye_open.bin") == 0);
+    CHECK(l.assets[0].w == 64 && l.assets[0].h == 64);
+    CHECK(l.assets[1].w == 64 && l.assets[1].h == 6);
+
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("asset_x=assets/x.bin,65,8\n", &l) != 0);
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("asset_x=../x.bin,8,8\n", &l) != 0);
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("asset_x=a.bin,8,8\nasset_x=b.bin,8,8\n",
+                             &l) != 0);
+
+    /* 12. unsupported format versions reject. */
     theme_layout_defaults(&l);
     CHECK(theme_layout_parse("format=2\n", &l) != 0);
     CHECK(l.format == 1);
 
-    /* 12. theme_layout_set commits a validated struct atomically. */
+    /* 13. theme_layout_set commits a validated struct atomically. */
     theme_layout_set(&l);
     CHECK(theme_layout()->format == 1);
 

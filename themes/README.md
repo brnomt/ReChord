@@ -1,35 +1,34 @@
 # ReChord theme packages
 
-One directory per theme, each containing a `theme.cfg` (palette + layout) in the
-format `firmware/theme/theme_file.c` and `firmware/theme/theme_pkg.c` parse.
-These are the **authoring copies of the built-in themes**. The palettes are also
-compiled in (`firmware/theme/themes_builtin.c`), and the first boot writes a
-copy of each package to `/.rechord/themes/` (see below).
+A theme is **pure data**. Nothing in it is compiled into the firmware: the
+firmware ships a small generic interpreter (palette/layout + declarative skin
+engine) and reads everything from `/.rechord/themes/<theme_id>/`.
+
+```
+/.rechord/themes/<theme_id>/
+  theme.cfg        # palette, list geometry, home selector, asset declarations
+  home.skin        # optional declarative home screen (meters + expressions)
+  assets/*.bin     # 1-bit bitmaps referenced by home.skin
+```
 
 ## Install / activate
 
-**The device creates these packages itself on first boot** (the FS create +
-mkdir path, no pre-existing files): `/.rechord/themes/{mono,classic,paper,night,companion-bot}/theme.cfg`.
+Copy the whole directory to `/.rechord/themes/<id>/` (e.g. over USB storage),
+then choose it in **Settings → Theme**. The choice is written as `theme=<id>` in
+`/.rechord/rechord.cfg`; `/.rechord/active_theme` is the legacy fallback for
+configs without that key. No recompilation and no reboot are needed.
 
-Activate any package from **Settings → Theme** (first row): SELECT cycles the
-installed packages. The full package is applied atomically (palette + layout +
-home renderer) and the choice is written as `theme=<id>` in
-`/.rechord/rechord.cfg`, so it survives a reboot. No recompilation and no
-reboot are needed. (`/.rechord/active_theme` is the legacy fallback for configs
-that predate the `theme=` key.)
+The repository ships authoring copies under `themes/`; the firmware does not
+create them (no theme content is embedded in the binary).
 
-The active package is always the one declared by `home=`, so a theme that does
-not ask for the companion never runs the companion renderer. To add a package,
-copy a directory under `/.rechord/themes/<id>/` with its `theme.cfg`; it shows
-up in the picker on the next opening (existing files are never overwritten).
-
-## Format
+## theme.cfg
 
 ```
 format=1
-name=Nothing Mono
-home=menu              # home renderer: menu | companion
-home_nav=vertical      # item axis: vertical | horizontal
+name=My Theme
+home=menu              # menu | skin
+home_nav=vertical      # default list axis: vertical | horizontal
+
 background=0x0000      # RGB565 palette
 surface=0x0000
 text=0xFFFF
@@ -40,13 +39,11 @@ success=0xFFFF
 spacing=8
 radius=0
 
-pad=4                  # layout (theme_pkg.c), bounded
+pad=4                  # list geometry
 title_h=16
 item_h=12
-face_h=0               # companion face band (required with home=companion)
-home_bar_y=152         # companion item band (companion only)
-home_bar_h=14
-np_title_y=24
+
+np_title_y=24          # Now Playing origins
 np_artist_y=36
 np_state_y=48
 np_info_y=60
@@ -58,18 +55,89 @@ np_vol_y=162
 np_vol_h=2
 ```
 
-Comments start with `#` or `;`; unknown keys are ignored (forward compatible).
-Limits: `format` must be 1; `home` is `menu` or `companion` (anything else
-rejects the package); `home=companion` requires `face_h` >= 20; `home_nav` is
-`vertical` or `horizontal`; `pad` 0..16, `title_h` 0..32, `item_h` 8..24,
-`face_h` 0..80, `home_bar_y` 0..169, `home_bar_h` 8..32, `np_*_y` 0..169,
-`np_bar_h`/`np_vol_h` 1..8. Full design: `docs/rewrite/themes.md`.
+For a declarative home screen:
 
-`home_nav` chooses the item axis for the selected home renderer: the classic
-menu is a vertical list, while the companion renderer can lay its three items
-out as a row (`horizontal`) or a column (`vertical`). The physical UP/DOWN pair
-always means previous/next, so the theme decides whether it feels like up/down
-or left/right.
+```
+home=skin
+skin=home.skin
+face_h=112             # animated band the UI re-flushes (optional)
+home_bar_y=152
+home_bar_h=14
 
-Older manifests that predate `home=` keep working: a non-zero `face_h` selects
-the companion renderer (explicit `home=` always wins).
+# asset_<name>=<relative path>,<w>,<h>   (1-bit, MSB-first, stride=(w+7)/8)
+asset_eye_open=assets/eye_open.bin,64,64
+asset_eye_half=assets/eye_half.bin,64,32
+```
+
+Limits: `format` must be 1; `home=skin` requires a readable `skin=` file;
+asset paths are relative and may not contain `..`; max 8 assets, 64x64 px,
+stride <= 8 bytes, cache <= 2 KiB; `home`/`home_nav` values are validated and an
+unknown value rejects the whole package. `companion` is accepted as a legacy
+alias for `home=skin`.
+
+## home.skin
+
+`home.skin` is a bounded, Rockbox/Rainmeter-style declarative scene. Sections
+are drawn in file order. Each section has a `type` and properties whose values
+may be expressions.
+
+```
+[eye_left]
+type=bitmap
+asset=(playing ? "eye_happy_left" : seq(t, 3800, 700, "eye_open,eye_half,eye_closed,eye_half,eye_open"))
+x=(W/2 - 12 - 32) - aw/2 + noise(t / 700, 8)
+y=56 - ah/2 + noise(t / 900, 4)
+
+[rule]
+type=fill
+x=0
+y=146
+w=W
+h=1
+color=text_dim
+
+[items]
+type=list
+axis=horizontal
+y=152
+height=14
+selected=1
+prev=down
+next=up
+item0=LIBRARY:library
+item1=NOW PLAYING:player
+item2=SETTINGS:settings
+```
+
+Meter types:
+
+| type | properties |
+|---|---|
+| `fill` | `x y w h color` |
+| `bitmap` | `asset x y color bg` (asset dimensions become `aw`/`ah`) |
+| `text` | `x y text color bg` |
+| `bar` | `x y w h value max color bg` |
+| `list` | `axis x y height selected prev next item0..item3` |
+
+Expressions support integers, strings, `+ - * / %`, comparisons, `&& || !`,
+ternary `? :`, and functions `min max abs clamp mod noise sin seq if`.
+Variables: `t` (ms), `idle` (ms since last key), `playing paused stopped
+volume battery W H sel n aw ah title artist album state`, plus palette names
+(`background surface text text_dim accent danger success`). A bare word is a
+string (useful for `asset=eye_open`).
+
+`prev`/`next` bind movement to the logical `up`/`down` keys. This is enough to
+fix inverted hardware: with the Echo Mini's vol+ reported as `down`,
+`prev=down` makes vol+ move left.
+
+Bounded by design: 4 KiB skin text, 32 sections, 12 properties/section,
+192-byte values, expression recursion depth 12, 2048 evaluation steps.
+
+## Assets
+
+1-bit raw rows, MSB-first. `theme.cfg` declares the width/height and the file.
+The cache holds up to 2 KiB; a declared-but-unreadable asset rejects the whole
+package (no half-themed home).
+
+The Companion example's frames are generated by
+`tools/gen_companion_assets.py`.

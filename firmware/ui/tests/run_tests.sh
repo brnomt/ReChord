@@ -16,11 +16,12 @@ mkdir -p .work
 $CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
     main.c test_screen_stack.c test_ui_redraw.c test_menu_nav.c \
     test_settings_keys.c test_browser_pagination.c \
-    test_home_theme.c \
+    test_skin_home.c \
     ../ui.c ../screens/*.c ../settings_schema.c \
     ../../services/media_query.c ../../services/scratch.c \
     ../../theme/theme.c ../../theme/themes_builtin.c ../../theme/theme_pkg.c \
     ../../theme/theme_file.c ../../theme/theme_runtime.c \
+    ../../theme/theme_assets.c ../../theme/theme_skin.c \
     mock_display.c mock_services.c -lm
 
 .work/ui_tests

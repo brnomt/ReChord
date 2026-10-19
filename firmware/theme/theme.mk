@@ -17,7 +17,9 @@ THEME_SRCS := \
   $(THEME_DIR)/themes_builtin.c \
   $(THEME_DIR)/theme_file.c \
   $(THEME_DIR)/theme_pkg.c \
-  $(THEME_DIR)/theme_runtime.c
+  $(THEME_DIR)/theme_runtime.c \
+  $(THEME_DIR)/theme_assets.c \
+  $(THEME_DIR)/theme_skin.c
 
 # Host-side per-module tests (run with cc, see docs/rewrite/customization.md).
 THEME_TEST_SRCS := \

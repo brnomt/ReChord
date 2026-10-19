@@ -12,6 +12,8 @@ static mock_text_t  s_texts[MOCK_DISPLAY_MAX_TEXT];
 static int          s_text_count;
 static mock_flush_t s_flushes[MOCK_DISPLAY_MAX_FLUSH];
 static int          s_flush_count;
+static mock_bitmap_t s_bitmaps[MOCK_DISPLAY_MAX_BITMAP];
+static int          s_bitmap_count;
 static int          s_clear_count;
 static uint16_t     s_clear_color;
 
@@ -20,6 +22,7 @@ void mock_display_reset(void)
     s_rect_count = 0;
     s_text_count = 0;
     s_flush_count = 0;
+    s_bitmap_count = 0;
     s_clear_count = 0;
     s_clear_color = 0;
 }
@@ -65,6 +68,16 @@ const mock_flush_t *mock_display_flush(int i)
     return (i >= 0 && i < s_flush_count) ? &s_flushes[i] : NULL;
 }
 
+int mock_display_bitmap_count(void)
+{
+    return s_bitmap_count;
+}
+
+const mock_bitmap_t *mock_display_bitmap(int i)
+{
+    return (i >= 0 && i < s_bitmap_count) ? &s_bitmaps[i] : NULL;
+}
+
 int mock_display_clear_count(void)
 {
     return s_clear_count;
@@ -104,6 +117,22 @@ void display_draw_text(int x, int y, const char *s, uint16_t fg, uint16_t bg)
         t->fg = fg;
         t->bg = bg;
         s_text_count++;
+    }
+}
+
+void display_bitmap1(int x, int y, int w, int h, int stride,
+                     const uint8_t *bits, uint16_t fg, uint16_t bg)
+{
+    (void)bits;
+    (void)fg;
+    (void)bg;
+    if (s_bitmap_count < MOCK_DISPLAY_MAX_BITMAP) {
+        s_bitmaps[s_bitmap_count].x = x;
+        s_bitmaps[s_bitmap_count].y = y;
+        s_bitmaps[s_bitmap_count].w = w;
+        s_bitmaps[s_bitmap_count].h = h;
+        s_bitmaps[s_bitmap_count].stride = stride;
+        s_bitmap_count++;
     }
 }
 

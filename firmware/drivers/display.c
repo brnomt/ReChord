@@ -86,6 +86,31 @@ void display_draw_text(int x, int y, const char *s, uint16_t fg, uint16_t bg)
     font_draw_text(&dst, x, y, s, fg, bg);
 }
 
+void display_bitmap1(int x, int y, int w, int h, int stride,
+                     const uint8_t *bits, uint16_t fg, uint16_t bg)
+{
+    int row, col;
+
+    if (bits == 0 || w <= 0 || h <= 0 || stride <= 0)
+        return;
+    for (row = 0; row < h; row++) {
+        int py = y + row;
+
+        if (py < 0 || py >= DISPLAY_H)
+            continue;
+        for (col = 0; col < w; col++) {
+            int px = x + col;
+            uint8_t byte;
+
+            if (px < 0 || px >= DISPLAY_W)
+                continue;
+            byte = bits[row * stride + (col >> 3)];
+            display_fb[py][px] = (byte & (uint8_t)(0x80u >> (col & 7)))
+                                     ? fg : bg;
+        }
+    }
+}
+
 void display_flush_rows(int y0, int y1)
 {
     int x, y;

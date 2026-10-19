@@ -182,8 +182,8 @@ static void test_menu_screen_keys(void)
     }
 }
 
-/* BRNOMT-72/69: list geometry comes from the package, and the companion face
- * band belongs to the companion home only — a plain list never reserves it. */
+/* BRNOMT-72/69: list geometry comes from the package; a plain list never
+ * reserves the skin's animated band. */
 static void test_theme_layout_drives_list_metrics(void)
 {
     static const menu_item_t items[1] = { { "X", NULL, NULL } };
@@ -196,15 +196,15 @@ static void test_theme_layout_drives_list_metrics(void)
     CHECK(f != NULL);
     if (f == NULL)
         return;
-    fputs("format=1\nhome=companion\nhome_nav=horizontal\nface_h=52\n"
+    fputs("format=1\nhome=menu\nhome_nav=vertical\nface_h=112\n"
           "home_bar_y=150\nhome_bar_h=14\n"
           "pad=6\ntitle_h=14\nitem_h=14\n", f);
     fclose(f);
     CHECK_EQ_INT(theme_layout_load("rechord_test_layout.cfg"), 0);
     remove("rechord_test_layout.cfg");
 
-    CHECK_EQ_INT(theme_layout()->home, THEME_HOME_COMPANION);
-    CHECK_EQ_INT(theme_layout()->home_nav, THEME_NAV_HORIZONTAL);
+    CHECK_EQ_INT(theme_layout()->home, THEME_HOME_MENU);
+    CHECK_EQ_INT(theme_layout()->home_nav, THEME_NAV_VERTICAL);
     CHECK_EQ_INT(menu_page_size(),
                  (DISPLAY_H - THEME_MENU_TOP) / THEME_ITEM_H);
     CHECK_EQ_INT(browser_page_rows(),

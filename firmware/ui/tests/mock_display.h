@@ -16,6 +16,7 @@
 #define MOCK_DISPLAY_MAX_RECT  512
 #define MOCK_DISPLAY_MAX_TEXT  512
 #define MOCK_DISPLAY_MAX_FLUSH 64
+#define MOCK_DISPLAY_MAX_BITMAP 16
 
 typedef struct mock_rect {
     int x0, y0, x1, y1;
@@ -32,6 +33,10 @@ typedef struct mock_flush {
     int y0, y1;
 } mock_flush_t;
 
+typedef struct mock_bitmap {
+    int x, y, w, h, stride;
+} mock_bitmap_t;
+
 void mock_display_reset(void);
 
 int mock_display_rect_count(void);
@@ -44,6 +49,9 @@ int mock_display_text_find(const char *substr);
 
 int mock_display_flush_count(void);
 const mock_flush_t *mock_display_flush(int i);
+
+int mock_display_bitmap_count(void);
+const mock_bitmap_t *mock_display_bitmap(int i);
 
 int mock_display_clear_count(void);
 uint16_t mock_display_clear_color(void);

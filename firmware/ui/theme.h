@@ -53,8 +53,8 @@
 #define THEME_TITLE_H          (theme_layout()->title_h)
 #define THEME_TITLE_TEXT_Y     2   /* title text baseline offset in bar     */
 #define THEME_ITEM_H           (theme_layout()->item_h)
-/* Lists start right under the title bar. The companion face band belongs to
- * the companion home renderer (selected by the package's `home=` key), not to
+/* Lists start right under the title bar. The animated band belongs to the
+ * declarative skin home (selected by the package's `home=` key), not to
  * ordinary lists, so library/browser/settings keep the full panel height. */
 #define THEME_MENU_TOP         (theme_layout()->title_h)
 #define THEME_SCROLLBAR_W      3   /* right-edge scrollbar width, px        */

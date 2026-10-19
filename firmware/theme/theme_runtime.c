@@ -11,6 +11,8 @@
 
 #include "theme_runtime.h"
 #include "theme_pkg.h"
+#include "theme_assets.h"
+#include "theme_skin.h"
 #include "theme_priv.h"
 
 #ifdef RECHORD_AP_BUILD
@@ -247,6 +249,17 @@ int theme_pkg_apply(const char *root, const char *id)
         return -1;
     if (theme_validate(&t) != 0)
         return -1;
+    /* Assets are part of the package: a declared-but-unreadable bitmap
+     * rejects the whole theme instead of leaving a half-themed home. */
+    if (theme_assets_load(root, id, &layout) != 0)
+        return -1;
+    /* The declarative skin is also package data; no theme code exists. */
+    if (layout.home == THEME_HOME_SKIN) {
+        if (theme_skin_load(root, id, layout.skin) != 0)
+            return -1;
+    } else {
+        theme_skin_reset();
+    }
 
     theme_set(&t);
     theme_layout_set(&layout);
