@@ -17,7 +17,7 @@ data-format description.
 
 ```
 firmware/services/
-├── settings.h / settings.c   14-key key=value settings service (default path
+├── settings.h / settings.c   15-key key=value settings service (default path
 │                             /Internal/.rechord/rechord.cfg)
 ├── log.h / log.c             ring-buffered timestamped logger (self-flushing:
 │                             30 s / 32 lines, append + rotate at 32 KiB)
@@ -49,8 +49,8 @@ firmware/services/
 ```c
 typedef struct { char play[16]; int brightness; int screen_off_min;
     int auto_off_min; char usb[8]; char resume[8]; char strip[8];
-    char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor; }
-    settings_t;
+    char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor;
+    char shuffle[8]; char repeat_mode[8]; char theme[32]; } settings_t;
 
 int  settings_load(settings_t *s);       /* parse the config file  */
 int  settings_save(const settings_t *s); /* serialize it back      */

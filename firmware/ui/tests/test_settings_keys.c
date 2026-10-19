@@ -43,6 +43,16 @@ static void test_schema_table(void)
     CHECK(settings_schema_find("repeat_mode") == &setting_schema[13]);
     CHECK(settings_schema_find("nope") == NULL);
     CHECK(settings_schema_find(NULL) == NULL);
+
+    /* The menu exposes only the wired settings: the playback-mode duplicates
+     * (play) and the stale browse/cursor pair stay out. */
+    CHECK_EQ_INT(settings_visible_count(), 4);
+    CHECK_STR_EQ(settings_visible_at(0)->name, "resume");
+    CHECK_STR_EQ(settings_visible_at(1)->name, "volume");
+    CHECK_STR_EQ(settings_visible_at(2)->name, "shuffle");
+    CHECK_STR_EQ(settings_visible_at(3)->name, "repeat_mode");
+    CHECK(settings_visible_at(-1) == NULL);
+    CHECK(settings_visible_at(4) == NULL);
 }
 
 static void test_defaults_and_format(void)
@@ -66,6 +76,7 @@ static void test_defaults_and_format(void)
     CHECK_EQ_INT(s.cursor, 0);
     CHECK_EQ_INT(s.shuffle, 0);          /* off */
     CHECK_EQ_INT(s.repeat_mode, 0);      /* off */
+    CHECK_STR_EQ(s.theme, "");           /* boot falls back to active_theme */
 
     /* values format exactly like the config file writes them */
     settings_format(&setting_schema[0], &s, buf, (int)sizeof(buf));
@@ -177,7 +188,6 @@ static void test_settings_screen_binding(void)
 {
     const menu_model_t *model;
     input_event_t e;
-    int i;
 
     ui_init();
     mock_display_reset();
@@ -186,33 +196,37 @@ static void test_settings_screen_binding(void)
     CHECK(ui_push_screen(&settings_screen));
 
     model = settings_screen_model();
-    CHECK_EQ_INT(model->item_count, SETTING_KEY_COUNT + 1);  /* + Theme row */
+    CHECK_EQ_INT(model->item_count, settings_visible_count() + 1);
     CHECK_STR_EQ(model->title, "Settings");
     /* BRNOMT-69: the live theme picker is the FIRST row (discoverability). */
     CHECK_STR_EQ(model->items[0].label, "Theme");
     CHECK(model->items[0].on_select != 0);
-    for (i = 0; i < SETTING_KEY_COUNT; i++)
-        CHECK_STR_EQ(model->items[i + 1].label, k_expected_names[i]);
+    /* Only the wired settings are offered (no play/browse/cursor duplicates
+     * and no dead hardware rows). */
+    CHECK_STR_EQ(model->items[1].label, "resume");
+    CHECK_STR_EQ(model->items[2].label, "volume");
+    CHECK_STR_EQ(model->items[3].label, "shuffle");
+    CHECK_STR_EQ(model->items[4].label, "repeat_mode");
+    CHECK_EQ_INT(model->item_count, 5);
 
     /* defaults are live after enter */
-    CHECK_EQ_INT(settings_screen_get()->screen_off_s, 30);
-    CHECK_EQ_INT(settings_screen_get()->brightness, 8);
+    CHECK_EQ_INT(settings_screen_get()->resume_mode, 1);    /* folder */
+    CHECK_EQ_INT(settings_screen_get()->volume_db, -23);
 
-    /* navigate to "screen_off" (schema index 2 -> menu index 3, Theme is 0)
-     * and cycle it */
+    /* navigate to "resume" (menu index 1) and cycle it */
     e = ev(KEY_DOWN); ui_handle_event(&e);
-    e = ev(KEY_DOWN); ui_handle_event(&e);
-    e = ev(KEY_DOWN); ui_handle_event(&e);
-    CHECK_EQ_INT(settings_screen_view()->cursor, 3);
+    CHECK_EQ_INT(settings_screen_view()->cursor, 1);
     e = ev(KEY_SELECT); ui_handle_event(&e);
-    CHECK_EQ_INT(settings_screen_get()->screen_off_s, 60);
-    CHECK_EQ_INT(settings_screen_get()->brightness, 8);   /* untouched */
+    CHECK_EQ_INT(settings_screen_get()->resume_mode, 2);    /* track */
+    CHECK_EQ_INT(settings_screen_get()->volume_db, -23);    /* untouched */
 
-    /* the menu shows schema values */
+    /* the menu shows the visible key and its value */
     mock_display_reset();
     ui_render();
-    CHECK(mock_display_text_find("screen_off") >= 0);
-    CHECK(mock_display_text_find("60") >= 0);
+    CHECK(mock_display_text_find("resume") >= 0);
+    CHECK(mock_display_text_find("track") >= 0);
+    CHECK(mock_display_text_find("play") < 0);
+    CHECK(mock_display_text_find("browse") < 0);
 
     /* BACK saves through the settings service and pops */
     e = ev(KEY_BACK); ui_handle_event(&e);

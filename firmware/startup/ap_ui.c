@@ -910,7 +910,7 @@ static const menu_item_t k_root_items[] = {
 };
 #define ROOT_ITEM_COUNT ((int)(sizeof k_root_items / sizeof k_root_items[0]))
 
-#define RC_BUILD "m7b"
+#define RC_BUILD "m8a"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
                                      ROOT_ITEM_COUNT, vol_status };
 
@@ -1081,16 +1081,29 @@ void ap_ui_loop(void)
     mq_set_pump(player_process);  /* keep audio fed during library scans */
     ui_init();
     ap_clock_init();     /* ms clock for the input hold ladder */
-    /* Active package from /.rechord/active_theme: palette + layout + home
-     * renderer, committed atomically. Falls back to Mono, never blank. */
-    (void)theme_pkg_boot(RECHORD_THEMES_DIR, RECHORD_ACTIVE_THEME, "mono");
+    /* Active package: the cfg `theme=` id wins; older configs (no key) fall
+     * back to /.rechord/active_theme, then to Mono. Settings reload first
+     * because the id lives in rechord.cfg. */
+    settings_screen_reload();
+    {
+        const char *theme_id = settings_screen_get()->theme;
+        int applied = 0;
+
+        if (theme_id[0] != '\0') {
+            applied = (theme_pkg_apply(RECHORD_THEMES_DIR, theme_id) == 0);
+            if (!applied)
+                log_printf("theme: cfg id '%s' rejected", theme_id);
+        }
+        if (!applied)
+            (void)theme_pkg_boot(RECHORD_THEMES_DIR, RECHORD_ACTIVE_THEME,
+                                 "mono");
+    }
     log_printf("boot: %s theme '%s' home %d nav %d", RC_BUILD,
                theme_pkg_active_id(), theme_layout()->home,
                theme_layout()->home_nav);
     /* Volume is runtime state: the player owns it while playing, so load the
      * saved value into the player here and let the loop below persist later
-     * changes. */
-    settings_screen_reload();
+     * changes. The settings view was already reloaded for the theme id. */
     player_set_volume(settings_screen_get()->volume_db);
     player_set_shuffle(settings_screen_get()->shuffle);           /* BRNOMT-90 */
     player_set_repeat(settings_screen_get()->repeat_mode);

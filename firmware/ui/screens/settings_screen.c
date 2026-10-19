@@ -10,6 +10,7 @@
  * Keys: UP/DOWN move, SELECT cycles the value (enum wraps through options,
  * int wraps its range, browse resets to empty), BACK saves and pops.
  */
+#include <stdio.h>
 #include <string.h>
 
 #include "screens.h"
@@ -20,17 +21,18 @@
 
 static rechord_settings_t s_settings;
 static menu_view_t        s_view;
-/* The menu shows one row per schema key plus the live Theme row (BRNOMT-69
- * milestone A) — the theme choice is NOT a cfg key, so the schema (and its
- * 14-key on-disk layout) stays untouched. */
-#define SETTING_ROWS (SETTING_KEY_COUNT + 1)
+/* The menu shows the live Theme row plus only the settings that are wired
+ * (`visible` in the schema). The on-disk 14-key format is unchanged: hidden
+ * keys keep round-tripping and are never offered as dead controls. */
+#define SETTING_MAX_ROWS (SETTING_KEY_COUNT + 1)
 
-static menu_item_t        s_items[SETTING_ROWS];
+static menu_item_t        s_items[SETTING_MAX_ROWS];
+static int                s_row_count = 1; /* Theme + visible keys        */
 static unsigned           s_flush_at_ms;   /* volume flush deadline      */
 static int                s_volume_dirty;  /* a volume save is pending   */
 
 /* value_text callbacks must return stable storage: one scratch slot per key */
-static char s_value_buf[SETTING_ROWS][32];
+static char s_value_buf[SETTING_KEY_COUNT][32];
 
 static const char *value_text_0(void)  { return s_value_buf[0]; }
 static const char *value_text_1(void)  { return s_value_buf[1]; }
@@ -50,11 +52,11 @@ static const char *value_text_13(void) { return s_value_buf[13]; }
 /* The active theme's name (from theme.c, no scratch buffer needed). */
 static const char *value_text_theme(void) { return theme_get()->name; }
 
-static const char *(*const s_value_text_fn[SETTING_ROWS])(void) = {
+static const char *(*const s_value_text_fn[SETTING_KEY_COUNT])(void) = {
     value_text_0,  value_text_1,  value_text_2,  value_text_3,
     value_text_4,  value_text_5,  value_text_6,  value_text_7,
     value_text_8,  value_text_9,  value_text_10, value_text_11,
-    value_text_12, value_text_13, value_text_theme,
+    value_text_12, value_text_13,
 };
 
 static void on_select_0(void)  { settings_cycle(&setting_schema[0],  &s_settings, +1); }
@@ -88,8 +90,9 @@ void settings_screen_set_theme_applied(void (*cb)(void))
 }
 
 /* BRNOMT-69: cycle the installed packages (not just the compiled palettes).
- * A package is applied atomically (palette + layout + home renderer); the
- * selection is persisted in the pre-created active file, and the app syncs
+ * A package is applied atomically (palette + layout + home renderer). The
+ * choice is written to RECHORD.CFG like every other visible setting (and to
+ * active_theme as the boot fallback for older configs), then the app syncs
  * the home screen that the new package declares. */
 static void on_select_theme(void)
 {
@@ -117,6 +120,9 @@ static void on_select_theme(void)
             continue;                 /* broken package: try the next one */
         }
         (void)theme_pkg_store(RECHORD_ACTIVE_THEME, themes[idx].id);
+        snprintf(s_settings.theme, sizeof s_settings.theme, "%s",
+                 themes[idx].id);
+        settings_screen_store();
         log_printf("theme: applied '%s' home %d", themes[idx].id,
                    theme_layout()->home);
         if (s_theme_applied != 0)
@@ -126,17 +132,17 @@ static void on_select_theme(void)
     }
 }
 
-static void (*const s_on_select_fn[SETTING_ROWS])(void) = {
+static void (*const s_on_select_fn[SETTING_KEY_COUNT])(void) = {
     on_select_0,  on_select_1,  on_select_2,  on_select_3,
     on_select_4,  on_select_5,  on_select_6,  on_select_7,
     on_select_8,  on_select_9,  on_select_10, on_select_11,
-    on_select_12, on_select_13, on_select_theme,
+    on_select_12, on_select_13,
 };
 
-static const menu_model_t s_model = {
+static menu_model_t s_model = {
     "Settings",
     s_items,
-    SETTING_ROWS,
+    0,
 };
 
 static void refresh_values(void)
@@ -150,19 +156,23 @@ static void refresh_values(void)
 
 static void build_items(void)
 {
-    int i;
+    int i, n = settings_visible_count();
 
-    /* Theme first: it is a live picker, not a config key, and with 15 rows the
-     * last position was easy to miss (field report). */
+    /* Theme first: it is a live picker (its own cfg key, not a schema row). */
     s_items[0].label = "Theme";
-    s_items[0].value_text = s_value_text_fn[SETTING_KEY_COUNT];
-    s_items[0].on_select = s_on_select_fn[SETTING_KEY_COUNT];
+    s_items[0].value_text = value_text_theme;
+    s_items[0].on_select = on_select_theme;
 
-    for (i = 0; i < SETTING_KEY_COUNT; i++) {
-        s_items[i + 1].label = setting_schema[i].name;
-        s_items[i + 1].value_text = s_value_text_fn[i];
-        s_items[i + 1].on_select = s_on_select_fn[i];
+    for (i = 0; i < n; i++) {
+        const setting_schema_t *sch = settings_visible_at(i);
+        int k = (int)(sch - setting_schema);   /* scratch/callback index */
+
+        s_items[i + 1].label = sch->name;
+        s_items[i + 1].value_text = s_value_text_fn[k];
+        s_items[i + 1].on_select = s_on_select_fn[k];
     }
+    s_row_count = n + 1;
+    s_model.item_count = s_row_count;
 }
 
 /* ---- persistence ------------------------------------------------------- */
@@ -243,15 +253,15 @@ static void settings_screen_handle_event(const input_event_t *ev)
 
     switch (ev->type) {
     case KEY_UP:
-        menu_view_move(&s_view, -1, SETTING_ROWS, menu_page_size());
+        menu_view_move(&s_view, -1, s_row_count, menu_page_size());
         ui_invalidate_all();
         break;
     case KEY_DOWN:
-        menu_view_move(&s_view, +1, SETTING_ROWS, menu_page_size());
+        menu_view_move(&s_view, +1, s_row_count, menu_page_size());
         ui_invalidate_all();
         break;
     case KEY_SELECT:
-        if (s_view.cursor >= 0 && s_view.cursor < SETTING_ROWS)
+        if (s_view.cursor >= 0 && s_view.cursor < s_row_count)
             s_items[s_view.cursor].on_select();
         ui_invalidate_all();
         break;

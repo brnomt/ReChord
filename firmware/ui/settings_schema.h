@@ -1,12 +1,17 @@
 /*
  * settings_schema.h — ReChord configuration schema.
  *
- * The user-facing config is a plain key=value file; the first 12 keys match
+ * The user-facing config is a plain key=value file. The 14 schema keys match
  * the documented on-device schema (docs/re/refcfw-analysis.md §6c shows a live
  * REFCFW.CFG with `play=repeat_track brightness=8 screen_off=30 auto_off=15
  * usb=ask resume=folder strip=off tags=on cpu=auto volume=-23 browse=
- * cursor=0`).  We keep the same key names so config files stay portable;
- * the parsing/formatting code is ours (settings service implements it).
+ * cursor=0`); `theme` is a ReChord addition persisted in the same file. We
+ * keep the same key names so config files stay portable; the parsing/
+ * formatting code is ours (settings service implements it).
+ *
+ * Not every stored key is a useful control: `visible` marks the subset the
+ * Settings menu offers (the rest are playback duplicates or hardware features
+ * that are not wired yet). Hidden keys still round-trip through the file.
  *
  * This header is the single source of truth for:
  *   - the in-memory settings struct (rechord_settings_t),
@@ -23,6 +28,7 @@
 #include "../services/settings.h"
 
 #define RECHORD_BROWSE_PATH_MAX 64
+#define RECHORD_THEME_ID_MAX    32
 #define SETTING_KEY_COUNT       14
 
 /* In-memory settings.  Field order is our own; persistence must go through
@@ -42,6 +48,7 @@ typedef struct rechord_settings {
     int  cursor;                      /* key "cursor"     (last position)   */
     int  shuffle;                     /* key "shuffle"    (0=off, 1=on)     */
     int  repeat_mode;                 /* key "repeat_mode"(0=off,1=all,2=one)*/
+    char theme[RECHORD_THEME_ID_MAX]; /* key "theme"      (package id)      */
 } rechord_settings_t;
 
 typedef enum setting_kind {
@@ -59,6 +66,11 @@ typedef struct setting_schema {
     const char   *name;   /* exact config key name                          */
     setting_kind_t kind;
     size_t         offset;   /* offsetof() of the field in rechord_settings_t */
+    /* 1 = shown in the Settings menu. The rest stay in the schema so the
+     * on-disk 14-key format is preserved and older configs keep round-
+     * tripping, but they are not offered to the user (duplicates of the
+     * playback controls, or hardware features that are not wired yet). */
+    int            visible;
     union {
         struct { const setting_opt_t *opts; int count; } e; /* KIND_ENUM     */
         struct { int min; int max; int step; }           r; /* KIND_INT      */
@@ -68,8 +80,16 @@ typedef struct setting_schema {
 
 /* The schema table, in canonical key order:
  * play, brightness, screen_off, auto_off, usb, resume,
- * strip, tags, cpu, volume, browse, cursor, shuffle, repeat_mode  (14 keys) */
+ * strip, tags, cpu, volume, browse, cursor, shuffle, repeat_mode  (14 keys).
+ *
+ * `visible` marks the functional subset the Settings menu offers. Today:
+ * resume, volume, shuffle, repeat_mode. `theme` is a live picker outside
+ * this table (persisted in the same file under its own key). */
 extern const setting_schema_t setting_schema[SETTING_KEY_COUNT];
+
+/* The visible subset (Settings menu order). `index` is 0..count-1. */
+int settings_visible_count(void);
+const setting_schema_t *settings_visible_at(int index);
 
 /* Reset every field to its default (the observed on-device values). */
 void settings_view_defaults(rechord_settings_t *s);

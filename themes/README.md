@@ -13,8 +13,10 @@ mkdir path, no pre-existing files): `/.rechord/themes/{mono,classic,paper,night,
 
 Activate any package from **Settings → Theme** (first row): SELECT cycles the
 installed packages. The full package is applied atomically (palette + layout +
-home renderer) and the choice is written to `/.rechord/active_theme`, so it
-survives a reboot. No recompilation and no reboot are needed.
+home renderer) and the choice is written as `theme=<id>` in
+`/.rechord/rechord.cfg`, so it survives a reboot. No recompilation and no
+reboot are needed. (`/.rechord/active_theme` is the legacy fallback for configs
+that predate the `theme=` key.)
 
 The active package is always the one declared by `home=`, so a theme that does
 not ask for the companion never runs the companion renderer. To add a package,

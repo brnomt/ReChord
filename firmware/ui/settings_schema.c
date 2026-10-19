@@ -76,34 +76,59 @@ static const setting_opt_t opts_repeat[] = {
 
 const setting_schema_t setting_schema[SETTING_KEY_COUNT] = {
     { "play",       SETTING_KIND_ENUM, offsetof(rechord_settings_t, play_mode),
-      { .e = { opts_play, 4 } } },
+      0, { .e = { opts_play, 4 } } },
     { "brightness", SETTING_KIND_INT,  offsetof(rechord_settings_t, brightness),
-      { .r = { 0, 10, 1 } } },
+      0, { .r = { 0, 10, 1 } } },
     { "screen_off", SETTING_KIND_ENUM, offsetof(rechord_settings_t, screen_off_s),
-      { .e = { opts_screen_off, 5 } } },
+      0, { .e = { opts_screen_off, 5 } } },
     { "auto_off",   SETTING_KIND_ENUM, offsetof(rechord_settings_t, auto_off_min),
-      { .e = { opts_auto_off, 5 } } },
+      0, { .e = { opts_auto_off, 5 } } },
     { "usb",        SETTING_KIND_ENUM, offsetof(rechord_settings_t, usb_mode),
-      { .e = { opts_usb, 3 } } },
+      0, { .e = { opts_usb, 3 } } },
     { "resume",     SETTING_KIND_ENUM, offsetof(rechord_settings_t, resume_mode),
-      { .e = { opts_resume, 3 } } },
+      1, { .e = { opts_resume, 3 } } },
     { "strip",      SETTING_KIND_ENUM, offsetof(rechord_settings_t, strip),
-      { .e = { opts_off_on, 2 } } },
+      0, { .e = { opts_off_on, 2 } } },
     { "tags",       SETTING_KIND_ENUM, offsetof(rechord_settings_t, tags),
-      { .e = { opts_off_on, 2 } } },
+      0, { .e = { opts_off_on, 2 } } },
     { "cpu",        SETTING_KIND_ENUM, offsetof(rechord_settings_t, cpu_mode),
-      { .e = { opts_cpu, 3 } } },
+      0, { .e = { opts_cpu, 3 } } },
     { "volume",     SETTING_KIND_INT,  offsetof(rechord_settings_t, volume_db),
-      { .r = { -60, 0, 1 } } },
+      1, { .r = { -60, 0, 1 } } },
     { "browse",     SETTING_KIND_STR,  offsetof(rechord_settings_t, browse),
-      { .s = { RECHORD_BROWSE_PATH_MAX } } },
+      0, { .s = { RECHORD_BROWSE_PATH_MAX } } },
     { "cursor",     SETTING_KIND_INT,  offsetof(rechord_settings_t, cursor),
-      { .r = { 0, 9999, 1 } } },
+      0, { .r = { 0, 9999, 1 } } },
     { "shuffle",     SETTING_KIND_ENUM, offsetof(rechord_settings_t, shuffle),
-      { .e = { opts_shuffle, 2 } } },
+      1, { .e = { opts_shuffle, 2 } } },
     { "repeat_mode", SETTING_KIND_ENUM, offsetof(rechord_settings_t, repeat_mode),
-      { .e = { opts_repeat, 3 } } },
+      1, { .e = { opts_repeat, 3 } } },
 };
+
+int settings_visible_count(void)
+{
+    int i, n = 0;
+
+    for (i = 0; i < SETTING_KEY_COUNT; i++)
+        if (setting_schema[i].visible)
+            n++;
+    return n;
+}
+
+const setting_schema_t *settings_visible_at(int index)
+{
+    int i, n = 0;
+
+    if (index < 0)
+        return NULL;
+    for (i = 0; i < SETTING_KEY_COUNT; i++) {
+        if (!setting_schema[i].visible)
+            continue;
+        if (n++ == index)
+            return &setting_schema[i];
+    }
+    return NULL;
+}
 
 /* ---- helpers ----------------------------------------------------------- */
 
@@ -114,6 +139,10 @@ static int *field_int(const setting_schema_t *sch, rechord_settings_t *s)
 
 void settings_view_defaults(rechord_settings_t *s)
 {
+    if (s == NULL)
+        return;
+    memset(s, 0, sizeof *s);   /* deterministic padding for struct compares */
+
     /* observed on-device values (docs/re/refcfw-analysis.md §6c) */
     s->play_mode = 0;      /* repeat_track */
     s->brightness = 8;
@@ -129,6 +158,7 @@ void settings_view_defaults(rechord_settings_t *s)
     s->cursor = 0;
     s->shuffle = 0;        /* off */
     s->repeat_mode = 0;    /* off */
+    s->theme[0] = '\0';    /* no explicit choice: boot uses active_theme  */
 }
 
 static void cycle_enum(const setting_schema_t *sch, rechord_settings_t *s,
@@ -238,6 +268,7 @@ const setting_schema_t *settings_schema_find(const char *name)
 void settings_view_from_store(const settings_t *in, rechord_settings_t *out)
 {
     settings_view_defaults(out);
+    snprintf(out->theme, sizeof out->theme, "%s", in->theme);
     /* ENUM-typed view fields decode the stored text through the schema's
      * option tables; screen_off / auto_off are the exception (the store keeps
      * them as plain integers, same unit) and validate by value instead. */
@@ -284,6 +315,7 @@ void settings_view_from_store(const settings_t *in, rechord_settings_t *out)
 void settings_view_to_store(const rechord_settings_t *in, settings_t *out)
 {
     settings_defaults(out);
+    snprintf(out->theme, sizeof out->theme, "%s", in->theme);
     for (int si = 0; si < SETTING_KEY_COUNT; si++) {
         const setting_schema_t *sc = &setting_schema[si];
         const int *src = (const int *)((const char *)in + sc->offset);

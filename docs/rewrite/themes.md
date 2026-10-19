@@ -13,7 +13,9 @@
   loader (`theme_file.c`, key=value, partial overrides).
 - **Packages are live** (`theme_runtime.c`): `/.rechord/themes/<id>/theme.cfg`
   is enumerated, applied atomically (palette + layout + home renderer) and the
-  selection is persisted in `/.rechord/active_theme`. Settings → Theme cycles
+  selection is persisted as `theme=<id>` in `/.rechord/rechord.cfg` (with the
+  pre-created `/.rechord/active_theme` kept as the fallback for configs that
+  predate the key). Settings → Theme cycles
   the installed packages at runtime; no reboot, no recompilation.
 - Screens never hardcode colors: they ask `theme_get()` through the
   `THEME_COLOR_*` macros (`firmware/ui/theme.h`), so a palette swap restyles
@@ -147,13 +149,13 @@ placeholder glyph).
    (over the built-in Mono base) + layout into scratch structs and validates
    both. Any error keeps the current theme and the picker tries the next
    package.
-3. On success: palette + layout are committed together, the id is written to
-   `/.rechord/active_theme` (pre-created file, in-place rewrite), and the app
-   inserts/removes the companion home so `home=` takes effect without leaving
-   Settings. `ui_invalidate_all()` repaints; audio is never touched.
-4. Boot: `theme_pkg_boot()` reads the stored id and applies that package; a
-   missing/unknown package falls back to `mono`, then to the built-in palette
-   and default layout.
+3. On success: palette + layout are committed together, the id is written as
+   `theme=<id>` in `/.rechord/rechord.cfg` (and mirrored to the legacy
+   `/.rechord/active_theme`), and the app inserts/removes the companion home
+   so `home=` takes effect without leaving Settings. `ui_invalidate_all()`
+   repaints; audio is never touched.
+4. Boot: the cfg `theme=` id is applied; configs without it fall back to
+   `active_theme`, then to `mono`, then to the built-in palette/default layout.
 5. Any failure anywhere → **built-in `Mono`**, never a blank screen.
 
 ## 8. Milestones
@@ -188,9 +190,8 @@ placeholder glyph).
 - **E. DONE (2026-10-19)** — real package-level theming:
   - `theme_runtime.{h,c}`: `theme_pkg_scan()` (fixed 16-entry table, sorted by
     id), `theme_pkg_apply()` (one manifest read; palette + layout validated
-    together and committed atomically), `theme_pkg_store()` (in-place rewrite
-    of the pre-created `/.rechord/active_theme`) and `theme_pkg_boot()`
-    (active id → package → `mono` → built-in defaults).
+    together and committed atomically), `theme_pkg_boot()` (cfg `theme=` id →
+    legacy `active_theme` → `mono` → built-in defaults).
   - Package manifest now carries **behavior**, not only values:
     `home=menu|companion` selects the home renderer and
     `home_nav=vertical|horizontal` selects the item axis. The companion is
