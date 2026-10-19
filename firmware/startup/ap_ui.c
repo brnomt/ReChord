@@ -910,7 +910,7 @@ static const menu_item_t k_root_items[] = {
 };
 #define ROOT_ITEM_COUNT ((int)(sizeof k_root_items / sizeof k_root_items[0]))
 
-#define RC_BUILD "m7a"
+#define RC_BUILD "m7b"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
                                      ROOT_ITEM_COUNT, vol_status };
 
@@ -1084,6 +1084,9 @@ void ap_ui_loop(void)
     /* Active package from /.rechord/active_theme: palette + layout + home
      * renderer, committed atomically. Falls back to Mono, never blank. */
     (void)theme_pkg_boot(RECHORD_THEMES_DIR, RECHORD_ACTIVE_THEME, "mono");
+    log_printf("boot: %s theme '%s' home %d nav %d", RC_BUILD,
+               theme_pkg_active_id(), theme_layout()->home,
+               theme_layout()->home_nav);
     /* Volume is runtime state: the player owns it while playing, so load the
      * saved value into the player here and let the loop below persist later
      * changes. */

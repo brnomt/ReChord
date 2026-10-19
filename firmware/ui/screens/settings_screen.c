@@ -98,6 +98,7 @@ static void on_select_theme(void)
     int n, i, cur = -1;
 
     n = theme_pkg_scan(RECHORD_THEMES_DIR, themes, THEME_PKG_MAX);
+    log_printf("theme: scan %d active '%s'", n, active);
     if (n <= 0)
         return;
 
@@ -111,9 +112,13 @@ static void on_select_theme(void)
     for (i = 1; i <= n; i++) {
         int idx = (cur + i + n) % n;
 
-        if (theme_pkg_apply(RECHORD_THEMES_DIR, themes[idx].id) != 0)
+        if (theme_pkg_apply(RECHORD_THEMES_DIR, themes[idx].id) != 0) {
+            log_printf("theme: apply '%s' failed", themes[idx].id);
             continue;                 /* broken package: try the next one */
+        }
         (void)theme_pkg_store(RECHORD_ACTIVE_THEME, themes[idx].id);
+        log_printf("theme: applied '%s' home %d", themes[idx].id,
+                   theme_layout()->home);
         if (s_theme_applied != 0)
             s_theme_applied();
         ui_invalidate_all();
