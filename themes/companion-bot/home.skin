@@ -23,13 +23,15 @@ eye_h=100
 eye_r=25
 gaze=(sel - 1) * 28
 blink_t=mod(t, 3600)
-blink_on=(blink_t < 600)
+blink_on=((blink_t < 600) && (idle > 300))
 blink_step=(blink_t * 7) / 600
 blink_raw=(blink_step <= 3 ? eye_h - (blink_step * eye_h) / 3 : eye_h - ((7 - blink_step) * eye_h) / 3)
 blink_h=(blink_raw < 4 ? 4 : blink_raw)
 blink_w=(blink_step <= 3 ? eye_w + blink_step * 7 : eye_w + (7 - blink_step) * 7)
 idle_h=(idle > 6000 ? 4 : (idle < 300 ? 4 + (idle * (eye_h - 4)) / 300 : eye_h))
 h_l=(blink_on ? blink_h : idle_h)
+
+[vars2]
 w_l=(blink_on ? blink_w : eye_w)
 r_l=(blink_on ? (blink_h / 2 < eye_r ? blink_h / 2 : eye_r) : (idle_h / 2 < eye_r ? idle_h / 2 : eye_r))
 lx=(98 - w_l / 2 + gaze + sin(t, 2400, 14))

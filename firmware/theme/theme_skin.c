@@ -22,9 +22,9 @@
 
 #define SKIN_LINE_MAX   256
 #define SKIN_SECTIONS   32
-#define SKIN_PROPS      20
+#define SKIN_PROPS      12
 #define SKIN_KEY_MAX    20
-#define SKIN_PROP_MAX   192
+#define SKIN_PROP_MAX   144
 #define SKIN_VAL_MAX    64
 #define SKIN_EXPR_STEPS 2048
 #define SKIN_DEPTH      12
@@ -32,6 +32,7 @@
 #define SKIN_FONT_W     8
 #define SKIN_VARS       20
 #define SKIN_VAR_EXPR_MAX 112
+#define SKIN_VAR_STR_MAX  24
 
 typedef struct {
     char name[SKIN_KEY_MAX];
@@ -40,7 +41,11 @@ typedef struct {
 
 static skin_var_t s_vars[SKIN_VARS];
 static int        s_var_count;
-static int        s_var_depth;
+/* Vars are evaluated once per frame in definition order; expressions read
+ * these caches, so user-variable lookup never recurses. */
+static int          s_var_i[SKIN_VARS];
+static char         s_var_s[SKIN_VARS][SKIN_VAR_STR_MAX];
+static unsigned char s_var_is_str[SKIN_VARS];
 
 typedef struct {
     char name[24];
@@ -240,17 +245,12 @@ static skin_val_t variable(const char *name)
     if (strcmp(name, "success") == 0)
         return v_int(t->success);
 
-    /* Theme-defined variables from [vars]. */
+    /* Theme-defined variables from [vars], evaluated once per frame. */
     for (i = 0; i < s_var_count; i++) {
         if (strcmp(name, s_vars[i].name) == 0) {
-            if (s_var_depth >= 8)
-                return v_int(0);
-            s_var_depth++;
-            {
-                skin_val_t v = eval_raw(s_vars[i].expr);
-                s_var_depth--;
-                return v;
-            }
+            if (s_var_is_str[i])
+                return v_str(s_var_s[i]);
+            return v_int(s_var_i[i]);
         }
     }
 
@@ -642,6 +642,39 @@ static int eval_string(const char *text, skin_ctx_t *ctx, char *out, int cap)
     return 0;
 }
 
+static void skin_copy(char *dst, int cap, const char *src)
+{
+    int n = 0;
+
+    if (dst == 0 || cap <= 0)
+        return;
+    while (src != 0 && src[n] != '\0' && n < cap - 1) {
+        dst[n] = src[n];
+        n++;
+    }
+    dst[n] = '\0';
+}
+
+static void eval_vars(skin_ctx_t *ctx)
+{
+    int i;
+
+    for (i = 0; i < s_var_count; i++) {
+        skin_val_t v;
+
+        g_ctx = ctx;
+        v = eval_raw(s_vars[i].expr);
+        g_ctx = 0;
+        if (v.is_str) {
+            s_var_is_str[i] = 1;
+            skin_copy(s_var_s[i], (int)sizeof s_var_s[i], v.s);
+        } else {
+            s_var_is_str[i] = 0;
+            s_var_i[i] = v.i;
+        }
+    }
+}
+
 /* ---------------------------------------------------------------- parsing */
 
 static char *trim(char *s)
@@ -891,7 +924,6 @@ int theme_skin_load(const char *root, const char *id, const char *path)
     s_refresh_ms = 125;
     s_refresh_h = -1;
     s_var_count = 0;
-    s_var_depth = 0;
 
     p = s_text;
     while ((n = next_section(&p, &sec)) > 0) {
@@ -904,7 +936,9 @@ int theme_skin_load(const char *root, const char *id, const char *path)
             v = prop(&sec, "refresh_h");
             if (v != 0)
                 s_refresh_h = as_int(v_str(v));
-        } else if (key_eq(sec.name, "vars")) {
+        } else if (key_eq(sec.name, "vars") ||
+                   key_eq(sec.name, "vars2") ||
+                   key_eq(sec.name, "vars3")) {
             int i;
 
             for (i = 0; i < sec.count && s_var_count < SKIN_VARS; i++) {
@@ -932,7 +966,6 @@ void theme_skin_reset(void)
     s_refresh_ms = 125;
     s_refresh_h = -1;
     s_var_count = 0;
-    s_var_depth = 0;
 }
 
 const char *theme_skin_text(void)
@@ -1267,7 +1300,7 @@ void theme_skin_render(unsigned now, unsigned idle, int sel,
     ctx.idle = idle;
     ctx.sel = sel;
     ctx.st = st;
-    s_var_depth = 0;
+    eval_vars(&ctx);
     p = s_text;
     while (next_section(&p, &sec)) {
         if (++sections > SKIN_SECTIONS)
