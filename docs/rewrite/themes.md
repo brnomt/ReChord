@@ -27,8 +27,9 @@
   All-or-nothing, bounded, no heap.
 - The firmware seeds **no theme content**. `/.rechord/themes/<id>/` is created
   empty; packages (theme.cfg + skin + assets) are installed from storage.
-- 1-bit assets: `display_bitmap1()` + a 2 KiB bounded cache
+- 1-bit assets: `display_bitmap1()` + a 1 KiB bounded cache
   (`theme_assets.c`). A declared-but-unreadable asset rejects the package.
+  Assets are optional; the Companion theme is vector.
 
 ## 2. Package layout
 
@@ -50,12 +51,13 @@ ignored by the flat parser). A skin package adds:
 ```
 home=skin
 skin=home.skin
-asset_eye_open=assets/eye_open.bin,64,64
+# optional: asset_icon=assets/icon.bin,32,32
 ```
 
-`home.skin` is the theme's logic: `[section]` meters (`fill`, `bitmap`,
-`text`, `bar`, `list`) whose properties are expressions over runtime state and
-time. Full syntax and limits: `themes/README.md`.
+`home.skin` is the theme's logic: `[section]` meters (`fill`, `roundrect`,
+`triangle`, `bitmap`, `text`, `bar`, `list`) whose properties are expressions
+over runtime state and time. A `[vars]` section defines reusable expressions.
+Full syntax and limits: `themes/README.md`.
 
 ## 3. Renderer API (theme-independent)
 
@@ -69,9 +71,10 @@ void display_bitmap1(int x, int y, int w, int h, int stride,
 void display_draw_text(int x, int y, const char *s, uint16_t fg, uint16_t bg);
 ```
 
-The skin interpreter adds the layout/state layer: `fill`, `bitmap`, `text`,
-`bar` and an interactive `list` meter. Coordinates and colors come from the
-skin's expressions; the engine only executes them.
+The skin interpreter adds the layout/state layer: `fill`, `roundrect`,
+`triangle`, `bitmap`, `text`, `bar` and an interactive `list` meter, plus a
+`[vars]` section for reusable expressions. Coordinates, geometry and colors
+come from the skin; the engine only executes them.
 
 Existing `display_*` primitives map 1:1 (`fill_rect`, `draw_text`); `bitmap1`
 is the only new one (row-major MSB-first, stride from the manifest, clipped).
@@ -190,22 +193,24 @@ placeholder glyph).
     screen (`ui_insert_screen`/`ui_remove_screen`).
 - **F. DONE (2026-10-19)** — no theme code in the firmware:
   - `theme_skin.{h,c}`: bounded declarative interpreter. Sections + meters
-    (`fill`, `bitmap`, `text`, `bar`, `list`) whose properties are expressions
-    over `t idle playing volume W H sel n aw ah title ...`, with
-    `min max abs clamp mod noise sin seq if`. The interactive list carries its
+    (`fill`, `roundrect`, `triangle`, `bitmap`, `text`, `bar`, `list`) whose
+    properties are expressions over `t idle playing volume W H sel n aw ah
+    title ...`, with `min max abs clamp mod noise sin seq if`. A `[vars]`
+    section defines reusable expressions; the interactive list carries its
     own labels/actions and `prev`/`next` key bindings.
-  - `theme_assets.{h,c}`: 1-bit assets loaded from the package into a 2 KiB
+  - `theme_assets.{h,c}`: 1-bit assets loaded from the package into a 1 KiB
     cache; declared-but-unreadable assets reject the package.
   - `display_bitmap1()` blits raw MSB-first rows; `skin_screen.c` is a generic
     UI adapter (no theme symbols).
-  - `themes/companion-bot/` now contains `theme.cfg` + `home.skin` +
-    `assets/*.bin`; the firmware seeds no theme content. The Companion
-    animation (blink, saccade, sleep, happy) is data.
+  - `themes/companion-bot/` now contains `theme.cfg` + `home.skin`; the
+    firmware seeds no theme content. The Companion is vector exactly like the
+    reference (rounded rects + masking triangle), with independent saccades,
+    gaze at the selected item, blink/wake/sleep/happy as data.
   - Tests: `test_skin_home` loads the real package, verifies expressions,
-    bitmap blits and `prev=down`/`next=up` mapping; `test_theme_pkg` covers
+    vector drawing and `prev=down`/`next=up` mapping; `test_theme_pkg` covers
     skin/asset validation; `test_theme_runtime` covers atomic apply + skin
     loading.
-  - Measured `.bss_end 0x030492B8` (gate `0x0304A000`, ~3.4 KiB free).
+  - Measured `.bss_end 0x03049910` (gate `0x0304A000`, ~1.7 KiB free).
 
 Acceptance for every milestone: host tests (format/limits/fallback), all suites
 green, packer `RESULT: PASS`, and a measured `.bss_end` recorded here.

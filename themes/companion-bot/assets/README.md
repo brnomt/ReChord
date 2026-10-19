@@ -1,26 +1,32 @@
-# assets/ — the Companion Bot eye frames
+# assets/ — optional bitmaps
 
-These `.bin` files ARE the theme's visual assets. The firmware's generic skin
-interpreter blits them; no eye drawing code exists in the binary.
+The Companion Bot face is **vector**, like the reference: `home.skin` draws
+filled rounded rectangles and a masking triangle with the engine's generic
+`roundrect` / `triangle` meters. There are no bitmap frames to ship, which is
+what makes the animation smooth and keeps the package tiny.
 
-Format: raw 1-bit rows, MSB-first, stride = (width + 7) / 8.
-
-| file | size | used for |
-|---|---|---|
-| `eye_open.bin` | 64x64 r16 | idle / open |
-| `eye_half.bin` | 64x32 | blink / wake |
-| `eye_closed.bin` | 64x6 | blink / sleep |
-| `eye_happy_left.bin` | 64x64 r16 | happy (left, masked lower lid) |
-| `eye_happy_right.bin` | 64x64 r16 | happy (right, mirrored) |
-
-Regenerate with:
+The theme system still supports optional 1-bit assets for other themes:
 
 ```
-python3 tools/gen_companion_assets.py
+# in theme.cfg
+asset_icon=assets/icon.bin,32,32
 ```
+
+```
+# in home.skin
+[icon]
+type=bitmap
+asset=icon
+x=8
+y=8
+```
+
+Format: raw 1-bit rows, MSB-first, stride = (width + 7) / 8. Limits: max 8
+assets, 64x64 px, stride <= 8 bytes, 1 KiB cache. Declaring an unreadable
+asset rejects the package.
 
 The look follows the MIT-licensed
 [oled_eye_display](https://github.com/intellar/oled_eye_display): filled
-rounded rectangles, no pupils, squash-widen blink and a masked lower lid for
-"happy". The animation *logic* (blink period, saccade, sleep, happy) lives in
+rounded rectangles, no pupils, squash-widen blink, wake ramp, sleep line and a
+moving lower-lid triangle for "happy". All timing/geometry lives in
 `../home.skin` as expressions, not in C.

@@ -15,7 +15,7 @@
 
 #include "theme_pkg.h"
 
-#define THEME_ASSET_CACHE_BYTES 2048
+#define THEME_ASSET_CACHE_BYTES 1024
 
 /* Load every asset declared by `l` from <root>/<id>/<path>. Returns 0 when
  * all of them loaded (or none were declared), < 0 otherwise. */

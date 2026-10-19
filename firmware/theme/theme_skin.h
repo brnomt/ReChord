@@ -7,8 +7,12 @@
  * bounded, Rockbox/Rainmeter-style mix:
  *
  *   [section]
- *   type=fill|bitmap|text|bar|list
+ *   type=fill|roundrect|triangle|bitmap|text|bar|list
  *   key=value        (values may be expressions)
+ *
+ * Sections may also set `visible=<expr>` to skip drawing. A `[vars]` section
+ * defines named expressions reusable from any meter; variables may reference
+ * earlier/later vars (bounded recursion).
  *
  * Expressions: integers, strings, variables, arithmetic, comparisons,
  * logical operators, ternary and a small function set:

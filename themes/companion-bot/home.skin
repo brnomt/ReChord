@@ -1,15 +1,43 @@
 # Companion Bot — declarative home skin (BRNOMT-69).
 #
-# This file is THE theme. The firmware interprets it; nothing here is
-# compiled. Expressions run every refresh with:
-#   t idle playing paused stopped volume W H sel n aw ah
-# and the palette names. Functions: min max abs clamp mod noise sin seq if.
+# This file IS the theme's home logic; the firmware interprets it. The look
+# follows intellar/oled_eye_display (MIT): filled rounded rectangles, no
+# pupils, squash/widen blink, wake ramp, sleep line and a moving lower-lid
+# triangle for "happy".
 #
-# Assets are declared in theme.cfg and read from ./assets.
+# Engineering notes:
+# - The reference is 128x64. This skin scales the 40x40 eyes / 10px gap to
+#   96x96 / 24px on the 320x170 panel (~2.4x) and keeps the same proportions.
+# - Both eyes follow the selected item (`gaze`) but their saccades use
+#   different periods, so they move independently and smoothly.
+# - `blink_*`, `idle_h`, `happy_*` are pure functions of t/idle; no compiled
+#   animation state exists.
 
 [skin]
-refresh_ms=110
-refresh_h=112
+refresh_ms=50
+refresh_h=146
+
+[vars]
+eye_w=100
+eye_h=100
+eye_r=25
+gaze=(sel - 1) * 28
+blink_t=mod(t, 3600)
+blink_on=(blink_t < 600)
+blink_step=(blink_t * 7) / 600
+blink_raw=(blink_step <= 3 ? eye_h - (blink_step * eye_h) / 3 : eye_h - ((7 - blink_step) * eye_h) / 3)
+blink_h=(blink_raw < 4 ? 4 : blink_raw)
+blink_w=(blink_step <= 3 ? eye_w + blink_step * 7 : eye_w + (7 - blink_step) * 7)
+idle_h=(idle > 6000 ? 4 : (idle < 300 ? 4 + (idle * (eye_h - 4)) / 300 : eye_h))
+h_l=(blink_on ? blink_h : idle_h)
+w_l=(blink_on ? blink_w : eye_w)
+r_l=(blink_on ? (blink_h / 2 < eye_r ? blink_h / 2 : eye_r) : (idle_h / 2 < eye_r ? idle_h / 2 : eye_r))
+lx=(98 - w_l / 2 + gaze + sin(t, 2400, 14))
+ly=(85 - h_l / 2 + sin(t + 700, 3100, 7))
+rx=(222 - w_l / 2 + gaze + sin(t + 900, 2200, 14))
+ry=(85 - h_l / 2 + sin(t + 300, 2700, 7))
+happy_on=(playing && !blink_on)
+happy_off=(h_l / 2) - (clamp(mod(t, 3000) / 150, 0, 9) * h_l) / 20
 
 [background]
 type=fill
@@ -19,24 +47,47 @@ w=W
 h=H
 color=background
 
-# --- eyes ---------------------------------------------------------------
-# The left and right eyes share the blink sequence. `seq` returns "eye_open"
-# outside the blink window, then walks eye_open -> eye_half -> eye_closed ->
-# eye_half -> eye_open. Happy frames are selected while audio plays; after
-# ~6 s without input the face sleeps (thin line).
 [eye_left]
-type=bitmap
-asset=(playing ? "eye_happy_left" : (idle > 6000 ? "eye_closed" : seq(t, 3800, 700, "eye_open,eye_half,eye_closed,eye_half,eye_open")))
-x=(W/2 - 12 - 32) - aw/2 + noise(t / 700, 8)
-y=56 - ah/2 + noise(t / 900, 4)
+type=roundrect
+x=lx
+y=ly
+w=w_l
+h=h_l
+r=r_l
+color=text
 
 [eye_right]
-type=bitmap
-asset=(playing ? "eye_happy_right" : (idle > 6000 ? "eye_closed" : seq(t, 3800, 700, "eye_open,eye_half,eye_closed,eye_half,eye_open")))
-x=(W/2 + 12 + 32) - aw/2 + noise(t / 700, 8)
-y=56 - ah/2 + noise(t / 900, 4)
+type=roundrect
+x=rx
+y=ry
+w=w_l
+h=h_l
+r=r_l
+color=text
 
-# --- separator ----------------------------------------------------------
+# Mask the lower lid with a background triangle, mirrored per eye.
+[happy_left]
+type=triangle
+visible=happy_on
+x1=lx
+y1=ly + h_l / 2 + happy_off
+x2=lx + w_l
+y2=ly + h_l / 2 + 12 + happy_off
+x3=lx
+y3=ly + h_l / 2 + h_l + happy_off
+color=background
+
+[happy_right]
+type=triangle
+visible=happy_on
+x1=rx + w_l
+y1=ry + h_l / 2 + happy_off
+x2=rx
+y2=ry + h_l / 2 + 12 + happy_off
+x3=rx + w_l
+y3=ry + h_l / 2 + h_l + happy_off
+color=background
+
 [rule]
 type=fill
 x=0
@@ -46,8 +97,8 @@ h=1
 color=text_dim
 
 # --- home items ---------------------------------------------------------
-# prev/next are the logical keys bound to movement. The physical vol+ is
-# mapped to DOWN on this hardware, so prev=down makes vol+ move left.
+# prev/next are the logical keys bound to movement. On this hardware vol+
+# arrives as DOWN, so prev=down makes vol+ move left.
 [items]
 type=list
 axis=horizontal

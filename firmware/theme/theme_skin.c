@@ -22,7 +22,7 @@
 
 #define SKIN_LINE_MAX   256
 #define SKIN_SECTIONS   32
-#define SKIN_PROPS      12
+#define SKIN_PROPS      20
 #define SKIN_KEY_MAX    20
 #define SKIN_PROP_MAX   192
 #define SKIN_VAL_MAX    64
@@ -30,6 +30,17 @@
 #define SKIN_DEPTH      12
 #define SKIN_ITEMS      4
 #define SKIN_FONT_W     8
+#define SKIN_VARS       20
+#define SKIN_VAR_EXPR_MAX 112
+
+typedef struct {
+    char name[SKIN_KEY_MAX];
+    char expr[SKIN_VAR_EXPR_MAX];
+} skin_var_t;
+
+static skin_var_t s_vars[SKIN_VARS];
+static int        s_var_count;
+static int        s_var_depth;
 
 typedef struct {
     char name[24];
@@ -81,6 +92,9 @@ typedef struct {
     int steps;
     int err;
 } skin_expr_t;
+
+static skin_val_t eval_expr(skin_expr_t *e, int depth);
+static skin_val_t eval_raw(const char *text);
 
 static skin_val_t v_int(int i)
 {
@@ -170,6 +184,7 @@ static skin_val_t variable(const char *name)
 {
     const theme_t *t = theme_get();
     skin_ctx_t *c = g_ctx;
+    int i;
 
     if (strcmp(name, "t") == 0)
         return v_int(c != 0 ? (int)c->now : 0);
@@ -224,6 +239,20 @@ static skin_val_t variable(const char *name)
         return v_int(t->danger);
     if (strcmp(name, "success") == 0)
         return v_int(t->success);
+
+    /* Theme-defined variables from [vars]. */
+    for (i = 0; i < s_var_count; i++) {
+        if (strcmp(name, s_vars[i].name) == 0) {
+            if (s_var_depth >= 8)
+                return v_int(0);
+            s_var_depth++;
+            {
+                skin_val_t v = eval_raw(s_vars[i].expr);
+                s_var_depth--;
+                return v;
+            }
+        }
+    }
 
     /* A bare word is a string (asset names, labels written without quotes). */
     return v_str(name);
@@ -573,24 +602,29 @@ static skin_val_t eval_expr(skin_expr_t *e, int depth)
     return c;
 }
 
-static int eval_int(const char *text, skin_ctx_t *ctx, int fallback)
+static skin_val_t eval_raw(const char *text)
 {
     skin_expr_t e;
+
+    memset(&e, 0, sizeof e);
+    e.p = text != 0 ? text : "";
+    return eval_expr(&e, 0);
+}
+
+static int eval_int(const char *text, skin_ctx_t *ctx, int fallback)
+{
     skin_val_t v;
 
     if (text == 0)
         return fallback;
-    memset(&e, 0, sizeof e);
-    e.p = text;
     g_ctx = ctx;
-    v = eval_expr(&e, 0);
+    v = eval_raw(text);
     g_ctx = 0;
-    return e.err ? fallback : as_int(v);
+    return as_int(v);
 }
 
 static int eval_string(const char *text, skin_ctx_t *ctx, char *out, int cap)
 {
-    skin_expr_t e;
     skin_val_t v;
 
     if (out == 0 || cap <= 0)
@@ -598,13 +632,9 @@ static int eval_string(const char *text, skin_ctx_t *ctx, char *out, int cap)
     out[0] = '\0';
     if (text == 0)
         return -1;
-    memset(&e, 0, sizeof e);
-    e.p = text;
     g_ctx = ctx;
-    v = eval_expr(&e, 0);
+    v = eval_raw(text);
     g_ctx = 0;
-    if (e.err)
-        return -1;
     if (v.is_str)
         snprintf(out, (size_t)cap, "%s", v.s);
     else
@@ -860,6 +890,8 @@ int theme_skin_load(const char *root, const char *id, const char *path)
     s_list.count = 0;
     s_refresh_ms = 125;
     s_refresh_h = -1;
+    s_var_count = 0;
+    s_var_depth = 0;
 
     p = s_text;
     while ((n = next_section(&p, &sec)) > 0) {
@@ -872,6 +904,16 @@ int theme_skin_load(const char *root, const char *id, const char *path)
             v = prop(&sec, "refresh_h");
             if (v != 0)
                 s_refresh_h = as_int(v_str(v));
+        } else if (key_eq(sec.name, "vars")) {
+            int i;
+
+            for (i = 0; i < sec.count && s_var_count < SKIN_VARS; i++) {
+                snprintf(s_vars[s_var_count].name,
+                         sizeof s_vars[s_var_count].name, "%s", sec.key[i]);
+                snprintf(s_vars[s_var_count].expr,
+                         sizeof s_vars[s_var_count].expr, "%s", sec.val[i]);
+                s_var_count++;
+            }
         } else if (type != 0 && key_eq(type, "list") && s_list.count == 0) {
             parse_list(&sec);
         }
@@ -889,6 +931,8 @@ void theme_skin_reset(void)
     memset(&s_list, 0, sizeof s_list);
     s_refresh_ms = 125;
     s_refresh_h = -1;
+    s_var_count = 0;
+    s_var_depth = 0;
 }
 
 const char *theme_skin_text(void)
@@ -921,22 +965,99 @@ int theme_skin_refresh_h(void)
 
 /* --------------------------------------------------------------- drawing */
 
+static int isqrt_i(int v)
+{
+    int r = 0;
+
+    while ((r + 1) * (r + 1) <= v)
+        r++;
+    return r;
+}
+
+/* Filled rounded rectangle with proper corner arcs (not stair-cut). */
+static void skin_roundrect(int x, int y, int w, int h, int r, uint16_t color)
+{
+    int yy;
+
+    if (w <= 0 || h <= 0)
+        return;
+    if (r <= 0) {
+        display_fill_rect(x, y, x + w - 1, y + h - 1, color);
+        return;
+    }
+    if (r > w / 2)
+        r = w / 2;
+    if (r > h / 2)
+        r = h / 2;
+
+    for (yy = y; yy < y + h; yy++) {
+        int inset = 0;
+
+        if (yy < y + r) {
+            int dy = y + r - yy;
+            inset = r - isqrt_i(r * r - dy * dy);
+        } else if (yy >= y + h - r) {
+            int dy = yy - (y + h - r - 1);
+            inset = r - isqrt_i(r * r - dy * dy);
+        }
+        if (inset < 0)
+            inset = 0;
+        if (inset * 2 >= w)
+            continue;
+        display_fill_rect(x + inset, yy, x + w - 1 - inset, yy, color);
+    }
+}
+
+static int tri_edge(int ax, int ay, int bx, int by, int x, int y)
+{
+    return (x - ax) * (by - ay) - (y - ay) * (bx - ax);
+}
+
+static void skin_triangle(int x1, int y1, int x2, int y2, int x3, int y3,
+                          uint16_t color)
+{
+    int minx, maxx, miny, maxy, y;
+
+    if (tri_edge(x1, y1, x2, y2, x3, y3) == 0)
+        return;                       /* degenerate: draw nothing */
+    minx = x1 < x2 ? (x1 < x3 ? x1 : x3) : (x2 < x3 ? x2 : x3);
+    maxx = x1 > x2 ? (x1 > x3 ? x1 : x3) : (x2 > x3 ? x2 : x3);
+    miny = y1 < y2 ? (y1 < y3 ? y1 : y3) : (y2 < y3 ? y2 : y3);
+    maxy = y1 > y2 ? (y1 > y3 ? y1 : y3) : (y2 > y3 ? y2 : y3);
+    if (minx < 0) minx = 0;
+    if (miny < 0) miny = 0;
+    if (maxx > THEME_LAYOUT_MAX_W - 1) maxx = THEME_LAYOUT_MAX_W - 1;
+    if (maxy > THEME_LAYOUT_MAX_H - 1) maxy = THEME_LAYOUT_MAX_H - 1;
+
+    for (y = miny; y <= maxy; y++) {
+        int first = -1, last = -1, x;
+
+        for (x = minx; x <= maxx; x++) {
+            int e0 = tri_edge(x1, y1, x2, y2, x, y);
+            int e1 = tri_edge(x2, y2, x3, y3, x, y);
+            int e2 = tri_edge(x3, y3, x1, y1, x, y);
+
+            if ((e0 >= 0 && e1 >= 0 && e2 >= 0) ||
+                (e0 <= 0 && e1 <= 0 && e2 <= 0)) {
+                if (first < 0)
+                    first = x;
+                last = x;
+            }
+        }
+        if (first >= 0)
+            display_fill_rect(first, y, last, y, color);
+    }
+}
+
 static uint16_t color_of(const char *value, skin_ctx_t *ctx, uint16_t fallback)
 {
     skin_val_t v;
 
     if (value == 0)
         return fallback;
-    {
-        skin_expr_t e;
-        memset(&e, 0, sizeof e);
-        e.p = value;
-        g_ctx = ctx;
-        v = eval_expr(&e, 0);
-        g_ctx = 0;
-        if (e.err)
-            return fallback;
-    }
+    g_ctx = ctx;
+    v = eval_raw(value);
+    g_ctx = 0;
     if (!v.is_str)
         return (uint16_t)v.i;
     if (key_eq(v.s, "background")) return theme_get()->background;
@@ -1019,6 +1140,38 @@ static void render_section(const skin_section_t *sec, skin_ctx_t *ctx, int sel)
 
     if (type == 0)
         return;
+    {
+        const char *vis = prop(sec, "visible");
+
+        if (vis != 0 && eval_int(vis, ctx, 1) == 0)
+            return;
+    }
+
+    if (key_eq(type, "roundrect")) {
+        int r = eval_int(prop(sec, "r"), ctx, 0);
+
+        x = eval_int(prop(sec, "x"), ctx, 0);
+        y = eval_int(prop(sec, "y"), ctx, 0);
+        w = eval_int(prop(sec, "w"), ctx, 0);
+        h = eval_int(prop(sec, "h"), ctx, 0);
+        skin_roundrect(x, y, w, h, r,
+                       color_of(prop(sec, "color"), ctx, theme_get()->text));
+        return;
+    }
+
+    if (key_eq(type, "triangle")) {
+        int x1 = eval_int(prop(sec, "x1"), ctx, 0);
+        int y1 = eval_int(prop(sec, "y1"), ctx, 0);
+        int x2 = eval_int(prop(sec, "x2"), ctx, 0);
+        int y2 = eval_int(prop(sec, "y2"), ctx, 0);
+        int x3 = eval_int(prop(sec, "x3"), ctx, 0);
+        int y3 = eval_int(prop(sec, "y3"), ctx, 0);
+
+        skin_triangle(x1, y1, x2, y2, x3, y3,
+                      color_of(prop(sec, "color"), ctx,
+                               theme_get()->background));
+        return;
+    }
 
     if (key_eq(type, "fill")) {
         x = eval_int(prop(sec, "x"), ctx, 0);
@@ -1114,6 +1267,7 @@ void theme_skin_render(unsigned now, unsigned idle, int sel,
     ctx.idle = idle;
     ctx.sel = sel;
     ctx.st = st;
+    s_var_depth = 0;
     p = s_text;
     while (next_section(&p, &sec)) {
         if (++sections > SKIN_SECTIONS)

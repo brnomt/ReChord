@@ -172,7 +172,8 @@ void test_skin_home(void)
     st.state = "Playing";
     mock_display_reset();
     theme_skin_render(1000, 0, 1, &st);
-    CHECK(mock_display_bitmap_count() == 2);  /* left + right eye */
+    CHECK(mock_display_bitmap_count() == 0);  /* vector skin */
+    CHECK(mock_display_rect_count() > 0);     /* eyes + rule + list */
     CHECK(mock_display_text_find("LIBRARY") >= 0);
     CHECK(mock_display_text_find("NOW PLAYING") >= 0);
     CHECK(mock_display_text_find("SETTINGS") >= 0);
