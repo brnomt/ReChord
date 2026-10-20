@@ -357,6 +357,13 @@ Expected: splash shows `RAM 0304AE64: free` (window usable) or `used`
 (loader data still owned). A black/hung boot means the write/restore
 crashed; recover with the normal AP5M/stock image.
 
+**Result (2026-10-20): PASS.** The user flashed SHA
+`bc91a6ef...` and the splash showed `RAM 0304AE64: free`; the UI booted.
+The `0x0304AE64..0x03050000` window (20,896 B) is free at runtime and the
+write/read/restore did not hang the AP. The `0x03088000` region remains
+live and untouched (`R-29b`). Next: a small code overlay in this window,
+then the CDC console as an overlay/debug build.
+
 ### 8.3 Code overlay (second flash)
 
 The `0x03088000` code overlay is blocked by the probe result. Retarget the
