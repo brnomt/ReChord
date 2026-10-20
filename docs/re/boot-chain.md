@@ -269,6 +269,28 @@ original values. The initial fw1 scatter row stays below `0x03088000`.
 Keep the normal known-good AP5M available. The probe must not be part of the
 default image; use an explicit build flag/output directory.
 
+**Probe image (2026-10-20):**
+
+```sh
+make standalone-ap5m AP_MEM_PROBE=1 CFW_BUILD_DIR=build/cfw-probe \
+    AP5M_OUT=build/probe/ReChord_AP.IMG
+```
+
+| field | value |
+|---|---|
+| image | `build/probe/ReChord_AP5M.IMG` |
+| CRC | `0x6FE0ACB3` |
+| SHA-256 | `377c5df853ca54c6d46f767046c529ddd175f6e468db00af4c196194812d1b4d` |
+| row 0 end | `0x03087A34` (1,484 B below `0x03088000`) |
+| normal image | unchanged, CRC `0x2264CCBA` |
+
+The probe reads/writes/restores three words at `0x03088000`, `0x03095998`
+and `0x030A3B30`, then shows `RAM window: free` (pass) or
+`RAM window: used` (mismatch) on the boot splash for ~2 s. A black/hung
+boot means the write/restore crashed; recover via maskrom and keep the
+window out of runtime use. The initial fw1 row is still `0x03087A34`, so
+the loader gate passes.
+
 ### 8.3 Code overlay (second flash)
 
 Store a small overlay blob in the AP payload below the initial-row gate,

@@ -49,7 +49,7 @@ include firmware/ap.mk
 # ---- CFW AP (fw1) clean-room image: milestone 1, boots to OUR screen ----
 # Distinct from the SDK A_CORE pipeline above (build-ap/link-ap/pack-fw1):
 # this links ONLY firmware/{startup,ui,drivers,services,theme,libc}/*.c.
-CFW_BUILD_DIR := build/cfw
+CFW_BUILD_DIR ?= build/cfw
 CFW_OBJS := $(patsubst %.c,$(CFW_BUILD_DIR)/objs/%.o,$(AP_SRCS))
 CFW_ELF := $(CFW_BUILD_DIR)/rechord_ap.elf
 
@@ -118,8 +118,12 @@ cfw-img: $(CFW_ELF)
 # BRNOMT-82 Phase 1a: fw1 -> 5MB AP5M image without reading stock/ref images.
 # The descriptor is generated from docs/fw1-packing.md section 10; the legacy
 # cfw-img path above still uses the stock 33MB image and reference header.
+# Probe image:
+#   make standalone-ap5m AP_MEM_PROBE=1 CFW_BUILD_DIR=build/cfw-probe \
+#       AP5M_OUT=build/probe/ReChord_AP.IMG
+AP5M_OUT ?= build/ReChord_AP.IMG
 standalone-ap5m: $(CFW_ELF)
-	$(PYTHON) tools/make_fw1.py $(CFW_ELF) --standalone-5m -o build/ReChord_AP.IMG
+	$(PYTHON) tools/make_fw1.py $(CFW_ELF) --standalone-5m -o $(AP5M_OUT)
 
 # Local regression check against a saved known-good AP5M image. Run before
 # `make standalone-ap5m` (or point GOLDEN at a saved copy).
@@ -213,7 +217,7 @@ BB_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_BB_BUILD -D_RK_EQ_ -Ifirmware $(addpre
 # LOG_BUFFER_LINES: 12 lines dropped boundary lines during a track change
 # (BRNOMT-73 field logs), so the ring holds 48 lines of the latest activity —
 # the assembly buffer still fits under the AP .bss ceiling (0x0304A000).
-AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
+AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
 
 BB_OBJS := $(foreach src,$(BB_SRCS),\
              $(BB_OBJ_DIR)/$(patsubst firmware/rockchip/%,%,$(src)).o)

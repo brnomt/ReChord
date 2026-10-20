@@ -51,13 +51,18 @@ AP_LDSCRIPT := firmware/firmware_ap.ld
 # image that crosses the loader code.
 AP_DEBUG_TOOLS ?= 0
 
+# Runtime probe for the 0x03088000 overlay window. Off by default; the
+# probe image is built with AP_MEM_PROBE=1 in a separate CFW_BUILD_DIR.
+AP_MEM_PROBE ?= 0
+
 # ---- link inputs (the clean-room tree) ---------------------------------
 # startup: vector table + reset recipe (ap_startup.c) and the minimal AP
 # main + weak link stubs (ap_main.c).
 AP_STARTUP_SRCS := \
   firmware/startup/ap_startup.c \
   firmware/startup/ap_main.c \
-  firmware/startup/ap_ui.c
+  firmware/startup/ap_ui.c \
+  firmware/startup/mem_probe.c
 
 # UI layer (the AP subset; boot_screen.c is not used by the clean-room AP).
 AP_UI_SRCS := \
