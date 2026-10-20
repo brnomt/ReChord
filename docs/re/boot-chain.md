@@ -304,6 +304,12 @@ the device. Do not flash this probe image again; do not use `0x03088000`
 for overlays or runtime code. DFIU incident
 `cf076cf2-e6cc-4dd9-8037-9d27e8001a51`.
 
+**Recovery confirmed (2026-10-20, on-device):** the user flashed the normal
+AP5M image (SHA-256 `c2238...babb93d`, CRC `0x2264CCBA`) and ReChord
+booted. DFIU incident verified `pass` (`operator_review`); rule
+`R-29b085f95328` is verified. The probe image SHA `377c5df8...` was not
+reused.
+
 Recovery: maskrom with the stock 33 MB image, then the normal AP5M via the
 updater; see `docs/DEBRICK-LINUX.md`. Next probe:
 `0x0304AE64..0x03050000`, one word at a time, same splash result; do not
