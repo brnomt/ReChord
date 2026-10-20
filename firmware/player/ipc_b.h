@@ -59,6 +59,9 @@ typedef struct
     int         gapless_delay; /* leading trim samples                  */
     int         gapless_padding; /* trailing trim samples               */
     int         rg_gain_q16;   /* ReplayGain Q16 (32768 = 1.0x)         */
+    /* Resume/start position: Core B seeks BEFORE its first decode round, so
+     * the first PCM it produces is already at this position. 0 = start. */
+    long        start_ms;
 } ipc_b_track_t;
 
 /* Snapshot returned by ipc_b_poll_state(). */

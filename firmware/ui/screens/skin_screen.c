@@ -52,14 +52,24 @@ static void skin_draw(void)
     st.stopped = player_get_state() == PLAYER_STOPPED;
     st.volume_db = player_get_volume();
     st.battery_pct = -1;
+    st.shuffle = player_get_shuffle();
+    st.repeat = player_get_repeat();
+    st.position_ms = player_get_position_ms();
     st.title = "";
     st.artist = "";
     st.album = "";
+    st.path = "";
     st.state = st.playing ? "Playing" : (st.paused ? "Paused" : "Stopped");
     if (player_get_track(&s_track) == PLAYER_OK) {
         st.title = s_track.title;
         st.artist = s_track.artist;
         st.album = s_track.album;
+        st.path = s_track.path;
+        st.duration_ms = s_track.duration_ms;
+        st.bits = s_track.bits;
+        st.sample_rate = s_track.sample_rate;
+        st.playlist_pos = s_track.playlist_pos;
+        st.playlist_count = s_track.playlist_count;
     }
     display_clear(THEME_COLOR_BG);
     theme_skin_render(s_now_ms, s_now_ms - s_last_input_ms, s_sel, &st);

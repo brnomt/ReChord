@@ -460,6 +460,7 @@ static void build_ipc_track(ipc_b_track_t *t)
     t->gapless_delay = g.gapless.delay_samples;
     t->gapless_padding = g.gapless.padding_samples;
     t->rg_gain_q16 = g.rg_gain_q16;
+    t->start_ms = g.base_ms;
 }
 
 /* Peek the next track's device path WITHOUT consuming the queue/list.
@@ -761,11 +762,10 @@ int player_play(void)
         }
         g.frames_consumed = 0;   /* per-stream counter, post-start */
         g.frames_at_start = 0;
-        /* A seek performed while STOPPED (resume at a position, or the plain
-         * stop -> seek -> play sequence) must reach the NEW stream: Core B
-         * opens the file at 0, so reposition it here. */
-        if (g.base_ms > 0)
-            (void)player_seek(g.base_ms);
+        /* A seek performed while STOPPED (resume at a position) travels in
+         * the start descriptor: Core B positions itself BEFORE its first
+         * decode round. Seeking again after RUN raced B's first PCM and left
+         * "Playing" with an empty ring on hardware. */
     }
 
     set_state(PLAYER_PLAYING);

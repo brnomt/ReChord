@@ -181,4 +181,60 @@ void test_skin_home(void)
     theme_skin_reset();
     theme_assets_reset();
     theme_layout_reset();
+
+    /* Runtime state exposed to the theme: title/album/position/duration/
+     * depth/rate/playlist/modes. */
+    {
+        static const char *state_skin =
+            "[skin]\nrefresh_ms=1000\n"
+            "[t]\ntype=text\nx=0\ny=0\ntext=title\n"
+            "[a]\ntype=text\nx=0\ny=12\ntext=album\n"
+            "[p]\ntype=text\nx=0\ny=24\ntext=pos\n"
+            "[d]\ntype=text\nx=0\ny=36\ntext=dur\n"
+            "[b]\ntype=text\nx=0\ny=48\ntext=bits\n"
+            "[r]\ntype=text\nx=0\ny=60\ntext=rate\n"
+            "[pi]\ntype=text\nx=0\ny=72\ntext=pl_i\n"
+            "[pn]\ntype=text\nx=0\ny=84\ntext=pl_n\n"
+            "[s]\ntype=text\nx=0\ny=96\ntext=shuffle\n"
+            "[m]\ntype=text\nx=0\ny=108\ntext=repeat\n"
+            "[plx]\ntype=text\nx=0\ny=120\ntext=pl_i + \"/\" + pl_n\n"
+            "[fmt]\ntype=text\nx=0\ny=132\ntext=bits + \"/\" + (rate / 1000) + \"kHz\"\n";
+        FILE *f = fopen("rechord_state.skin", "w");
+
+        CHECK(f != NULL);
+        if (f != NULL) {
+            fputs(state_skin, f);
+            fclose(f);
+        }
+        CHECK_EQ_INT(theme_skin_load(".", "", "rechord_state.skin"), 0);
+        remove("rechord_state.skin");
+        memset(&st, 0, sizeof st);
+        st.title = "TitleX";
+        st.album = "AlbumX";
+        st.state = "Playing";
+        st.playing = 1;
+        st.position_ms = 42000;
+        st.duration_ms = 125000;
+        st.bits = 24;
+        st.sample_rate = 96000;
+        st.playlist_pos = 3;
+        st.playlist_count = 7;
+        st.shuffle = 1;
+        st.repeat = 2;
+        mock_display_reset();
+        theme_skin_render(1000, 0, 0, &st);
+        CHECK(mock_display_text_find("TitleX") >= 0);
+        CHECK(mock_display_text_find("AlbumX") >= 0);
+        CHECK(mock_display_text_find("42") >= 0);
+        CHECK(mock_display_text_find("125") >= 0);
+        CHECK(mock_display_text_find("24") >= 0);
+        CHECK(mock_display_text_find("96000") >= 0);
+        CHECK(mock_display_text_find("3") >= 0);
+        CHECK(mock_display_text_find("7") >= 0);
+        CHECK(mock_display_text_find("3/7") >= 0);
+        CHECK(mock_display_text_find("24/96kHz") >= 0);
+    }
+
+    theme_skin_reset();
+    theme_layout_reset();
 }

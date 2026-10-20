@@ -119,22 +119,28 @@ must never produce a half-drawn screen.
 ## 6. Theme-visible state (read-only snapshots)
 
 ```c
-typedef struct {
-    const char *title, *artist, *album;   /* "" when absent                */
-    int bits, sample_rate;                /* 0 when unknown                */
-    int queue_pos, queue_count;           /* 0 when no list                */
-    int state;                            /* STOPPED/PLAYING/PAUSED/ERROR  */
-    unsigned long position_ms, duration_ms;
-    int volume_db;
-    int battery_pct;                      /* -1 while unavailable (83)     */
-    int shuffle, repeat;                  /* 0/1 and off/all/one           */
-    const char *mode_tags;                /* pre-rendered "SHUF REP1"      */
-} theme_state_t;
+typedef struct theme_skin_state {
+    int playing, paused, stopped;
+    int volume_db, battery_pct;           /* battery -1 when unknown      */
+    const char *title, *artist, *album, *path, *state;
+    long position_ms, duration_ms;
+    int  bits, sample_rate;               /* 0 when unknown                */
+    int  playlist_pos, playlist_count;    /* 1-based / 0 when no list      */
+    int  shuffle, repeat;                 /* 0/1 and off/all/one           */
+} theme_skin_state_t;
 ```
 
-Tags resolved by the renderer: `title artist album fmt i/N elapsed total modes
-volume battery state`. Missing values render as an empty string (never a
-placeholder glyph).
+Skin variable names: `playing paused stopped volume battery title artist album
+path state pos dur pos_ms dur_ms bits rate pl_i pl_n shuffle repeat`, plus
+engine state `t idle sel n W H aw ah` and the palette names. Missing values
+render as empty strings / 0 (never a placeholder glyph). Strings concatenate
+with `+`; integers are converted in a string expression.
+
+Sources: `player_get_state()`, `player_get_track()`, `player_get_position_ms()`,
+`player_get_volume()`, `player_get_shuffle()`, `player_get_repeat()`,
+`battery_percent()`, `ap_ms()` and the UI selection. The engine never talks to
+the player directly; the UI adapter (`skin_screen.c`) fills the snapshot.
+Full guide: `docs/THEMING.md`.
 
 ## 7. Hot reload + fallback
 

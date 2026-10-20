@@ -217,6 +217,28 @@ static skin_val_t variable(const char *name)
         return v_int(c != 0 && c->st != 0 ? c->st->volume_db : 0);
     if (strcmp(name, "battery") == 0)
         return v_int(c != 0 && c->st != 0 ? c->st->battery_pct : -1);
+    if (strcmp(name, "pos") == 0)
+        return v_int(c != 0 && c->st != 0
+                         ? (int)(c->st->position_ms / 1000) : 0);
+    if (strcmp(name, "dur") == 0)
+        return v_int(c != 0 && c->st != 0
+                         ? (int)(c->st->duration_ms / 1000) : 0);
+    if (strcmp(name, "pos_ms") == 0)
+        return v_int(c != 0 && c->st != 0 ? (int)c->st->position_ms : 0);
+    if (strcmp(name, "dur_ms") == 0)
+        return v_int(c != 0 && c->st != 0 ? (int)c->st->duration_ms : 0);
+    if (strcmp(name, "bits") == 0)
+        return v_int(c != 0 && c->st != 0 ? c->st->bits : 0);
+    if (strcmp(name, "rate") == 0)
+        return v_int(c != 0 && c->st != 0 ? (int)c->st->sample_rate : 0);
+    if (strcmp(name, "pl_i") == 0)
+        return v_int(c != 0 && c->st != 0 ? c->st->playlist_pos : 0);
+    if (strcmp(name, "pl_n") == 0)
+        return v_int(c != 0 && c->st != 0 ? c->st->playlist_count : 0);
+    if (strcmp(name, "shuffle") == 0)
+        return v_int(c != 0 && c->st != 0 ? c->st->shuffle : 0);
+    if (strcmp(name, "repeat") == 0)
+        return v_int(c != 0 && c->st != 0 ? c->st->repeat : 0);
     if (strcmp(name, "title") == 0)
         return v_str(c != 0 && c->st != 0 ? c->st->title : "");
     if (strcmp(name, "artist") == 0)
@@ -225,6 +247,8 @@ static skin_val_t variable(const char *name)
         return v_str(c != 0 && c->st != 0 ? c->st->album : "");
     if (strcmp(name, "state") == 0)
         return v_str(c != 0 && c->st != 0 ? c->st->state : "");
+    if (strcmp(name, "path") == 0)
+        return v_str(c != 0 && c->st != 0 ? c->st->path : "");
     if (strcmp(name, "true") == 0)
         return v_int(1);
     if (strcmp(name, "false") == 0)
@@ -483,21 +507,31 @@ static skin_val_t eval_mul(skin_expr_t *e, int depth)
     }
 }
 
+static void append_val(char *dst, int *n, int cap, skin_val_t v)
+{
+    char tmp[16];
+    const char *p;
+
+    if (v.is_str) {
+        p = v.s;
+    } else {
+        snprintf(tmp, sizeof tmp, "%d", v.i);
+        p = tmp;
+    }
+    while (*p != '\0' && *n < cap - 1)
+        dst[(*n)++] = *p++;
+}
+
 static int concat(skin_val_t a, skin_val_t b, skin_val_t *out)
 {
     int n = 0;
-    const char *p;
 
     if (!a.is_str && !b.is_str)
         return 0;
     memset(out, 0, sizeof *out);
     out->is_str = 1;
-    p = a.is_str ? a.s : "";
-    while (*p != '\0' && n < SKIN_VAL_MAX - 1)
-        out->s[n++] = *p++;
-    p = b.is_str ? b.s : "";
-    while (*p != '\0' && n < SKIN_VAL_MAX - 1)
-        out->s[n++] = *p++;
+    append_val(out->s, &n, SKIN_VAL_MAX, a);
+    append_val(out->s, &n, SKIN_VAL_MAX, b);
     out->s[n] = '\0';
     return 1;
 }

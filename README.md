@@ -189,6 +189,7 @@ stock/                        # official firmware backups (not distributed)
 ## Documentation
 
 - [`docs/HANDOVER.md`](docs/HANDOVER.md) — session log and decisions (**start here**)
+- [`docs/THEMING.md`](docs/THEMING.md) — theme package format, skin language and runtime variables
 - [`docs/STATUS.md`](docs/STATUS.md) — build status and history
 - [`docs/rewrite/`](docs/rewrite/) — architecture: audio, player, DAC, Core B
 - [`docs/re/`](docs/re/) — reverse-engineering notes and decompilation

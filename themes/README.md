@@ -137,15 +137,15 @@ layouts readable. Example from Companion Bot:
 
 ```
 [vars]
-eye_w=100
-eye_h=100
-blink_on=(mod(t, 3600) < 600)
+eye_w=70
+eye_h=70
+blink_on=((mod(t, 3600) < 600) && (idle > 300))
 h_l=(blink_on ? blink_h : idle_h)
 
 [eye_left]
 type=roundrect
-x=(98 - w_l / 2 + gaze + sin(t, 2400, 14))
-y=(85 - h_l / 2 + sin(t + 700, 3100, 7))
+x=clamp(116 - w_l / 2 + gaze + sin(t, 2400, 11), 4, 154 - w_l)
+y=clamp(85 - h_l / 2 + sin(t + 700, 3100, 6), 2, 121 - h_l)
 w=w_l
 h=h_l
 r=r_l
@@ -154,17 +154,39 @@ color=text
 
 Expressions support integers, strings, `+ - * / %`, comparisons, `&& || !`,
 ternary `? :`, and functions `min max abs clamp mod noise sin seq if`.
-Variables: `t` (ms), `idle` (ms since last key), `playing paused stopped
-volume battery W H sel n aw ah title artist album state`, plus palette names
-(`background surface text text_dim accent danger success`). A bare word is a
-string (useful for `asset=eye_open`).
+Strings concatenate with `+` and ints are converted (`pl_i + "/" + pl_n`).
+
+### Runtime variables (read-only)
+
+| Variable | Meaning |
+|---|---|
+| `t`, `idle` | app clock ms / ms since last key |
+| `sel`, `n` | selected home item / item count |
+| `W`, `H`, `aw`, `ah` | display size / current bitmap asset size |
+| `playing`, `paused`, `stopped` | player state bits |
+| `volume` | volume dB |
+| `battery` | battery %, -1 unknown |
+| `title`, `artist`, `album`, `path` | current track metadata |
+| `state` | `"Playing"` / `"Paused"` / `"Stopped"` |
+| `pos`, `dur` | position / duration in seconds |
+| `pos_ms`, `dur_ms` | same in milliseconds |
+| `bits`, `rate` | source depth and sample rate |
+| `pl_i`, `pl_n` | 1-based playlist position / count |
+| `shuffle`, `repeat` | 0/1 and off/all/one |
+| palette names | `background surface text text_dim accent danger success` |
+
+They come from `player_get_state()/get_track()/get_position_ms()/get_volume()/
+get_shuffle()/get_repeat()` (runtime state in `firmware/player/player.c`),
+`battery_percent()`, the UI selection, and `ap_ms()`. Full guide, meter
+reference and examples: [`docs/THEMING.md`](../docs/THEMING.md).
 
 `prev`/`next` bind movement to the logical `up`/`down` keys. This is enough to
 fix inverted hardware: with the Echo Mini's vol+ reported as `down`,
-`prev=down` makes vol+ move left.
+`prev=down` makes vol+ move left. Only vol up/down are theme-mappable; PLAY
+is always SELECT, BACK is always BACK, power is global.
 
 Bounded by design: 4 KiB skin text, 32 sections, 12 properties/section,
-192-byte values, expression recursion depth 12, 2048 evaluation steps.
+144-byte values, expression recursion depth 12, 2048 evaluation steps.
 
 ## Assets
 

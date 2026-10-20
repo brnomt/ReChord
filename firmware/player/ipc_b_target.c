@@ -309,6 +309,25 @@ int ipc_b_init(void)
     return 0;
 }
 
+/* Send a SEEK command and wait for B's ack while keeping its file ring fed.
+ * Does not touch the PCM ring or the RUN state; callers decide those. */
+static int b_seek_now(long ms)
+{
+    uint32_t seq;
+    int i;
+
+    CTRL[IPC_C_ARG] = (uint32_t)ms;
+    dmb();
+    seq = cmd_start(IPC_C_SEEK);
+    for (i = 0; i < 500; i++) {          /* ~500 ms: file service repositions */
+        bfs_poll();
+        if (CTRL[IPC_C_ACK] == seq)
+            return 0;
+        dac_delay_ms(1);
+    }
+    return -1;
+}
+
 int ipc_b_start(const ipc_b_track_t *track)
 {
     audio_format_t fmt;
@@ -343,8 +362,18 @@ int ipc_b_start(const ipc_b_track_t *track)
     sh_set(IPC_C_GAP_TOTAL, (uint32_t)track->total_samples);
 
     /* Offload decode to Core B; on any failure the AP decodes (phase 2). */
-    if (b_handoff(track->path) == 0)
+    if (b_handoff(track->path) == 0) {
         s_b_decodes = 1;
+        /* Resume: position B before its first decode round so the first PCM
+         * is already at start_ms. Doing this after RUN raced the producer and
+         * left "Playing" with an empty ring on hardware. */
+        if (track->start_ms > 0) {
+            if (b_seek_now(track->start_ms) != 0)
+                log_printf("ipc: start seek %ld ms no ack", track->start_ms);
+            else
+                log_printf("ipc: start at %ld ms", track->start_ms);
+        }
+    }
 
     /* The AP owns the DAC/I2S bring-up in both cases. */
     fmt.sample_rate = (uint32_t)track->sample_rate;
@@ -560,9 +589,6 @@ int ipc_b_set_replaygain(int gain_q16)
 
 int ipc_b_seek(long ms)
 {
-    uint32_t seq;
-    int i;
-
     if (!s_b_decodes)
         return 0;
 
@@ -570,15 +596,7 @@ int ipc_b_seek(long ms)
     sh_set(IPC_SH_RD, 0);
     sh_set(IPC_SH_WR, 0);
 
-    CTRL[IPC_C_ARG] = (uint32_t)ms;
-    dmb();
-    seq = cmd_start(IPC_C_SEEK);
-    for (i = 0; i < 500; i++) {          /* ~500 ms: file service repositions */
-        bfs_poll();
-        if (CTRL[IPC_C_ACK] == seq)
-            break;
-        dac_delay_ms(1);
-    }
+    (void)b_seek_now(ms);
     sh_set(IPC_SH_FRAMES, 0);
     sh_set(IPC_SH_STATE, g_paused ? IPC_SH_PAUSE : IPC_SH_RUN);
     return 0;

@@ -65,7 +65,16 @@ typedef struct theme_skin_state {
     const char *title;
     const char *artist;
     const char *album;
-    const char *state;
+    const char *state;            /* "Playing" / "Paused" / "Stopped" */
+    const char *path;             /* current track path ("" when none) */
+    long position_ms;
+    long duration_ms;
+    int  bits;                    /* source depth (0 unknown) */
+    long sample_rate;             /* Hz (0 unknown) */
+    int  playlist_pos;            /* 1-based, 0 when no list */
+    int  playlist_count;
+    int  shuffle;
+    int  repeat;                  /* PLAYLIST_REPEAT_* */
 } theme_skin_state_t;
 
 /* Read <root>/<id>/<path> into the engine and cache the interactive list.

@@ -915,7 +915,7 @@ static const menu_item_t k_root_items[] = {
 };
 #define ROOT_ITEM_COUNT ((int)(sizeof k_root_items / sizeof k_root_items[0]))
 
-#define RC_BUILD "m9d"
+#define RC_BUILD "m9f"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
                                      ROOT_ITEM_COUNT, vol_status };
 
