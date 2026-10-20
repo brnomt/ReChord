@@ -125,8 +125,8 @@ y=20
 height=14
 rows=9
 source=settings
-prev=down
-next=up
+prev=up
+next=down
 ```
 
 - `source=<name>` tells the engine to use the callback table the compiled
@@ -240,12 +240,23 @@ evaluate to that string; numeric contexts read it as 0.
 Only **vol up / vol down** are theme-mappable, through the list meter:
 
 ```
+# vertical lists (Library, Settings, Browser, categories):
+prev=up
+next=down
+
+# horizontal home bar (Companion Bot):
 prev=down
 next=up
 ```
 
+`prev`/`next` are **logical** keys; the Echo Mini reports vol+ as `down` and
+vol- as `up`. For a vertical list the intuitive mapping is `prev=up`,
+`next=down` (vol+ moves down). On a horizontal bar `prev=down` makes vol+ move
+left. The compiled fallback uses the same vertical convention.
+
 PLAY is always SELECT, BACK is always BACK, and power is handled globally
-(hold ~2 s to power off). A theme cannot steal those keys.
+(short = backlight off/on, Power+MENU = Hold, hold ~2 s = power off). A theme
+cannot steal those keys.
 
 ---
 

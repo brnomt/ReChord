@@ -116,8 +116,8 @@ y=20
 height=14
 rows=9
 source=settings
-prev=down
-next=up
+prev=up
+next=down
 ```
 
 `rows` is also the paging size used by the screen, so the cursor and the
@@ -241,10 +241,11 @@ get_shuffle()/get_repeat()` (runtime state in `firmware/player/player.c`),
 `battery_percent()`, the UI selection, and `ap_ms()`. Full guide, meter
 reference and examples: [`docs/THEMING.md`](../docs/THEMING.md).
 
-`prev`/`next` bind movement to the logical `up`/`down` keys. This is enough to
-fix inverted hardware: with the Echo Mini's vol+ reported as `down`,
-`prev=down` makes vol+ move left. Only vol up/down are theme-mappable; PLAY
-is always SELECT, BACK is always BACK, power is global.
+`prev`/`next` bind movement to the logical `up`/`down` keys. For vertical
+lists use `prev=up` / `next=down` (vol+ moves down), matching the compiled
+fallback. For the horizontal home bar, `prev=down` makes vol+ move left. Only
+vol up/down are theme-mappable; PLAY is always SELECT, BACK is always BACK,
+power is global.
 
 Bounded by design: 4 KiB skin text, 32 sections, 12 properties/section,
 144-byte values, expression recursion depth 12, 2048 evaluation steps.

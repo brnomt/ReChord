@@ -144,6 +144,10 @@ void test_skin_screens(void)
 
     CHECK_EQ_INT(theme_skin_load("../../../themes", "companion-bot",
                               "library.skin"), 0);
+    theme_skin_set_list(&s_source);
+    /* Vertical lists use the intuitive mapping: vol+ (DOWN) = next/down. */
+    CHECK_EQ_INT(theme_skin_nav(THEME_SKIN_KEY_DOWN), THEME_SKIN_NEXT);
+    CHECK_EQ_INT(theme_skin_nav(THEME_SKIN_KEY_UP), THEME_SKIN_PREV);
     CHECK_EQ_INT(theme_skin_load("../../../themes", "companion-bot",
                               "library_cat.skin"), 0);
     CHECK_EQ_INT(theme_skin_load("../../../themes", "companion-bot",

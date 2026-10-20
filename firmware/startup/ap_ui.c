@@ -1007,7 +1007,7 @@ static const menu_item_t k_root_items[] = {
 };
 #define ROOT_ITEM_COUNT ((int)(sizeof k_root_items / sizeof k_root_items[0]))
 
-#define RC_BUILD "m9h"
+#define RC_BUILD "m9i"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
                                      ROOT_ITEM_COUNT, vol_status };
 
@@ -1243,8 +1243,10 @@ void ap_ui_loop(void)
             s_key_adc = keys_adc();
             s_key_power = keys_power();
             sampled = 1;
-            input_set_vol_debounce(ui_top_screen() == &skin_home_screen
-                                       ? 3 : INPUT_DEBOUNCE_SCANS_VOL);
+            /* 5 ms samples: 3 samples = 15 ms. The old 8-sample debounce was
+             * tuned for a much faster scan and became a 40 ms delay here
+             * (quick vol taps never registered in lists). */
+            input_set_vol_debounce(3);
             input_scan(s_key_adc, s_key_power);
         }
         cable = usb_cable();
@@ -1311,8 +1313,9 @@ void ap_ui_loop(void)
                 continue;
             if (ev.type == KEY_POWER)
                 continue;              /* global power handling below */
-            if (s_screen_off)
-                screen_wake();         /* a key wakes and is still handled */
+            /* Screen-off is display-only: keys keep working, but they must
+             * not light the panel. Only a short Power press (or unlocking
+             * Hold / USB insertion) wakes it. */
             if (ev.type == KEY_MENU) {
                 while (ui_stack_depth() > 1)
                     ui_pop_screen();

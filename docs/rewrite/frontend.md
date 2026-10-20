@@ -117,12 +117,14 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
 - **Theme constants are centralized** in `theme.h` (the future
   `firmware/theme/` runtime theme can replace it).
 - **Global power policy (BRNOMT-75)**: a short Power press toggles the
-  backlight (screen off/on) and never stops playback; any non-power key wakes
-  the screen and is still processed. Holding Power and pressing MENU toggles
-  Hold: screen off and every key is dropped except the same chord. The chord is
-  detected from the raw ADC while power is down because `input_scan()`
-  prioritizes the power GPIO and never emits the MENU event in that state.
-  The 2 s power-off is suppressed during a chord and while Hold is active.
+  backlight (screen off/on) and never stops playback. While the panel is dark,
+  keys keep working but do **not** wake it; only a short Power press lights it
+  again (unlocking Hold and USB insertion are separate deliberate wake
+  events). Holding Power and pressing MENU toggles Hold: screen off and every
+  key is dropped except the same chord. The chord is detected from the raw ADC
+  while power is down because `input_scan()` prioritizes the power GPIO and
+  never emits the MENU event in that state. The 2 s power-off is suppressed
+  during a chord and while Hold is active.
 - **1 ms paced loop (BRNOMT-84)**: SysTick runs with TICKINT and an empty
   handler; the app loop sleeps in `WFI` between ticks. The SARADC ladder is
   sampled every 5 ms (3 conversions + settle was ~600 us of busy-wait), and

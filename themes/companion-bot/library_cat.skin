@@ -34,8 +34,8 @@ y=20
 height=14
 rows=9
 source=library_cat
-prev=down
-next=up
+prev=up
+next=down
 
 [empty]
 type=text

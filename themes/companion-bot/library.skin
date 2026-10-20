@@ -35,8 +35,8 @@ y=20
 height=14
 rows=8
 source=library
-prev=down
-next=up
+prev=up
+next=down
 
 [footer]
 type=text
