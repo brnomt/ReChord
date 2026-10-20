@@ -11,6 +11,9 @@
 #include "drivers/panel_io.h"
 #include "drivers/usb_msc.h"
 #include "drivers/usb_cdc.h"
+#if AP_CDC_OVERLAY
+#include "startup/cdc_overlay.h"
+#endif
 #include "audio/audio_output.h"
 #include "drivers/rknano_i2s.h"
 #include "drivers/battery.h"
@@ -1317,6 +1320,11 @@ void ap_ui_loop(void)
     input_event_t ev;
 
     emmc_probe();
+#if AP_CDC_OVERLAY
+    /* The Internal volume (and /.rechord) is mounted by emmc_probe(); only
+     * now can the loader open /Internal/.rechord/cdc.bin. */
+    (void)ap_cdc_overlay_run();
+#endif
     player_init();       /* register wav/mp3/flac codecs (registry) */
     player_set_resolver(media_resolve);   /* BRNOMT-90: list index -> path */
     mq_set_pump(player_process);  /* keep audio fed during library scans */

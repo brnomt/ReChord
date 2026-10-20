@@ -412,12 +412,12 @@ AP image only contains the loader.
 | field | value |
 |---|---|
 | AP image | `build/cdc/ReChord_AP5M.IMG` |
-| AP CRC | `0xF48ECA8C` |
-| AP SHA-256 | `9ba25b7158ac84f0d953b4b5849ec2fb53d50f210105b81f868c0443ee877568` |
+| AP CRC | `0xBEA8DED8` |
+| AP SHA-256 | `783c6caeb1dacf12be1d53e5534697fe40f9ab496faf7fc34160b2d3a79038c0` |
 | CDC blob | `build/cfw-cdc/cdc/cdc_overlay.bin` |
 | CDC blob size | 1,736 B |
-| CDC blob SHA-256 | `e349a5de108ec25650287e59227615334db5402fcbb9a8ec0e5e9b9f800ac2c9` |
-| row 0 end | `0x030879F8` (1,544 B below `0x03088000`) |
+| CDC blob SHA-256 | `971c7728923f334e499cc5fb10bdd0a06cf2b0e3b97253bf55011a67f7630f68` |
+| row 0 end | `0x030879A4` (1,628 B below `0x03088000`) |
 | normal image | unchanged, CRC `0x2264CCBA` |
 
 Steps: copy `cdc_overlay.bin` to the device as `/.rechord/cdc.bin` (the
