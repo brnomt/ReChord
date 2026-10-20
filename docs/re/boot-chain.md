@@ -160,6 +160,27 @@ Consequences for Phase 2 (revised):
   `0x0304AE64..0x03050000` (20,896 B, loader data below the AP code),
   `0x0304A000..0x0304AE64` (3,684 B gap), `0x030A3B34+` (unproven).
 
+### 4.2 Stock section_3 at 0x03088000 is app code, not the loader
+
+REA on the stock 3.7.0 section_3 (loaded at `0x03000000`) shows real Thumb
+code at `0x03088000`:
+
+- Function `FUN_03087fd0`, body `0x03087FD0..0x0308805F` (144 B), called by
+  `FUN_03085f4e` at `0x03086128`; no direct callees.
+- It walks an object array (count at `param+0x188`, index array at
+  `param+0x18C`, base at `param+0xD8`, object stride `0xFC`), reads
+  `+0x84`/`+0x86`, and writes geometry/layout fields
+  `+0x54/+0x58/+0x5C/+0x60/+0x64` from the table at `DAT_0103ccec`
+  (`0x0103ccec`). This is stock UI/app code, not a loader.
+- Stock 3.9.0 section_3 also has code at `0x03088000`; HIFIEC90's section_3
+  has data/zeros there; our AP5M has no section_3 at all.
+
+Therefore the probe hang on AP5M does **not** come from the stock app code
+at that address. `0x03088000` is owned at runtime by the ROM/second stage
+(or by our own loader path), and it cannot be reclaimed by copying or
+replacing the stock section_3. The 113,460 B window needs a bootloader that
+owns/replaces the ROM loader/update path; the stock app is a red herring.
+
 ## 5. Phase 1a — standalone 5 MB container (done)
 
 - `tools/fw1_5m.py` builds the fw1-only 5 MB image directly from a `.fw1`
