@@ -45,6 +45,9 @@ static int      s_shuffle;     /* 1 = shuffle on */
 static int      s_track_no = -1; /* player open-sequence: detects a new track */
 static bool     s_playing;
 static char     s_status[40];  /* non-empty: shown instead of Playing/Paused */
+static int      s_no_track;    /* s_status is the transient "nothing playing" */
+
+static void set_no_track(int on);
 
 /* ---- pure geometry helper (host-tested) -------------------------------- */
 
@@ -236,12 +239,16 @@ static void player_screen_on_enter(void)
 {
     track_info_t ti;
 
-    if (s_status[0])
-        return;                       /* error view: keep what's shown */
+    /* Keep a real error view (unsupported file, no renderer), but a stale
+     * "nothing playing" must be re-evaluated: the resume restore can load a
+     * track after the first refresh already ran. */
+    if (s_status[0] && !s_no_track)
+        return;
     if (player_get_track(&ti) != PLAYER_OK) {
-        player_screen_set_status("nothing playing");
+        set_no_track(1);
         return;
     }
+    set_no_track(0);
     player_screen_set_track(ti.title,
                             ti.duration_ms > 0
                                 ? (uint32_t)(ti.duration_ms / 1000) : 0);
@@ -336,9 +343,25 @@ void player_screen_set_modes(int repeat, int shuffle)
 
 void player_screen_set_status(const char *msg)
 {
+    s_no_track = (msg != 0 && strcmp(msg, "nothing playing") == 0);
     snprintf(s_status, sizeof(s_status), "%s", msg ? msg : "");
     ui_invalidate(0, PLAYER_STATE_Y, DISPLAY_W - 1,
                   PLAYER_STATE_Y + THEME_LINE_H);
+}
+
+/* "nothing playing" is transient: clear it as soon as a track exists (the
+ * resume restore may load one after the screen's first refresh). */
+static void set_no_track(int on)
+{
+    if (on) {
+        if (!s_no_track) {
+            s_no_track = 1;
+            player_screen_set_status("nothing playing");
+        }
+    } else if (s_no_track) {
+        s_no_track = 0;
+        player_screen_set_status(NULL);
+    }
 }
 
 /* Pulled from the app loop every pass: updates position + play state from
@@ -350,10 +373,10 @@ void player_screen_refresh(void)
     int st;
 
     if (player_get_track(&ti) != PLAYER_OK) {
-        if (!s_status[0])
-            player_screen_set_status("nothing playing");
+        set_no_track(1);
         return;
     }
+    set_no_track(0);
     st = player_get_state();
     if (st == PLAYER_ERROR) {
         if (!s_status[0])

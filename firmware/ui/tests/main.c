@@ -16,6 +16,7 @@ void test_menu_nav(void);
 void test_settings_keys(void);
 void test_browser_pagination(void);
 void test_skin_home(void);
+void test_player_resume(void);
 
 static void run(const char *name, void (*fn)(void))
 {
@@ -36,6 +37,7 @@ int main(void)
     run("settings_keys", test_settings_keys);
     run("browser_pagination", test_browser_pagination);
     run("skin_home", test_skin_home);
+    run("player_resume", test_player_resume);
 
     printf("----\n%d checks, %d failures\n", test_checks, test_failures);
     return (test_failures == 0) ? 0 : 1;
