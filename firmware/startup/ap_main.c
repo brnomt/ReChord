@@ -82,17 +82,11 @@ uint32_t Main(void)
  * ========================================================================== */
 
 /*
- * rechord_startup_entry: reset target of the legacy Route-B vector table
- * (firmware/startup/vectors.c, table "vectors").  That table is kept in the
- * image for reference but is NOT the boot path of the clean-room fw1 AP
- * (the real entry is PowerOn_Reset via ap_vectors in ap_startup.c).  Stub:
- * park forever instead of running a boot recipe that does not belong here.
+ * rechord_startup_entry (the legacy Route-B vector table's reset target) is
+ * gone with firmware/startup/vectors.c: that table was never the boot path
+ * (the real entry is PowerOn_Reset via ap_vectors in ap_startup.c) and the
+ * AP code has to stay below LOADER_CODE_BASE 0x03088000.
  */
-__attribute__((weak)) void rechord_startup_entry(void)
-{
-    for (;;) {
-    }
-}
 
 /*
  * panel_init_sequence: DCS power-on init for the panel (declared in

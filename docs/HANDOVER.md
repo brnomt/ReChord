@@ -4331,3 +4331,48 @@ change while paused stays silent; track skip is not delayed by the user fade.
 checks + 42), player and drivers host suites green. `make cfw-ap` +
 `make cfw-img`: `RESULT: PASS`, AP5M CRC `0xEF0C1BFC`, `_bss_end 0x03049DA8`
 (ceiling `0x0304A000`; ~600 B free). Not flashed.
+
+## BS. Session 2026-10-20 — POST-MORTEM: AP5M 0xEF0C1BFC bricked (loader code overwritten)
+
+**What happened.** The user flashed the pre-flash batch AP5M image
+(`0xEF0C1BFC`, the five commits plus the Settings/Fade work), the device did
+not boot, and they recovered it via maskrom. The flash was technically
+"PASS" by every existing check (linker, packer, CRC), but the image was not
+bootable.
+
+**Root cause.** The AP code was loaded past `LOADER_CODE_BASE 0x03088000`
+(the SDK scatter map, `docs/community.md` §4.2). The previous working image
+(`0x9281AF88`) had fw1 row 0 end `0x03087F8C` (116 B below the loader code);
+the bricked build ended at `0x03088EB0` (3,760 B past it) because the new
+features grew the AP code by ~3.9 KB. `firmware_ap.ld` allowed FW_CODE up to
+`0x0308C000` (`LENGTH 0x3C000`) and `tools/make_fw1.py` did not check the
+loader base, so both the linker and the packer accepted it. This was **not**
+the `_bss_end` ceiling: the bricked build ended at `0x03049DA8`, below both
+`0x0304A000` and the known-good `0x03049F84`, so the existing bss rule could
+not catch it. DFIU incident `51cc212d-0782-4bcc-8bfe-bfb2c8298de3`, rule
+`R-f1d637ac0361`.
+
+**Fix (this session).**
+- `firmware/firmware_ap.ld`: `FW_CODE` length is now `0x38000`, ending at
+  `0x03088000`; the comment records the brick and forbids raising it.
+- `tools/make_fw1.py`: new `loader code base` check; the pack fails if any
+  scatter row load end crosses `0x03088000`.
+- Code reclaimed to fit: dropped the unreferenced `boot_screen.c`, the
+  legacy `vectors.c` and its `rechord_startup_entry` stub, and the unused
+  `store.c` from the AP link. The DAC test and USB CDC console are now
+  behind `AP_DEBUG_TOOLS` (default 0); the System info rows stay. Building
+  `AP_DEBUG_TOOLS=1` is only possible after freeing more code, otherwise
+  the linker/packer refuses the image.
+- New AP5M: **CRC `0x2264CCBA`**, fw1 row 0 end **`0x03087900`** (1,792 B
+  below the loader), `_bss_end 0x03049BE0`, packer `RESULT: PASS` and
+  `loader code base ... [OK]`. This is a *safer* footprint than the last
+  known-good image.
+
+**Flash ladder (AP5M only).**
+1. Flash `build/ReChord_AP5M.IMG` (CRC `0x2264CCBA`). Do **not** flash the
+   33 MB `ReChord_AP.IMG` (custom fw1 table).
+2. If it does not boot, the last known-good is AP5M `0x9281AF88`; recover
+   with maskrom if needed and report the SHA-256 of the flashed file.
+3. After a successful boot, verify the row end printed by `make cfw-img`
+   is below `0x03088000` before any future flash. The DFIU incident stays
+   open until the device confirms the fixed image boots.

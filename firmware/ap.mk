@@ -43,21 +43,27 @@
 
 AP_LDSCRIPT := firmware/firmware_ap.ld
 
+# Debug-only actions in the root System menu (DAC test, USB CDC console).
+# Off by default: they cost ~3 KB of code and the AP code span must stay below
+# LOADER_CODE_BASE 0x03088000 (DFIU 51cc212d). Build with
+#   make cfw-ap AP_DEBUG_TOOLS=1
+# only after freeing room elsewhere; the linker/packer gate will refuse an
+# image that crosses the loader code.
+AP_DEBUG_TOOLS ?= 0
+
 # ---- link inputs (the clean-room tree) ---------------------------------
 # startup: vector table + reset recipe (ap_startup.c) and the minimal AP
 # main + weak link stubs (ap_main.c).
 AP_STARTUP_SRCS := \
   firmware/startup/ap_startup.c \
-  firmware/startup/vectors.c \
   firmware/startup/ap_main.c \
   firmware/startup/ap_ui.c
 
-# UI layer (same set as $(UI_SRCS) in firmware/ui/ui.mk).
+# UI layer (the AP subset; boot_screen.c is not used by the clean-room AP).
 AP_UI_SRCS := \
   firmware/ui/ui.c \
   firmware/ui/settings_schema.c \
   firmware/ui/settings_view.c \
-  firmware/ui/screens/boot_screen.c \
   firmware/ui/screens/menu_screen.c \
   firmware/ui/screens/browser_screen.c \
   firmware/ui/screens/player_screen.c \
@@ -79,7 +85,7 @@ AP_DRIVER_SRCS := \
   firmware/drivers/panel_io_rknanoc.c \
   firmware/drivers/emmc_rknanoc.c \
   firmware/drivers/usb_msc_rknanoc.c \
-  firmware/drivers/usb_cdc_rknanoc.c \
+  $(if $(filter 1,$(AP_DEBUG_TOOLS)),firmware/drivers/usb_cdc_rknanoc.c) \
   firmware/drivers/cs43131.c \
   firmware/drivers/core_b.c \
   firmware/drivers/cru_pll.c \
@@ -101,7 +107,6 @@ AP_SERVICE_SRCS := \
   firmware/services/resume.c \
   firmware/services/log.c \
   firmware/services/input.c \
-  firmware/services/store.c \
   firmware/services/scratch.c \
   firmware/services/workbuf.c \
   firmware/services/media_db.c \
@@ -189,6 +194,7 @@ AP_CFLAGS := $(AP_ARCH_FLAGS) -Os -Wall \
   -Wno-return-mismatch -Wno-int-conversion -Wno-return-type \
   -ffunction-sections -fdata-sections -MMD -MP -fcommon \
   -DRECHORD_AP_BUILD \
+  -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) \
   "-DLOG_BUFFER_LINES=48" \
   $(addprefix -I,$(AP_INCLUDE_DIRS)) \
   -include firmware/rockchip/include/armcc_compat.h

@@ -34,6 +34,12 @@
 #include "ui/screens/skin_screen.h"
 #include "player/bfs.h"     /* phase 3: A-side file service for Core B */
 
+/* Debug-only System actions (DAC test + USB CDC console). Off by default:
+ * the AP code must stay below LOADER_CODE_BASE 0x03088000 (DFIU 51cc212d). */
+#ifndef AP_DEBUG_TOOLS
+#define AP_DEBUG_TOOLS 0
+#endif
+
 /* BRNOMT-90: playlist record index -> track path (player_play_list). */
 static int media_resolve(uint16_t idx, char *path, int cap)
 {
@@ -661,6 +667,7 @@ static const char *keys_text(void)
     return buf;
 }
 
+#if AP_DEBUG_TOOLS
 /* Feed `seconds` of the 64-sample sine at 44.1 kHz through the polled I2S
  * FIFO. Returns dac_i2s_feed's rc (DAC_ERR_TIMEOUT = FIFO stopped
  * draining = no I2S clock); *frames_out = frames actually queued. */
@@ -919,6 +926,7 @@ static void usb_console_run(void)
     usb_cdc_request_exit();
     usb_dwc2_stop();               /* host-visible disconnect, no stale EPs */
 }
+#endif /* AP_DEBUG_TOOLS */
 
 /* MSC on demand (was the automatic VBUS action; the console owns that now). */
 static void usb_storage_run(void)
@@ -938,8 +946,10 @@ static void usb_storage_run(void)
  * with its own view: the shared menu_screen holds ONE model/view, so pushing it
  * twice would clobber the root's cursor. */
 static const menu_item_t k_sys_items[] = {
+#if AP_DEBUG_TOOLS
     { "DAC test",      NULL,       dac_test_run },
     { "USB console",   NULL,       usb_console_run },
+#endif
     { "Rebuild index", NULL,       index_rebuild_run },
     { "Index",         index_text, NULL },
     { "Keys",          keys_text,  NULL },

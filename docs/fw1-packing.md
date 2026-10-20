@@ -26,6 +26,25 @@ via the memory-map table**, fw1/second-stage validates and then loads
 That is why pack_img.py (flat section_3 splice) works, while fw1 needs the
 scatter table.
 
+### 1.1 Hard limit: LOADER_CODE_BASE 0x03088000
+
+The SDK scatter map (`docs/community.md` §4.2) pins `LOADER_CODE_BASE` at
+`0x03088000`. That loader code is part of the boot chain: an AP image whose
+loaded code crosses it overwrites the loader and **bricks the boot**, even if
+every other size check passes. On 2026-10-20 AP5M `0xEF0C1BFC` did exactly
+that: its fw1 row 0 ended at `0x03088EB0`, while the previous working image
+ended at `0x03087F8C` (116 B below the loader base).
+
+- `firmware/firmware_ap.ld` caps `FW_CODE` at `0x03050000 + 0x38000 =
+  0x03088000`.
+- `tools/make_fw1.py` prints `loader code base ... [OK]` and fails the pack
+  when any scatter row load end crosses `0x03088000`.
+- The fixed image ends at `0x03087900` (1,792 B of margin), `_bss_end
+  0x03049BE0`.
+
+Do not raise the `FW_CODE` length back to `0x3C000`. A pack that does not
+show `loader code base ... [OK]` must not be flashed.
+
 ## 2. RKnanoFW container format (confirmed against SDK)
 
 Byte-exact, seen in both the Echo Mini IMG and the prebuilt

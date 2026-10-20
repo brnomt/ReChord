@@ -45,10 +45,12 @@ MEMORY
 {
     /* FW_CODE: code + rodata + vector table + the .data load image.
        Executes in place from the loaded image at 0x03050000-based addresses.
-       Length mirrors the reference's resident span (its row 0 ends at
-       0x030771D4); the hard payload limit is 0x56AB8 (0x57068 minus the
-       0x5B0 prefix) which is far above. */
-    FW_CODE (rx)  : ORIGIN = 0x03050000, LENGTH = 0x0003C000
+       Upper bound 0x03088000 = the SDK's LOADER_CODE_BASE (docs/community.md
+       §4.2). The stock loader code lives there; an AP image that crosses it
+       overwrites the loader and BRICKS the boot (DFIU 51cc212d: AP5M
+       0xEF0C1BFC row 0 ended at 0x03088EB0; the previous image ended at
+       0x03087F8C and booted). Do NOT raise this to 0x0308C000 again. */
+    FW_CODE (rx)  : ORIGIN = 0x03050000, LENGTH = 0x00038000
 
     /* FW_RAM: initialized data + bss.  Starts at the top of the main stack
        (SP = 0x03004000); the 16 KiB BELOW 0x03004000 is the stack zone

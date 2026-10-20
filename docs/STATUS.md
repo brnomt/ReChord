@@ -60,6 +60,10 @@ plays audio on hardware:
 - **Quick settings**: MENU opens an overlay with Shuffle, Repeat and Playlist
   (BRNOMT-105). The playlist view is the live queue, marks the current track
   and SELECT jumps to/plays the chosen entry. MENU or BACK closes it.
+- **System menu**: the diagnostics info rows (Index, Keys, eMMC, SD, USB)
+  stay. The DAC test and USB CDC console are debug-only
+  (`make ... AP_DEBUG_TOOLS=1`) because they cost ~3 KB of code and the AP
+  code must end below `LOADER_CODE_BASE 0x03088000` (DFIU `51cc212d`).
 - **Memory** (vendor `B_Core.sct` + TRM): B code in HIGHRAM0
   `0x01000000..0x01020000`; control block `0x01020000`; A→B file ring
   `0x01021000` (32 KiB) + **pre-open ring** `0x01029000` (16 KiB); PCM ring

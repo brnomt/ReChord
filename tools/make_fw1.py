@@ -385,13 +385,29 @@ def main() -> int:
     ok_xip = all(row_ok(i, r) for i, r in enumerate(rows))
     print(f"        src loaded-RAM window: 0x{load_lo:08X}..0x{load_hi:08X}  "
           f"[{'OK' if ok_xip else 'FAIL'}]")
+    # Loader-code guard (DFIU 51cc212d): the stock loader code starts at
+    # 0x03088000. A row that loads code past it overwrites the loader and
+    # bricks the boot even when every size check above passes.
+    LOADER_CODE_BASE = 0x03088000
+    def row_load_end(i, r):
+        a, b, c, d = r
+        if i % 2 == 0:                 # Type B: dest_end (or dest+size poke)
+            return d if d != 0 else ((a + c) & 0xFFFFFFFF)
+        return c                       # Type A: ram_end
+    loader_bad = [i for i, r in enumerate(rows)
+                  if row_load_end(i, r) > LOADER_CODE_BASE]
+    ok_loader = not loader_bad
+    print(f"        loader code base: <= 0x{LOADER_CODE_BASE:08X}          "
+          f"[{'OK' if ok_loader else 'FAIL'}]")
+    if loader_bad:
+        print(f"        rows crossing it: {loader_bad}", file=sys.stderr)
     # entry must land inside a loaded segment
     ok_entry = any(s["vaddr"] <= entry < s["vaddr"] + s["memsz"]
                    for s in img_obj.program_headers()
                    if s["type"] == pack_fw1.PT_LOAD)
     print(f"        entry in seg : 0x{entry:08X}                       "
           f"[{'OK' if ok_entry else 'FAIL'}]")
-    if not (ok_rows and ok_payload and ok_xip and ok_entry):
+    if not (ok_rows and ok_payload and ok_xip and ok_entry and ok_loader):
         print("ERROR: slot limit / contract check failed", file=sys.stderr)
         return 1
 
