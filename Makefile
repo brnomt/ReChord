@@ -98,6 +98,30 @@ $(BB_CORE_BLOB): $(BB_CORE_BIN)
 	    --rename-section .data=.rodata,alloc,load,readonly,data,contents \
 	    bb_core.bin bb_core_blob.o
 
+# BRNOMT-82: tiny code overlay linked at the free 0x0304AE64 window and
+# embedded in the AP image below the initial-row gate. Linked only when
+# AP_MEM_OVERLAY=1.
+AP_OVERLAY_DIR  := $(CFW_BUILD_DIR)/overlay
+AP_OVERLAY_ELF  := $(AP_OVERLAY_DIR)/overlay_demo.elf
+AP_OVERLAY_BIN  := $(AP_OVERLAY_DIR)/overlay_demo.bin
+AP_OVERLAY_BLOB := $(AP_OVERLAY_DIR)/overlay_demo_blob.o
+AP_OVERLAY_LINK := $(if $(filter 1,$(AP_MEM_OVERLAY)),$(AP_OVERLAY_BLOB),)
+
+$(AP_OVERLAY_ELF): firmware/overlay/overlay_demo.c firmware/overlay/overlay_demo.ld
+	@$(MKDIR_P) $(AP_OVERLAY_DIR)
+	$(CC) -mcpu=cortex-m3 -mthumb -Os -ffreestanding -nostdlib \
+	    -ffunction-sections -fdata-sections \
+	    -T firmware/overlay/overlay_demo.ld \
+	    firmware/overlay/overlay_demo.c -o $@
+
+$(AP_OVERLAY_BIN): $(AP_OVERLAY_ELF)
+	$(OBJCOPY) -O binary $< $@
+
+$(AP_OVERLAY_BLOB): $(AP_OVERLAY_BIN)
+	cd $(AP_OVERLAY_DIR) && $(OBJCOPY) -I binary -O elf32-littlearm -B arm \
+	    --rename-section .data=.rodata,alloc,load,readonly,data,contents \
+	    overlay_demo.bin overlay_demo_blob.o
+
 cfw-ap: $(CFW_ELF)
 	@echo "CFW AP ELF: $(CFW_ELF)"
 
@@ -105,9 +129,9 @@ $(CFW_BUILD_DIR)/objs/%.o: %.c
 	@$(MKDIR_P) $(dir $@)
 	$(CC) $(AP_CFLAGS) -c $< -o $@
 
-$(CFW_ELF): $(CFW_OBJS) $(AP_LDSCRIPT) $(BB_CORE_BLOB)
+$(CFW_ELF): $(CFW_OBJS) $(AP_LDSCRIPT) $(BB_CORE_BLOB) $(AP_OVERLAY_LINK)
 	@$(MKDIR_P) $(dir $@)
-	$(CC) $(AP_LDFLAGS) $(CFW_OBJS) $(BB_CORE_BLOB) $(AP_LDLIBS) -o $@
+	$(CC) $(AP_LDFLAGS) $(CFW_OBJS) $(BB_CORE_BLOB) $(AP_OVERLAY_LINK) $(AP_LDLIBS) -o $@
 
 # Our fw1 + stock section_3 (until the BB module milestone), CRC recomputed.
 # HARD GATE in tools/pack_fw1.py: no scatter row below 0x03004000 (ROM-owned
@@ -217,7 +241,7 @@ BB_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_BB_BUILD -D_RK_EQ_ -Ifirmware $(addpre
 # LOG_BUFFER_LINES: 12 lines dropped boundary lines during a track change
 # (BRNOMT-73 field logs), so the ring holds 48 lines of the latest activity —
 # the assembly buffer still fits under the AP .bss ceiling (0x0304A000).
-AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
+AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DAP_MEM_OVERLAY=$(AP_MEM_OVERLAY) -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
 
 BB_OBJS := $(foreach src,$(BB_SRCS),\
              $(BB_OBJ_DIR)/$(patsubst firmware/rockchip/%,%,$(src)).o)

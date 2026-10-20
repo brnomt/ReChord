@@ -366,10 +366,36 @@ then the CDC console as an overlay/debug build.
 
 ### 8.3 Code overlay (second flash)
 
-The `0x03088000` code overlay is blocked by the probe result. Retarget the
-overlay loader to the next candidate window (`0x0304AE64..0x03050000`) or
-defer until a bootloader owns `0x03088000`. Do not write or execute code
-there at runtime.
+The 20,896 B window at `0x0304AE64..0x03050000` is free (probe PASS), so
+the code overlay uses it. The demo overlay is 8 B, linked at `0x0304AE64`:
+
+```text
+0304ae64: 4800       ldr r0, [pc, #0]   ; 0x0304AE68
+0304ae66: 4770       bx  lr
+0304ae68: c0de1234   .word 0xC0DE1234
+```
+
+It is embedded in the AP image below the initial-row gate, copied into the
+window at runtime and called through a Thumb function pointer. The AP shows
+`Overlay: OK` for 2 s when the magic matches, `Overlay: FAIL` otherwise.
+
+```sh
+make standalone-ap5m AP_MEM_OVERLAY=1 CFW_BUILD_DIR=build/cfw-overlay \
+    AP5M_OUT=build/overlay/ReChord_AP.IMG
+```
+
+| field | value |
+|---|---|
+| image | `build/overlay/ReChord_AP5M.IMG` |
+| CRC | `0x6F38B64D` |
+| SHA-256 | `69977945e56753b394c3735354088181075f4049c906d90fd085930e9f7e04ca` |
+| row 0 end | `0x030879A8` (1,624 B below `0x03088000`) |
+| normal image | unchanged, CRC `0x2264CCBA` |
+
+A black/hung boot means code execution from the window is not safe; recover
+with the normal AP5M/stock image. If it shows `Overlay: OK`, the window is
+validated for code and the CDC console can move there as an overlay/debug
+build.
 
 ### 8.4 When a custom bootloader is actually needed
 

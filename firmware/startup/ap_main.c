@@ -28,6 +28,9 @@
 #if AP_MEM_PROBE
 #include "startup/mem_probe.h"
 #endif
+#if AP_MEM_OVERLAY
+#include "startup/overlay_demo.h"
+#endif
 
 void ap_ui_loop(void);   /* ap_ui.c */
 
@@ -40,6 +43,9 @@ uint32_t Main(void)
 #if AP_MEM_PROBE
     int probe_rc;
 #endif
+#if AP_MEM_OVERLAY
+    int overlay_rc;
+#endif
 
     /* The stock/reference boot raises the AP from the 24 MHz oscillator to
      * the APLL at 200 MHz here (pclk 50 MHz). Everything below — and the
@@ -51,6 +57,10 @@ uint32_t Main(void)
 #if AP_MEM_PROBE
     /* Runtime-only test: the initial fw1 row stays below 0x03088000. */
     probe_rc = ap_mem_probe_run();
+#endif
+#if AP_MEM_OVERLAY
+    /* Copy the tiny overlay to 0x0304AE64 and execute it. */
+    overlay_rc = ap_overlay_demo_run();
 #endif
 
     /* BRNOMT-68 phase 1: start Core B with our heartbeat image. Failure is
@@ -81,11 +91,21 @@ uint32_t Main(void)
                       probe_rc == 0 ? "RAM 0304AE64: free" : "RAM 0304AE64: used",
                       fg, bg);
 #endif
+#if AP_MEM_OVERLAY
+    /* Fourth line: code overlay execution result. */
+    display_draw_text(THEME_PAD,
+                      THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + 2 * THEME_LINE_H,
+                      overlay_rc == 0 ? "Overlay: OK" : "Overlay: FAIL",
+                      fg, bg);
+#endif
 
     /* Make the lines visible on the panel. */
 #if AP_MEM_PROBE
     display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 3 * THEME_LINE_H);
     panel_io_delay_ms(2000);   /* keep the probe line visible */
+#elif AP_MEM_OVERLAY
+    display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 3 * THEME_LINE_H);
+    panel_io_delay_ms(2000);   /* keep the overlay line visible */
 #else
     display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 2 * THEME_LINE_H);
 #endif

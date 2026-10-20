@@ -55,6 +55,10 @@ AP_DEBUG_TOOLS ?= 0
 # probe image is built with AP_MEM_PROBE=1 in a separate CFW_BUILD_DIR.
 AP_MEM_PROBE ?= 0
 
+# Runtime code overlay in the free 0x0304AE64 loader-data window. Off by
+# default; the overlay image is built with AP_MEM_OVERLAY=1 separately.
+AP_MEM_OVERLAY ?= 0
+
 # ---- link inputs (the clean-room tree) ---------------------------------
 # startup: vector table + reset recipe (ap_startup.c) and the minimal AP
 # main + weak link stubs (ap_main.c).
@@ -62,7 +66,8 @@ AP_STARTUP_SRCS := \
   firmware/startup/ap_startup.c \
   firmware/startup/ap_main.c \
   firmware/startup/ap_ui.c \
-  firmware/startup/mem_probe.c
+  firmware/startup/mem_probe.c \
+  firmware/startup/overlay_demo.c
 
 # UI layer (the AP subset; boot_screen.c is not used by the clean-room AP).
 AP_UI_SRCS := \
