@@ -48,10 +48,12 @@ show `loader code base ... [OK]` must not be flashed.
 > **Phase 0 correction (BRNOMT-82, 2026-10-20):** the fw1 row-0 source that
 > maps to the `0x03088000` destination is
 > `0x03050000 + (0x03088000 - 0x030795CC) = 0x0305EA34`. Ghidra finds no
-> procedure there and the bytes are a data table, not code. Do not assume
-> the loader is a copy of fw1 AP code or that a fw1 row can replace it;
-> treat `0x03088000` as ROM/second-stage-owned until proven. See
-> `docs/re/boot-chain.md` §4.1.
+> procedure there and the bytes are a data table, not code. The stock
+> 3.7/3.9 rows do load through `0x03088000`, but the fw1-only HIFIEC90,
+> MB1 and our AP5M end row 0 at `0x030771D4`/`0x03087900` and boot without
+> it. Keep the initial row below `0x03088000`; treat the window as a
+> runtime overlay candidate, not as an initial fw1 row. See
+> `docs/re/boot-chain.md` §4.1 and §8.
 
 ## 2. RKnanoFW container format (confirmed against SDK)
 

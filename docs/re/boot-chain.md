@@ -123,21 +123,38 @@ for the `0x03088000` destination is:
 
 Ghidra has no procedure at `0x0305EA34`; `read_bytes` returns a data table
 (`7f 8b f0 8c f4 8c 12 8d ...`), not Thumb/ARM code. Therefore the
-`0x03088000` loader is **not** a straightforward copy of fw1 AP code. It is
-likely populated by the ROM/second stage, or the row-0 mapping is not the
-loader source.
+`0x03088000` region is **not** a straightforward copy of fw1 AP code.
 
-Consequences for Phase 2:
+A comparison of the fw1 tables settles the practical question:
 
-- Do not design a first-stage that merely replaces a fw1 code row at
-  `0x03088000`. The RAM region is reserved by a component whose source is
-  not in the fw1 AP image.
-- Treat `0x03088000` as ROM/second-stage-owned until UART/hardware evidence
-  proves otherwise.
-- The `0x03088000` gate stays for current images.
-- The next evidence step is to locate the actual loader code/source (ROM is
-  invisible; compare sec2, the 5 MB reference and a UART boot log) before
-  changing the memory layout.
+| image | row 0 dest range | loads `0x03088000`? | boots |
+|---|---|---|---|
+| stock 3.7.0 | `0x030795CC..0x030A3B34` | yes | yes |
+| stock 3.9.0 | `0x030795CC..0x030A3C38` | yes | yes |
+| HIFIEC90 (ref) | `0x03050B68..0x030771D4` | **no** | yes |
+| MB1_ECHOMINI | `0x03050B68..0x030771D4` | **no** | yes |
+| our AP5M | `0x03050B68..0x03087900` | **no** | yes |
+
+The fw1-only reference, MB1 and our AP5M all boot without loading
+`0x03088000`. The stock 3.7/3.9 images do load through it because their
+stock AP/loader uses that region. So `0x03088000` is not a stock loader
+that the AP5M needs; it is a window that must not be touched by the
+**initial fw1 scatter row** (the loader/stock chain is still using it during
+that copy), and it is a candidate **runtime overlay window** after the
+loader hands control to the AP.
+
+Consequences for Phase 2 (revised):
+
+- The initial fw1 row gate at `0x03088000` stays.
+- Do not put code in the initial scatter row above `0x03088000`.
+- Use `0x03088000..0x030A3B34` (113,460 B) as a **runtime overlay window**:
+  the AP copies an overlay there after boot and calls it. This is the
+  memory win; a custom bootloader is not required to use it.
+- The custom bootloader is optional and only needed for the update/flash
+  path or a fully owned load layout. The fw1-only AP5M already boots
+  through the ROM without stock/ref and without a custom bootloader.
+- The runtime-window hypothesis needs a hardware probe before overlays are
+  trusted (see section 8).
 
 ## 5. Phase 1a — standalone 5 MB container (done)
 
@@ -178,8 +195,9 @@ gitignored stock/reference directories.
 
 ### 5.2 Remaining Issue 82 dependencies
 
-- **Stock loader/ROM contract at `0x03088000`** (Phase 2). The 5 MB image
-  still boots through the stock boot chain.
+- The initial-row window at `0x03088000` (Phase 2): the fw1-only AP5M does
+  not load it, but the stock 3.7/3.9 images do. Use it only as a runtime
+  overlay window after the loader; probe it on hardware first.
 - The legacy `cfw-img`/33 MB path still reads `stock/` and `community/refcfw`;
   it is not on the standalone target and should stay quarantined as a
   reference/fallback path.
@@ -202,12 +220,14 @@ gitignored stock/reference directories.
   reproduces the known-good SHA. The legacy `cfw-img` path still reads
   stock/ref; the standalone target bypasses it. Validate the descriptor on
   hardware when a flash is scheduled.
-- **Phase 2:** only after the sec2/loader/ROM questions above are answered
-  and a first-stage + memory layout + recovery ladder is defined. Do not
-  flash a custom fw1 table or overwrite `0x03088000` before that.
+- **Phase 2 (revised):** use `0x03088000..0x030A3B34` as a runtime overlay
+  window, not as an initial fw1 row. First UART boot log (no flash), then a
+  runtime memory probe, then a small code overlay. A custom bootloader is
+  optional for the update path/full layout; the fw1-only AP5M already boots
+  through the ROM.
 - Current images keep the DFIU rule: loaded code must end at or below
-  `LOADER_CODE_BASE 0x03088000`. A custom layout is a deliberate new
-  invariant, not a bypass.
+  `LOADER_CODE_BASE 0x03088000`. A runtime overlay is a deliberate new
+  invariant, not a bypass of the initial-row gate.
 
 ## 7. Flash safety
 
@@ -216,3 +236,48 @@ gitignored stock/reference directories.
 - Current baseline: CRC `0x2264CCBA`, SHA-256 `c2238...babb93d`.
 - Any new boot-chain image needs a hardware ladder (known-good -> first-stage
   hello -> minimal AP -> real AP) and a DFIU preflight.
+
+## 8. Hardware test plan (not yet executed)
+
+The user accepts brick risk and has maskrom recovery. The tests are ordered
+from zero-flash evidence to runtime code execution.
+
+### 8.1 UART boot log (no flash)
+
+Capture the boot log on PB5 with a 3.3 V USB-UART adapter (GND common),
+matching the pin/baud notes in `docs/bootloader-analysis.md`. Compare:
+
+1. stock 3.7.0 (`HIFIEC37.IMG`) — the stock AP/loader path.
+2. HIFIEC90 or MB1 — the fw1-only reference path.
+3. our AP5M — the ReChord path.
+
+Look for `fw1valid = %d fw2valid = %d`, `fw1 Sign error!`, `fw1 compare
+error!`, `fw2 compare error!`, and any loader/update output. This is the
+decisive evidence for what owns `0x03088000` and for the sec2 gate. No flash,
+no brick risk.
+
+### 8.2 Runtime memory probe (first flash)
+
+Build an AP5M with a one-shot probe that runs after the loader, reads a few
+words at `0x03088000`, writes a pattern, reads it back and restores the
+original values. The initial fw1 scatter row stays below `0x03088000`.
+
+- If the UI boots normally, the window is free for runtime overlays.
+- If it hangs/bricks, the window is still owned at runtime; restore via
+  maskrom and keep overlays out of it.
+
+Keep the normal known-good AP5M available. The probe must not be part of the
+default image; use an explicit build flag/output directory.
+
+### 8.3 Code overlay (second flash)
+
+Store a small overlay blob in the AP payload below the initial-row gate,
+copy it to `0x03088000` at runtime, and call it (for example, a panel
+pattern or a UART marker). This proves the 113,460 B window is usable for
+code, not just data.
+
+### 8.4 When a custom bootloader is actually needed
+
+Only for a fully owned update/flash path or a new load layout. The fw1-only
+reference/MB1 and our AP5M already boot through the ROM without a custom
+bootloader. Do not replace `0x03088000` during the initial scatter.
