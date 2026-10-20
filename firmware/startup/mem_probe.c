@@ -1,14 +1,15 @@
 /*
- * mem_probe.c -- runtime probe for 0x03088000..0x030A3B34.
+ * mem_probe.c -- runtime probe for 0x0304AE64..0x03050000.
  *
- * The stock 3.7/3.9 fw1 row 0 loads through this window; the fw1-only
- * HIFIEC90/MB1 and our AP5M end row 0 below it and boot. This probe runs
- * after the loader, reads three words, writes a pattern, reads it back and
- * restores the originals. A pass means the window is free for runtime
- * overlays; a fail means it is still owned after the loader.
+ * The first probe at 0x03088000 hung the AP after display_init: that region
+ * is live loader/ROM memory at runtime. This probe targets the loader-data
+ * window below the AP code instead (20,896 B). It runs after the loader,
+ * reads three words, writes a pattern, reads it back and restores the
+ * originals. A pass means the window is free for runtime overlays; a fail
+ * means it is still owned after the loader.
  *
- * The initial fw1 scatter row must stay below 0x03088000. This is a runtime
- * test only and is compiled out of the normal image (AP_MEM_PROBE=0).
+ * The initial fw1 scatter row stays below 0x03088000. This is a runtime test
+ * only and is compiled out of the normal image (AP_MEM_PROBE=0).
  */
 #include "startup/mem_probe.h"
 
@@ -16,8 +17,8 @@
 
 #include <stdint.h>
 
-#define PROBE_BASE 0x03088000u
-#define PROBE_END  0x030A3B34u
+#define PROBE_BASE 0x0304AE64u
+#define PROBE_END  0x03050000u
 
 int ap_mem_probe_run(void)
 {

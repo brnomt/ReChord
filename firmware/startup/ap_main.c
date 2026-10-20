@@ -75,10 +75,10 @@ uint32_t Main(void)
                       b_rc == 0 ? "Core B: ready" : "Core B: no", fg, bg);
 
 #if AP_MEM_PROBE
-    /* Fourth line: 0x03088000 runtime window probe result. */
+    /* Fourth line: 0x0304AE64 loader-data window probe result. */
     display_draw_text(THEME_PAD,
                       THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + 3 * THEME_LINE_H,
-                      probe_rc == 0 ? "RAM window: free" : "RAM window: used",
+                      probe_rc == 0 ? "RAM 0304AE64: free" : "RAM 0304AE64: used",
                       fg, bg);
 #endif
 

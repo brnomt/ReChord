@@ -332,9 +332,30 @@ booted. DFIU incident verified `pass` (`operator_review`); rule
 reused.
 
 Recovery: maskrom with the stock 33 MB image, then the normal AP5M via the
-updater; see `docs/DEBRICK-LINUX.md`. Next probe:
-`0x0304AE64..0x03050000`, one word at a time, same splash result; do not
-touch `0x03088000`.
+updater; see `docs/DEBRICK-LINUX.md`.
+
+**Second probe (2026-10-20):** target the loader-data window below the AP
+code, `0x0304AE64..0x03050000` (20,896 B). It reads/writes/restores three
+words at `0x0304AE64`, `0x0304D734` and `0x0304FFFC` and shows
+`RAM 0304AE64: free` / `used`; it does not touch `0x03088000`.
+
+```sh
+make standalone-ap5m AP_MEM_PROBE=1 CFW_BUILD_DIR=build/cfw-probe \
+    AP5M_OUT=build/probe/ReChord_AP.IMG
+```
+
+| field | value |
+|---|---|
+| image | `build/probe/ReChord_AP5M.IMG` |
+| CRC | `0x99FD9FA0` |
+| SHA-256 | `d5e80fb3978e9276fd1fe5a11d9bc416a6b111e85766b103016f8e9ca651d3a6` |
+| row 0 end | `0x03087A18` (1,512 B below `0x03088000`) |
+| window | `0x0304AE64..0x03050000` (20,896 B) |
+| normal image | unchanged, CRC `0x2264CCBA` |
+
+Expected: splash shows `RAM 0304AE64: free` (window usable) or `used`
+(loader data still owned). A black/hung boot means the write/restore
+crashed; recover with the normal AP5M/stock image.
 
 ### 8.3 Code overlay (second flash)
 
