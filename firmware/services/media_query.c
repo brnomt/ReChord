@@ -258,9 +258,16 @@ const char *mq_names_get(unsigned i)
     return s_cells + i * MQ_CELL;
 }
 
-int mq_filter_init(int cat, const char *value)
+int mq_filter_init_start(int cat, const char *value, const char *target,
+                         int *start_out)
 {
     unsigned total, i;
+    const char *tgt = target;
+    uint16_t match_idx = 0;
+    int have_match = 0;
+
+    if (start_out != 0)
+        *start_out = -1;
 
     mq_done();
     mq_setup_lists(&s_cap);
@@ -272,6 +279,8 @@ int mq_filter_init(int cat, const char *value)
     }
     s_count = 0;
     s_truncated = 0;
+    if (tgt != 0 && *tgt == '/')   /* target arrives as a device path */
+        tgt++;
     total = media_db_count();
     for (i = 0; i < total; i++) {
         media_rec_t rec;
@@ -295,6 +304,10 @@ int mq_filter_init(int cat, const char *value)
             s_truncated = 1;
             break;
         }
+        if (tgt != 0 && !have_match && strcmp(rec.path, tgt) == 0) {
+            match_idx = (uint16_t)i;
+            have_match = 1;
+        }
         s_idx[s_count] = (uint16_t)i;
         /* All Songs sorts by title; a category's songs by album then track. */
         mq_key_set(&s_key[s_count], rec.track_no,
@@ -302,7 +315,21 @@ int mq_filter_init(int cat, const char *value)
         s_count++;
     }
     mq_sort_items();
+
+    if (start_out != 0 && have_match) {
+        for (i = 0; i < s_count; i++) {
+            if (s_idx[i] == match_idx) {
+                *start_out = (int)i;
+                break;
+            }
+        }
+    }
     return 0;
+}
+
+int mq_filter_init(int cat, const char *value)
+{
+    return mq_filter_init_start(cat, value, 0, 0);
 }
 
 unsigned mq_filter_count(void)

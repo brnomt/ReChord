@@ -91,6 +91,12 @@ typedef struct
 
     playlist_t      list;             /* BRNOMT-90 playback list          */
 
+    /* Where the list came from, so the app can persist and rebuild it after
+     * a reboot (PLAYER_QUEUE_*). */
+    int             queue_kind;
+    int             queue_cat;
+    char            queue_value[PLAYER_QUEUE_VALUE_MAX];
+
     int32_t         pcm[PLAYER_PUMP_FRAMES * 2];   /* staging (stereo)   */
 } player_t;
 
@@ -735,6 +741,8 @@ int player_open(const char *path)
     if (path == 0 || path[0] == '\0')
         return PLAYER_ERR;
     playlist_reset(&g.list);        /* a single open ends any playback list */
+    g.queue_kind = PLAYER_QUEUE_NONE;
+    g.queue_value[0] = '\0';
     rc = open_track(path);
     return rc;
 }
@@ -916,7 +924,7 @@ int player_get_repeat(void)
     return g.list.repeat;
 }
 
-int player_play_list(const uint16_t *idx, int n, int start)
+int player_load_list(const uint16_t *idx, int n, int start)
 {
     char path[PLAYER_PATH_MAX];
     uint16_t ridx;
@@ -935,11 +943,56 @@ int player_play_list(const uint16_t *idx, int n, int start)
     if (s_resolve(ridx, path, (int)sizeof path) != 0)
         return PLAYER_ERR;
 
-    rc = player_open(path);         /* clears any previous list */
+    rc = open_track(path);          /* leaves the player STOPPED */
     if (rc != PLAYER_OK)
         return rc;
     playlist_load(&g.list, idx, n, start);
+    g.queue_kind = PLAYER_QUEUE_NONE;   /* the caller sets the source */
+    g.queue_value[0] = '\0';
+    return PLAYER_OK;
+}
+
+int player_play_list(const uint16_t *idx, int n, int start)
+{
+    int rc = player_load_list(idx, n, start);
+
+    if (rc != PLAYER_OK)
+        return rc;
     return player_play();
+}
+
+void player_set_queue_source(int kind, const char *value, int cat)
+{
+    unsigned i = 0;
+
+    if (kind < PLAYER_QUEUE_NONE || kind > PLAYER_QUEUE_CAT)
+        kind = PLAYER_QUEUE_NONE;
+    g.queue_kind = kind;
+    g.queue_cat = cat;
+    if (value != 0) {
+        while (value[i] != '\0' && i + 1u < sizeof g.queue_value) {
+            g.queue_value[i] = value[i];
+            i++;
+        }
+    }
+    g.queue_value[i] = '\0';
+}
+
+void player_get_queue_source(int *kind, char *value, int cap, int *cat)
+{
+    unsigned i = 0;
+
+    if (kind != 0)
+        *kind = g.queue_kind;
+    if (cat != 0)
+        *cat = g.queue_cat;
+    if (value != 0 && cap > 0) {
+        while (g.queue_value[i] != '\0' && i + 1u < (unsigned)cap) {
+            value[i] = g.queue_value[i];
+            i++;
+        }
+        value[i] = '\0';
+    }
 }
 
 int player_get_state(void)

@@ -160,6 +160,22 @@ void  player_set_resolver(int (*fn)(uint16_t idx, char *path, int cap));
  * PLAYER_OK or a negative code. */
 int   player_play_list(const uint16_t *idx, int n, int start);
 
+/* Load a list and open its start track, leaving the player STOPPED (resume
+ * boot: the queue is restored without autoplay). Returns PLAYER_OK or < 0. */
+int   player_load_list(const uint16_t *idx, int n, int start);
+
+/* Queue source, persisted by the app so the list can be rebuilt after a
+ * reboot. FOLDER uses the resume folder; CAT uses `value` (album/artist/...)
+ * and `cat` (media_query MQ_*). */
+#define PLAYER_QUEUE_VALUE_MAX 32
+enum {
+    PLAYER_QUEUE_NONE = 0,
+    PLAYER_QUEUE_FOLDER,
+    PLAYER_QUEUE_CAT
+};
+void  player_set_queue_source(int kind, const char *value, int cat);
+void  player_get_queue_source(int *kind, char *value, int cap, int *cat);
+
 /* Rockbox-style shuffle: reorders the list (current track kept playing).
  * Repeat: PLAYLIST_REPEAT_OFF/ALL/ONE (see playlist.h). */
 void  player_set_shuffle(int on);

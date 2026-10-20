@@ -81,6 +81,20 @@ static void parse_text(const char *text, resume_state_t *s)
                 s->row = (int)parse_ulong(eq + 1, eol);
             else if (klen == 4u && strncmp(p, "boot", 4) == 0)
                 s->boot = parse_ulong(eq + 1, eol);
+            else if (klen == 5u && strncmp(p, "queue", 5) == 0) {
+                if ((eol - (eq + 1)) == 6u &&
+                    strncmp(eq + 1, "folder", 6) == 0)
+                    s->queue_kind = 1;
+                else if ((eol - (eq + 1)) == 3u &&
+                         strncmp(eq + 1, "cat", 3) == 0)
+                    s->queue_kind = 2;
+                else
+                    s->queue_kind = 0;
+            } else if (klen == 9u && strncmp(p, "queue_cat", 9) == 0)
+                s->queue_cat = (int)parse_ulong(eq + 1, eol);
+            else if (klen == 11u && strncmp(p, "queue_value", 11) == 0)
+                copy_value(s->queue_value,
+                           (unsigned)sizeof s->queue_value, eq + 1, eol);
         }
         if (*eol == '\r' && eol[1] == '\n')
             p = eol + 2;
@@ -123,8 +137,12 @@ int resume_save(const resume_state_t *s)
     if (s == 0)
         return -1;
     n = snprintf(text, sizeof text,
-                 "track=%s\npos_ms=%lu\nfolder=%s\nrow=%d\nboot=%lu\n",
-                 s->track, s->pos_ms, s->folder, s->row, s->boot);
+                 "track=%s\npos_ms=%lu\nfolder=%s\nrow=%d\nboot=%lu\n"
+                 "queue=%s\nqueue_cat=%d\nqueue_value=%s\n",
+                 s->track, s->pos_ms, s->folder, s->row, s->boot,
+                 s->queue_kind == 1 ? "folder" :
+                 s->queue_kind == 2 ? "cat" : "none",
+                 s->queue_cat, s->queue_value);
     if (n < 0 || (unsigned)n >= sizeof text)
         return -1;                       /* would not round-trip: keep old */
     if (fs_target_file_rewrite(RECHORD_STATE, text, (uint32_t)n) != FS_OK)

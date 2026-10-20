@@ -41,6 +41,13 @@ const char *mq_names_get(unsigned i);
  * Songs). The matching record indices are collected once, so paging over them
  * never re-reads the index. */
 int      mq_filter_init(int cat, const char *value);
+
+/* Same as mq_filter_init(), and reports the SORTED filter position of the
+ * record whose full device path ("/"+rec.path) equals `target`, in
+ * *start_out (-1 when the target is not in the filter or target is NULL).
+ * One index pass, no second per-record read (the resume-queue rebuild). */
+int      mq_filter_init_start(int cat, const char *value, const char *target,
+                              int *start_out);
 unsigned mq_filter_count(void);
 int      mq_filter_get(unsigned i, media_rec_t *out);
 

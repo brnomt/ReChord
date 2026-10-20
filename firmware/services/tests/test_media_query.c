@@ -101,6 +101,22 @@ int main(void)
         CHECK(mq_folder_init("SD") == 0);        /* wrapper still works */
         CHECK(mq_filter_count() == 5);
     }
+
+    /* The resume-queue rebuild uses the same single-pass lookup on a filter:
+     * Blue has B1/D1 (album sort key, then record order); All Songs sorts by
+     * title and C1 is position 3. */
+    {
+        int start = 99;
+
+        CHECK(mq_filter_init_start(MQ_ALBUM, "Blue", "/SD/B1.flac", &start) == 0);
+        CHECK(mq_filter_count() == 2);
+        CHECK(start == 0);
+        CHECK(mq_filter_init_start(MQ_ALL, 0, "/SD/C1.flac", &start) == 0);
+        CHECK(mq_filter_count() == 5);
+        CHECK(start == 3);
+        CHECK(mq_filter_init_start(MQ_ALL, 0, "/SD/nope.flac", &start) == 0);
+        CHECK(start == -1);
+    }
     for (i = 0; i < 2; i++)               /* repeated init is safe */
         CHECK(mq_names_init(MQ_ARTIST) == 0);
     CHECK(mq_names_count() == 2);

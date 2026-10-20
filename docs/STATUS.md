@@ -52,7 +52,9 @@ plays audio on hardware:
 - **Resume**: the last track + position and the browser folder/row live in
   `/.rechord/state` (separate from the config, rewritten in place); the
   `resume` setting (off/folder/track) decides what is restored at boot. It
-  opens paused — never autoplays. The folder/row are restored as browser
+  opens paused — never autoplays. The playback queue is persisted by origin
+  (folder, or media category + value) and rebuilt from the media index at
+  boot, so next/prev keep working. The folder/row are restored as browser
   state (Files opens there), but boot stays on the active theme's home
   (BRNOMT-102).
 - **Memory** (vendor `B_Core.sct` + TRM): B code in HIGHRAM0

@@ -443,6 +443,23 @@ void player_set_fade_ms(int ms)
     (void)ms;                       /* no DAC on the host */
 }
 
+void player_set_queue_source(int kind, const char *value, int cat)
+{
+    (void)kind;
+    (void)value;
+    (void)cat;
+}
+
+void player_get_queue_source(int *kind, char *value, int cap, int *cat)
+{
+    if (kind != NULL)
+        *kind = 0;
+    if (cat != NULL)
+        *cat = 0;
+    if (value != NULL && cap > 0)
+        value[0] = '\0';
+}
+
 int player_get_track(track_info_t *out)
 {
     const char *base;

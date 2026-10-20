@@ -4305,3 +4305,15 @@ change while paused stays silent; track skip is not delayed by the user fade.
   `resume_boot_restore()` seeds the PRNG from it plus boot-time ms/ADC noise.
   `s_res.boot` is carried into every later state save so the counter is not
   reset.
+
+- **Playback queue lost on reboot.** `/.rechord/state` only stored the current
+  track, position and browser folder/row; the list behind it was gone. The
+  state now stores the queue **origin** (`queue=none|folder|cat`,
+  `queue_cat`, `queue_value`) instead of a 2 KB index dump. The browser and
+  library screens call `player_set_queue_source()` when a list starts;
+  `resume_boot_restore()` rebuilds it with `mq_*` and `player_load_list()`
+  (opens the start track, leaves STOPPED), so next/prev and repeat/shuffle
+  work after a reboot. The folder case derives the folder from the restored
+  track's parent. If the index no longer contains the track, it falls back to
+  the single-track restore. `mq_filter_init_start()` finds the start record
+  in the same index pass.

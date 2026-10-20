@@ -1118,6 +1118,25 @@ static void resume_poll(unsigned now, int force)
         }
     }
 
+    /* Playback list origin (folder/category), so the queue can be rebuilt on
+     * the next boot. The folder kind needs no value: the queue folder is the
+     * parent of the restored track. */
+    {
+        int qkind = 0;
+        int qcat = 0;
+        char qval[RESUME_QUEUE_VALUE_MAX];
+
+        player_get_queue_source(&qkind, qval, (int)sizeof qval, &qcat);
+        if (qkind != s_res.queue_kind || qcat != s_res.queue_cat ||
+            !text_eq(qval, s_res.queue_value)) {
+            s_res.queue_kind = qkind;
+            s_res.queue_cat = qcat;
+            text_copy(s_res.queue_value, (unsigned)sizeof s_res.queue_value,
+                      qval);
+            moved = 1;
+        }
+    }
+
     if (moved || force)
         s_res_due = force ? now : now + RESUME_QUIET_MS;
 
@@ -1134,6 +1153,65 @@ static void resume_poll(unsigned now, int force)
         s_res_saved_ms = now;
         s_res_due = 0;
     }
+}
+
+/* Directory of a device path ("/SD/Music/t.flac" -> "/SD/Music"). */
+static int path_parent(const char *path, char *out, int cap)
+{
+    int i = (int)strlen(path);
+
+    if (path[0] != '/' || cap <= 1)
+        return -1;
+    while (i > 0 && path[i] != '/')
+        i--;
+    if (i <= 0) {
+        out[0] = '/';
+        out[1] = '\0';
+        return 0;
+    }
+    if (i >= cap)
+        i = cap - 1;
+    memcpy(out, path, (size_t)i);
+    out[i] = '\0';
+    return 0;
+}
+
+/* Rebuild the saved playback queue from the media index and load it with the
+ * current track at `start`, leaving the player STOPPED. Returns 1 on success.
+ * The list is identified by its origin (folder/category + value), not by a
+ * 2 KB dump of indices, so it survives index rebuilds. */
+static int restore_saved_queue(const resume_state_t *st)
+{
+    char folder[RESUME_FOLDER_MAX];
+    const uint16_t *list;
+    unsigned n = 0;
+    int start = -1;
+    int rc;
+
+    if (st->track[0] != '/')
+        return 0;
+    if (st->queue_kind == 1) {
+        if (path_parent(st->track, folder, (int)sizeof folder) != 0)
+            return 0;
+        if (mq_folder_init_start(folder, st->track, &start) != 0)
+            return 0;
+    } else if (st->queue_kind == 2) {
+        if (mq_filter_init_start(st->queue_cat,
+                                 st->queue_value[0] ? st->queue_value : 0,
+                                 st->track, &start) != 0)
+            return 0;
+    } else {
+        return 0;
+    }
+
+    list = mq_filter_indices(&n);
+    if (start < 0 || list == 0 || n == 0) {
+        mq_done();
+        return 0;
+    }
+    rc = player_load_list(list, (int)n, start);
+    mq_done();                       /* the player copied the indices */
+    return rc == PLAYER_OK;
 }
 
 /* BRNOMT-87: restore where the user left off, per `resume`:
@@ -1191,11 +1269,20 @@ static void resume_boot_restore(void)
         log_printf("resume: browser state '%s' row %d", st.folder, st.row);
     }
     if (mode >= 2 && st.track[0] == '/') {
-        if (player_open(st.track) == PLAYER_OK) {
+        int restored = (st.queue_kind != 0) ? restore_saved_queue(&st) : 0;
+
+        if (restored) {
             if (st.pos_ms > 0)
                 (void)player_seek((long)st.pos_ms);
+            player_set_queue_source(st.queue_kind,
+                                    st.queue_kind == 2 ? st.queue_value : "",
+                                    st.queue_cat);
             /* Deliberately NOT pushing Now Playing: the user lands on the
-             * browser/menu and SELECT resumes from the saved position. */
+             * home and SELECT resumes from the saved position. */
+            log_printf("resume: queue restored, paused");
+        } else if (player_open(st.track) == PLAYER_OK) {
+            if (st.pos_ms > 0)
+                (void)player_seek((long)st.pos_ms);
             log_printf("resume: track loaded, paused");
         } else {
             log_printf("resume: open failed '%s'", st.track);
@@ -1208,6 +1295,10 @@ static void resume_boot_restore(void)
     text_copy(s_res.folder, (unsigned)sizeof s_res.folder, st.folder);
     s_res.pos_ms = st.pos_ms;
     s_res.row = st.row;
+    s_res.queue_kind = st.queue_kind;
+    s_res.queue_cat = st.queue_cat;
+    text_copy(s_res.queue_value, (unsigned)sizeof s_res.queue_value,
+              st.queue_value);
     s_res_saved_ms = ap_ms();
 }
 
