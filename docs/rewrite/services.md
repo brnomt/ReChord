@@ -109,9 +109,10 @@ int input_scan(int adc_value, int power); /* one key sample; 1 = event pushed */
 
 Producers/consumers: `input_push(type, adc_value)` (ISR/driver/host-mock
 entry), `input_map_adc(adc_value)` (raw reading → key type), `input_scan()`
-(the app loop's once-per-pass scanner: debounced on
-`INPUT_DEBOUNCE_SCANS` = 3 consecutive agreeing samples — 8 for the vol+
-pair — and the pressed-bottom ADC minimum, matching the stock scan
+(the app loop's scanner: BRNOMT-84 samples the SARADC every **5 ms**, not every
+pass — each sample is three conversions plus a settle, ~600 us of busy-wait.
+Debounced on `INPUT_DEBOUNCE_SCANS` = 3 consecutive agreeing samples — 8 for
+the vol+ pair — and the pressed-bottom ADC minimum, matching the stock scan
 0x03057eb0), `input_mock_clear()`, `input_pending()`. Queue:
 `INPUT_QUEUE_LEN` 16 events, FIFO; overflow drops with `INPUT_ERR_FULL`.
 
@@ -132,10 +133,10 @@ The hold ladder counts **milliseconds**, not samples. The first cut counted
 rate is repaint-bound: a cursor move in a full-screen list repaints and
 flushes the whole panel (~50-100 ms per pass), while the player screen's
 band redraws run much faster. Time comes from `input_set_clock()`: the
-target installs ap_ui's DWT cycle counter (24,000 cycles/ms at the ~24 MHz
-AP core clock); with no clock, or one that stops advancing, the service
-falls back to a synthetic per-scan clock (`INPUT_FALLBACK_MS_PER_SCAN`) so
-repeats keep working instead of silently dying.
+target installs `ap_ui`'s SysTick millisecond clock (200 MHz core, 200,000
+cycles/ms); with no clock, or one that stops advancing, the service falls back
+to a synthetic per-scan clock (`INPUT_FALLBACK_MS_PER_SCAN`) so repeats keep
+working instead of silently dying.
 
 ### 3.4 fs.h
 

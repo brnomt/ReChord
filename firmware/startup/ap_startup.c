@@ -113,6 +113,7 @@ const uint32_t ap_ram_vectors[2]
  * belt-and-braces.  49 words = 196 bytes still fits the 256-byte VTOR
  * alignment window. */
 extern void rknano_i2s_tx_isr(void);   /* firmware/drivers/rknano_i2s.c    */
+extern void SysTick_Handler(void);     /* firmware/startup/ap_ui.c (WFI)   */
 
 const uint32_t ap_vectors[49]
     __attribute__((section(".vectors"), used, aligned(256))) = {
@@ -128,7 +129,7 @@ const uint32_t ap_vectors[49]
     (uint32_t)&Default_Handler,         /* 0x30 DebugMon                 */
     0,                                  /* 0x34 reserved                 */
     (uint32_t)&Default_Handler,         /* 0x38 PendSV                   */
-    (uint32_t)&Default_Handler,         /* 0x3C SysTick                  */
+    (uint32_t)&SysTick_Handler,         /* 0x3C SysTick (1 ms WFI tick)  */
     /* IRQ0..IRQ31 (indices 16..47): unused, disabled at reset. */
     (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,
     (uint32_t)&Default_Handler, (uint32_t)&Default_Handler,

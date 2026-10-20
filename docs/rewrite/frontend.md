@@ -116,6 +116,19 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
   same table. Enum option texts are exactly the config-file values.
 - **Theme constants are centralized** in `theme.h` (the future
   `firmware/theme/` runtime theme can replace it).
+- **Global power policy (BRNOMT-75)**: a short Power press toggles the
+  backlight (screen off/on) and never stops playback; any non-power key wakes
+  the screen and is still processed. Holding Power and pressing MENU toggles
+  Hold: screen off and every key is dropped except the same chord. The chord is
+  detected from the raw ADC while power is down because `input_scan()`
+  prioritizes the power GPIO and never emits the MENU event in that state.
+  The 2 s power-off is suppressed during a chord and while Hold is active.
+- **1 ms paced loop (BRNOMT-84)**: SysTick runs with TICKINT and an empty
+  handler; the app loop sleeps in `WFI` between ticks. The SARADC ladder is
+  sampled every 5 ms (3 conversions + settle was ~600 us of busy-wait), and
+  the Now Playing sync runs at 10 Hz. Only the top screen is drawn; a dark
+  panel skips UI and theme ticks entirely. The old per-pass key scan and
+  busy-wait delay are gone.
 
 ## 5. Host vs target
 
@@ -206,8 +219,10 @@ Run: `cd firmware/ui && make test` (exits non-zero on any failure).
 7. **Fonts** — the built-in 6x11 metrics are assumed; when the driver
    exposes selectable fonts (RefCFW-style font slots), theme.h grows a font
    descriptor and metrics per font.
-8. **KEY_POWER policy** — global power/screen-off behavior (screen_off /
-   auto_off settings) is not wired; screens currently ignore KEY_POWER.
+8. **KEY_POWER policy** — implemented for BRNOMT-75: short press toggles the
+   backlight, Power+MENU toggles Hold, and the 2 s hold powers off. The
+   `screen_off`/`auto_off` settings themselves are still not wired (manual
+   policy only).
 9. **Root Makefile integration** — `ui.mk` is ready to be included by the
    root Makefile (owned by the build workstream).
 10. **i18n / long text** — labels are ASCII, one line, fixed 6 px advance;

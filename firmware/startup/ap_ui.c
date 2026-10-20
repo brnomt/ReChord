@@ -58,10 +58,33 @@ static int s_volume_seen;            /* last volume persisted (see loop) */
 static unsigned s_log_ms;            /* last periodic log flush (see loop) */
 static unsigned s_batt_ms;           /* last battery poll (see loop) */
 static int      s_resume_done;       /* boot resume restore ran (BRNOMT-87) */
-static int      s_resume_wait;       /* passes after the first probe        */
+static int      s_resume_started;    /* first probe seen; settle timer     */
+static unsigned s_resume_ms;         /* when the settle wait began         */
 static unsigned s_face_ms;           /* skin animation refresh tick        */
 static unsigned s_theme_ms;          /* per-screen skin animation tick     */
 static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
+
+/* BRNOMT-84: the UI loop is paced by the SysTick 1 ms tick and sleeps in WFI
+ * between ticks. Key samples are rate-gated (the SARADC triple conversion is
+ * ~600 us of busy-wait; doing it every pass was the main heat source), and
+ * Now Playing is refreshed at 10 Hz instead of every pass. */
+#define KEYS_SCAN_MS            5u
+#define PLAYER_UI_REFRESH_MS  100u
+
+static unsigned s_loop_seq;          /* last loop tick (WFI pacing)        */
+static unsigned s_keys_ms;           /* last SARADC key sample             */
+static int      s_key_adc = 1023;    /* last key-ladder sample             */
+static int      s_key_power;         /* last power-key sample              */
+static unsigned s_player_ms;         /* last Now Playing refresh           */
+
+/* BRNOMT-75: display-off and Hold. Short power toggles the backlight; holding
+ * power and pressing MENU toggles Hold (screen off + all keys locked except
+ * the same combo). Playback/audio never stop. */
+static int      s_screen_off;
+static int      s_hold;
+static int      s_power_combo;       /* this power press became a chord    */
+static int      s_combo_latch;       /* swallow events until both released */
+static int      s_combo_menu_scans;  /* stable MENU samples while power down */
 
 /* BRNOMT-87 resume state: defined with the loop, used by the power paths. */
 static void resume_poll(unsigned now, int force);
@@ -77,12 +100,10 @@ static void screen(const char *title);
  * synthetic per-scan clock -- which is why the hold ladder never accelerated.
  *
  * SysTick IS a core timer and always counts, so it is used as a free-running
- * DOWN-counter with no interrupt: LOAD = 0xFFFFFF wraps every 0x1000000
- * cycles (~699 ms at 24 MHz), so each read adds the elapsed cycles to a static
- * accumulator. ap_ms() must be called often enough that no two calls are more
- * than one wrap apart (the UI loop and input_scan both call it every pass);
- * the value is monotonic and the 32-bit ms wrap is handled by every consumer's
- * subtraction arithmetic.
+ * DOWN-counter for the millisecond clock. BRNOMT-84 also enables its 1 ms
+ * interrupt and sleeps in WFI between loop ticks: the counter still runs in
+ * sleep, and the empty handler only clears COUNTFLAG. The main loop is paced
+ * by the tick instead of a busy-wait.
  */
 #define AP_CYCLES_PER_MS 200000u   /* SysTick counts core cycles @ 200 MHz */
 #define AP_SYST_MASK     0x00FFFFFFu
@@ -92,6 +113,14 @@ static void screen(const char *title);
 
 static uint32_t s_tick_last;      /* previous CVR reading, masked */
 static uint32_t s_tick_cycles;    /* elapsed cycles, wraps included */
+static volatile unsigned s_tick_seq; /* SysTick handler heartbeat      */
+
+/* Wakes the WFI loop once per millisecond. Reading CSR clears COUNTFLAG. */
+void SysTick_Handler(void)
+{
+    (void)AP_SYST_CSR;
+    s_tick_seq++;
+}
 
 static unsigned ap_ms(void)
 {
@@ -106,7 +135,7 @@ static void ap_clock_init(void)
 {
     AP_SYST_RVR = AP_SYST_MASK;
     AP_SYST_CVR = 0;
-    AP_SYST_CSR = 5u;                /* CLKSOURCE = core, ENABLE, no TICKINT */
+    AP_SYST_CSR = 7u;                /* CLKSOURCE | TICKINT | ENABLE        */
     s_tick_last = AP_SYST_CVR & AP_SYST_MASK;
     s_tick_cycles = 0;
     input_set_clock(ap_ms);
@@ -342,13 +371,56 @@ static int ask(int any_key)
 
 static void power_off(void);
 
+/* ---- BRNOMT-75: display off / Hold ------------------------------------ */
+
+static void screen_wake(void)
+{
+    if (!s_screen_off)
+        return;
+    s_screen_off = 0;
+    s_player_ms = 0;             /* force a Now Playing sync on wake */
+    backlight_on();
+    ui_invalidate_all();
+    log_printf("power: screen on");
+}
+
+static void screen_sleep(void)
+{
+    if (s_screen_off)
+        return;
+    s_screen_off = 1;
+    backlight_off();
+    log_printf("power: screen off");
+}
+
+static void hold_set(int on)
+{
+    on = on ? 1 : 0;
+    if (s_hold == on)
+        return;
+    s_hold = on;
+    if (s_hold) {
+        screen_sleep();
+    } else {
+        screen_wake();
+    }
+    log_printf("power: hold %d", s_hold);
+}
+
 /* Power-hold tracking (shared by the idle and playing loops).
  * The power key is a mechanical switch on GPIO2.5; contact bounce (or one
  * glitched read while the UI is busy) must not restart the count. Debounce
  * the level first, then measure held TIME with ap_ms() so a slow render pass
- * (themes animate) cannot stretch "2 seconds" into tens of seconds. */
+ * (themes animate) cannot stretch "2 seconds" into tens of seconds.
+ *
+ * BRNOMT-75: a release before POWER_HOLD_MS is a SHORT press (screen off/on).
+ * A Power+MENU chord sets s_power_combo, which suppresses both the short
+ * action and the 2 s power-off for that press. */
 #define POWER_HOLD_MS      2000u
 #define POWER_DEBOUNCE     3
+#define POWER_EV_NONE      0
+#define POWER_EV_SHORT     1
+#define POWER_EV_HOLD      2
 static int s_power_level;         /* debounced power-key level (0/1) */
 static int s_power_stable;
 static int s_power_t0_set;        /* timestamp valid for this press    */
@@ -366,14 +438,25 @@ static int power_hold_step(int power, unsigned now)
                 s_power_down_ms = now;
                 s_power_t0_set = 1;
             } else {
+                int was = s_power_t0_set;
+                unsigned held = now - s_power_down_ms;
+
                 s_power_t0_set = 0;
+                if (s_power_combo) {
+                    s_power_combo = 0;
+                    return POWER_EV_NONE;
+                }
+                if (was && !s_hold && held < POWER_HOLD_MS)
+                    return POWER_EV_SHORT;
             }
         }
     } else {
         s_power_stable = 0;
     }
-    return s_power_level && s_power_t0_set &&
-           (unsigned)(now - s_power_down_ms) >= POWER_HOLD_MS;
+    if (s_power_level && s_power_t0_set && !s_power_combo && !s_hold &&
+        (unsigned)(now - s_power_down_ms) >= POWER_HOLD_MS)
+        return POWER_EV_HOLD;
+    return POWER_EV_NONE;
 }
 
 /* After a USB session: offer HIFIECnn.IMG / ECHOMINI.IMG if present. */
@@ -454,6 +537,12 @@ static void power_off(void)
             panel_io_delay_ms(1);
         s_power_t0_set = 0;          /* this press must not count as a hold */
         s_power_level = 0;
+        s_power_combo = 0;
+        s_combo_latch = 0;
+        s_combo_menu_scans = 0;
+        s_hold = 0;
+        s_screen_off = 0;
+        s_player_ms = 0;
         backlight_on();
         ui_invalidate_all();
         return;                      /* the main loop resumes the UI */
@@ -918,7 +1007,7 @@ static const menu_item_t k_root_items[] = {
 };
 #define ROOT_ITEM_COUNT ((int)(sizeof k_root_items / sizeof k_root_items[0]))
 
-#define RC_BUILD "m9g"
+#define RC_BUILD "m9h"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
                                      ROOT_ITEM_COUNT, vol_status };
 
@@ -1131,60 +1220,99 @@ void ap_ui_loop(void)
      * sd_probe() — opening a /SD track before the volume is mounted fails
      * (field log: "resume: open failed" at 0.021 s). */
     for (;;) {
-        int adc = keys_adc(), power = keys_power(), cable = usb_cable();
+        unsigned now;
+        int cable;
+        int pev;
+        int menu_now;
+        int sampled = 0;
+
+        /* BRNOMT-84: run the loop once per 1 ms SysTick and sleep in WFI.
+         * The audio IRQ can still wake us; the heartbeat check avoids an
+         * ap_ms() division on every audio interrupt. */
+        if (s_tick_seq == s_loop_seq) {
+            __asm__ volatile("wfi");
+            continue;
+        }
+        s_loop_seq = s_tick_seq;
+        now = ap_ms();
+
+        /* The SARADC triple conversion is ~600 us of busy-wait. Sample it at
+         * 5 ms, not on every pass; the hold ladder is already time-based. */
+        if ((unsigned)(now - s_keys_ms) >= KEYS_SCAN_MS) {
+            s_keys_ms = now;
+            s_key_adc = keys_adc();
+            s_key_power = keys_power();
+            sampled = 1;
+            input_set_vol_debounce(ui_top_screen() == &skin_home_screen
+                                       ? 3 : INPUT_DEBOUNCE_SCANS_VOL);
+            input_scan(s_key_adc, s_key_power);
+        }
+        cable = usb_cable();
 
         if (sd_present() != s_sd_in) {   /* card inserted / removed */
             s_sd_in = sd_present();
             if (s_sd_in)
                 panel_io_delay_ms(300);  /* let the contacts settle */
             sd_probe();
-            ui_invalidate_all();
+            if (!s_screen_off)
+                ui_invalidate_all();
         }
 
-        /* BRNOMT-87: restore once, a few passes AFTER the first probe so the
-         * volumes settle. The restore is chain-logged with flushes: the RAM log
-         * is lost on a reset, so a crash at boot must leave a breadcrumb. */
+        /* BRNOMT-87: restore once the first probe has settled. Time-based now
+         * that the loop is 1 ms/tick (it used to be 3 passes). */
         if (!s_resume_done && s_sd_in >= 0) {
-            if (++s_resume_wait >= 3) {
+            if (!s_resume_started) {
+                s_resume_started = 1;
+                s_resume_ms = now;
+            } else if ((unsigned)(now - s_resume_ms) >= 50u) {
                 s_resume_done = 1;
                 resume_boot_restore();
             }
         }
 
-        /* VBUS edge: plugging the cable opens USB STORAGE right away (the
-         * pre-CDC behaviour the user expects). The CDC console stays on
-         * the "USB console" menu entry. */
-        if (cable && !s_cable)
-            usb_storage_entry();
+        /* VBUS edge: plugging the cable opens USB STORAGE right away. While
+         * Hold is engaged the cable only charges; the combo must unlock. */
+        if (cable && !s_cable) {
+            if (!s_hold) {
+                screen_wake();
+                usb_storage_entry();
+            }
+        }
         s_cable = cable;
 
-        /* power-hold: debounced (see power_hold_step); ~2 s of held power
-         * turns the device off. Flush any pending settings write first. */
-        if (power_hold_step(power, ap_ms())) {
-            resume_poll(ap_ms(), 1);  /* persist the last position first */
-            settings_screen_store();
-            (void)log_flush("power");
-            power_off();
+        /* BRNOMT-75: Power + MENU chord. input_scan() prioritizes the power
+         * GPIO and would never report the MENU press, so detect it from the
+         * raw ladder sample; two stable samples reject a transient. */
+        menu_now = input_map_adc(s_key_adc) == KEY_MENU;
+        if (sampled && s_key_power && menu_now) {
+            if (s_combo_menu_scans < 2)
+                s_combo_menu_scans++;
+        } else if (!s_key_power || !menu_now) {
+            s_combo_menu_scans = 0;
         }
-
-        /* live "Keys" row on the root menu: hardware check without a log */
-        if ((adc - s_adc > 8 || s_adc - adc > 8 || power != s_power) &&
-            ui_stack_depth() == 1) {
-            ui_invalidate_all();
+        if (s_key_power && s_combo_menu_scans >= 2 && !s_combo_latch) {
+            s_power_combo = 1;
+            s_combo_latch = 1;
+            s_combo_menu_scans = 0;
+            hold_set(!s_hold);
+            input_mock_clear();
         }
-        s_adc = adc;
-        s_power = power;
-        /* The skin home uses vol+/- as its primary navigation; make those
-         * keys respond quickly there. Everywhere else keeps the stock 8-sample
-         * debounce that suppresses phantom vol keys under playback. */
-        input_set_vol_debounce(ui_top_screen() == &skin_home_screen
-                                   ? 3 : INPUT_DEBOUNCE_SCANS_VOL);
-        input_scan(adc, power);
+        if (s_combo_latch && !s_key_power && !menu_now) {
+            s_combo_latch = 0;
+            /* Keep s_power_combo set: power_hold_step() must see it on the
+             * debounced release and suppress the short screen toggle. */
+            input_mock_clear();
+        }
 
         while (input_poll(&ev) > 0) {
-            /* All four kinds reach the top screen (BRNOMT-93): listings act on
-             * PRESS/REPEAT, Now Playing also uses LONG (next / seek-restart)
-             * and RELEASE{long_press=0} (one volume step per tap). */
+            /* All four kinds reach the top screen (BRNOMT-93). Hold drops
+             * everything except the chord handled above. */
+            if (s_hold || s_combo_latch)
+                continue;
+            if (ev.type == KEY_POWER)
+                continue;              /* global power handling below */
+            if (s_screen_off)
+                screen_wake();         /* a key wakes and is still handled */
             if (ev.type == KEY_MENU) {
                 while (ui_stack_depth() > 1)
                     ui_pop_screen();
@@ -1193,6 +1321,32 @@ void ap_ui_loop(void)
                 ui_handle_event(&ev);
             }
         }
+
+        /* Short power = screen off/on; ~2 s = power off. */
+        pev = power_hold_step(s_key_power, now);
+        if (pev == POWER_EV_HOLD) {
+            resume_poll(now, 1);       /* persist the last position first */
+            settings_screen_store();
+            (void)log_flush("power");
+            power_off();
+        } else if (pev == POWER_EV_SHORT) {
+            if (!s_hold) {
+                if (s_screen_off)
+                    screen_wake();
+                else
+                    screen_sleep();
+            }
+        }
+
+        /* live "Keys" row on the root menu: hardware check without a log */
+        if ((s_key_adc - s_adc > 8 || s_adc - s_key_adc > 8 ||
+             s_key_power != s_power) &&
+            !s_screen_off && ui_stack_depth() == 1) {
+            ui_invalidate_all();
+        }
+        s_adc = s_key_adc;
+        s_power = s_key_power;
+
         if (ui_stack_depth() == 0) {     /* BACK on the root menu */
             ui_push_screen(&menu_screen);
             home_stack_sync();
@@ -1205,92 +1359,91 @@ void ap_ui_loop(void)
          * sweep is one save instead of one per step. */
         if (player_get_volume() != s_volume_seen) {
             s_volume_seen = player_get_volume();
-            settings_screen_volume_changed(s_volume_seen, ap_ms());
+            settings_screen_volume_changed(s_volume_seen, now);
         }
-        settings_screen_flush_pending(ap_ms());
-        resume_poll(ap_ms(), 0);      /* BRNOMT-87: deferred position save */
+        settings_screen_flush_pending(now);
+        resume_poll(now, 0);      /* BRNOMT-87: deferred position save */
 
         /* Battery gauge (BRNOMT-83): one slow poll (the SARADC is shared with
          * the keys); repaint the title row only when the step changed. */
-        if ((unsigned)(ap_ms() - s_batt_ms) >= 15000u) {
+        if ((unsigned)(now - s_batt_ms) >= 15000u) {
             int before = battery_percent();
 
             battery_poll();
-            s_batt_ms = ap_ms();
-            if (battery_percent() != before)
+            s_batt_ms = now;
+            if (battery_percent() != before && !s_screen_off)
                 ui_invalidate(0, 0, DISPLAY_W - 1, 16);
         }
 
-        /* Skin home: the clock feeds the theme's expressions; refresh only
-         * the animated band the package declares. */
-        skin_home_tick(ap_ms());
-        theme_ui_tick(ap_ms());
-        if (theme_layout()->home == THEME_HOME_SKIN &&
-            ui_top_screen() == &skin_home_screen &&
-            theme_skin_animated() &&
-            (unsigned)(ap_ms() - s_face_ms) >=
-                (unsigned)theme_skin_refresh_ms()) {
-            int h = theme_skin_refresh_h();
+        if (!s_screen_off) {
+            /* Skin home: the clock feeds the theme's expressions; refresh
+             * only the animated band the package declares. */
+            skin_home_tick(now);
+            theme_ui_tick(now);
+            if (theme_layout()->home == THEME_HOME_SKIN &&
+                ui_top_screen() == &skin_home_screen &&
+                theme_skin_animated() &&
+                (unsigned)(now - s_face_ms) >=
+                    (unsigned)theme_skin_refresh_ms()) {
+                int h = theme_skin_refresh_h();
 
-            s_face_ms = ap_ms();
-            if (h <= 0)
-                h = theme_layout()->face_h;
-            if (h <= 0 || h > DISPLAY_H)
-                h = DISPLAY_H;
-            ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
-        }
+                s_face_ms = now;
+                if (h <= 0)
+                    h = theme_layout()->face_h;
+                if (h <= 0 || h > DISPLAY_H)
+                    h = DISPLAY_H;
+                ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+            }
 
-        /* Per-screen skins: only animated ones wake the loop; a static
-         * Now Playing/Library/Settings/Browser skin costs nothing per pass. */
-        if (theme_ui_active() && ui_top_screen() != &skin_home_screen &&
-            theme_skin_animated() &&
-            (unsigned)(ap_ms() - s_theme_ms) >=
-                (unsigned)theme_skin_refresh_ms()) {
-            int h = theme_skin_refresh_h();
+            /* Per-screen skins: only animated ones wake the loop; a static
+             * Now Playing/Library/Settings/Browser costs nothing per pass. */
+            if (theme_ui_active() && ui_top_screen() != &skin_home_screen &&
+                theme_skin_animated() &&
+                (unsigned)(now - s_theme_ms) >=
+                    (unsigned)theme_skin_refresh_ms()) {
+                int h = theme_skin_refresh_h();
 
-            s_theme_ms = ap_ms();
-            if (h <= 0)
-                h = theme_layout()->face_h;
-            if (h <= 0 || h > DISPLAY_H)
-                h = DISPLAY_H;
-            ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+                s_theme_ms = now;
+                if (h <= 0)
+                    h = theme_layout()->face_h;
+                if (h <= 0 || h > DISPLAY_H)
+                    h = DISPLAY_H;
+                ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+            }
         }
 
         /* Persist the RAM log without waiting for the USB cable (see the flush
          * policy above): only when there is something new, and eagerly before
          * the ring starts dropping lines. An idle player writes nothing. */
         if (log_pending() > 0 &&
-            ((unsigned)(ap_ms() - s_log_ms) >= LOG_FLUSH_MS ||
+            ((unsigned)(now - s_log_ms) >= LOG_FLUSH_MS ||
              log_pending() >= LOG_FLUSH_EAGER)) {
             (void)log_flush("auto");
-            s_log_ms = ap_ms();          /* do not retry-storm on failure   */
+            s_log_ms = now;              /* do not retry-storm on failure   */
         }
 
-        /* audio pump + Now Playing sync (no-ops without a playing track).
-         * While a track plays, decode ahead into the 32 KiB PCM ring: the
-         * I2S1 TX IRQ (rknano_i2s_tx_isr) drains it at the sample clock,
-         * so decode and playback overlap and the pump calls are
-         * non-blocking once the ring is full. */
-        bfs_poll();     /* phase 3: feed B's file ring (no-op if none) */
+        /* audio pump: the ring/IRQ feeder is non-blocking once full. The loop
+         * now runs at 1 kHz, so 8 rounds per tick is plenty. */
+        bfs_poll();
         if (player_get_state() == PLAYER_PLAYING) {
             int n;
 
-            /* Pump only. Keys/power are sampled ONCE per pass above — the
-             * ring+IRQ feeder made player_process() non-blocking, so the
-             * old 8x rescan per pass was pure UI latency (8x the SARADC
-             * work and 8x the debounce samples per pass). */
             for (n = 0; n < 8 && player_get_state() == PLAYER_PLAYING; n++)
-                (void)player_process();      /* decodes into the ring */
-            player_screen_refresh();
-            ui_render();
-            panel_io_delay_ms(1);   /* ring is ahead; don't hot-spin */
+                (void)player_process();
         } else {
             (void)player_process();
-            player_screen_refresh();
+        }
+
+        /* Only the visible screen needs a UI refresh; a dark panel skips all
+         * drawing. Now Playing syncs at 10 Hz (its on_enter does the immediate
+         * sync when it is pushed). */
+        if (!s_screen_off) {
+            if (ui_top_screen() == &player_screen &&
+                (unsigned)(now - s_player_ms) >= PLAYER_UI_REFRESH_MS) {
+                s_player_ms = now;
+                player_screen_refresh();
+            }
             ui_render();
-            /* ponytail: busy-wait scan period (~5 ms at the 24 MHz boot clock);
-             * move to SysTick once the clock tree is set up. */
-            panel_io_delay_ms(1);
         }
     }
 }
