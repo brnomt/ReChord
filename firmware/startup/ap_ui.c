@@ -1356,7 +1356,14 @@ void ap_ui_loop(void)
              * not light the panel. Only a short Power press (or unlocking
              * Hold / USB insertion) wakes it. */
             if (ev.type == KEY_MENU) {
-                while (ui_stack_depth() > 1)
+                /* BRNOMT-101: the active home is the skin screen at depth 2
+                 * when the package declares home=skin; popping to depth 1
+                 * always landed on the classic menu ("another theme's Main
+                 * UI"). Pop only down to the real home. */
+                int home = 1 +
+                    (theme_layout()->home == THEME_HOME_SKIN ? 1 : 0);
+
+                while (ui_stack_depth() > home)
                     ui_pop_screen();
             } else {
                 theme_ui_note_input();

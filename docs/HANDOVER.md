@@ -4291,3 +4291,9 @@ change while paused stays silent; track skip is not delayed by the user fade.
   at the saved folder via the new `browser_screen_set_root_keep_path()` (the
   old `open_files()` called `browser_screen_set_root("/")`, which reset the
   path and would have discarded the restore).
+
+- **BRNOMT-101 (MENU showed another theme's Main UI).** The KEY_MENU handler
+  popped every screen down to depth 1. With `home=skin` the active home is the
+  skin screen inserted at depth 2, so MENU always revealed the classic menu.
+  It now pops only down to the real home depth (1 or 2 from the package's
+  `home=`).
