@@ -409,6 +409,12 @@ against a saved known-good image. Run it before `make standalone-ap5m` if
 the known-good file is the same path (the build target overwrites it), or
 pass `GOLDEN=/path/to/saved/ReChord_AP5M.IMG`.
 
+`make clean-clone-check` is the stronger acceptance test: it creates a
+detached worktree at `HEAD` with tracked files only (no `stock/`, no
+`community/`), runs `make standalone-ap5m` there and compares the image
+SHA-256. Verified on `02482c1`: PASS, output
+`c2238...babb93d`.
+
 This does **not** complete Issue 82: the stock loader/ROM contract at
 `0x03088000`, the legacy 33 MB stock/ref path, the SDK `.lib` codec path and
 the update/flash path remain. See `docs/re/boot-chain.md` for the Phase 0

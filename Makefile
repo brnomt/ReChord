@@ -127,6 +127,10 @@ GOLDEN ?= build/ReChord_AP5M.IMG
 verify-standalone:
 	$(PYTHON) tools/verify_fw1_5m.py --golden $(GOLDEN)
 
+# Clean-clone acceptance: tracked files only (no stock/ or community/).
+clean-clone-check:
+	tools/clean_clone_check.sh
+
 # HOOK TEST: verbatim reference fw1 calling our panel driver (HANDOVER.md).
 HOOK_DIR := build/hook
 HOOK_SRCS := firmware/hook/ref_hook.c firmware/drivers/panel_io_rknanoc.c \
@@ -270,7 +274,7 @@ AP_CODEC_LIBS := \
 .PHONY: all bb ap build-bb build-ap link-bb link-ap build-sdk link-firmware \
         toolchain manifests compile-check pack-img pack-bb-img pack-bb-stub-img \
         bb-stub release pack-full apbb-experimental test-dsp extract-section3 clean \
-        standalone-ap5m verify-standalone
+        standalone-ap5m verify-standalone clean-clone-check
 
 # Host unit test for the freestanding DSP core (runs on the build machine, no
 # hardware). Verifies the biquad math before it ever touches the device.

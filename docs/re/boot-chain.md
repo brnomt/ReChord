@@ -137,12 +137,25 @@ Our current AP:
   reference header; the new target bypasses both. Only
   `build/ReChord_AP5M.IMG` is flashed; the 33 MB `ReChord_AP.IMG` is not.
 
-### 5.1 Remaining Issue 82 dependencies
+### 5.1 Clean-clone check (PASS)
+
+`make clean-clone-check` creates a detached worktree at `HEAD` containing
+only tracked files (so `stock/` and `community/` are absent by construction),
+asserts both directories are missing, runs `make standalone-ap5m`, and
+compares the resulting image SHA-256 against the boot-confirmed value.
+
+Verified on commit `02482c1`: **PASS**, `stock/` absent, `community/`
+absent, output SHA-256 `c2238...babb93d`. This proves the AP5M build path
+(AP + clean-room BB core + fw1 + 5 MB container) is independent of the
+gitignored stock/reference directories.
+
+### 5.2 Remaining Issue 82 dependencies
 
 - **Stock loader/ROM contract at `0x03088000`** (Phase 2). The 5 MB image
   still boots through the stock boot chain.
-- The legacy `cfw-img`/33 MB path still reads `stock/` and `community/refcfw`
-  (Phase 1b/2 should either remove or quarantine it).
+- The legacy `cfw-img`/33 MB path still reads `stock/` and `community/refcfw`;
+  it is not on the standalone target and should stay quarantined as a
+  reference/fallback path.
 - The `make release` BB still links proprietary `community/sdks` `.lib`
   codecs (Phase 3). The clean-room AP already uses `BB_CORE_SRCS`
   (WAV/MP3/FLAC).
@@ -157,9 +170,11 @@ Our current AP:
 
 - **Phase 1a: PASS.** Standalone 5 MB container reproduces the known-good
   image with no stock/ref reads.
-- **Phase 1b:** clean-clone build test and removal/quarantine of the legacy
-  stock/ref reads; validate the descriptor on hardware when a flash is
-  scheduled.
+- **Phase 1b: PASS.** `make clean-clone-check` builds from a detached
+  worktree with only tracked files (no `stock/`, no `community/`) and
+  reproduces the known-good SHA. The legacy `cfw-img` path still reads
+  stock/ref; the standalone target bypasses it. Validate the descriptor on
+  hardware when a flash is scheduled.
 - **Phase 2:** only after the sec2/loader/ROM questions above are answered
   and a first-stage + memory layout + recovery ladder is defined. Do not
   flash a custom fw1 table or overwrite `0x03088000` before that.
