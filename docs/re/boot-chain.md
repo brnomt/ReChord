@@ -397,6 +397,11 @@ with the normal AP5M/stock image. If it shows `Overlay: OK`, the window is
 validated for code and the CDC console can move there as an overlay/debug
 build.
 
+**Result (2026-10-20): PASS.** The user flashed SHA `69977945...` and the
+splash showed `Overlay: OK`; the 8-byte overlay executed from `0x0304AE64`
+and returned the magic. The 20,896 B window is validated for code. Next:
+move the CDC console into this overlay window as a USB debug build.
+
 ### 8.4 When a custom bootloader is actually needed
 
 A custom bootloader is now the only path to reclaim the 113,460 B window:
