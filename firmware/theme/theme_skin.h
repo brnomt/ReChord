@@ -67,6 +67,7 @@ typedef struct theme_skin_state {
     const char *album;
     const char *state;            /* "Playing" / "Paused" / "Stopped" */
     const char *path;             /* current track path ("" when none) */
+    const char *heading;          /* screen title/path (Library, Settings, ...) */
     long position_ms;
     long duration_ms;
     int  bits;                    /* source depth (0 unknown) */
@@ -77,6 +78,27 @@ typedef struct theme_skin_state {
     int  repeat;                  /* PLAYLIST_REPEAT_* */
 } theme_skin_state_t;
 
+/* Dynamic list source for a compiled screen (Library, Settings, Browser,
+ * ...). The callbacks fill `buf` and return it (or NULL for an empty row).
+ * `value` is optional (right-aligned column). The skin's `list` meter opts
+ * into this by declaring `source=<anything>`. */
+typedef struct theme_skin_list_source {
+    int count;
+    const char *(*label)(int index, char *buf, int cap);
+    const char *(*value)(int index, char *buf, int cap);
+} theme_skin_list_source_t;
+
+void theme_skin_set_list(const theme_skin_list_source_t *src);
+
+/* Navigation results for a compiled screen using the skin's prev/next map.
+ * Only vol up/down are mapped; SELECT and BACK are fixed. */
+enum {
+    THEME_SKIN_PREV = 10,
+    THEME_SKIN_NEXT,
+    THEME_SKIN_SELECT
+};
+int theme_skin_nav(int key);
+
 /* Read <root>/<id>/<path> into the engine and cache the interactive list.
  * Returns 0 on success, < 0 when the file is missing/too large. */
 int theme_skin_load(const char *root, const char *id, const char *path);
@@ -86,22 +108,30 @@ void theme_skin_reset(void);
 const char *theme_skin_text(void);
 
 /* Draw the active skin. `now` and `idle` are milliseconds; `sel` is the
- * selected list item. */
-void theme_skin_render(unsigned now, unsigned idle, int sel,
+ * selected list item and `top` the first visible item. */
+void theme_skin_render(unsigned now, unsigned idle, int sel, int top,
                        const theme_skin_state_t *st);
 
-/* Handle one key. Updates *sel on previous/next and returns one of the
- * THEME_SKIN_* results (action for SELECT, REDRAW for movement). */
+/* Handle one key for the classic home list. Updates *sel on previous/next and
+ * returns one of the THEME_SKIN_* results (action for SELECT, REDRAW for
+ * movement). Compiled screens use theme_skin_nav() instead. */
 int theme_skin_key(int key, int *sel);
 
-/* Interactive list metadata (parsed at load). */
-int theme_skin_item_count(void);
+/* Interactive list metadata (parsed at load / set by the screen). */
+int theme_skin_item_count(void);   /* active list: dynamic source or static  */
 int theme_skin_selected_default(void);
+int theme_skin_list_rows(void);    /* visible rows from the skin, 0 = all    */
+/* The skin's declared `rows` before a dynamic source is registered (used by
+ * a screen to size its fetch window on entry). */
+int theme_skin_list_rows_hint(void);
 /* Bounds of the drawn list (for a partial redraw). Returns 0 when a list
  * exists, < 0 otherwise. */
 int theme_skin_list_bounds(int *y, int *h);
 
-/* Animation refresh hints from the skin's [skin] section. */
+/* Animation refresh hints from the skin's [skin] section. `animated` is 1
+ * only when the skin explicitly declares refresh_ms > 0, so static per-screen
+ * skins do not wake the CPU. */
+int theme_skin_animated(void);
 int theme_skin_refresh_ms(void);
 int theme_skin_refresh_h(void);
 

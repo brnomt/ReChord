@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "skin_screen.h"
+#include "theme_ui.h"
 #include "../theme.h"
 #include "../internal/hal.h"
 #include "../../theme/theme_skin.h"
@@ -15,7 +16,6 @@
 static int      s_sel;
 static unsigned s_now_ms;
 static unsigned s_last_input_ms;
-static track_info_t s_track;
 
 static void (*s_open_lib)(void);
 static void (*s_open_np)(void);
@@ -37,6 +37,15 @@ void skin_home_tick(unsigned now_ms)
 
 static void skin_on_enter(void)
 {
+    /* A child screen may have loaded its own skin; the home always renders
+     * from the package's main skin again. Host tests load the engine directly
+     * without a package layout, so an empty path leaves it untouched. */
+    {
+        const char *p = theme_ui_path(THEME_UI_MAIN);
+
+        if (p != 0 && p[0] != '\0')
+            (void)theme_ui_load(THEME_UI_MAIN);
+    }
     s_sel = theme_skin_selected_default();
     s_last_input_ms = s_now_ms;
     ui_invalidate_all();
@@ -46,33 +55,9 @@ static void skin_draw(void)
 {
     theme_skin_state_t st;
 
-    memset(&st, 0, sizeof st);
-    st.playing = player_get_state() == PLAYER_PLAYING;
-    st.paused = player_get_state() == PLAYER_PAUSED;
-    st.stopped = player_get_state() == PLAYER_STOPPED;
-    st.volume_db = player_get_volume();
-    st.battery_pct = -1;
-    st.shuffle = player_get_shuffle();
-    st.repeat = player_get_repeat();
-    st.position_ms = player_get_position_ms();
-    st.title = "";
-    st.artist = "";
-    st.album = "";
-    st.path = "";
-    st.state = st.playing ? "Playing" : (st.paused ? "Paused" : "Stopped");
-    if (player_get_track(&s_track) == PLAYER_OK) {
-        st.title = s_track.title;
-        st.artist = s_track.artist;
-        st.album = s_track.album;
-        st.path = s_track.path;
-        st.duration_ms = s_track.duration_ms;
-        st.bits = s_track.bits;
-        st.sample_rate = s_track.sample_rate;
-        st.playlist_pos = s_track.playlist_pos;
-        st.playlist_count = s_track.playlist_count;
-    }
+    theme_ui_fill_state(&st, "");
     display_clear(THEME_COLOR_BG);
-    theme_skin_render(s_now_ms, s_now_ms - s_last_input_ms, s_sel, &st);
+    theme_skin_render(s_now_ms, s_now_ms - s_last_input_ms, s_sel, 0, &st);
 }
 
 static void skin_handle_event(const input_event_t *ev)

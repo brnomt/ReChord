@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include "screens.h"
+#include "theme_ui.h"
 #include "../theme.h"
 #include "../internal/hal.h"
 
@@ -155,7 +156,9 @@ void menu_draw(const menu_model_t *model, const menu_view_t *view)
 static void menu_screen_on_enter(void)
 {
     /* Keep cursor/scroll when a child screen pops back (BRNOMT-93);
-     * menu_screen_bind() resets it for a new model. */
+     * menu_screen_bind() resets it for a new model. The compiled menu is
+     * not skinned: a child's skin must not drive the animation tick. */
+    theme_ui_disarm();
 }
 
 static void menu_screen_draw(void)

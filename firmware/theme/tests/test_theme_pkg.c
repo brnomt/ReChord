@@ -120,6 +120,24 @@ int main(void)
     theme_layout_defaults(&l);
     CHECK(theme_layout_parse("home=skin\nskin=../home.skin\n", &l) != 0);
 
+    /* 9b. per-screen skins are independent paths; `skin_main` aliases the
+     * home skin. Unsafe paths reject the whole package. */
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("skin_main=main.skin\n"
+                             "skin_now_playing=np.skin\n"
+                             "skin_library=lib.skin\n"
+                             "skin_library_cat=cat.skin\n"
+                             "skin_browser=files.skin\n"
+                             "skin_settings=settings.skin\n", &l) == 0);
+    CHECK(strcmp(l.skin, "main.skin") == 0);
+    CHECK(strcmp(l.skin_now_playing, "np.skin") == 0);
+    CHECK(strcmp(l.skin_library, "lib.skin") == 0);
+    CHECK(strcmp(l.skin_library_cat, "cat.skin") == 0);
+    CHECK(strcmp(l.skin_browser, "files.skin") == 0);
+    CHECK(strcmp(l.skin_settings, "settings.skin") == 0);
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("skin_settings=../settings.skin\n", &l) != 0);
+
     /* 10. legacy manifests without a skin file stay on the classic menu. */
     theme_layout_defaults(&l);
     CHECK(theme_layout_parse("face_h=52\n", &l) == 0);

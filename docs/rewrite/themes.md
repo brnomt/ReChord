@@ -18,15 +18,18 @@
 - Screens never hardcode colors: they ask `theme_get()` through the
   `THEME_COLOR_*` macros (`firmware/ui/theme.h`), so a palette swap restyles
   every screen live. Geometry comes from `theme_layout()`.
-- The **home is interpreted, not compiled**: `home=menu|skin` selects either
-  the classic list or the generic skin interpreter. A skin package ships
-  `home.skin` (meters + expressions) and its 1-bit assets; the engine
-  (`firmware/theme/theme_skin.c`) has no theme-specific code.
+- The **screens are interpreted, not compiled**: a package can ship a skin for
+  the main/home, Now Playing, Library, category list, browser and Settings.
+  Each screen loads its own skin on entry; the compiled screen remains the
+  fallback and keeps all behavior (cursor, actions, persistence). The engine
+  (`firmware/theme/theme_skin.c`) and the `theme_ui.c` bridge have no
+  theme-specific code. `home=menu|skin` still selects the classic list or the
+  interpreted home.
 - Layout DSL (`firmware/theme/theme_pkg.{h,c}`): shared list metrics, Now
-  Playing origins, home selector, skin path and asset declarations.
+  Playing origins, home selector, per-screen skin paths and asset declarations.
   All-or-nothing, bounded, no heap.
 - The firmware seeds **no theme content**. `/.rechord/themes/<id>/` is created
-  empty; packages (theme.cfg + skin + assets) are installed from storage.
+  empty; packages (theme.cfg + skins + assets) are installed from storage.
 - 1-bit assets: `display_bitmap1()` + a 1 KiB bounded cache
   (`theme_assets.c`). A declared-but-unreadable asset rejects the package.
   Assets are optional; the Companion theme is vector.
@@ -40,9 +43,14 @@ the safe fallback when no package is usable.
 
 ```
 /<volume>/.rechord/themes/<theme_id>/
-  theme.cfg        # palette + list geometry + home selector + asset declarations
-  home.skin        # optional declarative home screen (meters + expressions)
-  assets/          # 1-bit bitmaps referenced by home.skin
+  theme.cfg        # palette + layout + home selector + skin paths + assets
+  home.skin        # optional declarative main/home
+  now_playing.skin # optional Now Playing
+  library.skin     # optional Library root
+  library_cat.skin # optional category (names/songs)
+  browser.skin     # optional file browser
+  settings.skin    # optional Settings
+  assets/          # 1-bit bitmaps referenced by any skin
 ```
 
 `theme.cfg` is the same `key=value` dialect as `rechord.cfg` (sections are
@@ -51,13 +59,20 @@ ignored by the flat parser). A skin package adds:
 ```
 home=skin
 skin=home.skin
+skin_now_playing=now_playing.skin
+skin_library=library.skin
+skin_library_cat=library_cat.skin
+skin_browser=browser.skin
+skin_settings=settings.skin
 # optional: asset_icon=assets/icon.bin,32,32
 ```
 
-`home.skin` is the theme's logic: `[section]` meters (`fill`, `roundrect`,
+`home.skin` is the theme's main logic: `[section]` meters (`fill`, `roundrect`,
 `triangle`, `bitmap`, `text`, `bar`, `list`) whose properties are expressions
 over runtime state and time. A `[vars]` section defines reusable expressions.
-Full syntax and limits: `themes/README.md`.
+The per-screen skins use the same engine; their `list` meter names a dynamic
+`source` supplied by the compiled screen and a `rows` window. Full syntax and
+limits: `themes/README.md` and `docs/THEMING.md`.
 
 ## 3. Renderer API (theme-independent)
 
@@ -72,9 +87,10 @@ void display_draw_text(int x, int y, const char *s, uint16_t fg, uint16_t bg);
 ```
 
 The skin interpreter adds the layout/state layer: `fill`, `roundrect`,
-`triangle`, `bitmap`, `text`, `bar` and an interactive `list` meter, plus a
-`[vars]` section for reusable expressions. Coordinates, geometry and colors
-come from the skin; the engine only executes them.
+`triangle`, `bitmap`, `text`, `bar` and an interactive `list` meter (static
+`item0..` or a dynamic `source` window), plus a `[vars]` section for reusable
+expressions. Coordinates, geometry and colors come from the skin; the engine
+only executes them.
 
 Existing `display_*` primitives map 1:1 (`fill_rect`, `draw_text`); `bitmap1`
 is the only new one (row-major MSB-first, stride from the manifest, clipped).
@@ -86,32 +102,27 @@ Text is 8x8 opaque cells today; `max_w` truncates at a cell boundary.
 |---|---|
 | themes enumerable | 16 |
 | manifest size read | 4 KiB |
-| sections per theme | 8 |
-| keys per section | 24 |
-| string value | 64 bytes |
-| assets per theme | 16 |
+| skin text | 4 KiB, 32 sections |
+| keys per section | 12 |
+| string value | 64 bytes (`SKIN_VAL_MAX`); property 144 bytes |
+| list rows | browser <= 12 (its window); others fit the screen |
+| assets per theme | 8 |
 | single asset bitmap | 64 x 64 px, stride <= 8 B |
-| asset bytes cached | 8 KiB total |
-| layout coordinates | 0..319 / 0..169, w/h >= 1 |
-| text length drawn | 40 chars (title 40, artist 40, meta 24) |
-| evaluation steps per frame | 512 |
+| asset bytes cached | 1 KiB total |
+| evaluation steps per frame | 2048, depth 12 |
 
 Anything out of range **rejects the theme** (not a clamp): a malformed package
 must never produce a half-drawn screen.
 
-## 5. Measured budgets (2026-10-18, `build/cfw/rechord_ap.elf`)
+## 5. Measured budgets (m9g, `build/cfw/rechord_ap.elf`)
 
-- `.bss` ends at `0x03046030`; the hard AP gate is `0x0304A000` → **16,336 B
-  (≈16 KiB) of .bss headroom**. The theme runtime must fit in **≤ 10 KiB**,
-  leaving ~6 KiB for future services. Target inside that: parser scratch
-  (stack, ≤ 1.5 KiB), the active layout struct (≤ 2 KiB), the asset cache
-  (≤ 8 KiB, only when a theme declares assets).
-- `.text` 203,688 B; fw1 payload 207,132 B of a 356,456 B region → **~149 KiB
-  flash headroom**. The runtime + one reference package as C data must stay
-  under ~24 KiB.
+- `.bss` ends at `0x03049CA8`; the hard AP gate is `0x0304A000` → **~856 B
+  headroom**. The theme runtime is part of that total; no per-theme heap.
+- `.text` 224,920 B; fw1 payload 226,648 B. The engine and all six screen
+  adapters are already linked; adding a skin is data only.
 - Display 320x170 (54,400 px). A full-screen redraw is already the norm on key
-  events; the theme path must not add per-frame work beyond the declared
-  elements (≤ 512 evaluation steps, one pass, no allocation).
+  events; a static skin adds no per-frame work. An animated skin opts in with
+  `[skin] refresh_ms` and is re-flushed only while its screen is on top.
 - Storage: manifest reads go through the existing read-only `fs.h` path; a
   missing/slow volume must not block the audio pump (read once per switch, not
   per frame).
@@ -122,25 +133,29 @@ must never produce a half-drawn screen.
 typedef struct theme_skin_state {
     int playing, paused, stopped;
     int volume_db, battery_pct;           /* battery -1 when unknown      */
-    const char *title, *artist, *album, *path, *state;
+    const char *title, *artist, *album, *path, *heading, *state;
     long position_ms, duration_ms;
-    int  bits, sample_rate;               /* 0 when unknown                */
+    int  bits; long sample_rate;          /* 0 when unknown                */
     int  playlist_pos, playlist_count;    /* 1-based / 0 when no list      */
     int  shuffle, repeat;                 /* 0/1 and off/all/one           */
 } theme_skin_state_t;
 ```
 
-Skin variable names: `playing paused stopped volume battery title artist album
-path state pos dur pos_ms dur_ms bits rate pl_i pl_n shuffle repeat`, plus
-engine state `t idle sel n W H aw ah` and the palette names. Missing values
-render as empty strings / 0 (never a placeholder glyph). Strings concatenate
-with `+`; integers are converted in a string expression.
+`heading` is the screen title/path (Library, Settings, category, browser
+path). Skin variable names: `playing paused stopped volume battery title artist
+album path heading state pos dur pos_ms dur_ms pos_fmt dur_fmt bits rate pl_i
+pl_n shuffle repeat`, plus engine state `t idle sel n top W H aw ah` and the
+palette names. `pos`/`dur` are integer seconds; `pos_fmt`/`dur_fmt` are `M:SS`
+strings. Missing values render as empty strings / 0 (never a placeholder
+glyph). Strings concatenate with `+`; integers are converted in a string
+expression.
 
 Sources: `player_get_state()`, `player_get_track()`, `player_get_position_ms()`,
 `player_get_volume()`, `player_get_shuffle()`, `player_get_repeat()`,
 `battery_percent()`, `ap_ms()` and the UI selection. The engine never talks to
-the player directly; the UI adapter (`skin_screen.c`) fills the snapshot.
-Full guide: `docs/THEMING.md`.
+the player directly; `firmware/ui/screens/theme_ui.c` fills the snapshot and
+registers the screen's dynamic list source, while `skin_screen.c` remains the
+home adapter. Full guide: `docs/THEMING.md`.
 
 ## 7. Hot reload + fallback
 
@@ -150,12 +165,14 @@ Full guide: `docs/THEMING.md`.
    (over the built-in Mono base) + layout into scratch structs and validates
    both. Any error keeps the current theme and the picker tries the next
    package.
-3. On success: palette + layout are committed together, the skin text and
+3. On success: palette + layout are committed together, the main skin text and
    assets are loaded from the package, the id is written as `theme=<id>` in
    `/.rechord/rechord.cfg` (and mirrored to the legacy
    `/.rechord/active_theme`), and the app inserts/removes the skin home so
-   `home=` takes effect without leaving Settings. `ui_invalidate_all()`
-   repaints; audio is never touched.
+   `home=` takes effect without leaving Settings. The Settings screen reloads
+   its own skin for the new package. `ui_invalidate_all()` repaints; audio is
+   never touched. Other screen skins are loaded by their screens on entry, so
+   a theme change is fully live.
 4. Boot: the cfg `theme=` id is applied; configs without it fall back to
    `active_theme`, then to `mono`, then to the built-in palette/default layout.
 5. Any failure anywhere → **built-in `Mono`**, never a blank screen.

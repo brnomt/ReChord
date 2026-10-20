@@ -53,9 +53,15 @@ typedef struct
     int home_bar_y;   /* generic home item band origin            */
     int home_bar_h;   /* generic home item band height            */
 
-    /* Declarative skin file (relative to the theme directory). Required for
-     * home=skin; the engine interprets it, no theme code is compiled in. */
+    /* Declarative skin files (relative to the theme directory). `skin` is the
+     * home/main screen; the rest are optional per-screen skins. The compiled
+     * screen is used when a path is empty or the file cannot be loaded. */
     char skin[THEME_ASSET_PATH_MAX];
+    char skin_now_playing[THEME_ASSET_PATH_MAX];
+    char skin_library[THEME_ASSET_PATH_MAX];
+    char skin_library_cat[THEME_ASSET_PATH_MAX];
+    char skin_browser[THEME_ASSET_PATH_MAX];
+    char skin_settings[THEME_ASSET_PATH_MAX];
 
     /* 1-bit assets shipped inside the package. */
     int asset_count;

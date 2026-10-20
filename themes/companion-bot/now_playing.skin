@@ -1,0 +1,133 @@
+# Companion Bot — Now Playing skin.
+#
+# Declarative layout for the track screen. The compiled player still owns the
+# keys and the audio; this file only decides what is drawn. No [skin]
+# refresh_ms: the screen repaints when the player reports a new position or
+# state, so a paused track costs nothing.
+
+[background]
+type=fill
+x=0
+y=0
+w=W
+h=H
+color=background
+
+[titlebar]
+type=fill
+x=0
+y=0
+w=W
+h=14
+color=surface
+
+[heading]
+type=text
+x=6
+y=3
+text=heading
+color=accent
+bg=surface
+
+[title]
+type=text
+x=6
+y=22
+text=title
+color=text
+
+[artist]
+type=text
+x=6
+y=36
+text=artist
+color=text_dim
+
+[album]
+type=text
+x=6
+y=50
+text=album
+color=text_dim
+
+[state]
+type=text
+x=6
+y=66
+text=state
+color=accent
+
+[bar]
+type=bar
+x=6
+y=84
+w=308
+h=4
+value=pos_ms
+max=dur_ms
+color=accent
+bg=surface
+
+[time]
+type=text
+x=6
+y=92
+text=pos_fmt + " / " + dur_fmt
+color=text_dim
+
+[format]
+type=text
+x=6
+y=108
+text=bits + "/" + (rate / 1000) + "kHz"
+color=text_dim
+
+[listpos]
+type=text
+x=252
+y=108
+text=pl_i + "/" + pl_n
+color=text_dim
+
+# --- mode indicators -----------------------------------------------------
+[shuf]
+type=text
+x=6
+y=124
+text="SHUF"
+color=accent
+visible=shuffle
+
+[rep1]
+type=text
+x=54
+y=124
+text="REP1"
+color=accent
+visible=repeat == 2
+
+[repall]
+type=text
+x=54
+y=124
+text="REP"
+color=accent
+visible=repeat == 1
+
+[vol_text]
+type=text
+x=250
+y=124
+text=volume + " dB"
+color=text_dim
+
+[vol_bar]
+type=bar
+x=6
+y=160
+w=308
+h=4
+value=volume + 60
+max=80
+color=accent
+bg=surface

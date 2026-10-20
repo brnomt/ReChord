@@ -1,0 +1,54 @@
+# Companion Bot — file browser skin.
+#
+# `heading` is the current path; the listing is a dynamic source fetched as a
+# window of 9 rows (the maximum this screen accepts).
+
+[background]
+type=fill
+x=0
+y=0
+w=W
+h=H
+color=background
+
+[heading]
+type=text
+x=6
+y=3
+text=heading
+color=accent
+
+[rule]
+type=fill
+x=0
+y=16
+w=W
+h=1
+color=text_dim
+
+[menu]
+type=list
+axis=vertical
+x=6
+y=20
+height=14
+rows=9
+source=browser
+prev=down
+next=up
+
+[empty]
+type=text
+x=6
+y=20
+text="empty folder"
+color=text_dim
+visible=n == 0
+
+[footer]
+type=text
+x=6
+y=156
+text=(sel + 1) + " / " + n
+color=text_dim
+visible=n > 0

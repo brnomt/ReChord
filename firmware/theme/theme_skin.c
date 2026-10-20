@@ -67,12 +67,22 @@ static struct {
     int axis;
     int x, y, height;
     int selected;
+    int rows;                 /* visible rows; 0 = all                  */
+    int dynamic;              /* use the registered list source         */
     int prev_key, next_key;
     skin_item_t item[SKIN_ITEMS];
 } s_list;
 
+static const theme_skin_list_source_t *s_list_src;
+
+void theme_skin_set_list(const theme_skin_list_source_t *src)
+{
+    s_list_src = src;
+}
+
 static int s_refresh_ms = 125;
 static int s_refresh_h = -1;
+static int s_animated;
 
 /* ---------------------------------------------------------------- values */
 
@@ -86,6 +96,7 @@ typedef struct {
     unsigned now;
     unsigned idle;
     int      sel;
+    int      top;
     int      aw, ah;
     const theme_skin_state_t *st;
 } skin_ctx_t;
@@ -197,8 +208,11 @@ static skin_val_t variable(const char *name)
         return v_int(c != 0 ? (int)c->idle : 0);
     if (strcmp(name, "sel") == 0)
         return v_int(c != 0 ? c->sel : 0);
+    if (strcmp(name, "top") == 0)
+        return v_int(c != 0 ? c->top : 0);
     if (strcmp(name, "n") == 0)
-        return v_int(s_list.count);
+        return v_int(s_list.dynamic && s_list_src != 0
+                         ? s_list_src->count : s_list.count);
     if (strcmp(name, "aw") == 0)
         return v_int(c != 0 ? c->aw : 0);
     if (strcmp(name, "ah") == 0)
@@ -227,6 +241,24 @@ static skin_val_t variable(const char *name)
         return v_int(c != 0 && c->st != 0 ? (int)c->st->position_ms : 0);
     if (strcmp(name, "dur_ms") == 0)
         return v_int(c != 0 && c->st != 0 ? (int)c->st->duration_ms : 0);
+    if (strcmp(name, "pos_fmt") == 0) {
+        char buf[32];
+        long s = c != 0 && c->st != 0 ? c->st->position_ms / 1000 : 0;
+
+        if (s < 0)
+            s = 0;
+        snprintf(buf, sizeof buf, "%ld:%02ld", s / 60, s % 60);
+        return v_str(buf);
+    }
+    if (strcmp(name, "dur_fmt") == 0) {
+        char buf[32];
+        long s = c != 0 && c->st != 0 ? c->st->duration_ms / 1000 : 0;
+
+        if (s < 0)
+            s = 0;
+        snprintf(buf, sizeof buf, "%ld:%02ld", s / 60, s % 60);
+        return v_str(buf);
+    }
     if (strcmp(name, "bits") == 0)
         return v_int(c != 0 && c->st != 0 ? c->st->bits : 0);
     if (strcmp(name, "rate") == 0)
@@ -249,6 +281,8 @@ static skin_val_t variable(const char *name)
         return v_str(c != 0 && c->st != 0 ? c->st->state : "");
     if (strcmp(name, "path") == 0)
         return v_str(c != 0 && c->st != 0 ? c->st->path : "");
+    if (strcmp(name, "heading") == 0)
+        return v_str(c != 0 && c->st != 0 ? c->st->heading : "");
     if (strcmp(name, "true") == 0)
         return v_int(1);
     if (strcmp(name, "false") == 0)
@@ -898,6 +932,10 @@ static void parse_list(const skin_section_t *sec)
     s_list.height = v != 0 ? as_int(v_str(v)) : -1;
     v = prop(sec, "selected");
     s_list.selected = v != 0 ? as_int(v_str(v)) : 0;
+    v = prop(sec, "rows");
+    s_list.rows = v != 0 ? as_int(v_str(v)) : 0;
+    v = prop(sec, "source");
+    s_list.dynamic = (v != 0 && v[0] != '\0');
 
     v = prop(sec, "prev");
     s_list.prev_key = v != 0 ? key_from_word(v) : THEME_SKIN_KEY_UP;
@@ -955,6 +993,7 @@ int theme_skin_load(const char *root, const char *id, const char *path)
     s_list.count = 0;
     s_refresh_ms = 125;
     s_refresh_h = -1;
+    s_animated = 0;
     s_var_count = 0;
 
     p = s_text;
@@ -963,8 +1002,10 @@ int theme_skin_load(const char *root, const char *id, const char *path)
 
         if (key_eq(sec.name, "skin")) {
             const char *v = prop(&sec, "refresh_ms");
-            if (v != 0)
+            if (v != 0) {
                 s_refresh_ms = as_int(v_str(v));
+                s_animated = s_refresh_ms > 0;
+            }
             v = prop(&sec, "refresh_h");
             if (v != 0)
                 s_refresh_h = as_int(v_str(v));
@@ -984,7 +1025,7 @@ int theme_skin_load(const char *root, const char *id, const char *path)
             parse_list(&sec);
         }
     }
-    if (s_refresh_ms < 16)
+    if (s_animated && s_refresh_ms < 16)
         s_refresh_ms = 16;
     s_loaded = 1;
     return 0;
@@ -995,8 +1036,10 @@ void theme_skin_reset(void)
     s_text[0] = '\0';
     s_loaded = 0;
     memset(&s_list, 0, sizeof s_list);
+    s_list_src = 0;
     s_refresh_ms = 125;
     s_refresh_h = -1;
+    s_animated = 0;
     s_var_count = 0;
 }
 
@@ -1007,28 +1050,70 @@ const char *theme_skin_text(void)
 
 int theme_skin_item_count(void)
 {
+    if (s_list.dynamic && s_list_src != 0)
+        return s_list_src->count;
     return s_list.count;
 }
 
 int theme_skin_selected_default(void)
 {
-    if (s_list.count <= 0)
+    int n = theme_skin_item_count();
+
+    if (n <= 0)
         return 0;
-    return (s_list.selected >= 0 && s_list.selected < s_list.count)
+    return (s_list.selected >= 0 && s_list.selected < n)
                ? s_list.selected : 0;
+}
+
+int theme_skin_list_rows(void)
+{
+    const theme_layout_t *l = theme_layout();
+    int n = theme_skin_item_count();
+
+    if (n <= 0)
+        return 0;
+    if (s_list.rows > 0)
+        return s_list.rows < n ? s_list.rows : n;
+    if (s_list.axis == THEME_NAV_VERTICAL) {
+        int y = s_list.y >= 0 ? s_list.y : l->title_h + 4;
+        int h = s_list.height > 0 ? s_list.height : l->item_h;
+        int fit;
+
+        if (h <= 0)
+            h = 1;
+        fit = (THEME_LAYOUT_MAX_H - y) / h;
+        if (fit < 1)
+            fit = 1;
+        return fit < n ? fit : n;
+    }
+    return n;
+}
+
+int theme_skin_list_rows_hint(void)
+{
+    return s_list.rows;
 }
 
 int theme_skin_list_bounds(int *y, int *h)
 {
     const theme_layout_t *l = theme_layout();
+    int row_h;
+    int rows;
 
-    if (s_list.count <= 0)
+    if (theme_skin_item_count() <= 0)
         return -1;
     if (y != 0)
         *y = s_list.y >= 0 ? s_list.y : l->home_bar_y;
+    row_h = s_list.height > 0 ? s_list.height : l->item_h;
+    rows = theme_skin_list_rows();
     if (h != 0)
-        *h = s_list.height > 0 ? s_list.height : l->home_bar_h;
+        *h = s_list.axis == THEME_NAV_VERTICAL ? row_h * rows : row_h;
     return 0;
+}
+
+int theme_skin_animated(void)
+{
+    return s_animated;
 }
 
 int theme_skin_refresh_ms(void)
@@ -1148,62 +1233,114 @@ static uint16_t color_of(const char *value, skin_ctx_t *ctx, uint16_t fallback)
     return fallback;
 }
 
-static void draw_list(int sel)
+static const char *row_label(int idx, char *buf, int cap)
+{
+    if (s_list.dynamic) {
+        if (s_list_src != 0 && s_list_src->label != 0)
+            return s_list_src->label(idx, buf, cap);
+        return "";
+    }
+    if (idx >= 0 && idx < s_list.count)
+        return s_list.item[idx].label;
+    return "";
+}
+
+static const char *row_value(int idx, char *buf, int cap)
+{
+    if (s_list.dynamic && s_list_src != 0 && s_list_src->value != 0)
+        return s_list_src->value(idx, buf, cap);
+    return 0;
+}
+
+static void draw_list(int sel, int top)
 {
     const theme_layout_t *l = theme_layout();
-    int n = s_list.count;
+    int n = theme_skin_item_count();
+    int rows;
     int i;
 
     if (n <= 0)
         return;
     if (sel < 0 || sel >= n)
         sel = 0;
+    rows = theme_skin_list_rows();
+    if (rows <= 0 || rows > n)
+        rows = n;
+    if (top < 0)
+        top = 0;
+    if (top > n - rows)
+        top = n - rows;
 
     if (s_list.axis == THEME_NAV_VERTICAL) {
         int x = s_list.x >= 0 ? s_list.x : l->pad;
         int y = s_list.y >= 0 ? s_list.y : l->title_h + 4;
         int h = s_list.height > 0 ? s_list.height : l->item_h;
 
-        for (i = 0; i < n; i++) {
+        for (i = 0; i < rows; i++) {
+            int idx = top + i;
             int yy = y + i * h;
+            char lbuf[64], vbuf[32];
+            const char *label = row_label(idx, lbuf, (int)sizeof lbuf);
+            const char *value = row_value(idx, vbuf, (int)sizeof vbuf);
 
-            if (i == sel) {
+            if (idx == sel) {
                 display_fill_rect(0, yy, THEME_LAYOUT_MAX_W - 1, yy + h - 1,
                                   theme_get()->text);
-                display_draw_text(x, yy + 1, s_list.item[i].label,
+                display_draw_text(x, yy + 1, label,
                                   theme_get()->background, theme_get()->text);
             } else {
-                display_draw_text(x, yy + 1, s_list.item[i].label,
+                display_draw_text(x, yy + 1, label,
                                   theme_get()->text, theme_get()->background);
+            }
+            if (value != 0 && value[0] != '\0') {
+                int vw = (int)strlen(value) * SKIN_FONT_W;
+                int vx = THEME_LAYOUT_MAX_W - l->pad - vw;
+
+                if (vx < x + 8)
+                    vx = x + 8;
+                display_draw_text(vx, yy + 1, value,
+                                  idx == sel ? theme_get()->background
+                                             : theme_get()->text_dim,
+                                  idx == sel ? theme_get()->text
+                                             : theme_get()->background);
             }
         }
         return;
     }
 
     {
-        int widths[SKIN_ITEMS];
+        int widths[8];
         int total = 0;
         int x, y, h;
 
-        for (i = 0; i < n; i++) {
-            widths[i] = (int)strlen(s_list.item[i].label) * SKIN_FONT_W;
+        if (rows > 8)
+            rows = 8;
+        for (i = 0; i < rows; i++) {
+            char lbuf[64];
+            const char *label = row_label(top + i, lbuf, (int)sizeof lbuf);
+
+            widths[i] = (int)strlen(label) * SKIN_FONT_W;
             total += widths[i];
         }
-        total += 16 * (n - 1);
+        total += 16 * (rows - 1);
         x = s_list.x >= 0 ? s_list.x : (THEME_LAYOUT_MAX_W - total) / 2;
         if (x < l->pad)
             x = l->pad;
         y = s_list.y >= 0 ? s_list.y : l->home_bar_y;
         h = s_list.height > 0 ? s_list.height : l->home_bar_h;
 
-        for (i = 0; i < n; i++) {
-            if (i == sel) {
+        for (i = 0; i < rows; i++) {
+            int idx = top + i;
+            char lbuf[64];
+            const char *label = row_label(idx, lbuf, (int)sizeof lbuf);
+
+            if (idx == sel) {
                 display_fill_rect(x - 4, y - 1, x + widths[i] + 3,
                                   y + h - 2, theme_get()->text);
-                display_draw_text(x, y + 1, s_list.item[i].label,
+                display_draw_text(x, y + 1, label,
                                   theme_get()->background, theme_get()->text);
             } else {
-                display_draw_text(x, y + 1, s_list.item[i].label,
+                display_draw_text(x, y + 1, label,
                                   theme_get()->text, theme_get()->background);
             }
             x += widths[i] + 16;
@@ -1325,12 +1462,12 @@ static void render_section(const skin_section_t *sec, skin_ctx_t *ctx, int sel)
     }
 
     if (key_eq(type, "list")) {
-        draw_list(sel);
+        draw_list(sel, ctx->top);
         return;
     }
 }
 
-void theme_skin_render(unsigned now, unsigned idle, int sel,
+void theme_skin_render(unsigned now, unsigned idle, int sel, int top,
                        const theme_skin_state_t *st)
 {
     skin_ctx_t ctx;
@@ -1344,6 +1481,7 @@ void theme_skin_render(unsigned now, unsigned idle, int sel,
     ctx.now = now;
     ctx.idle = idle;
     ctx.sel = sel;
+    ctx.top = top;
     ctx.st = st;
     eval_vars(&ctx);
     p = s_text;
@@ -1354,25 +1492,49 @@ void theme_skin_render(unsigned now, unsigned idle, int sel,
     }
 }
 
-int theme_skin_key(int key, int *sel)
+int theme_skin_nav(int key)
 {
-    if (sel == 0)
-        return THEME_SKIN_NONE;
+    int n = theme_skin_item_count();
+
     if (key == THEME_SKIN_KEY_BACK)
         return THEME_SKIN_BACK;
-    if (s_list.count <= 0)
+    if (n <= 0)
         return THEME_SKIN_NONE;
-    if (*sel < 0 || *sel >= s_list.count)
-        *sel = 0;
-    if (key == s_list.prev_key) {
-        *sel = (*sel + s_list.count - 1) % s_list.count;
-        return THEME_SKIN_REDRAW;
-    }
-    if (key == s_list.next_key) {
-        *sel = (*sel + 1) % s_list.count;
-        return THEME_SKIN_REDRAW;
-    }
+    if (key == s_list.prev_key)
+        return THEME_SKIN_PREV;
+    if (key == s_list.next_key)
+        return THEME_SKIN_NEXT;
     if (key == THEME_SKIN_KEY_SELECT)
+        return THEME_SKIN_SELECT;
+    return THEME_SKIN_NONE;
+}
+
+int theme_skin_key(int key, int *sel)
+{
+    int n = theme_skin_item_count();
+    int nav;
+
+    if (sel == 0)
+        return THEME_SKIN_NONE;
+    nav = theme_skin_nav(key);
+    if (nav == THEME_SKIN_BACK)
+        return THEME_SKIN_BACK;
+    if (n <= 0 || nav == THEME_SKIN_NONE)
+        return THEME_SKIN_NONE;
+    if (*sel < 0 || *sel >= n)
+        *sel = 0;
+    if (nav == THEME_SKIN_PREV) {
+        *sel = (*sel + n - 1) % n;
+        return THEME_SKIN_REDRAW;
+    }
+    if (nav == THEME_SKIN_NEXT) {
+        *sel = (*sel + 1) % n;
+        return THEME_SKIN_REDRAW;
+    }
+    if (nav == THEME_SKIN_SELECT) {
+        if (s_list.dynamic)
+            return THEME_SKIN_SELECT;
         return s_list.item[*sel].action;
+    }
     return THEME_SKIN_NONE;
 }

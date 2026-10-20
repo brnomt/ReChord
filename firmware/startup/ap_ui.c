@@ -30,6 +30,7 @@
 #include "player.h"
 #include "ui/ui.h"
 #include "ui/screens/screens.h"
+#include "ui/screens/theme_ui.h"
 #include "ui/screens/skin_screen.h"
 #include "player/bfs.h"     /* phase 3: A-side file service for Core B */
 
@@ -59,6 +60,7 @@ static unsigned s_batt_ms;           /* last battery poll (see loop) */
 static int      s_resume_done;       /* boot resume restore ran (BRNOMT-87) */
 static int      s_resume_wait;       /* passes after the first probe        */
 static unsigned s_face_ms;           /* skin animation refresh tick        */
+static unsigned s_theme_ms;          /* per-screen skin animation tick     */
 static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 
 /* BRNOMT-87 resume state: defined with the loop, used by the power paths. */
@@ -848,6 +850,7 @@ static const menu_model_t k_sys = { "System", k_sys_items, SYS_ITEM_COUNT, NULL 
 static void system_screen_on_enter(void)
 {
     menu_view_init(&s_sys_view);
+    theme_ui_disarm();
 }
 
 static void system_screen_draw(void)
@@ -915,7 +918,7 @@ static const menu_item_t k_root_items[] = {
 };
 #define ROOT_ITEM_COUNT ((int)(sizeof k_root_items / sizeof k_root_items[0]))
 
-#define RC_BUILD "m9f"
+#define RC_BUILD "m9g"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
                                      ROOT_ITEM_COUNT, vol_status };
 
@@ -1186,6 +1189,7 @@ void ap_ui_loop(void)
                 while (ui_stack_depth() > 1)
                     ui_pop_screen();
             } else {
+                theme_ui_note_input();
                 ui_handle_event(&ev);
             }
         }
@@ -1220,13 +1224,31 @@ void ap_ui_loop(void)
         /* Skin home: the clock feeds the theme's expressions; refresh only
          * the animated band the package declares. */
         skin_home_tick(ap_ms());
+        theme_ui_tick(ap_ms());
         if (theme_layout()->home == THEME_HOME_SKIN &&
             ui_top_screen() == &skin_home_screen &&
+            theme_skin_animated() &&
             (unsigned)(ap_ms() - s_face_ms) >=
                 (unsigned)theme_skin_refresh_ms()) {
             int h = theme_skin_refresh_h();
 
             s_face_ms = ap_ms();
+            if (h <= 0)
+                h = theme_layout()->face_h;
+            if (h <= 0 || h > DISPLAY_H)
+                h = DISPLAY_H;
+            ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+        }
+
+        /* Per-screen skins: only animated ones wake the loop; a static
+         * Now Playing/Library/Settings/Browser skin costs nothing per pass. */
+        if (theme_ui_active() && ui_top_screen() != &skin_home_screen &&
+            theme_skin_animated() &&
+            (unsigned)(ap_ms() - s_theme_ms) >=
+                (unsigned)theme_skin_refresh_ms()) {
+            int h = theme_skin_refresh_h();
+
+            s_theme_ms = ap_ms();
             if (h <= 0)
                 h = theme_layout()->face_h;
             if (h <= 0 || h > DISPLAY_H)

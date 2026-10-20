@@ -108,7 +108,7 @@ void test_skin_home(void)
     st.album = "Album";
     st.state = "Playing";
     mock_display_reset();
-    theme_skin_render(1000, 0, 1, &st);
+    theme_skin_render(1000, 0, 1, 0, &st);
 
     idx = mock_display_text_find("Test Track");
     CHECK(idx >= 0);
@@ -171,7 +171,7 @@ void test_skin_home(void)
     st.title = "Companion";
     st.state = "Playing";
     mock_display_reset();
-    theme_skin_render(1000, 0, 1, &st);
+    theme_skin_render(1000, 0, 1, 0, &st);
     CHECK(mock_display_bitmap_count() == 0);  /* vector skin */
     CHECK(mock_display_rect_count() > 0);     /* eyes + rule + list */
     CHECK(mock_display_text_find("LIBRARY") >= 0);
@@ -222,7 +222,7 @@ void test_skin_home(void)
         st.shuffle = 1;
         st.repeat = 2;
         mock_display_reset();
-        theme_skin_render(1000, 0, 0, &st);
+        theme_skin_render(1000, 0, 0, 0, &st);
         CHECK(mock_display_text_find("TitleX") >= 0);
         CHECK(mock_display_text_find("AlbumX") >= 0);
         CHECK(mock_display_text_find("42") >= 0);

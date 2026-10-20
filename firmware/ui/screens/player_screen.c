@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "screens.h"
+#include "theme_ui.h"
 #include "playlist.h"      /* PLAYLIST_REPEAT_* (mode indicator) */
 #include "../theme.h"
 #include "../internal/hal.h"
@@ -46,6 +47,9 @@ static int      s_track_no = -1; /* player open-sequence: detects a new track */
 static bool     s_playing;
 static char     s_status[40];  /* non-empty: shown instead of Playing/Paused */
 static int      s_no_track;    /* s_status is the transient "nothing playing" */
+static int      s_use_skin;    /* active theme declares skin_now_playing */
+static int      s_skin_checked;/* skin availability resolved for this screen */
+static int      s_active;      /* player screen is the top screen */
 
 static void set_no_track(int on);
 
@@ -91,6 +95,14 @@ static void player_screen_draw(void)
     char t_now[16];
     char t_end[16];
     int  vol_w;
+
+    if (s_use_skin && !s_status[0]) {
+        theme_skin_state_t st;
+
+        theme_ui_fill_state(&st, "Now playing");
+        theme_ui_draw(&st, 0, 0);
+        return;
+    }
 
     display_clear(THEME_COLOR_BG);
 
@@ -239,16 +251,26 @@ static void player_screen_on_enter(void)
 {
     track_info_t ti;
 
+    s_active = 1;
+    s_skin_checked = 0;
     /* Keep a real error view (unsupported file, no renderer), but a stale
      * "nothing playing" must be re-evaluated: the resume restore can load a
      * track after the first refresh already ran. */
-    if (s_status[0] && !s_no_track)
+    if (s_status[0] && !s_no_track) {
+        s_use_skin = 0;
+        s_skin_checked = 1;
+        theme_ui_disarm();
         return;
+    }
     if (player_get_track(&ti) != PLAYER_OK) {
+        s_use_skin = 0;
+        theme_ui_disarm();
         set_no_track(1);
         return;
     }
     set_no_track(0);
+    s_use_skin = theme_ui_load(THEME_UI_NOW_PLAYING);
+    s_skin_checked = 1;
     player_screen_set_track(ti.title,
                             ti.duration_ms > 0
                                 ? (uint32_t)(ti.duration_ms / 1000) : 0);
@@ -261,10 +283,17 @@ static void player_screen_on_enter(void)
     player_screen_set_playing(player_get_state() == PLAYER_PLAYING);
 }
 
+static void player_screen_on_exit(void)
+{
+    s_active = 0;
+    s_use_skin = 0;
+    s_skin_checked = 0;
+}
+
 const ui_screen_t player_screen = {
     "player",
     player_screen_on_enter,
-    NULL,
+    player_screen_on_exit,
     player_screen_draw,
     player_screen_handle_event,
 };
@@ -344,6 +373,10 @@ void player_screen_set_modes(int repeat, int shuffle)
 void player_screen_set_status(const char *msg)
 {
     s_no_track = (msg != 0 && strcmp(msg, "nothing playing") == 0);
+    if (msg != 0 && msg[0] != '\0' && !s_no_track) {
+        s_use_skin = 0;            /* real error: use the compiled view */
+        s_skin_checked = 1;
+    }
     snprintf(s_status, sizeof(s_status), "%s", msg ? msg : "");
     ui_invalidate(0, PLAYER_STATE_Y, DISPLAY_W - 1,
                   PLAYER_STATE_Y + THEME_LINE_H);
@@ -370,13 +403,26 @@ void player_screen_refresh(void)
 {
     track_info_t ti;
     uint32_t pos;
+    uint32_t old_pos;
     int st;
+    int old_playing;
 
     if (player_get_track(&ti) != PLAYER_OK) {
+        s_use_skin = 0;
         set_no_track(1);
         return;
     }
-    set_no_track(0);
+    if (s_no_track) {
+        set_no_track(0);
+        s_skin_checked = 0;        /* a track appeared: resolve the skin now */
+    }
+    if (!s_skin_checked) {
+        s_use_skin = s_active
+                         ? theme_ui_load(THEME_UI_NOW_PLAYING) : 0;
+        s_skin_checked = 1;
+    }
+    old_pos = s_position_s;
+    old_playing = s_playing;
     st = player_get_state();
     if (st == PLAYER_ERROR) {
         if (!s_status[0])
@@ -402,4 +448,11 @@ void player_screen_refresh(void)
     player_screen_set_modes(player_get_repeat(), player_get_shuffle());
     if ((st == PLAYER_PLAYING) != s_playing)
         player_screen_set_playing(st == PLAYER_PLAYING);
+
+    /* The skin draws from the live player state, so a position/state change
+     * must repaint the whole skin (the compiled widgets invalidate their own
+     * rows only). */
+    if (s_use_skin && (pos != old_pos ||
+                       (st == PLAYER_PLAYING) != old_playing))
+        ui_invalidate_all();
 }

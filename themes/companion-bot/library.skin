@@ -1,0 +1,46 @@
+# Companion Bot — Library root skin.
+#
+# The category rows are supplied by the app as a dynamic list source; the
+# theme only owns the geometry and the key mapping. Static screen: no
+# refresh_ms, so it repaints only on input.
+
+[background]
+type=fill
+x=0
+y=0
+w=W
+h=H
+color=background
+
+[heading]
+type=text
+x=6
+y=3
+text=heading
+color=accent
+
+[rule]
+type=fill
+x=0
+y=16
+w=W
+h=1
+color=text_dim
+
+[menu]
+type=list
+axis=vertical
+x=6
+y=20
+height=14
+rows=8
+source=library
+prev=down
+next=up
+
+[footer]
+type=text
+x=6
+y=156
+text="VOL+/- move   PLAY open   BACK exit"
+color=text_dim

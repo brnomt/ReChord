@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "screens.h"
+#include "theme_ui.h"
 #include "../theme.h"
 #include "../internal/hal.h"
 #include "../../services/media_db.h"       /* BRNOMT-90: folder -> list */
@@ -27,6 +28,27 @@
 
 static browser_state_t s_state;
 static char            s_root[BROWSER_PATH_MAX];
+static int             s_use_skin;
+
+static const char *browser_label(int index, char *buf, int cap)
+{
+    const fs_dirent_t *ent;
+    uint32_t widx;
+
+    if (index < 0 || index >= (int)s_state.total)
+        return "";
+    widx = (uint32_t)index - s_state.win_start;
+    if (widx >= s_state.win_count)
+        return "";
+    ent = &s_state.window[widx];
+    if (ent->is_dir)
+        snprintf(buf, (size_t)cap, "%s/", ent->name);
+    else
+        snprintf(buf, (size_t)cap, "%s", ent->name);
+    return buf;
+}
+
+static theme_skin_list_source_t s_source = { 0, browser_label, 0 };
 
 /* One saved cursor/scroll per descent level, so BACK from a folder returns to
  * the folder you came from instead of the top (BRNOMT-93). Depth is small
@@ -52,6 +74,15 @@ int browser_page_rows(void)
 
 static int browser_page(void)
 {
+    if (s_use_skin) {
+        int rows = theme_ui_rows_hint();
+
+        if (rows > 0) {
+            if (rows > BROWSER_WINDOW)
+                rows = BROWSER_WINDOW;
+            return rows;
+        }
+    }
     return browser_page_rows();
 }
 
@@ -76,7 +107,7 @@ static void browser_fetch_window(void)
     int rc;
 
     rc = fs_list_dir(s_state.path, s_state.win_start, s_state.window,
-                     (uint32_t)browser_page_rows(), &got, &total);
+                     (uint32_t)browser_page(), &got, &total);
     if (rc != 0) {
         log_printf("browser: list '%s' failed (%d)", s_state.path, rc);
         s_state.win_count = 0;
@@ -213,10 +244,22 @@ static void browser_screen_on_enter(void)
 {
     if (s_state.path[0] == '\0')
         browser_path_copy(s_state.path, "/", BROWSER_PATH_MAX);
+    s_use_skin = theme_ui_load(THEME_UI_BROWSER);
+    if (s_use_skin) {
+        int rows = theme_ui_rows_hint();
+
+        if (rows <= 0 || rows > BROWSER_WINDOW) {
+            s_use_skin = 0;           /* skin window does not fit this screen */
+            theme_ui_disarm();
+        }
+    }
     /* Preserve cursor/scroll when a child screen pops back (BRNOMT-93); force
      * a refetch so an inserted/removed card is re-read. */
     s_state.mounted = false;
     browser_ensure_visible();
+    s_source.count = (int)s_state.total;
+    if (s_use_skin)
+        theme_ui_list(&s_source);
 }
 
 static void browser_screen_draw(void)
@@ -224,6 +267,16 @@ static void browser_screen_draw(void)
     int page = browser_page();
     int row;
     char footer[32];
+
+    if (s_use_skin) {
+        theme_skin_state_t st;
+
+        s_source.count = (int)s_state.total;
+        theme_ui_list(&s_source);
+        theme_ui_fill_state(&st, s_state.path);
+        theme_ui_draw(&st, s_state.cursor, s_state.top);
+        return;
+    }
 
     display_clear(THEME_COLOR_BG);
 
@@ -264,10 +317,31 @@ static void browser_screen_draw(void)
 
 static void browser_screen_handle_event(const input_event_t *ev)
 {
+    int key = ev->type;
+
     if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
         return;                       /* listings act on PRESS/REPEAT only */
 
-    switch (ev->type) {
+    if (s_use_skin) {
+        int nav;
+
+        theme_ui_note_input();
+        s_source.count = (int)s_state.total;
+        theme_ui_list(&s_source);
+        nav = theme_ui_nav(ev->type);
+        if (nav == THEME_SKIN_PREV)
+            key = KEY_UP;
+        else if (nav == THEME_SKIN_NEXT)
+            key = KEY_DOWN;
+        else if (nav == THEME_SKIN_SELECT)
+            key = KEY_SELECT;
+        else if (nav == THEME_SKIN_BACK)
+            key = KEY_BACK;
+        else
+            return;
+    }
+
+    switch (key) {
     case KEY_UP:
         if (s_state.total > 0) {
             /* cyclic wrap-around (BRNOMT-93) */

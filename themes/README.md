@@ -6,9 +6,14 @@ engine) and reads everything from `/.rechord/themes/<theme_id>/`.
 
 ```
 /.rechord/themes/<theme_id>/
-  theme.cfg        # palette, list geometry, home selector, asset declarations
-  home.skin        # optional declarative home screen (meters + expressions)
-  assets/*.bin     # 1-bit bitmaps referenced by home.skin
+  theme.cfg        # palette, layout, home selector, skin paths, assets
+  home.skin        # optional declarative main/home screen
+  now_playing.skin # optional Now Playing screen
+  library.skin     # optional Library root
+  library_cat.skin # optional category (names/songs)
+  browser.skin     # optional file browser
+  settings.skin    # optional Settings
+  assets/*.bin     # 1-bit bitmaps referenced by any skin
 ```
 
 ## Install / activate
@@ -55,22 +60,75 @@ np_vol_y=162
 np_vol_h=2
 ```
 
-For a declarative home screen:
+For a declarative home screen and optional per-screen skins:
 
 ```
 home=skin
 skin=home.skin
+skin_now_playing=now_playing.skin
+skin_library=library.skin
+skin_library_cat=library_cat.skin
+skin_browser=browser.skin
+skin_settings=settings.skin
 face_h=146             # animated band the UI re-flushes (optional)
 
 # optional bitmaps: asset_<name>=<relative path>,<w>,<h>
 # asset_icon=assets/icon.bin,32,32
 ```
 
+Each screen skin is independent: omit a key to keep that screen's compiled
+UI. A declared file that cannot be read (or a browser skin with more than 12
+rows) falls back to the compiled screen without rejecting the package. The
+home skin is still validated atomically at apply time.
+
 Limits: `format` must be 1; `home=skin` requires a readable `skin=` file;
 asset paths are relative and may not contain `..`; max 8 assets, 64x64 px,
 stride <= 8 bytes, cache <= 1 KiB; `home`/`home_nav` values are validated and an
 unknown value rejects the whole package. `companion` is accepted as a legacy
 alias for `home=skin`.
+
+## Screen skins
+
+Every screen can have its own declarative layout, while the compiled screen
+keeps its data and behavior (movement, selection, folder navigation, settings
+persistence, volume). This is how the same theme can show an animated eye home
+and a completely plain Settings list.
+
+| key | screen | data the app hands over |
+|---|---|---|
+| `skin` / `skin_main` | Main/home | static `item0..` declared by the skin |
+| `skin_now_playing` | Now Playing | no list; player state only |
+| `skin_library` | Library root | 8 category labels |
+| `skin_library_cat` | one category | names or songs, cursor and total |
+| `skin_browser` | file browser | a window of directory entries |
+| `skin_settings` | Settings | visible rows + right-column values |
+
+Interactive screens mark a `list` with `source=<name>`; the app registers the
+rows, and the engine draws the window `top .. top+rows-1`. The name is for
+readability (one source per screen):
+
+```
+[menu]
+type=list
+axis=vertical
+x=6
+y=20
+height=14
+rows=9
+source=settings
+prev=down
+next=up
+```
+
+`rows` is also the paging size used by the screen, so the cursor and the
+visible window never disagree. Without `rows`, a vertical list fills down to
+`H`. The footer can use `sel`, `n` and string concatenation, e.g.
+`text=(sel + 1) + " / " + n`. Dynamic lists can also have a right-aligned
+value column (Settings); the engine owns the selected-row inversion.
+
+The theme cannot sort/filter or invent rows: the screen's meaning stays in
+the app. A screen with no `[skin] refresh_ms` is static and repaints only on
+input or new player state.
 
 ## home.skin
 
@@ -129,7 +187,7 @@ Meter types:
 | `bitmap` | `asset x y color bg` (asset dimensions become `aw`/`ah`) |
 | `text` | `x y text color bg` |
 | `bar` | `x y w h value max color bg` |
-| `list` | `axis x y height selected prev next item0..item3` |
+| `list` | `axis x y height selected rows source prev next item0..item3` |
 
 Any meter can set `visible=<expr>` to skip drawing. A `[vars]` section defines
 named expressions reused by meters (bounded recursion), which keeps complex
@@ -161,15 +219,18 @@ Strings concatenate with `+` and ints are converted (`pl_i + "/" + pl_n`).
 | Variable | Meaning |
 |---|---|
 | `t`, `idle` | app clock ms / ms since last key |
-| `sel`, `n` | selected home item / item count |
+| `sel`, `n` | selected item / item count |
+| `top` | first visible list row |
 | `W`, `H`, `aw`, `ah` | display size / current bitmap asset size |
 | `playing`, `paused`, `stopped` | player state bits |
 | `volume` | volume dB |
 | `battery` | battery %, -1 unknown |
 | `title`, `artist`, `album`, `path` | current track metadata |
+| `heading` | screen title/path (Library, Settings, browser path, category) |
 | `state` | `"Playing"` / `"Paused"` / `"Stopped"` |
 | `pos`, `dur` | position / duration in seconds |
 | `pos_ms`, `dur_ms` | same in milliseconds |
+| `pos_fmt`, `dur_fmt` | `M:SS` strings for the two values |
 | `bits`, `rate` | source depth and sample rate |
 | `pl_i`, `pl_n` | 1-based playlist position / count |
 | `shuffle`, `repeat` | 0/1 and off/all/one |

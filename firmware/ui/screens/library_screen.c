@@ -9,12 +9,14 @@
 #include <string.h>
 
 #include "screens.h"
+#include "theme_ui.h"
 #include "../theme.h"
 #include "../internal/hal.h"
 
 #include "../../services/media_query.h"
 
 static menu_view_t s_view;
+static int         s_use_skin;
 
 static void open_cat(int cat)
 {
@@ -44,8 +46,23 @@ static const menu_item_t k_items[MQ_COUNT] = {
 
 static const menu_model_t k_model = { "Library", k_items, MQ_COUNT };
 
+static const char *lib_label(int index, char *buf, int cap)
+{
+    if (index < 0 || index >= MQ_COUNT)
+        return "";
+    snprintf(buf, (size_t)cap, "%s", k_items[index].label);
+    return buf;
+}
+
+static const theme_skin_list_source_t k_source = {
+    MQ_COUNT, lib_label, 0
+};
+
 static void lib_on_enter(void)
 {
+    s_use_skin = theme_ui_load(THEME_UI_LIBRARY);
+    if (s_use_skin)
+        theme_ui_list(&k_source);
     /* Preserve the category cursor when returning from a category or the
      * player screen (BRNOMT-93); library_cat_open() resets on a new entry. */
     ui_invalidate_all();
@@ -53,13 +70,44 @@ static void lib_on_enter(void)
 
 static void lib_draw(void)
 {
+    if (s_use_skin) {
+        theme_skin_state_t st;
+
+        theme_ui_list(&k_source);
+        theme_ui_fill_state(&st, "Library");
+        theme_ui_draw(&st, s_view.cursor, s_view.top);
+        return;
+    }
     menu_draw(&k_model, &s_view);
 }
 
 static void lib_handle_event(const input_event_t *ev)
 {
+    int nav;
+    int rows;
+
     if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
         return;                       /* listings act on PRESS/REPEAT only */
+
+    if (s_use_skin) {
+        theme_ui_note_input();
+        theme_ui_list(&k_source);
+        rows = theme_ui_rows();
+        if (rows <= 0)
+            rows = menu_page_size();
+        nav = theme_ui_nav(ev->type);
+        if (nav == THEME_SKIN_PREV || nav == THEME_SKIN_NEXT) {
+            menu_view_move(&s_view, nav == THEME_SKIN_PREV ? -1 : +1,
+                           MQ_COUNT, rows);
+            ui_invalidate_all();
+        } else if (nav == THEME_SKIN_SELECT) {
+            if (s_view.cursor >= 0 && s_view.cursor < MQ_COUNT)
+                k_items[s_view.cursor].on_select();
+        } else if (nav == THEME_SKIN_BACK) {
+            ui_pop_screen();
+        }
+        return;
+    }
 
     switch (ev->type) {
     case KEY_UP:

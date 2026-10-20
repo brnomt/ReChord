@@ -8,9 +8,14 @@ pointed there):
 
 ```
 /.rechord/themes/<theme_id>/
-  theme.cfg        palette, list geometry, home selector, asset declarations
-  home.skin        optional declarative home screen (meters + expressions)
-  assets/*.bin     optional 1-bit bitmaps referenced by home.skin
+  theme.cfg          palette, layout, home selector, skin paths, assets
+  home.skin          optional declarative main/home screen
+  now_playing.skin   optional Now Playing screen
+  library.skin       optional Library root
+  library_cat.skin   optional category (names/songs)
+  browser.skin       optional file browser
+  settings.skin      optional Settings
+  assets/*.bin       optional 1-bit bitmaps referenced by any skin
 ```
 
 The reference theme is `themes/companion-bot/`.
@@ -57,7 +62,12 @@ are allowed (the flat parser ignores section headers). Keys:
 | `format` | must be `1` |
 | `name` | display name in Settings |
 | `home` | `menu` (classic list) or `skin` (interpreter) |
-| `skin` | skin file, relative to the theme directory (required for `home=skin`) |
+| `skin` / `skin_main` | main/home skin file, relative to the theme directory (required for `home=skin`) |
+| `skin_now_playing` | Now Playing screen skin (optional) |
+| `skin_library` | Library category list skin (optional) |
+| `skin_library_cat` | one library category (names/songs) skin (optional) |
+| `skin_browser` | file browser skin (optional) |
+| `skin_settings` | Settings screen skin (optional) |
 | `home_nav` | default list axis: `vertical` / `horizontal` |
 | palette | `background surface text text_dim accent danger success spacing radius` |
 | list geometry | `pad title_h item_h` |
@@ -68,15 +78,76 @@ Limits: 8 assets, 64x64 px, stride <= 8 bytes, asset cache <= 1 KiB. Asset
 paths are relative, may not contain `..`, and a declared-but-unreadable asset
 rejects the package. `companion` is accepted as a legacy alias for `home=skin`.
 
+Per-screen skins are optional and independent. A screen whose path is empty,
+unreadable, or declares a layout the screen cannot fit (for example the
+browser needs `rows <= 12`) falls back to its compiled UI. A broken per-screen
+skin never blocks the rest of the package; the main skin is still validated
+atomically at apply time.
+
 Everything that is not a theme key is ignored, so packages remain forward
 compatible.
 
 ---
 
-## 3. `home.skin`
+## 3. Per-screen skins
 
-A bounded, Rockbox/Rainmeter-style scene. Sections are drawn in file order.
-Each section has a `type` and properties whose values may be expressions.
+A theme may ship one skin per screen. They all use the same interpreter and
+state variables; what changes is the layout, the animation and the list data
+the compiled screen hands over.
+
+| Manifest key | Screen | Data supplied by the app |
+|---|---|---|
+| `skin` / `skin_main` | Main / home | static `item0..item3` (the skin declares them) |
+| `skin_now_playing` | Now Playing | no list; full runtime state |
+| `skin_library` | Library root | `source` list: 8 categories |
+| `skin_library_cat` | one category | `source` list: names or songs, live cursor/total |
+| `skin_browser` | file browser | `source` list: current directory window |
+| `skin_settings` | Settings | `source` list: visible rows + right-column values |
+
+The compiled screen still owns behavior: cursor/scroll state, opening a
+folder, cycling a setting, volume keys, saving. The theme owns the visual
+structure and may make each screen completely different — an animated eye
+home, a plain list for Settings, no animation at all on Now Playing. The app
+loads the screen's skin on entry and re-registers its list source; returning
+to the home reloads the main skin. Changing the theme from Settings reloads
+the Settings skin for the new package.
+
+### Dynamic lists
+
+A `list` meter becomes dynamic by naming a source:
+
+```
+[menu]
+type=list
+axis=vertical
+x=6
+y=20
+height=14
+rows=9
+source=settings
+prev=down
+next=up
+```
+
+- `source=<name>` tells the engine to use the callback table the compiled
+  screen registered (the name is documentation; there is one source per
+  screen). Without `source`, `item0..` static labels are used as on the home.
+- `rows` is the visible window. The screen uses the same value for paging, so
+  the cursor and the drawn window always agree. If omitted, a vertical list
+  fills the area down to `H`; the browser rejects more than 12 rows.
+- The screen passes `top` and `sel`; the engine draws `top .. top+rows-1` and
+  inverts `sel`. The skin can draw a footer with `(sel + 1) + " / " + n`;
+  `n` is the source's total, not just the window.
+- The source may provide a right-aligned value column (Settings does). Values
+  are drawn by the engine so themes keep the same selected-row inversion.
+
+The skin cannot sort, filter or invent rows: it controls how the screen's
+data is presented, not what the screen means. That keeps the app's behavior
+and the theme's visuals independent.
+
+---
+
+## 4. `home.skin` / screen skin syntax
 
 ```
 [background]
@@ -119,7 +190,7 @@ item2=SETTINGS:settings
 | `bitmap` | `asset x y color bg` (asset dimensions become `aw`/`ah`) |
 | `text` | `x y text color bg` |
 | `bar` | `x y w h value max color bg` |
-| `list` | `axis x y height selected prev next item0..item3` |
+| `list` | `axis x y height selected rows source prev next item0..item3` |
 
 Any meter may set `visible=<expr>`; a false value skips it.
 
@@ -178,7 +249,7 @@ PLAY is always SELECT, BACK is always BACK, and power is handled globally
 
 ---
 
-## 4. Runtime state available to the theme
+## 5. Runtime state available to the theme
 
 The UI adapter fills a read-only `theme_skin_state_t` before drawing:
 
@@ -187,6 +258,7 @@ The UI adapter fills a read-only `theme_skin_state_t` before drawing:
 | `t` | ms | monotonic app clock (`ap_ms`) |
 | `idle` | ms | time since the last key |
 | `sel` | int | selected list item |
+| `top` | int | first visible list row (screen scroll position) |
 | `n` | int | number of list items |
 | `W`, `H` | int | display size (320, 170) |
 | `aw`, `ah` | int | current bitmap asset dimensions |
@@ -197,9 +269,11 @@ The UI adapter fills a read-only `theme_skin_state_t` before drawing:
 | `artist` | string | `player_get_track().artist` |
 | `album` | string | `player_get_track().album` |
 | `path` | string | `player_get_track().path` |
+| `heading` | string | screen title/path (Library, Settings, browser path, category) |
 | `state` | string | `"Playing"` / `"Paused"` / `"Stopped"` |
 | `pos` / `dur` | s | `player_get_position_ms()`, track duration |
 | `pos_ms` / `dur_ms` | ms | same values in milliseconds |
+| `pos_fmt` / `dur_fmt` | string | `M:SS` formatting of the two values |
 | `bits` | int | source depth (16/24/32, 0 unknown) |
 | `rate` | Hz | sample rate (44100/48000/…, 0 unknown) |
 | `pl_i` / `pl_n` | int | 1-based playlist position / count (0 = no list) |
@@ -243,7 +317,7 @@ color=text_dim
 type=text
 x=4
 y=44
-text=(pos / 60) + ":" + ((pos % 60) < 10 ? "0" : "") + (pos % 60)
+text=pos_fmt + " / " + dur_fmt
 color=text_dim
 
 [bar]
@@ -277,7 +351,7 @@ Missing values are empty strings / 0, never a crash.
 
 ---
 
-## 5. Animation model
+## 6. Animation model
 
 There is no compiled animation state. Motion is a function of `t`, `idle`,
 `playing` and the package's expressions. The Companion Bot is the reference:
@@ -291,13 +365,20 @@ blink_h=(blink_raw < 4 ? 4 : blink_raw)
 idle_h=(idle > 6000 ? 4 : (idle < 300 ? 4 + (idle * (eye_h - 4)) / 300 : eye_h))
 ```
 
-`[skin] refresh_ms` controls the animated refresh rate (Companion: 50 ms);
-`refresh_h` is the band the UI re-flushes. `[skin]` also accepts `refresh_ms`
-and `refresh_h` only.
+`[skin] refresh_ms` opts a screen into animation and controls its refresh
+rate (Companion home: 50 ms); `refresh_h` is the band the UI re-flushes. A
+skin with no `refresh_ms` is static: the app repaints it only on input or on
+new player state. That is why the Now Playing skin in this package costs
+nothing while paused, and why Settings/Library/Browser do not wake the CPU.
+`[skin]` accepts only `refresh_ms` and `refresh_h`.
+
+The per-screen refresh is driven by the app loop only while that screen is on
+top; the home keeps its own tick. A theme can animate any screen by declaring
+`refresh_ms`, or leave it static by omitting it.
 
 ---
 
-## 6. Assets (optional)
+## 7. Assets (optional)
 
 Raw 1-bit rows, MSB-first, stride = `(w + 7) / 8`. Declare in `theme.cfg`:
 
@@ -323,7 +404,7 @@ bg=background
 
 ---
 
-## 7. Limits and safety
+## 8. Limits and safety
 
 - Skin text 4 KiB, 32 sections, 12 properties/section, 144-byte values.
 - Expressions: 2048 steps, recursion depth 12.
@@ -333,15 +414,30 @@ bg=background
 - No theme can execute code, allocate memory, or take the player keys.
 - Boot fallback is always the built-in Mono palette/default layout.
 
-Measured on the current AP build: `.bss_end 0x03049B58` (gate `0x0304A000`),
-skin engine stack 2800 B (`load`) / 2200 B (`render`).
+Measured on the current AP build: `.bss_end 0x03049CA8` (gate `0x0304A000`),
+with the engine, per-screen bridge and the additional manifest paths. The
+interpreter keeps fixed buffers only; no per-theme allocation and no heap.
 
 ---
 
-## 8. Current scope
+## 9. Current scope
 
-The declarative skin interpreter currently drives the **home screen**. The
-other screens read the active package's palette and list/Now Playing geometry,
-but their structure is still compiled (menu, library, browser, settings, Now
-Playing). Extending the interpreter to those screens is the next step; it uses
-the same meters, expressions, state variables and key contract described here.
+The declarative interpreter drives the **home/main, Now Playing, Library,
+library category, browser and Settings** screens when the package declares
+the matching skin:
+
+```
+skin=home.skin
+skin_now_playing=now_playing.skin
+skin_library=library.skin
+skin_library_cat=library_cat.skin
+skin_browser=browser.skin
+skin_settings=settings.skin
+```
+
+The compiled screens remain the fallback and keep all behavior/actions. The
+classic root menu can still be the home (`home=menu`); the system and boot
+screens are not skinned. The `firmware/ui/screens/theme_ui.c` bridge maps each
+screen's rows and player state into the engine; `theme_ui_load()` is called on
+entry and `theme_ui_nav()` translates the skin's vol mapping into the screen's
+existing movement/action code.

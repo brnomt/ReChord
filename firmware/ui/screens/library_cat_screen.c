@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "screens.h"
+#include "theme_ui.h"
 #include "../theme.h"
 #include "../internal/hal.h"
 
@@ -35,6 +36,41 @@ typedef struct {
 } cat_state_t;
 
 static cat_state_t s_cat;
+static int s_use_skin;
+
+static unsigned cat_total(void);
+
+static const char *cat_label(int index, char *buf, int cap)
+{
+    const char *label;
+    media_rec_t rec;
+
+    if (index < 0 || (unsigned)index >= cat_total()) {
+        buf[0] = '\0';
+        return buf;
+    }
+    if (s_cat.mode)
+        label = mq_filter_get((unsigned)index, &rec) == FS_OK ? rec.title : "?";
+    else
+        label = mq_names_get((unsigned)index);
+    snprintf(buf, (size_t)cap, "%s", label != 0 ? label : "");
+    return buf;
+}
+
+static theme_skin_list_source_t s_source = { 0, cat_label, 0 };
+
+/* Rows the active screen shows: the skin's list window when one is loaded,
+ * otherwise the compiled geometry. */
+static int cat_page(void)
+{
+    if (s_use_skin) {
+        int rows = theme_ui_rows();
+
+        if (rows > 0)
+            return rows;
+    }
+    return cat_rows();
+}
 
 /* Called by the Library menu before pushing this screen. */
 void library_cat_open(int cat)
@@ -61,6 +97,10 @@ static void cat_on_enter(void)
         (void)mq_filter_init(s_cat.cat, s_cat.value[0] ? s_cat.value : 0);
     else
         (void)mq_names_init(s_cat.cat);
+    s_use_skin = theme_ui_load(THEME_UI_LIBRARY_CAT);
+    s_source.count = (int)cat_total();
+    if (s_use_skin)
+        theme_ui_list(&s_source);
     ui_invalidate_all();
 }
 
@@ -75,6 +115,21 @@ static void cat_draw(void)
     char title[48];
     char footer[24];
     int row;
+
+    if (s_use_skin) {
+        theme_skin_state_t st;
+
+        if (s_cat.mode)
+            snprintf(title, sizeof title, "%s / %s",
+                     mq_category_name(s_cat.cat), s_cat.value);
+        else
+            snprintf(title, sizeof title, "%s", mq_category_name(s_cat.cat));
+        s_source.count = (int)total;
+        theme_ui_list(&s_source);
+        theme_ui_fill_state(&st, title);
+        theme_ui_draw(&st, s_cat.cursor, s_cat.top);
+        return;
+    }
 
     display_clear(THEME_COLOR_BG);
     display_fill_rect(0, 0, DISPLAY_W - 1, THEME_TITLE_H - 1,
@@ -139,7 +194,7 @@ static void cat_play(int idx)
  * the wrap itself happens in the key handler; this just fixes the viewport). */
 static void cat_ensure_visible(unsigned total)
 {
-    int rows = cat_rows();
+    int rows = cat_page();
 
     if (total == 0u) {
         s_cat.cursor = 0;
@@ -163,11 +218,31 @@ static void cat_ensure_visible(unsigned total)
 static void cat_handle_event(const input_event_t *ev)
 {
     unsigned total = cat_total();
+    int key = ev->type;
 
     if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
         return;                       /* listings act on PRESS/REPEAT only */
 
-    switch (ev->type) {
+    if (s_use_skin) {
+        int nav;
+
+        theme_ui_note_input();
+        s_source.count = (int)total;
+        theme_ui_list(&s_source);
+        nav = theme_ui_nav(ev->type);
+        if (nav == THEME_SKIN_PREV)
+            key = KEY_UP;
+        else if (nav == THEME_SKIN_NEXT)
+            key = KEY_DOWN;
+        else if (nav == THEME_SKIN_SELECT)
+            key = KEY_SELECT;
+        else if (nav == THEME_SKIN_BACK)
+            key = KEY_BACK;
+        else
+            return;
+    }
+
+    switch (key) {
     case KEY_UP:
         if (total != 0u) {
             /* cyclic wrap-around (BRNOMT-93) */

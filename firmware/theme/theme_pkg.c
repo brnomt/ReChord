@@ -81,6 +81,7 @@ void theme_layout_defaults(theme_layout_t *l)
 {
     if (l == 0)
         return;
+    memset(l, 0, sizeof *l);
     l->format = 1;
     l->home = THEME_HOME_MENU;
     l->home_nav = THEME_NAV_VERTICAL;
@@ -90,7 +91,6 @@ void theme_layout_defaults(theme_layout_t *l)
     l->face_h = 0;
     l->home_bar_y = 152;
     l->home_bar_h = 14;
-    l->skin[0] = '\0';
     l->asset_count = 0;
     l->np_title_y = 24;
     l->np_artist_y = 36;
@@ -192,6 +192,23 @@ static int valid_asset_path(const char *p, int len)
             return 0;
     }
     return 1;
+}
+
+/* Trimmed relative path value -> fixed buffer. */
+static int parse_path_value(const char *v, int vlen, char *out)
+{
+    int start = 0;
+    int end = vlen;
+
+    while (start < end && (v[start] == ' ' || v[start] == '\t'))
+        start++;
+    while (end > start && (v[end - 1] == ' ' || v[end - 1] == '\t'))
+        end--;
+    if (!valid_asset_path(v + start, end - start))
+        return -1;
+    memcpy(out, v + start, (size_t)(end - start));
+    out[end - start] = '\0';
+    return 0;
 }
 
 static int parse_asset_key(const char *key, int klen, const char *v, int vlen,
@@ -307,20 +324,41 @@ int theme_layout_parse(const char *text, theme_layout_t *l)
                 p = (*eol != '\0') ? eol + 1 : eol;
                 continue;
             }
-            if (key_is(p, klen, "skin")) {
-                int start = 0;
-                int end = vlen;
-
-                while (start < end && (v[start] == ' ' || v[start] == '\t'))
-                    start++;
-                while (end > start &&
-                       (v[end - 1] == ' ' || v[end - 1] == '\t'))
-                    end--;
-                if (!valid_asset_path(v + start, end - start))
+            if (key_is(p, klen, "skin") ||
+                key_is(p, klen, "skin_main")) {
+                if (parse_path_value(v, vlen, tmp.skin) != 0)
                     return -1;
-                memcpy(tmp.skin, v + start, (size_t)(end - start));
-                tmp.skin[end - start] = '\0';
                 skin_seen = 1;
+                p = (*eol != '\0') ? eol + 1 : eol;
+                continue;
+            }
+            if (key_is(p, klen, "skin_now_playing")) {
+                if (parse_path_value(v, vlen, tmp.skin_now_playing) != 0)
+                    return -1;
+                p = (*eol != '\0') ? eol + 1 : eol;
+                continue;
+            }
+            if (key_is(p, klen, "skin_library_cat")) {
+                if (parse_path_value(v, vlen, tmp.skin_library_cat) != 0)
+                    return -1;
+                p = (*eol != '\0') ? eol + 1 : eol;
+                continue;
+            }
+            if (key_is(p, klen, "skin_library")) {
+                if (parse_path_value(v, vlen, tmp.skin_library) != 0)
+                    return -1;
+                p = (*eol != '\0') ? eol + 1 : eol;
+                continue;
+            }
+            if (key_is(p, klen, "skin_browser")) {
+                if (parse_path_value(v, vlen, tmp.skin_browser) != 0)
+                    return -1;
+                p = (*eol != '\0') ? eol + 1 : eol;
+                continue;
+            }
+            if (key_is(p, klen, "skin_settings")) {
+                if (parse_path_value(v, vlen, tmp.skin_settings) != 0)
+                    return -1;
                 p = (*eol != '\0') ? eol + 1 : eol;
                 continue;
             }

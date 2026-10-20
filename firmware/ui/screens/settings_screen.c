@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "screens.h"
+#include "theme_ui.h"
 #include "../theme.h"
 #include "../../theme/theme_runtime.h"
 #include "../../services/rechord_files.h"
@@ -28,6 +29,29 @@ static menu_view_t        s_view;
 
 static menu_item_t        s_items[SETTING_MAX_ROWS];
 static int                s_row_count = 1; /* Theme + visible keys        */
+static int                s_use_skin;
+
+static const char *set_label(int index, char *buf, int cap)
+{
+    if (index < 0 || index >= s_row_count)
+        return "";
+    snprintf(buf, (size_t)cap, "%s", s_items[index].label);
+    return buf;
+}
+
+static const char *set_value(int index, char *buf, int cap)
+{
+    const char *v = "";
+
+    if (index < 0 || index >= s_row_count)
+        return "";
+    if (s_items[index].value_text != 0)
+        v = s_items[index].value_text();
+    snprintf(buf, (size_t)cap, "%s", v != 0 ? v : "");
+    return buf;
+}
+
+static theme_skin_list_source_t s_source = { 0, set_label, set_value };
 static unsigned           s_flush_at_ms;   /* volume flush deadline      */
 static int                s_volume_dirty;  /* a volume save is pending   */
 
@@ -127,6 +151,12 @@ static void on_select_theme(void)
                    theme_layout()->home);
         if (s_theme_applied != 0)
             s_theme_applied();
+        /* The settings screen is still on top: load the new theme's settings
+         * skin (if any) instead of drawing the previous one. */
+        s_use_skin = theme_ui_load(THEME_UI_SETTINGS);
+        s_source.count = s_row_count;
+        if (s_use_skin)
+            theme_ui_list(&s_source);
         ui_invalidate_all();
         return;
     }
@@ -233,6 +263,10 @@ static void settings_screen_on_enter(void)
     build_items();
     menu_view_init(&s_view);
     settings_screen_reload();
+    s_use_skin = theme_ui_load(THEME_UI_SETTINGS);
+    s_source.count = s_row_count;
+    if (s_use_skin)
+        theme_ui_list(&s_source);
 }
 
 static void settings_screen_on_exit(void)
@@ -243,13 +277,47 @@ static void settings_screen_on_exit(void)
 static void settings_screen_draw(void)
 {
     refresh_values();
+    if (s_use_skin) {
+        theme_skin_state_t st;
+
+        s_source.count = s_row_count;
+        theme_ui_list(&s_source);
+        theme_ui_fill_state(&st, "Settings");
+        theme_ui_draw(&st, s_view.cursor, s_view.top);
+        return;
+    }
     menu_draw(&s_model, &s_view);
 }
 
 static void settings_screen_handle_event(const input_event_t *ev)
 {
+    int nav;
+    int rows;
+
     if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
         return;                       /* listings act on PRESS/REPEAT only */
+
+    if (s_use_skin) {
+        theme_ui_note_input();
+        s_source.count = s_row_count;
+        theme_ui_list(&s_source);
+        rows = theme_ui_rows();
+        if (rows <= 0)
+            rows = menu_page_size();
+        nav = theme_ui_nav(ev->type);
+        if (nav == THEME_SKIN_PREV || nav == THEME_SKIN_NEXT) {
+            menu_view_move(&s_view, nav == THEME_SKIN_PREV ? -1 : +1,
+                           s_row_count, rows);
+            ui_invalidate_all();
+        } else if (nav == THEME_SKIN_SELECT) {
+            if (s_view.cursor >= 0 && s_view.cursor < s_row_count)
+                s_items[s_view.cursor].on_select();
+            ui_invalidate_all();
+        } else if (nav == THEME_SKIN_BACK) {
+            ui_pop_screen();   /* on_exit saves */
+        }
+        return;
+    }
 
     switch (ev->type) {
     case KEY_UP:
