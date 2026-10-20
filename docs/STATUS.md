@@ -52,7 +52,9 @@ plays audio on hardware:
 - **Resume**: the last track + position and the browser folder/row live in
   `/.rechord/state` (separate from the config, rewritten in place); the
   `resume` setting (off/folder/track) decides what is restored at boot. It
-  opens paused — never autoplays.
+  opens paused — never autoplays. The folder/row are restored as browser
+  state (Files opens there), but boot stays on the active theme's home
+  (BRNOMT-102).
 - **Memory** (vendor `B_Core.sct` + TRM): B code in HIGHRAM0
   `0x01000000..0x01020000`; control block `0x01020000`; A→B file ring
   `0x01021000` (32 KiB) + **pre-open ring** `0x01029000` (16 KiB); PCM ring

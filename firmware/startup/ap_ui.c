@@ -641,7 +641,16 @@ static void usb_session(void)
     ui_invalidate_all();
 }
 
-static void open_files(void)    { browser_screen_set_root("/"); ui_push_screen(&browser_screen); }
+static void open_files(void)
+{
+    /* Keep the folder restored by the resume boot (and the navigation memory);
+     * only establish the BACK clamp. The first open starts at the root. */
+    if (browser_screen_state()->path[0] == '\0')
+        browser_screen_set_root("/");
+    else
+        browser_screen_set_root_keep_path("/");
+    ui_push_screen(&browser_screen);
+}
 static void open_player(void)   { ui_push_screen(&player_screen); }
 static void open_settings(void) { settings_screen_reload(); ui_push_screen(&settings_screen); }
 
@@ -1127,12 +1136,15 @@ static void resume_poll(unsigned now, int force)
     }
 }
 
-/* BRNOMT-87: land where the user left off, per `resume`:
- *   off    -> plain root menu
- *   folder -> the browser at the saved folder/row
+/* BRNOMT-87: restore where the user left off, per `resume`:
+ *   off    -> nothing
+ *   folder -> the browser's saved folder/row (as state; boot stays on the
+ *             Main UI, and Files opens there)
  *   track  -> that, plus the last track opened at pos_ms
  * Never autoplays: the restored track is opened + seeked and left STOPPED
- * (shown as "Paused"); SELECT/PLAY resumes from there. */
+ * (shown as "Paused"); SELECT/PLAY resumes from there.
+ * BRNOMT-102: the old path pushed the browser here, so every boot landed in
+ * the File Explorer instead of the active theme's home. */
 static void resume_boot_restore(void)
 {
     resume_state_t st;
@@ -1152,8 +1164,9 @@ static void resume_boot_restore(void)
     if (st.folder[0] == '/') {
         browser_screen_set_root("/");
         browser_screen_open_at(st.folder, st.row);
-        ui_push_screen(&browser_screen);   /* land where the user was        */
-        log_printf("resume: browser '%s' row %d", st.folder, st.row);
+        /* Do NOT push: boot lands on the Main UI (BRNOMT-102). The folder and
+         * row stay loaded, so Files opens exactly where the user left off. */
+        log_printf("resume: browser state '%s' row %d", st.folder, st.row);
     }
     if (mode >= 2 && st.track[0] == '/') {
         if (player_open(st.track) == PLAYER_OK) {

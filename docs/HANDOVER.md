@@ -4282,3 +4282,12 @@ PASS`, AP5M CRC `0x50FD2844`, `_bss_end 0x03049D20` (ceiling `0x0304A000`;
 without leaving the group, BACK returns with the cursor intact; Fade 300 and
 off; pause/resume fade; no dropout during a 300-500 ms fade at 96 kHz; volume
 change while paused stays silent; track skip is not delayed by the user fade.
+
+## BR. Session 2026-10-20 — pre-flash fixes (BRNOMT-101/102/105, queue, shuffle)
+
+- **BRNOMT-102 (boot landed in the File Explorer).** `resume_boot_restore()`
+  pushed `browser_screen` after restoring the folder/row. It now restores them
+  as browser state only, so boot stays on the active theme's home. Files opens
+  at the saved folder via the new `browser_screen_set_root_keep_path()` (the
+  old `open_files()` called `browser_screen_set_root("/")`, which reset the
+  path and would have discarded the restore).

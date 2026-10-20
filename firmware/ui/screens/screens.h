@@ -102,6 +102,9 @@ extern const ui_screen_t browser_screen;
 int browser_page_rows(void);
 /* Set the root directory the browser starts in (call before pushing). */
 void browser_screen_set_root(const char *path);
+/* Set only the BACK clamp, keeping the current folder (resume restore: the
+ * browser must open where the user left it). */
+void browser_screen_set_root_keep_path(const char *path);
 /* Open at `path` with the cursor on `row` (resume); the BACK clamp is kept. */
 void browser_screen_open_at(const char *path, int row);
 const browser_state_t *browser_screen_state(void);

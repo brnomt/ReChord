@@ -462,6 +462,16 @@ const ui_screen_t browser_screen = {
     browser_screen_handle_event,
 };
 
+/* Set only the BACK clamp and leave the current folder alone. Used when the
+ * browser is opened again after a resume restore: the restored folder/row must
+ * survive, while BACK still cannot walk above `/`. */
+void browser_screen_set_root_keep_path(const char *path)
+{
+    if (path == NULL || path[0] == '\0')
+        path = "/";
+    browser_path_copy(s_root, path, BROWSER_PATH_MAX);
+}
+
 void browser_screen_set_root(const char *path)
 {
     if (path == NULL || path[0] == '\0')
