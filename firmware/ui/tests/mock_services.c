@@ -438,6 +438,11 @@ int player_set_volume(int db)
     return PLAYER_OK;
 }
 
+void player_set_fade_ms(int ms)
+{
+    (void)ms;                       /* no DAC on the host */
+}
+
 int player_get_track(track_info_t *out)
 {
     const char *base;

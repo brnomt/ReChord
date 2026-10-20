@@ -1,14 +1,17 @@
 /*
- * settings_screen.c — binds the config schema to a menu.
+ * settings_screen.c — config schema bound to a categorized menu.
  *
- * One menu row per schema key (canonical order: play, brightness,
- * screen_off, auto_off, usb, resume, strip, tags, cpu, volume, browse,
- * cursor, shuffle, repeat_mode).
- * The row label is the config key name, the right-aligned value is
- * the key's current value formatted exactly like the config file writes it.
+ * Top level: one row per category (Playing, Interface). Selecting a category
+ * pushes settings_group_screen, which lists that category's schema keys (and
+ * the live Theme picker under Interface). The on-disk 15-key format is
+ * unchanged; the categories only decide what the user sees and in what order.
  *
- * Keys: UP/DOWN move, SELECT cycles the value (enum wraps through options,
- * int wraps its range, browse resets to empty), BACK saves and pops.
+ * Playing:   Volume, Shuffle, Repeat, Resume, Fade (BRNOMT-67)
+ * Interface: Theme
+ *
+ * The System diagnostics menu stays in the root menu (it is a debug view, not
+ * a configuration group). BACK on a group returns to the category list; BACK
+ * on the category list saves and pops, exactly as before.
  */
 #include <stdio.h>
 #include <string.h>
@@ -18,44 +21,14 @@
 #include "../theme.h"
 #include "../../theme/theme_runtime.h"
 #include "../../services/rechord_files.h"
+#include "../../player/player.h"
 #include "../internal/hal.h"
 
 static rechord_settings_t s_settings;
-static menu_view_t        s_view;
-/* The menu shows the live Theme row plus only the settings that are wired
- * (`visible` in the schema). The on-disk 14-key format is unchanged: hidden
- * keys keep round-tripping and are never offered as dead controls. */
-#define SETTING_MAX_ROWS (SETTING_KEY_COUNT + 1)
 
-static menu_item_t        s_items[SETTING_MAX_ROWS];
-static int                s_row_count = 1; /* Theme + visible keys        */
-static int                s_use_skin;
+/* ---- per-key callbacks (indexed by the schema table) -------------------- */
 
-static const char *set_label(int index, char *buf, int cap)
-{
-    if (index < 0 || index >= s_row_count)
-        return "";
-    snprintf(buf, (size_t)cap, "%s", s_items[index].label);
-    return buf;
-}
-
-static const char *set_value(int index, char *buf, int cap)
-{
-    const char *v = "";
-
-    if (index < 0 || index >= s_row_count)
-        return "";
-    if (s_items[index].value_text != 0)
-        v = s_items[index].value_text();
-    snprintf(buf, (size_t)cap, "%s", v != 0 ? v : "");
-    return buf;
-}
-
-static theme_skin_list_source_t s_source = { 0, set_label, set_value };
-static unsigned           s_flush_at_ms;   /* volume flush deadline      */
-static int                s_volume_dirty;  /* a volume save is pending   */
-
-/* value_text callbacks must return stable storage: one scratch slot per key */
+/* value_text callbacks must return stable storage: one scratch slot per key. */
 static char s_value_buf[SETTING_KEY_COUNT][32];
 
 static const char *value_text_0(void)  { return s_value_buf[0]; }
@@ -72,6 +45,7 @@ static const char *value_text_10(void) { return s_value_buf[10]; }
 static const char *value_text_11(void) { return s_value_buf[11]; }
 static const char *value_text_12(void) { return s_value_buf[12]; }
 static const char *value_text_13(void) { return s_value_buf[13]; }
+static const char *value_text_14(void) { return s_value_buf[14]; }
 
 /* The active theme's name (from theme.c, no scratch buffer needed). */
 static const char *value_text_theme(void) { return theme_get()->name; }
@@ -80,7 +54,7 @@ static const char *(*const s_value_text_fn[SETTING_KEY_COUNT])(void) = {
     value_text_0,  value_text_1,  value_text_2,  value_text_3,
     value_text_4,  value_text_5,  value_text_6,  value_text_7,
     value_text_8,  value_text_9,  value_text_10, value_text_11,
-    value_text_12, value_text_13,
+    value_text_12, value_text_13, value_text_14,
 };
 
 static void on_select_0(void)  { settings_cycle(&setting_schema[0],  &s_settings, +1); }
@@ -92,7 +66,10 @@ static void on_select_5(void)  { settings_cycle(&setting_schema[5],  &s_settings
 static void on_select_6(void)  { settings_cycle(&setting_schema[6],  &s_settings, +1); }
 static void on_select_7(void)  { settings_cycle(&setting_schema[7],  &s_settings, +1); }
 static void on_select_8(void)  { settings_cycle(&setting_schema[8],  &s_settings, +1); }
-static void on_select_9(void)  { settings_cycle(&setting_schema[9],  &s_settings, +1); }
+static void on_select_9(void) {
+    settings_cycle(&setting_schema[9], &s_settings, +1);
+    player_set_volume(s_settings.volume_db);     /* apply while playing too */
+}
 static void on_select_10(void) { settings_cycle(&setting_schema[10], &s_settings, +1); }
 static void on_select_11(void) { settings_cycle(&setting_schema[11], &s_settings, +1); }
 static void on_select_12(void) {
@@ -103,6 +80,47 @@ static void on_select_13(void) {
     settings_cycle(&setting_schema[13], &s_settings, +1);
     player_set_repeat(s_settings.repeat_mode);
 }
+static void on_select_14(void) {
+    settings_cycle(&setting_schema[14], &s_settings, +1);
+    player_set_fade_ms(s_settings.fade_ms);      /* BRNOMT-67: apply now */
+}
+
+static void (*const s_on_select_fn[SETTING_KEY_COUNT])(void) = {
+    on_select_0,  on_select_1,  on_select_2,  on_select_3,
+    on_select_4,  on_select_5,  on_select_6,  on_select_7,
+    on_select_8,  on_select_9,  on_select_10, on_select_11,
+    on_select_12, on_select_13, on_select_14,
+};
+
+/* ---- list source shared by the category and group screens -------------- */
+
+static const menu_item_t *s_list_items;   /* whichever list is on top     */
+static int                s_list_count;   /* rows in the list being drawn */
+static int                s_use_skin;
+static unsigned           s_flush_at_ms;  /* volume flush deadline        */
+static int                s_volume_dirty; /* a volume save is pending     */
+
+static const char *set_label(int index, char *buf, int cap)
+{
+    if (s_list_items == 0 || index < 0 || index >= s_list_count)
+        return "";
+    snprintf(buf, (size_t)cap, "%s", s_list_items[index].label);
+    return buf;
+}
+
+static const char *set_value(int index, char *buf, int cap)
+{
+    const char *v = "";
+
+    if (s_list_items == 0 || index < 0 || index >= s_list_count)
+        return "";
+    if (s_list_items[index].value_text != 0)
+        v = s_list_items[index].value_text();
+    snprintf(buf, (size_t)cap, "%s", v != 0 ? v : "");
+    return buf;
+}
+
+static theme_skin_list_source_t s_source = { 0, set_label, set_value };
 
 /* The app registers this so a live theme change can swap the home renderer
  * under the open Settings screen without leaving it (BRNOMT-69). */
@@ -154,7 +172,7 @@ static void on_select_theme(void)
         /* The settings screen is still on top: load the new theme's settings
          * skin (if any) instead of drawing the previous one. */
         s_use_skin = theme_ui_load(THEME_UI_SETTINGS);
-        s_source.count = s_row_count;
+        s_source.count = s_list_count;
         if (s_use_skin)
             theme_ui_list(&s_source);
         ui_invalidate_all();
@@ -162,18 +180,86 @@ static void on_select_theme(void)
     }
 }
 
-static void (*const s_on_select_fn[SETTING_KEY_COUNT])(void) = {
-    on_select_0,  on_select_1,  on_select_2,  on_select_3,
-    on_select_4,  on_select_5,  on_select_6,  on_select_7,
-    on_select_8,  on_select_9,  on_select_10, on_select_11,
-    on_select_12, on_select_13,
+/* ---- categories --------------------------------------------------------- */
+
+typedef struct {
+    const char *label;
+    const char *key;   /* NULL = the special Theme picker */
+} setting_group_item_t;
+
+/* Playing keeps the playback controls together; Fade is the new row. */
+static const setting_group_item_t s_playing_items[] = {
+    { "Volume",  "volume" },
+    { "Shuffle", "shuffle" },
+    { "Repeat",  "repeat_mode" },
+    { "Resume",  "resume" },
+    { "Fade",    "fade" },
+    { 0, 0 },
 };
 
-static menu_model_t s_model = {
-    "Settings",
-    s_items,
-    0,
+/* Interface currently has the live theme picker (brightness/screen_off are
+ * still hidden until they actually control something). */
+static const setting_group_item_t s_interface_items[] = {
+    { "Theme", 0 },
+    { 0, 0 },
 };
+
+static const setting_group_item_t *const s_group_items_spec[] = {
+    s_playing_items, s_interface_items,
+};
+static const char *const s_group_titles[] = { "Playing", "Interface" };
+#define SETTING_GROUP_COUNT 2
+
+static menu_item_t s_cat_items[SETTING_GROUP_COUNT];
+static menu_view_t s_view;
+static menu_model_t s_model = { "Settings", s_cat_items, SETTING_GROUP_COUNT, NULL };
+
+static menu_item_t s_group_items[8];
+static menu_model_t s_group_model = { "Playing", s_group_items, 0, NULL };
+static menu_view_t s_group_view;
+static int         s_group;
+
+static void open_playing(void);
+static void open_interface(void);
+
+static void build_categories(void)
+{
+    s_cat_items[0].label = "Playing";
+    s_cat_items[0].value_text = 0;
+    s_cat_items[0].on_select = open_playing;
+    s_cat_items[1].label = "Interface";
+    s_cat_items[1].value_text = 0;
+    s_cat_items[1].on_select = open_interface;
+    s_model.item_count = SETTING_GROUP_COUNT;
+}
+
+static void build_group_items(void)
+{
+    const setting_group_item_t *spec = s_group_items_spec[s_group];
+    int n = 0;
+
+    while (spec[n].label != 0 && n < (int)(sizeof s_group_items /
+                                           sizeof s_group_items[0])) {
+        menu_item_t *it = &s_group_items[n];
+
+        it->label = spec[n].label;
+        if (spec[n].key == 0) {
+            it->value_text = value_text_theme;
+            it->on_select = on_select_theme;
+        } else {
+            const setting_schema_t *sch = settings_schema_find(spec[n].key);
+            int k = (sch != 0) ? (int)(sch - setting_schema) : -1;
+
+            it->value_text = (k >= 0) ? s_value_text_fn[k] : 0;
+            it->on_select = (k >= 0) ? s_on_select_fn[k] : 0;
+        }
+        n++;
+    }
+    s_group_model.title = s_group_titles[s_group];
+    s_group_model.item_count = n;
+}
+
+/* ---- persistence ------------------------------------------------------- */
 
 static void refresh_values(void)
 {
@@ -184,29 +270,6 @@ static void refresh_values(void)
                         s_value_buf[i], (int)sizeof(s_value_buf[i]));
 }
 
-static void build_items(void)
-{
-    int i, n = settings_visible_count();
-
-    /* Theme first: it is a live picker (its own cfg key, not a schema row). */
-    s_items[0].label = "Theme";
-    s_items[0].value_text = value_text_theme;
-    s_items[0].on_select = on_select_theme;
-
-    for (i = 0; i < n; i++) {
-        const setting_schema_t *sch = settings_visible_at(i);
-        int k = (int)(sch - setting_schema);   /* scratch/callback index */
-
-        s_items[i + 1].label = sch->name;
-        s_items[i + 1].value_text = s_value_text_fn[k];
-        s_items[i + 1].on_select = s_on_select_fn[k];
-    }
-    s_row_count = n + 1;
-    s_model.item_count = s_row_count;
-}
-
-/* ---- persistence ------------------------------------------------------- */
-
 void settings_screen_reload(void)
 {
     settings_view_defaults(&s_settings);
@@ -215,6 +278,7 @@ void settings_screen_reload(void)
         settings_view_defaults(&s_settings);
     }
     refresh_values();
+    menu_view_init(&s_view);          /* a fresh visit starts at the top */
 }
 
 void settings_screen_store(void)
@@ -256,15 +320,15 @@ void settings_screen_flush_pending(unsigned now_ms)
     }
 }
 
-/* ---- screen vtable ----------------------------------------------------- */
+/* ---- category screen --------------------------------------------------- */
 
 static void settings_screen_on_enter(void)
 {
-    build_items();
-    menu_view_init(&s_view);
-    settings_screen_reload();
+    build_categories();
+    s_list_items = s_cat_items;
+    s_list_count = s_model.item_count;
     s_use_skin = theme_ui_load(THEME_UI_SETTINGS);
-    s_source.count = s_row_count;
+    s_source.count = s_list_count;
     if (s_use_skin)
         theme_ui_list(&s_source);
 }
@@ -277,10 +341,12 @@ static void settings_screen_on_exit(void)
 static void settings_screen_draw(void)
 {
     refresh_values();
+    s_list_items = s_cat_items;
+    s_list_count = s_model.item_count;
     if (s_use_skin) {
         theme_skin_state_t st;
 
-        s_source.count = s_row_count;
+        s_source.count = s_list_count;
         theme_ui_list(&s_source);
         theme_ui_fill_state(&st, "Settings");
         theme_ui_draw(&st, s_view.cursor, s_view.top);
@@ -299,7 +365,7 @@ static void settings_screen_handle_event(const input_event_t *ev)
 
     if (s_use_skin) {
         theme_ui_note_input();
-        s_source.count = s_row_count;
+        s_source.count = s_model.item_count;
         theme_ui_list(&s_source);
         rows = theme_ui_rows();
         if (rows <= 0)
@@ -307,11 +373,12 @@ static void settings_screen_handle_event(const input_event_t *ev)
         nav = theme_ui_nav(ev->type);
         if (nav == THEME_SKIN_PREV || nav == THEME_SKIN_NEXT) {
             menu_view_move(&s_view, nav == THEME_SKIN_PREV ? -1 : +1,
-                           s_row_count, rows);
+                           s_model.item_count, rows);
             ui_invalidate_all();
         } else if (nav == THEME_SKIN_SELECT) {
-            if (s_view.cursor >= 0 && s_view.cursor < s_row_count)
-                s_items[s_view.cursor].on_select();
+            if (s_view.cursor >= 0 && s_view.cursor < s_model.item_count &&
+                s_cat_items[s_view.cursor].on_select != 0)
+                s_cat_items[s_view.cursor].on_select();
             ui_invalidate_all();
         } else if (nav == THEME_SKIN_BACK) {
             ui_pop_screen();   /* on_exit saves */
@@ -321,16 +388,17 @@ static void settings_screen_handle_event(const input_event_t *ev)
 
     switch (ev->type) {
     case KEY_UP:
-        menu_view_move(&s_view, -1, s_row_count, menu_page_size());
+        menu_view_move(&s_view, -1, s_model.item_count, menu_page_size());
         ui_invalidate_all();
         break;
     case KEY_DOWN:
-        menu_view_move(&s_view, +1, s_row_count, menu_page_size());
+        menu_view_move(&s_view, +1, s_model.item_count, menu_page_size());
         ui_invalidate_all();
         break;
     case KEY_SELECT:
-        if (s_view.cursor >= 0 && s_view.cursor < s_row_count)
-            s_items[s_view.cursor].on_select();
+        if (s_view.cursor >= 0 && s_view.cursor < s_model.item_count &&
+            s_cat_items[s_view.cursor].on_select != 0)
+            s_cat_items[s_view.cursor].on_select();
         ui_invalidate_all();
         break;
     case KEY_BACK:
@@ -349,6 +417,114 @@ const ui_screen_t settings_screen = {
     settings_screen_handle_event,
 };
 
+/* ---- group screen ------------------------------------------------------ */
+
+static void settings_group_on_enter(void)
+{
+    build_group_items();
+    menu_view_init(&s_group_view);
+    s_list_items = s_group_items;
+    s_list_count = s_group_model.item_count;
+    s_use_skin = theme_ui_load(THEME_UI_SETTINGS);
+    s_source.count = s_list_count;
+    if (s_use_skin)
+        theme_ui_list(&s_source);
+}
+
+static void settings_group_draw(void)
+{
+    refresh_values();
+    s_list_items = s_group_items;
+    s_list_count = s_group_model.item_count;
+    if (s_use_skin) {
+        theme_skin_state_t st;
+
+        s_source.count = s_list_count;
+        theme_ui_list(&s_source);
+        theme_ui_fill_state(&st, s_group_model.title);
+        theme_ui_draw(&st, s_group_view.cursor, s_group_view.top);
+        return;
+    }
+    menu_draw(&s_group_model, &s_group_view);
+}
+
+static void settings_group_handle_event(const input_event_t *ev)
+{
+    int nav;
+    int rows;
+
+    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
+        return;                       /* listings act on PRESS/REPEAT only */
+
+    if (s_use_skin) {
+        theme_ui_note_input();
+        s_source.count = s_group_model.item_count;
+        theme_ui_list(&s_source);
+        rows = theme_ui_rows();
+        if (rows <= 0)
+            rows = menu_page_size();
+        nav = theme_ui_nav(ev->type);
+        if (nav == THEME_SKIN_PREV || nav == THEME_SKIN_NEXT) {
+            menu_view_move(&s_group_view, nav == THEME_SKIN_PREV ? -1 : +1,
+                           s_group_model.item_count, rows);
+            ui_invalidate_all();
+        } else if (nav == THEME_SKIN_SELECT) {
+            if (s_group_view.cursor >= 0 &&
+                s_group_view.cursor < s_group_model.item_count &&
+                s_group_items[s_group_view.cursor].on_select != 0)
+                s_group_items[s_group_view.cursor].on_select();
+            ui_invalidate_all();
+        } else if (nav == THEME_SKIN_BACK) {
+            ui_pop_screen();   /* back to the category list */
+        }
+        return;
+    }
+
+    switch (ev->type) {
+    case KEY_UP:
+        menu_view_move(&s_group_view, -1, s_group_model.item_count,
+                       menu_page_size());
+        ui_invalidate_all();
+        break;
+    case KEY_DOWN:
+        menu_view_move(&s_group_view, +1, s_group_model.item_count,
+                       menu_page_size());
+        ui_invalidate_all();
+        break;
+    case KEY_SELECT:
+        if (s_group_view.cursor >= 0 &&
+            s_group_view.cursor < s_group_model.item_count &&
+            s_group_items[s_group_view.cursor].on_select != 0)
+            s_group_items[s_group_view.cursor].on_select();
+        ui_invalidate_all();
+        break;
+    case KEY_BACK:
+        ui_pop_screen();   /* back to the category list */
+        break;
+    default:
+        break;
+    }
+}
+
+static const ui_screen_t settings_group_screen = {
+    "settings-group",
+    settings_group_on_enter,
+    NULL,
+    settings_group_draw,
+    settings_group_handle_event,
+};
+
+static void open_group(int group)
+{
+    s_group = group;
+    ui_push_screen(&settings_group_screen);
+}
+
+static void open_playing(void)   { open_group(0); }
+static void open_interface(void) { open_group(1); }
+
+/* ---- accessors --------------------------------------------------------- */
+
 const rechord_settings_t *settings_screen_get(void)
 {
     return &s_settings;
@@ -356,11 +532,22 @@ const rechord_settings_t *settings_screen_get(void)
 
 const menu_model_t *settings_screen_model(void)
 {
-    build_items();
+    build_categories();
     return &s_model;
 }
 
 const menu_view_t *settings_screen_view(void)
 {
     return &s_view;
+}
+
+const menu_model_t *settings_group_model(void)
+{
+    build_group_items();
+    return &s_group_model;
+}
+
+const menu_view_t *settings_group_view(void)
+{
+    return &s_group_view;
 }

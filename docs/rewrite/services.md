@@ -80,7 +80,7 @@ Return codes: `SETTINGS_OK 0`, `SETTINGS_ERR_ARG -1`, `SETTINGS_ERR_OPEN -2`
 `SETTINGS_ERR_FULL -4` (serialize buffer too small).
 
 Config path: `SETTINGS_PATH` = `"/Internal/.rechord/rechord.cfg"` (default in
-`settings.h`; compile-time overridable). The 14-key schema is in
+`settings.h`; compile-time overridable). The 15-key schema is in
 `firmware/ui/settings_schema.c`; the `\RECHORD.CFG` root name is legacy.
 
 ### 3.2 log.h

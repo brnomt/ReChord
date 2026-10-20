@@ -1,7 +1,7 @@
 /*
  * settings_schema.h — ReChord configuration schema.
  *
- * The user-facing config is a plain key=value file. The 14 schema keys match
+ * The user-facing config is a plain key=value file. The 15 schema keys match
  * the documented on-device schema (docs/re/refcfw-analysis.md §6c shows a live
  * REFCFW.CFG with `play=repeat_track brightness=8 screen_off=30 auto_off=15
  * usb=ask resume=folder strip=off tags=on cpu=auto volume=-23 browse=
@@ -29,7 +29,7 @@
 
 #define RECHORD_BROWSE_PATH_MAX 64
 #define RECHORD_THEME_ID_MAX    32
-#define SETTING_KEY_COUNT       14
+#define SETTING_KEY_COUNT       15
 
 /* In-memory settings.  Field order is our own; persistence must go through
  * the schema table (or the key names), never through raw offsets on disk. */
@@ -48,6 +48,7 @@ typedef struct rechord_settings {
     int  cursor;                      /* key "cursor"     (last position)   */
     int  shuffle;                     /* key "shuffle"    (0=off, 1=on)     */
     int  repeat_mode;                 /* key "repeat_mode"(0=off,1=all,2=one)*/
+    int  fade_ms;                     /* key "fade"       (0/150/300/500 ms) */
     char theme[RECHORD_THEME_ID_MAX]; /* key "theme"      (package id)      */
 } rechord_settings_t;
 
@@ -66,8 +67,8 @@ typedef struct setting_schema {
     const char   *name;   /* exact config key name                          */
     setting_kind_t kind;
     size_t         offset;   /* offsetof() of the field in rechord_settings_t */
-    /* 1 = shown in the Settings menu. The rest stay in the schema so the
-     * on-disk 14-key format is preserved and older configs keep round-
+    /* 1 = shown in a Settings category. The rest stay in the schema so the
+     * on-disk 15-key format is preserved and older configs keep round-
      * tripping, but they are not offered to the user (duplicates of the
      * playback controls, or hardware features that are not wired yet). */
     int            visible;
@@ -80,11 +81,12 @@ typedef struct setting_schema {
 
 /* The schema table, in canonical key order:
  * play, brightness, screen_off, auto_off, usb, resume,
- * strip, tags, cpu, volume, browse, cursor, shuffle, repeat_mode  (14 keys).
+ * strip, tags, cpu, volume, browse, cursor, shuffle, repeat_mode, fade
+ * (15 keys).
  *
- * `visible` marks the functional subset the Settings menu offers. Today:
- * resume, volume, shuffle, repeat_mode. `theme` is a live picker outside
- * this table (persisted in the same file under its own key). */
+ * `visible` marks the functional subset the Settings groups offer. Today:
+ * resume, volume, shuffle, repeat_mode, fade. `theme` is a live picker
+ * outside this table (persisted in the same file under its own key). */
 extern const setting_schema_t setting_schema[SETTING_KEY_COUNT];
 
 /* The visible subset (Settings menu order). `index` is 0..count-1. */

@@ -325,6 +325,45 @@ void dac_volume_ramp(uint8_t from, uint8_t to)
     }
 }
 
+/* BRNOMT-67: the same 6-code step, paced so the whole ramp takes `ms`.
+ * At 0 dB the range is 43 steps, so 300 ms becomes ~7 ms/step; the DAC's
+ * PCM_SZC soft ramp smooths each step on top of this. */
+void dac_volume_ramp_ms(uint8_t from, uint8_t to, unsigned ms)
+{
+    int v = (int)from;
+    int target = (int)to;
+    int step = (target < v) ? -6 : 6;
+    int steps;
+    unsigned per_step;
+
+    if (v == target)
+        return;
+    if (ms == 0) {
+        dac_volume_set((uint8_t)target);
+        return;
+    }
+
+    steps = ((v > target) ? (v - target) : (target - v) + 5) / 6;
+    if (steps < 1)
+        steps = 1;
+    per_step = ms / (unsigned)steps;
+    if (per_step < 1)
+        per_step = 1;
+
+    while (v != target) {
+        v += step;
+        if (step < 0) {
+            if (v < target)
+                v = target;
+        } else if (target <= v) {
+            v = target;
+        }
+        dac_volume_set((uint8_t)v);
+        if (v != target)
+            dac_delay_ms(per_step);
+    }
+}
+
 /* Output teardown + close — ref FUN_03055F80 (audio-stop) + the I2S half
  * of FUN_030564d8 (audiocodec_close): hardware mute back ON (GPIO2.0=1),
  * DAC mute reg 0x010009 = 0xFF, 0x020000 = 0x10 (PDN_HP), 0x0B0000 = 0x00,

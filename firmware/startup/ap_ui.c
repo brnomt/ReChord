@@ -712,6 +712,8 @@ static void dac_test_run(void)
         fmt.bits = 16;
         fmt.channels = 2;
         rc = audio_output_configure(&fmt);
+        if (rc == DAC_OK)
+            audio_output_fade_in();  /* configure starts silent when fade is on */
     }
 
     dac_get_hp_status(hp);
@@ -1211,6 +1213,7 @@ void ap_ui_loop(void)
     player_set_volume(settings_screen_get()->volume_db);
     player_set_shuffle(settings_screen_get()->shuffle);           /* BRNOMT-90 */
     player_set_repeat(settings_screen_get()->repeat_mode);
+    player_set_fade_ms(settings_screen_get()->fade_ms);           /* BRNOMT-67 */
     player_screen_set_volume(player_get_volume());
     s_volume_seen = player_get_volume();
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */

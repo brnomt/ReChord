@@ -4245,3 +4245,40 @@ Not flashed.
 the battery row after 15 s, resume seek, and 44.1/48/96k first plays. If the
 CS43131 fails to come up, rebuild with `-DDAC_DELAY_SCALE_NUM=2`; if the direct
 volume clicks, `-DAO_UNMUTE_DIRECT=0`.
+
+## BQ. Session 2026-10-20 — BRNOMT-67: categorized Settings + play/pause fade
+
+**Settings overhaul (wired only).** Settings is now a category list:
+
+- **Playing**: Volume, Shuffle, Repeat, Resume, Fade
+- **Interface**: Theme (live package picker)
+
+Selecting a category pushes `settings_group_screen` with that group's rows.
+The System diagnostics menu stays in the root (debug view, not a config
+group). Rows use human labels while the config keys are unchanged. Changing
+Volume now also applies to the player immediately (it used to only rewrite
+the config). Returning from a group keeps the in-memory edits and the
+category cursor; the top level reloads from disk only when opened from the
+root. New 15th schema key: `fade`.
+
+**BRNOMT-67 fade.** `fade` = off / 150 / 300 / 500 ms (default 300).
+`dac_volume_ramp_ms()` keeps the stock 6-code step but paces the whole ramp
+over the requested duration; `audio_output_fade_in/out` use it. With a fade
+active the bring-up unmute starts at 0xFF (silent) and `fade_in` ramps to the
+user level; fade=off keeps the direct-volume first-Play path. Stop/track
+change uses `audio_output_quick_mute()` (stock fixed ramp) so skipping does
+not wait for the user fade. The fade blocks its caller, so `ipc_b_start` and
+`ipc_b_pause` keep `bfs_poll()` pumped during it (300-500 ms exceeds the PCM
+ring cover at 96 kHz). Volume changes while faded out now stay muted until
+the next `fade_in` (before, they could unmute a paused stream). The DAC
+diagnostic calls `fade_in` after configure so its tone is audible.
+
+**Tests.** services (`test_settings` 148 checks), UI (439 + 42),
+drivers and player: all green. `make cfw-ap` + `make cfw-img`: `RESULT:
+PASS`, AP5M CRC `0x50FD2844`, `_bss_end 0x03049D20` (ceiling `0x0304A000`;
+~736 B free). Not flashed.
+
+**Device checklist.** Settings -> Playing/Interface navigation, SELECT applies
+without leaving the group, BACK returns with the cursor intact; Fade 300 and
+off; pause/resume fade; no dropout during a 300-500 ms fade at 96 kHz; volume
+change while paused stays silent; track skip is not delayed by the user fade.

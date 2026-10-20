@@ -987,6 +987,15 @@ int player_get_volume(void)
     return g.volume_db;
 }
 
+void player_set_fade_ms(int ms)
+{
+    if (ms < 0)
+        ms = 0;
+    if (ms > 2000)
+        ms = 2000;
+    ipc_b_set_fade_ms(ms);
+}
+
 void player_set_replaygain_mode(int mode)
 {
     g.rg_mode = mode;

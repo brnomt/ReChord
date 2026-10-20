@@ -422,7 +422,7 @@ int ipc_b_stop(void)
     }
     rknano_i2s_detach();
     sh_set(IPC_SH_STATE, IPC_SH_IDLE);
-    audio_output_fade_out();
+    audio_output_quick_mute();          /* stop/track change: no user fade */
     audio_output_stop();
     audio_output_clear_played();
     bfs_close();
@@ -440,11 +440,19 @@ int ipc_b_pause(int paused)
         return -1;
 
     g_paused = paused ? 1 : 0;
-    if (g_paused)
+    if (g_paused) {
+        /* The fade blocks the loop; keep Core B's file ring fed so the ring
+         * does not run dry during the fade (300-500 ms > ring cover at 96k). */
+        dac_delay_set_pump(bfs_poll);
         audio_output_fade_out();
+        dac_delay_set_pump(0);
+    }
     sh_set(IPC_SH_STATE, g_paused ? IPC_SH_PAUSE : IPC_SH_RUN);
-    if (!g_paused)
+    if (!g_paused) {
+        dac_delay_set_pump(bfs_poll);
         audio_output_fade_in();
+        dac_delay_set_pump(0);
+    }
     return 0;
 }
 
@@ -453,6 +461,11 @@ int ipc_b_set_volume(int db)
     audio_output_set_volume_db(db);
     g_volume_db = db;
     return 0;
+}
+
+void ipc_b_set_fade_ms(int ms)
+{
+    audio_output_set_fade_ms(ms);
 }
 
 int ipc_b_poll_state(ipc_b_status_t *out)

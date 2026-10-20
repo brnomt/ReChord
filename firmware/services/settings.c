@@ -43,6 +43,7 @@ void settings_defaults(settings_t *s)
     s->cursor = 0;
     memcpy(s->shuffle, "off", 3);
     memcpy(s->repeat_mode, "off", 3);
+    memcpy(s->fade, "300", 3);   /* BRNOMT-67: 150/300/500 ms, off=0 */
     s->theme[0] = '\0';          /* empty: boot falls back to active_theme */
 }
 
@@ -161,6 +162,8 @@ static int parse_line(char *line, settings_t *s)
         copy_value(s->shuffle, sizeof(s->shuffle), val);
     } else if (strcmp(key, "repeat_mode") == 0) {
         copy_value(s->repeat_mode, sizeof(s->repeat_mode), val);
+    } else if (strcmp(key, "fade") == 0) {
+        copy_value(s->fade, sizeof(s->fade), val);
     } else if (strcmp(key, "theme") == 0) {
         copy_value(s->theme, sizeof(s->theme), val);
     } else {
@@ -293,6 +296,8 @@ int settings_serialize_text(const settings_t *s, char *buf, unsigned long cap)
         emit(buf, cap, &pos, s->shuffle) != 0 ||
         emit(buf, cap, &pos, "\nrepeat_mode=") != 0 ||
         emit(buf, cap, &pos, s->repeat_mode) != 0 ||
+        emit(buf, cap, &pos, "\nfade=") != 0 ||
+        emit(buf, cap, &pos, s->fade) != 0 ||
         emit(buf, cap, &pos, "\ntheme=") != 0 ||
         emit(buf, cap, &pos, s->theme) != 0 ||
         emit(buf, cap, &pos, "\n") != 0) {

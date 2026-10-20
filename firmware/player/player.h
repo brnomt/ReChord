@@ -133,6 +133,9 @@ long  player_get_position_ms(void);
 int   player_set_volume(int db);
 int   player_get_track(track_info_t *out);
 
+/* BRNOMT-67: play/pause fade duration in milliseconds (0 = off). */
+void  player_set_fade_ms(int ms);
+
 /* ---- extensions (UI glue / host tests) ---- */
 
 /* Register `codec` for files with extension `ext` ("wav", "mp3", ...).

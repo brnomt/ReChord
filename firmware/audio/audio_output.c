@@ -52,6 +52,10 @@ static uint8_t s_volume_atten;
 /* Current user volume in dB*1 (for fade_in() and the pre-DAC cache). */
 static int s_volume_db;
 
+/* BRNOMT-67: play/pause fade duration. 0 = immediate; seeded from the
+ * `fade` setting by the app (150/300/500 ms). */
+static int s_fade_ms;
+
 /* Set once configure() completed the verified bring-up. Before that the
  * CS43131 is unpowered and the I2C0 bus is uninitialised: a volume write
  * would spin in i2c_wait timeouts for seconds (the UI can set volume
@@ -243,9 +247,16 @@ static int ao_configure_rate(uint32_t rate_hz)
      * (the "extremely quiet" bug). */
     dac_gpio_out(2, 14, 1);
 #if AO_UNMUTE_DIRECT
-    /* GPIO2.0 (hardware mute) is still high here, so the target level can be
-     * written directly and heard only when the mute is released. */
-    dac_volume_set(s_volume_atten);
+    /* GPIO2.0 (hardware mute) is still high here, so the level is heard only
+     * when the mute is released. With a fade configured, start silent and let
+     * audio_output_fade_in() ramp to the user level (BRNOMT-67); otherwise
+     * write the target directly (the fast first-Play path). */
+    if (s_fade_ms > 0) {
+        dac_volume_set(0xFF);
+        s_volume_atten = 0xFF;
+    } else {
+        dac_volume_set(s_volume_atten);
+    }
     dac_gpio_out(2, 0, 0);
     dac_gpio_out(1, 4, 1);            /* amp enable again (ref)           */
 #else
@@ -344,20 +355,48 @@ void audio_output_power_off(void)
     s_fmt_valid = 0;
 }
 
+void audio_output_set_fade_ms(int ms)
+{
+    if (ms < 0)
+        ms = 0;
+    if (ms > 2000)
+        ms = 2000;
+    s_fade_ms = ms;
+}
+
 void audio_output_fade_out(void)
 {
     if (!s_dac_ready)
         return;
-    dac_volume_ramp(s_volume_atten, 0xFF);   /* FUN_03055f48(user, 0xff)  */
+    if (s_fade_ms > 0)
+        dac_volume_ramp_ms(s_volume_atten, 0xFF, (unsigned)s_fade_ms);
+    else
+        dac_volume_set(0xFF);
     s_volume_atten = 0xFF;
 }
 
 void audio_output_fade_in(void)
 {
+    uint8_t target;
+
     if (!s_dac_ready)
         return;
-    dac_volume_ramp(s_volume_atten, ao_volume_atten_code(s_volume_db));
-    s_volume_atten = ao_volume_atten_code(s_volume_db);
+    target = ao_volume_atten_code(s_volume_db);
+    if (s_fade_ms > 0)
+        dac_volume_ramp_ms(s_volume_atten, target, (unsigned)s_fade_ms);
+    else
+        dac_volume_set(target);
+    s_volume_atten = target;
+}
+
+/* Stop/track-change mute: the stock's fixed 2 ms/step ramp (no user fade),
+ * so skipping a track does not wait for the play/pause fade duration. */
+void audio_output_quick_mute(void)
+{
+    if (!s_dac_ready)
+        return;
+    dac_volume_ramp(s_volume_atten, 0xFF);
+    s_volume_atten = 0xFF;
 }
 
 void audio_output_set_volume_db(int db)
@@ -375,6 +414,11 @@ void audio_output_set_volume_db(int db)
         s_volume_atten = code;   /* cached -> first configure() unmute ramp */
         return;
     }
+    /* Faded out (pause/stop): keep the hardware silent and only cache the
+     * new level; the next fade_in() ramps to it. Without this, moving the
+     * volume while paused would unmute the DAC. */
+    if (s_volume_atten == 0xFF)
+        return;
     dac_volume_ramp(s_volume_atten, code);
     s_volume_atten = code;
 }

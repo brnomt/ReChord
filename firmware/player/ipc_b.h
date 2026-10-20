@@ -159,6 +159,9 @@ int ipc_b_pause(int paused);
 /* Set playback volume in dB (forwarded to the B core). Returns 0. */
 int ipc_b_set_volume(int db);
 
+/* BRNOMT-67: play/pause fade duration in milliseconds (0 = off). */
+void ipc_b_set_fade_ms(int ms);
+
 /* Announce a new track on an EXISTING stream (gapless continuation). The B
  * core is NOT restarted: the PCM ring keeps its read cursor and the stream
  * keeps flowing, so adjacent same-format tracks join sample-accurately with

@@ -276,6 +276,15 @@ audio/audio_output.c    -- audio_output_t controller: format coordination
   0x00 = 0 dB; chip resets to -60 dB — DFIU 19b83f5e). Bring-up fades
   0xFF -> 0x00 with the stock's soft ramp. Hardware attenuation is
   available for coarse user volume; ReplayGain stays DSP-scaled.
+- **Play/pause fade** (BRNOMT-67): `dac_volume_ramp_ms(from, to, ms)` keeps
+  the stock 6-code step but paces it over the configured duration
+  (off/150/300/500 ms, key `fade`, default 300). `audio_output_fade_in/out`
+  use it; `ipc_b_stop` uses the fixed `audio_output_quick_mute()` so skipping
+  a track does not wait for the user fade. When a fade is active the unmute
+  starts at 0xFF (silent) and `fade_in` ramps to the user level; with fade
+  off the direct-volume first-Play path is unchanged. The fade blocks the
+  caller, so `ipc_b_start`/`ipc_b_pause` keep `bfs_poll()` pumped during it
+  to keep Core B's file ring fed.
 - **ReplayGain** (player/rg_math.c): pure fixed-point Q1.15 (LUT-based
   dB->linear — no floats, no libm, no malloc), peak-limited clipping
   prevention (`rg_effective_gain_q16`), applied pre-ring by player.c.

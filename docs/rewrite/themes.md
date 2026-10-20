@@ -179,8 +179,9 @@ home adapter. Full guide: `docs/THEMING.md`.
 
 ## 8. Milestones
 
-- **A (small). DONE (2026-10-18).** Runtime theme switch from Settings: a 15th
-  "Theme" row (the schema and its 14-key on-disk layout are untouched) whose
+- **A (small). DONE (2026-10-18).** Runtime theme switch from Settings: a
+  "Theme" row (the schema and its on-disk key layout are untouched; the
+  layout now has 15 keys after BRNOMT-67) whose
   value is `theme_get()->name`; SELECT cycles the built-ins with
   `theme_load_named()` + `ui_invalidate_all()`, so every screen restyles
   immediately — no reboot, no audio interruption. Measured `.bss_end

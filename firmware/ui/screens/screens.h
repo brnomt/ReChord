@@ -151,6 +151,11 @@ const rechord_settings_t *settings_screen_get(void);
 const menu_model_t       *settings_screen_model(void);
 const menu_view_t        *settings_screen_view(void);
 
+/* The category screen's current model/view (Playing/Interface), for tests and
+ * for callers that need to know which group is open. */
+const menu_model_t       *settings_group_model(void);
+const menu_view_t        *settings_group_view(void);
+
 /* Runtime state that lives outside the settings screen. The volume is owned
  * by the player module while playing, so the screen is *told* about changes
  * and defers the write: a volume sweep must end up as one settings_save(),
