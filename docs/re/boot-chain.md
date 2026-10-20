@@ -112,6 +112,33 @@ Our current AP:
      clean-room AP? The 5 MB fw1-only path does not use them; the legacy
      33 MB path does.
 
+### 4.1 Loader-source correction (2026-10-20)
+
+The stock row 0 is `dest 0x030795CC, src 0x03050000`. The computed source
+for the `0x03088000` destination is:
+
+```text
+0x03050000 + (0x03088000 - 0x030795CC) = 0x0305EA34
+```
+
+Ghidra has no procedure at `0x0305EA34`; `read_bytes` returns a data table
+(`7f 8b f0 8c f4 8c 12 8d ...`), not Thumb/ARM code. Therefore the
+`0x03088000` loader is **not** a straightforward copy of fw1 AP code. It is
+likely populated by the ROM/second stage, or the row-0 mapping is not the
+loader source.
+
+Consequences for Phase 2:
+
+- Do not design a first-stage that merely replaces a fw1 code row at
+  `0x03088000`. The RAM region is reserved by a component whose source is
+  not in the fw1 AP image.
+- Treat `0x03088000` as ROM/second-stage-owned until UART/hardware evidence
+  proves otherwise.
+- The `0x03088000` gate stays for current images.
+- The next evidence step is to locate the actual loader code/source (ROM is
+  invisible; compare sec2, the 5 MB reference and a UART boot log) before
+  changing the memory layout.
+
 ## 5. Phase 1a — standalone 5 MB container (done)
 
 - `tools/fw1_5m.py` builds the fw1-only 5 MB image directly from a `.fw1`

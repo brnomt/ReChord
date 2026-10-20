@@ -45,6 +45,14 @@ ended at `0x03087F8C` (116 B below the loader base).
 Do not raise the `FW_CODE` length back to `0x3C000`. A pack that does not
 show `loader code base ... [OK]` must not be flashed.
 
+> **Phase 0 correction (BRNOMT-82, 2026-10-20):** the fw1 row-0 source that
+> maps to the `0x03088000` destination is
+> `0x03050000 + (0x03088000 - 0x030795CC) = 0x0305EA34`. Ghidra finds no
+> procedure there and the bytes are a data table, not code. Do not assume
+> the loader is a copy of fw1 AP code or that a fw1 row can replace it;
+> treat `0x03088000` as ROM/second-stage-owned until proven. See
+> `docs/re/boot-chain.md` §4.1.
+
 ## 2. RKnanoFW container format (confirmed against SDK)
 
 Byte-exact, seen in both the Echo Mini IMG and the prebuilt
