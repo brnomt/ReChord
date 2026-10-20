@@ -22,7 +22,7 @@ extern int fclose(void *stream);
 
 int ap_cdc_overlay_run(void)
 {
-    void *f = fopen("/SD/.rechord/cdc.bin", "rb");
+    void *f = fopen("/Internal/.rechord/cdc.bin", "rb");
     volatile uint8_t *dst = (volatile uint8_t *)CDC_BASE;
     unsigned n = 0;
     unsigned i;
