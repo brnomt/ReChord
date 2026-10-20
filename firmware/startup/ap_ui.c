@@ -951,6 +951,7 @@ static void cdc_overlay_run(void)
     screen("CDC overlay");
     line(1, "loading...");
     display_flush_rows(0, DISPLAY_H - 1);
+    usb_dwc2_stop();           /* release the MSC/USB core before CDC */
     (void)ap_cdc_overlay_run();
     ui_invalidate_all();
 }
