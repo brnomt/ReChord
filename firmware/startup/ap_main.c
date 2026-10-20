@@ -31,6 +31,9 @@
 #if AP_MEM_OVERLAY
 #include "startup/overlay_demo.h"
 #endif
+#if AP_CDC_OVERLAY
+#include "startup/cdc_overlay.h"
+#endif
 
 void ap_ui_loop(void);   /* ap_ui.c */
 
@@ -45,6 +48,9 @@ uint32_t Main(void)
 #endif
 #if AP_MEM_OVERLAY
     int overlay_rc;
+#endif
+#if AP_CDC_OVERLAY
+    int cdc_rc;
 #endif
 
     /* The stock/reference boot raises the AP from the 24 MHz oscillator to
@@ -61,6 +67,10 @@ uint32_t Main(void)
 #if AP_MEM_OVERLAY
     /* Copy the tiny overlay to 0x0304AE64 and execute it. */
     overlay_rc = ap_overlay_demo_run();
+#endif
+#if AP_CDC_OVERLAY
+    /* Load /.rechord/cdc.bin into 0x0304AE64 and run the CDC console. */
+    cdc_rc = ap_cdc_overlay_run();
 #endif
 
     /* BRNOMT-68 phase 1: start Core B with our heartbeat image. Failure is
@@ -98,6 +108,13 @@ uint32_t Main(void)
                       overlay_rc == 0 ? "Overlay: OK" : "Overlay: FAIL",
                       fg, bg);
 #endif
+#if AP_CDC_OVERLAY
+    /* Fourth line: CDC overlay result (after the console exits). */
+    display_draw_text(THEME_PAD,
+                      THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + 2 * THEME_LINE_H,
+                      cdc_rc == 0 ? "CDC: done" : "CDC: no file",
+                      fg, bg);
+#endif
 
     /* Make the lines visible on the panel. */
 #if AP_MEM_PROBE
@@ -106,6 +123,9 @@ uint32_t Main(void)
 #elif AP_MEM_OVERLAY
     display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 3 * THEME_LINE_H);
     panel_io_delay_ms(2000);   /* keep the overlay line visible */
+#elif AP_CDC_OVERLAY
+    display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 3 * THEME_LINE_H);
+    panel_io_delay_ms(2000);   /* keep the CDC line visible */
 #else
     display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 2 * THEME_LINE_H);
 #endif

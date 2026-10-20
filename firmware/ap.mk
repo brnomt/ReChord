@@ -59,6 +59,10 @@ AP_MEM_PROBE ?= 0
 # default; the overlay image is built with AP_MEM_OVERLAY=1 separately.
 AP_MEM_OVERLAY ?= 0
 
+# CDC console overlay loaded from /.rechord/cdc.bin and executed at
+# 0x0304AE64. Off by default; the CDC image is built separately.
+AP_CDC_OVERLAY ?= 0
+
 # ---- link inputs (the clean-room tree) ---------------------------------
 # startup: vector table + reset recipe (ap_startup.c) and the minimal AP
 # main + weak link stubs (ap_main.c).
@@ -67,7 +71,8 @@ AP_STARTUP_SRCS := \
   firmware/startup/ap_main.c \
   firmware/startup/ap_ui.c \
   firmware/startup/mem_probe.c \
-  firmware/startup/overlay_demo.c
+  firmware/startup/overlay_demo.c \
+  firmware/startup/cdc_overlay.c
 
 # UI layer (the AP subset; boot_screen.c is not used by the clean-room AP).
 AP_UI_SRCS := \

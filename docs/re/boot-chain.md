@@ -402,7 +402,31 @@ splash showed `Overlay: OK`; the 8-byte overlay executed from `0x0304AE64`
 and returned the magic. The 20,896 B window is validated for code. Next:
 move the CDC console into this overlay window as a USB debug build.
 
-### 8.4 When a custom bootloader is actually needed
+### 8.4 CDC console overlay (file-loaded)
+
+The CDC driver + console is 1,736 B, linked at `0x0304AE64` with the AP USB
+symbols as absolute addresses (`usb_cable`, `usb_dwc2_init`,
+`usb_dwc2_stop`). It is loaded from the FAT file `/.rechord/cdc.bin`; the
+AP image only contains the loader.
+
+| field | value |
+|---|---|
+| AP image | `build/cdc/ReChord_AP5M.IMG` |
+| AP CRC | `0x04398F29` |
+| AP SHA-256 | `b8313126bf44485f4396c1fc595c5c0a26d3e88cf36439f75b824ff6984ffa0a` |
+| CDC blob | `build/cfw-cdc/cdc/cdc_overlay.bin` |
+| CDC blob size | 1,736 B |
+| CDC blob SHA-256 | `e349a5de108ec25650287e59227615334db5402fcbb9a8ec0e5e9b9f800ac2c9` |
+| row 0 end | `0x030879F0` (1,552 B below `0x03088000`) |
+| normal image | unchanged, CRC `0x2264CCBA` |
+
+Steps: copy `cdc_overlay.bin` to the device as `/.rechord/cdc.bin`, flash
+the AP image, boot. The AP loads the blob and runs the CDC console; the
+host should see `/dev/ttyACM0`, a banner and an echo console. Type `q` to
+return to the UI; the splash then shows `CDC: done`. If the file is
+missing, the AP boots normally and shows `CDC: no file`.
+
+### 8.5 When a custom bootloader is actually needed
 
 A custom bootloader is now the only path to reclaim the 113,460 B window:
 it must own/replace the loader (and the update path), not merely write to
