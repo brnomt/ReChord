@@ -36,7 +36,7 @@ RKNanoC's dual Cortex-M3 environment and host-testable with mock backends.
 |   +-----------------+   +------------------+   +---------------------+ |
 |   | event loop      |   | screen stack     |   | redraw model        | |
 |   | ui_run/         |   | push/pop/top     |   | dirty row bands ->  | |
-|   | ui_handle_event |   | (depth 4)        |   | display_flush_rows  | |
+|   | ui_handle_event |   | (depth 6)        |   | display_flush_rows  | |
 |   +--------+--------+   +--------+---------+   +----------+----------+ |
 |            |                     |                        |            |
 |            v                     v                        v            |
@@ -68,7 +68,7 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
 
 | File | Role |
 |---|---|
-| `ui.h` / `ui.c` | UI core: event loop skeleton (`ui_run/ui_quit`), screen stack (`ui_push_screen/ui_pop_screen`, depth 4, enter/exit/re-enter hooks), redraw model (`ui_invalidate*`, sorted+merged dirty row bands, coalesced flushes) |
+| `ui.h` / `ui.c` | UI core: event loop skeleton (`ui_run/ui_quit`), screen stack (`ui_push_screen/ui_pop_screen`, depth 6, enter/exit/re-enter hooks), redraw model (`ui_invalidate*`, sorted+merged dirty row bands, coalesced flushes) |
 | `theme.h` | Colors (RGB565), font metrics (6x11 class: 6 px advance, 11 px glyph, 12 px line pitch, +1 px text offset), spacing/layout constants |
 | `settings_schema.h` / `settings_schema.c` | The 15-key config schema: `rechord_settings_t`, per-key table (name, kind, field offset, options/range), defaults (seeded from observed device values), cycle/format helpers |
 | `screens/screens.h` | Public API of all screens (control functions + state introspection) |
@@ -77,6 +77,7 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
 | `screens/browser_screen.c` | File browser over `fs_list_dir()` (names + counts only): window = one visible page fetched at the view top, cursor wrap-around, enter-dir/back path handling clamped at a configured root with the parent cursor restored on BACK, footer counts |
 | `screens/player_screen.c` | Now-playing skeleton: track title, progress bar, times, volume bar (-60..0 dB), play/pause toggle |
 | `screens/settings_screen.c` | Categorized settings: the top level lists **Playing** (Volume, Shuffle, Repeat, Resume, Fade) and **Interface** (Theme); SELECT pushes `settings_group_screen`, which cycles the wired schema values and returns on BACK. The System diagnostics menu stays in the root. Also owns runtime-state writes: `settings_screen_volume_changed()` adopts the player's volume into the view and arms a deferred save; `settings_screen_flush_pending()` writes it once the value has been quiet for `SETTINGS_FLUSH_QUIET_MS`; `settings_screen_store()` covers any pending flush (BACK, power-off) |
+| `screens/quick_screen.c` | MENU overlay (BRNOMT-105): Shuffle, Repeat and Playlist. The modes are applied and persisted immediately; Playlist lists the live queue with the current track marked and SELECT jumps to/plays the chosen entry |
 | `internal/hal.h` | The single include door to display + services |
 | `internal/shims/*.h` | **TEMPORARY** forward headers (`display.h`, `input.h`, `settings.h`, `log.h`, `fs.h`) — declarations only, delete when the real headers land |
 | `tests/` | Host tests with MOCK display backend (records every draw call) and mock services (input queue, log capture, in-memory settings, fake fs tree) |
@@ -190,7 +191,7 @@ time — that is intentional.
 
 | Suite | Verifies |
 |---|---|
-| `test_screen_stack.c` | push/pop semantics, covered-screen re-enter, depth cap (4), NULL/full rejection, empty pop |
+| `test_screen_stack.c` | push/pop semantics, covered-screen re-enter, depth cap (6), NULL/full rejection, empty pop |
 | `test_ui_redraw.c` | dirty row bands: disjoint flushes, overlap/adjacency merging, clamping, overflow coalescing, flush-only-when-dirty |
 | `test_menu_nav.c` | `menu_view_move` cyclic wrap-around/minimal scrolling + `menu_screen` key handling (select fires actions, back pops) + rendering output |
 | `test_settings_keys.c` | exact 15 key names/order, per-key field mapping (cycle touches exactly one field), value formatting (`repeat_track`, `8`, `-23`, `300`, ...), wrap behavior, category + group navigation (Playing/Interface, Fade apply) and save-on-exit |

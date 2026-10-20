@@ -176,6 +176,16 @@ enum {
 void  player_set_queue_source(int kind, const char *value, int cat);
 void  player_get_queue_source(int *kind, char *value, int cap, int *cat);
 
+/* Current queue, for the Quick settings playlist view. `position` is 0-based
+ * (-1 when empty). `title` resolves the record index and returns the filename
+ * title; the caller falls back to "Track N" when it returns < 0. */
+int   player_list_count(void);
+int   player_list_position(void);
+int   player_list_title(int index, char *buf, int cap);
+/* Jump to list position `index` and play it (0-based). Keeps the list and its
+ * queue origin. Returns PLAYER_OK or < 0. */
+int   player_play_at(int index);
+
 /* Rockbox-style shuffle: reorders the list (current track kept playing).
  * Repeat: PLAYLIST_REPEAT_OFF/ALL/ONE (see playlist.h). */
 void  player_set_shuffle(int on);

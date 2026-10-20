@@ -57,6 +57,9 @@ plays audio on hardware:
   boot, so next/prev keep working. The folder/row are restored as browser
   state (Files opens there), but boot stays on the active theme's home
   (BRNOMT-102).
+- **Quick settings**: MENU opens an overlay with Shuffle, Repeat and Playlist
+  (BRNOMT-105). The playlist view is the live queue, marks the current track
+  and SELECT jumps to/plays the chosen entry. MENU or BACK closes it.
 - **Memory** (vendor `B_Core.sct` + TRM): B code in HIGHRAM0
   `0x01000000..0x01020000`; control block `0x01020000`; A→B file ring
   `0x01021000` (32 KiB) + **pre-open ring** `0x01029000` (16 KiB); PCM ring

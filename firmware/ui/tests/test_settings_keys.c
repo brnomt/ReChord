@@ -326,6 +326,47 @@ static void test_settings_volume_flush(void)
     CHECK_EQ_INT(mock_settings_save_count(), 3);
 }
 
+/* BRNOMT-105: MENU overlay — Shuffle/Repeat apply + persist, Playlist opens
+ * the live queue view (empty on the host mock) and BACK unwinds it. */
+static void test_quick_screen(void)
+{
+    input_event_t e;
+
+    ui_init();
+    mock_display_reset();
+    mock_services_reset();
+    settings_screen_reload();
+
+    CHECK(ui_push_screen(&quick_screen));
+    mock_display_reset();
+    ui_render();
+    CHECK(mock_display_text_find("Quick settings") >= 0);
+    CHECK(mock_display_text_find("Shuffle") >= 0);
+    CHECK(mock_display_text_find("Repeat") >= 0);
+    CHECK(mock_display_text_find("Playlist") >= 0);
+
+    CHECK_EQ_INT(settings_screen_get()->shuffle, 0);
+    e = ev(KEY_SELECT); ui_handle_event(&e);          /* Shuffle off -> on */
+    CHECK_EQ_INT(settings_screen_get()->shuffle, 1);
+
+    e = ev(KEY_DOWN); ui_handle_event(&e);            /* Repeat */
+    e = ev(KEY_SELECT); ui_handle_event(&e);          /* off -> all */
+    CHECK_EQ_INT(settings_screen_get()->repeat_mode, 1);
+
+    e = ev(KEY_DOWN); ui_handle_event(&e);            /* Playlist */
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK(ui_top_screen() == &quick_playlist_screen);
+    mock_display_reset();
+    ui_render();
+    CHECK(mock_display_text_find("Playlist") >= 0);
+    CHECK(mock_display_text_find("No queue") >= 0);
+
+    e = ev(KEY_BACK); ui_handle_event(&e);
+    CHECK(ui_top_screen() == &quick_screen);
+    e = ev(KEY_BACK); ui_handle_event(&e);
+    CHECK_EQ_INT(ui_stack_depth(), 0);
+}
+
 void test_settings_keys(void)
 {
     test_schema_table();
@@ -333,4 +374,5 @@ void test_settings_keys(void)
     test_key_field_mapping();
     test_settings_screen_binding();
     test_settings_volume_flush();
+    test_quick_screen();
 }

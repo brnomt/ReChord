@@ -4317,3 +4317,17 @@ change while paused stays silent; track skip is not delayed by the user fade.
   track's parent. If the index no longer contains the track, it falls back to
   the single-track restore. `mq_filter_init_start()` finds the start record
   in the same index pass.
+
+- **BRNOMT-105 (MENU -> Quick settings).** MENU now opens an overlay instead
+  of jumping to the root: **Shuffle**, **Repeat** and **Playlist**. The modes
+  apply and persist immediately; Playlist lists the live queue (titles resolved
+  through the media index), marks the current track with `>` and SELECT jumps
+  to/plays the chosen entry (`player_play_at()` keeps the list and its queue
+  origin). The screen stack cap grew 4 -> 6 so the overlay fits on the deepest
+  lists. This supersedes the BRNOMT-101 MENU-to-home path: the old
+  theme-mismatch route no longer exists.
+
+**Verification (all five tasks).** services, UI (`test_settings_keys` now 456
+checks + 42), player and drivers host suites green. `make cfw-ap` +
+`make cfw-img`: `RESULT: PASS`, AP5M CRC `0xEF0C1BFC`, `_bss_end 0x03049DA8`
+(ceiling `0x0304A000`; ~600 B free). Not flashed.

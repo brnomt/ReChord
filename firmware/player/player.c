@@ -961,6 +961,56 @@ int player_play_list(const uint16_t *idx, int n, int start)
     return player_play();
 }
 
+int player_list_count(void)
+{
+    return playlist_count(&g.list);
+}
+
+int player_list_position(void)
+{
+    int p = playlist_position(&g.list);
+
+    return p > 0 ? p - 1 : -1;
+}
+
+int player_list_title(int index, char *buf, int cap)
+{
+    uint16_t ridx;
+    char path[PLAYER_PATH_MAX];
+
+    if (buf == 0 || cap <= 0)
+        return -1;
+    buf[0] = '\0';
+    if (index < 0 || index >= g.list.n)
+        return -1;
+    ridx = g.list.order[index];
+    if (s_resolve == 0 || s_resolve(ridx, path, (int)sizeof path) != 0)
+        return -1;
+    title_from_path(buf, (unsigned)cap, path);
+    return 0;
+}
+
+int player_play_at(int index)
+{
+    char path[PLAYER_PATH_MAX];
+    uint16_t ridx;
+    int rc;
+
+    if (index < 0 || index >= g.list.n)
+        return PLAYER_ERR;
+    if (index == g.list.pos && g.codec_active)
+        return player_play();       /* same track: resume / already playing */
+
+    ridx = g.list.order[index];
+    if (s_resolve == 0 || s_resolve(ridx, path, (int)sizeof path) != 0)
+        return PLAYER_ERR;
+    rc = open_track(path);
+    if (rc != PLAYER_OK)
+        return rc;
+    g.list.pos = index;
+    return player_play();
+}
+
 void player_set_queue_source(int kind, const char *value, int cat)
 {
     unsigned i = 0;

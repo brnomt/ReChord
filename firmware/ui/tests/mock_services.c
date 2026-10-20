@@ -460,6 +460,30 @@ void player_get_queue_source(int *kind, char *value, int cap, int *cat)
         value[0] = '\0';
 }
 
+int player_list_count(void)
+{
+    return 0;
+}
+
+int player_list_position(void)
+{
+    return -1;
+}
+
+int player_list_title(int index, char *buf, int cap)
+{
+    (void)index;
+    if (buf != NULL && cap > 0)
+        buf[0] = '\0';
+    return -1;
+}
+
+int player_play_at(int index)
+{
+    (void)index;
+    return PLAYER_ERR;
+}
+
 int player_get_track(track_info_t *out)
 {
     const char *base;

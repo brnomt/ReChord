@@ -140,6 +140,11 @@ int player_bar_width(int width, uint32_t pos, uint32_t dur);
 
 extern const ui_screen_t settings_screen;
 
+/* Quick settings (MENU button): Shuffle, Repeat, Playlist. The playlist view
+ * lists the current queue and SELECT jumps to the chosen track. */
+extern const ui_screen_t quick_screen;
+extern const ui_screen_t quick_playlist_screen;
+
 /* Live theme selection changed: the app syncs the home renderer while this
  * screen remains open (BRNOMT-69). */
 void settings_screen_set_theme_applied(void (*cb)(void));
@@ -150,6 +155,9 @@ void library_cat_open(int cat);                /* set the category before pushin
 
 void settings_screen_reload(void);   /* settings_load() into the live copy  */
 void settings_screen_store(void);    /* settings_save() the live copy       */
+/* Quick settings: apply + persist the playback modes immediately. */
+void settings_screen_set_shuffle(int on);
+void settings_screen_set_repeat(int mode);
 const rechord_settings_t *settings_screen_get(void);
 const menu_model_t       *settings_screen_model(void);
 const menu_view_t        *settings_screen_view(void);

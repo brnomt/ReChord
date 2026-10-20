@@ -1469,15 +1469,16 @@ void ap_ui_loop(void)
              * not light the panel. Only a short Power press (or unlocking
              * Hold / USB insertion) wakes it. */
             if (ev.type == KEY_MENU) {
-                /* BRNOMT-101: the active home is the skin screen at depth 2
-                 * when the package declares home=skin; popping to depth 1
-                 * always landed on the classic menu ("another theme's Main
-                 * UI"). Pop only down to the real home. */
-                int home = 1 +
-                    (theme_layout()->home == THEME_HOME_SKIN ? 1 : 0);
-
-                while (ui_stack_depth() > home)
+                /* BRNOMT-105: MENU opens Quick settings instead of jumping
+                 * to the root. MENU again (or BACK) closes whichever quick
+                 * overlay is on top. A dark panel wakes first. */
+                if (s_screen_off)
+                    screen_wake();
+                if (ui_top_screen() == &quick_playlist_screen ||
+                    ui_top_screen() == &quick_screen)
                     ui_pop_screen();
+                else
+                    (void)ui_push_screen(&quick_screen);
             } else {
                 theme_ui_note_input();
                 ui_handle_event(&ev);

@@ -291,6 +291,24 @@ void settings_screen_store(void)
         log_printf("settings: save failed");
 }
 
+/* Quick settings applies these immediately and persists them (the Settings
+ * screen's own rows defer the write until BACK). */
+void settings_screen_set_shuffle(int on)
+{
+    s_settings.shuffle = on ? 1 : 0;
+    player_set_shuffle(s_settings.shuffle);
+    settings_screen_store();
+}
+
+void settings_screen_set_repeat(int mode)
+{
+    if (mode < 0 || mode > 2)
+        mode = 0;
+    s_settings.repeat_mode = mode;
+    player_set_repeat(mode);
+    settings_screen_store();
+}
+
 /*
  * Runtime-state writes (volume). The value is adopted immediately — the view
  * is what the config file is written from — but the save is armed instead of
