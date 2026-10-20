@@ -77,7 +77,7 @@ uint32_t Main(void)
 #if AP_MEM_PROBE
     /* Fourth line: 0x0304AE64 loader-data window probe result. */
     display_draw_text(THEME_PAD,
-                      THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + 3 * THEME_LINE_H,
+                      THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + 2 * THEME_LINE_H,
                       probe_rc == 0 ? "RAM 0304AE64: free" : "RAM 0304AE64: used",
                       fg, bg);
 #endif

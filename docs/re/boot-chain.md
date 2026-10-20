@@ -347,8 +347,8 @@ make standalone-ap5m AP_MEM_PROBE=1 CFW_BUILD_DIR=build/cfw-probe \
 | field | value |
 |---|---|
 | image | `build/probe/ReChord_AP5M.IMG` |
-| CRC | `0x99FD9FA0` |
-| SHA-256 | `d5e80fb3978e9276fd1fe5a11d9bc416a6b111e85766b103016f8e9ca651d3a6` |
+| CRC | `0x9691EE3F` |
+| SHA-256 | `bc91a6ef1ee3f2be4faad8b623092044628322fc3e69dc97029dd761ab0ff8bb` |
 | row 0 end | `0x03087A18` (1,512 B below `0x03088000`) |
 | window | `0x0304AE64..0x03050000` (20,896 B) |
 | normal image | unchanged, CRC `0x2264CCBA` |
