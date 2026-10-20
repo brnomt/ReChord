@@ -90,7 +90,7 @@ int main(void)
     memset(&s, 0xAA, sizeof s);
     CHECK(resume_load(&s) < 0);
     CHECK(s.track[0] == '\0' && s.folder[0] == '\0');
-    CHECK(s.pos_ms == 0 && s.row == 0);
+    CHECK(s.pos_ms == 0 && s.row == 0 && s.boot == 0);
 
     /* 2. present file -> parsed; unknown and torn lines are ignored. */
     s_present = 1;
@@ -100,6 +100,7 @@ int main(void)
                             "pos_ms=73421\n"
                             "folder=/MUSIC/Album\n"
                             "row=7\n"
+                            "boot=42\n"
                             "junk line without equals\n"
                             "=emptyname\n"
                             "unknown=x\n");
@@ -108,6 +109,7 @@ int main(void)
     CHECK(s.pos_ms == 73421UL);
     CHECK(strcmp(s.folder, "/MUSIC/Album") == 0);
     CHECK(s.row == 7);
+    CHECK(s.boot == 42UL);
 
     /* 3. CRLF + a truncated last line (power cut mid-write): what is complete
      *    survives, the torn tail is ignored. */
@@ -129,6 +131,7 @@ int main(void)
     snprintf(s.folder, sizeof s.folder, "%s", "/SD/Music");
     s.pos_ms = 4200;
     s.row = 11;
+    s.boot = 9;
     CHECK(resume_save(&s) == 0);
     CHECK(strcmp(s_written_path, RECHORD_STATE) == 0);
     CHECK(s_written_len > 0);
@@ -136,6 +139,7 @@ int main(void)
     CHECK(strstr(s_written, "pos_ms=4200") != 0);
     CHECK(strstr(s_written, "folder=/SD/Music") != 0);
     CHECK(strstr(s_written, "row=11") != 0);
+    CHECK(strstr(s_written, "boot=9") != 0);
     /* ... and it round-trips through the parser. */
     memcpy(s_content, s_written, (size_t)s_written_len);
     s_content[s_written_len] = '\0';
@@ -147,6 +151,7 @@ int main(void)
         CHECK(strcmp(r.track, s.track) == 0);
         CHECK(strcmp(r.folder, s.folder) == 0);
         CHECK(r.pos_ms == 4200UL && r.row == 11);
+        CHECK(r.boot == 9UL);
     }
 
     /* 5. over-long value is truncated to the field, not rejected. */

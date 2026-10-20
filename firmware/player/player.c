@@ -996,6 +996,11 @@ void player_set_fade_ms(int ms)
     ipc_b_set_fade_ms(ms);
 }
 
+void player_seed_shuffle(uint32_t seed)
+{
+    playlist_seed(&g.list, seed);
+}
+
 void player_set_replaygain_mode(int mode)
 {
     g.rg_mode = mode;

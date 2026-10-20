@@ -4297,3 +4297,11 @@ change while paused stays silent; track skip is not delayed by the user fade.
   skin screen inserted at depth 2, so MENU always revealed the classic menu.
   It now pops only down to the real home depth (1 or 2 from the package's
   `home=`).
+
+- **Shuffle order repeated across boots.** `playlist_seed()` was never called;
+  `player_init()` zeroes the playlist and xorshift32's fallback constant made
+  every boot produce the same order. The resume state now carries a `boot`
+  counter (`/.rechord/state`, incremented once per boot) and
+  `resume_boot_restore()` seeds the PRNG from it plus boot-time ms/ADC noise.
+  `s_res.boot` is carried into every later state save so the counter is not
+  reset.

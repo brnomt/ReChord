@@ -136,6 +136,9 @@ int   player_get_track(track_info_t *out);
 /* BRNOMT-67: play/pause fade duration in milliseconds (0 = off). */
 void  player_set_fade_ms(int ms);
 
+/* Seed the shuffle PRNG (per-boot seed; 0 falls back to a fixed constant). */
+void  player_seed_shuffle(uint32_t seed);
+
 /* ---- extensions (UI glue / host tests) ---- */
 
 /* Register `codec` for files with extension `ext` ("wav", "mp3", ...).

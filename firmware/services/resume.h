@@ -11,7 +11,9 @@
  * data sectors + the dirent size, no allocation, no FAT writes), so a power cut
  * mid-save loses that one save and nothing else.
  *
- * Keys: track=<device path>, pos_ms=<n>, folder=<browser path>, row=<n>.
+ * Keys: track=<device path>, pos_ms=<n>, folder=<browser path>, row=<n>,
+ * boot=<n>. The boot counter is incremented once per boot and feeds the
+ * shuffle PRNG, so two boots never start from the same seed.
  */
 #ifndef RECHORD_SERVICES_RESUME_H
 #define RECHORD_SERVICES_RESUME_H
@@ -26,6 +28,7 @@ typedef struct
     unsigned long pos_ms;
     char          folder[RESUME_FOLDER_MAX];
     int           row;
+    unsigned long boot;              /* monotonic boot counter (shuffle seed) */
 } resume_state_t;
 
 /* Zero the struct (empty track/folder, position 0, row 0). */

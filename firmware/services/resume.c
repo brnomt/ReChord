@@ -79,6 +79,8 @@ static void parse_text(const char *text, resume_state_t *s)
                 copy_value(s->folder, (unsigned)sizeof s->folder, eq + 1, eol);
             else if (klen == 3u && strncmp(p, "row", 3) == 0)
                 s->row = (int)parse_ulong(eq + 1, eol);
+            else if (klen == 4u && strncmp(p, "boot", 4) == 0)
+                s->boot = parse_ulong(eq + 1, eol);
         }
         if (*eol == '\r' && eol[1] == '\n')
             p = eol + 2;
@@ -120,8 +122,9 @@ int resume_save(const resume_state_t *s)
 
     if (s == 0)
         return -1;
-    n = snprintf(text, sizeof text, "track=%s\npos_ms=%lu\nfolder=%s\nrow=%d\n",
-                 s->track, s->pos_ms, s->folder, s->row);
+    n = snprintf(text, sizeof text,
+                 "track=%s\npos_ms=%lu\nfolder=%s\nrow=%d\nboot=%lu\n",
+                 s->track, s->pos_ms, s->folder, s->row, s->boot);
     if (n < 0 || (unsigned)n >= sizeof text)
         return -1;                       /* would not round-trip: keep old */
     if (fs_target_file_rewrite(RECHORD_STATE, text, (uint32_t)n) != FS_OK)

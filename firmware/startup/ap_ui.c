@@ -1149,13 +1149,35 @@ static void resume_boot_restore(void)
 {
     resume_state_t st;
     int mode = settings_screen_get()->resume_mode;
+    int have_state = (resume_load(&st) == 0);
+    uint32_t seed;
+
+    if (!have_state)
+        resume_default(&st);
+
+    /* BRNOMT: the shuffle PRNG was never seeded, so every boot produced the
+     * same order (xs32's fixed fallback). Advance a persistent boot counter
+     * and seed from it, plus the boot ms/ADC noise as a second source. */
+    st.boot++;
+    seed = (uint32_t)(st.boot * 2654435761UL);
+    seed ^= (uint32_t)(ap_ms() + 1u) * 2246822519u;
+    seed ^= (uint32_t)(battery_mv() + 1) << 16;
+    player_seed_shuffle(seed);
+
+    /* Keep the counter even when resume is off; a later resume_poll save must
+     * carry it forward (s_res.boot), never write it back to zero. */
+    s_res.boot = st.boot;
+    if (have_state) {
+        if (resume_save(&st) != 0)
+            log_printf("resume: boot counter save failed");
+    } else {
+        log_printf("resume: no state file");
+    }
 
     if (mode <= 0)
         return;
-    if (resume_load(&st) != 0) {
-        log_printf("resume: no state file");
+    if (!have_state)
         return;
-    }
     /* Field diagnostics (numbers first so a long path cannot truncate them). */
     log_printf("resume: mode %d row %d pos %lu track '%s'",
                mode, st.row, st.pos_ms, st.track);
