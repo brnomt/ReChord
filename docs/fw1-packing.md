@@ -51,9 +51,10 @@ show `loader code base ... [OK]` must not be flashed.
 > procedure there and the bytes are a data table, not code. The stock
 > 3.7/3.9 rows do load through `0x03088000`, but the fw1-only HIFIEC90,
 > MB1 and our AP5M end row 0 at `0x030771D4`/`0x03087900` and boot without
-> it. Keep the initial row below `0x03088000`; treat the window as a
-> runtime overlay candidate, not as an initial fw1 row. See
-> `docs/re/boot-chain.md` §4.1 and §8.
+> it. The runtime probe then hung the AP when it wrote `0x03088000`, so the
+> window is live at runtime, not a free overlay. Keep the initial row below
+> `0x03088000` and do not write/copy overlays there; the 113 KB needs a
+> loader-owning bootloader. See `docs/re/boot-chain.md` §4.1 and §8.
 
 ## 2. RKnanoFW container format (confirmed against SDK)
 

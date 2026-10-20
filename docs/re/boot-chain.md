@@ -147,14 +147,18 @@ Consequences for Phase 2 (revised):
 
 - The initial fw1 row gate at `0x03088000` stays.
 - Do not put code in the initial scatter row above `0x03088000`.
-- Use `0x03088000..0x030A3B34` (113,460 B) as a **runtime overlay window**:
-  the AP copies an overlay there after boot and calls it. This is the
-  memory win; a custom bootloader is not required to use it.
-- The custom bootloader is optional and only needed for the update/flash
-  path or a fully owned load layout. The fw1-only AP5M already boots
-  through the ROM without stock/ref and without a custom bootloader.
-- The runtime-window hypothesis needs a hardware probe before overlays are
-  trusted (see section 8).
+- **Probe result (2026-10-20): the window is NOT free at runtime.** The
+  AP_MEM_PROBE image booted through `display_init` (backlight on, brief
+  panel flicker) then stayed black before the splash. The first write at
+  `0x03088000` is live loader/ROM memory; it hung the AP. Do not write or
+  copy overlays there.
+- The 113,460 B reclaim now requires a bootloader that owns/replaces the
+  loader (or an update-path redesign), not a runtime write. The custom
+  bootloader is back as the path for the 113 KB; it remains optional for
+  the AP5M build/update independence.
+- Next runtime-window candidates, to probe one word at a time:
+  `0x0304AE64..0x03050000` (20,896 B, loader data below the AP code),
+  `0x0304A000..0x0304AE64` (3,684 B gap), `0x030A3B34+` (unproven).
 
 ## 5. Phase 1a — standalone 5 MB container (done)
 
@@ -195,9 +199,9 @@ gitignored stock/reference directories.
 
 ### 5.2 Remaining Issue 82 dependencies
 
-- The initial-row window at `0x03088000` (Phase 2): the fw1-only AP5M does
-  not load it, but the stock 3.7/3.9 images do. Use it only as a runtime
-  overlay window after the loader; probe it on hardware first.
+- `0x03088000` is live loader/ROM memory at runtime (the probe hung there).
+  The AP5M does not load it in the initial row, but it is not a free overlay
+  window. The 113 KB needs a loader-owning bootloader or a different layout.
 - The legacy `cfw-img`/33 MB path still reads `stock/` and `community/refcfw`;
   it is not on the standalone target and should stay quarantined as a
   reference/fallback path.
@@ -220,11 +224,12 @@ gitignored stock/reference directories.
   reproduces the known-good SHA. The legacy `cfw-img` path still reads
   stock/ref; the standalone target bypasses it. Validate the descriptor on
   hardware when a flash is scheduled.
-- **Phase 2 (revised):** use `0x03088000..0x030A3B34` as a runtime overlay
-  window, not as an initial fw1 row. First UART boot log (no flash), then a
-  runtime memory probe, then a small code overlay. A custom bootloader is
-  optional for the update path/full layout; the fw1-only AP5M already boots
-  through the ROM.
+- **Phase 2 (revised after the probe):** `0x03088000` is live at runtime;
+  the runtime overlay at that address is retracted. Probe
+  `0x0304AE64..0x03050000` (20,896 B) and other candidates one word at a
+  time, or build a bootloader that owns/replaces the loader for the 113 KB.
+  The fw1-only AP5M still boots through the ROM; a custom bootloader is
+  optional for the AP5M build but is the path for the 113 KB window.
 - Current images keep the DFIU rule: loaded code must end at or below
   `LOADER_CODE_BASE 0x03088000`. A runtime overlay is a deliberate new
   invariant, not a bypass of the initial-row gate.
@@ -232,6 +237,8 @@ gitignored stock/reference directories.
 ## 7. Flash safety
 
 - Flash only `build/ReChord_AP5M.IMG`; never the 33 MB `ReChord_AP.IMG`.
+- The probe image `build/probe/ReChord_AP5M.IMG` is a failed test; do not
+  reuse it. Recover with the stock 33 MB image, then flash the normal AP5M.
 - Keep the known-good image and maskrom recovery (`docs/DEBRICK-LINUX.md`).
 - Current baseline: CRC `0x2264CCBA`, SHA-256 `c2238...babb93d`.
 - Any new boot-chain image needs a hardware ladder (known-good -> first-stage
@@ -286,20 +293,33 @@ make standalone-ap5m AP_MEM_PROBE=1 CFW_BUILD_DIR=build/cfw-probe \
 
 The probe reads/writes/restores three words at `0x03088000`, `0x03095998`
 and `0x030A3B30`, then shows `RAM window: free` (pass) or
-`RAM window: used` (mismatch) on the boot splash for ~2 s. A black/hung
-boot means the write/restore crashed; recover via maskrom and keep the
-window out of runtime use. The initial fw1 row is still `0x03087A34`, so
-the loader gate passes.
+`RAM window: used` (mismatch) on the boot splash for ~2 s. The initial fw1
+row is still `0x03087A34`, so the loader gate passes.
+
+**Result (2026-10-20): FAIL / soft brick.** The device booted through
+`display_init` (backlight on, brief panel flicker) and then stayed black
+before the splash; the UI never ran. The first write at `0x03088000` hit
+live loader/ROM memory and hung the AP. The normal AP5M image recovered
+the device. Do not flash this probe image again; do not use `0x03088000`
+for overlays or runtime code. DFIU incident
+`cf076cf2-e6cc-4dd9-8037-9d27e8001a51`.
+
+Recovery: maskrom with the stock 33 MB image, then the normal AP5M via the
+updater; see `docs/DEBRICK-LINUX.md`. Next probe:
+`0x0304AE64..0x03050000`, one word at a time, same splash result; do not
+touch `0x03088000`.
 
 ### 8.3 Code overlay (second flash)
 
-Store a small overlay blob in the AP payload below the initial-row gate,
-copy it to `0x03088000` at runtime, and call it (for example, a panel
-pattern or a UART marker). This proves the 113,460 B window is usable for
-code, not just data.
+The `0x03088000` code overlay is blocked by the probe result. Retarget the
+overlay loader to the next candidate window (`0x0304AE64..0x03050000`) or
+defer until a bootloader owns `0x03088000`. Do not write or execute code
+there at runtime.
 
 ### 8.4 When a custom bootloader is actually needed
 
-Only for a fully owned update/flash path or a new load layout. The fw1-only
-reference/MB1 and our AP5M already boot through the ROM without a custom
-bootloader. Do not replace `0x03088000` during the initial scatter.
+A custom bootloader is now the only path to reclaim the 113,460 B window:
+it must own/replace the loader (and the update path), not merely write to
+`0x03088000` at runtime. The fw1-only reference/MB1 and our AP5M already
+boot through the ROM without one; the bootloader is a memory/update
+project, not a prerequisite for the AP5M build.
