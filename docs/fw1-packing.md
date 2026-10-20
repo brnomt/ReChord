@@ -370,3 +370,46 @@ Full non-zero field dump (stock vs reference):
 | 0x150 | 0x016069E8 | 0x00000000 |  |
 | 0x19C | 0x00000001 | 0x00000001 |  |
 | 0x1F4 | 0x01FC4000 | 0x0044C000 |  |
+
+## 11. Standalone 5 MB path (Phase 1a, BRNOMT-82)
+
+The legacy `make_fw1.py` path still wraps the fw1 into the stock 33 MB image
+and clones the 5 MB outer descriptor from
+`community/refcfw/HIFIEC90.IMG`. Both inputs are gitignored, so that path is
+not available in a clean clone.
+
+`tools/fw1_5m.py` builds the fw1-only 5 MB image directly:
+
+```sh
+make standalone-ap5m
+# or
+python3 tools/make_fw1.py build/cfw/rechord_ap.elf --standalone-5m \
+    -o build/ReChord_AP.IMG
+```
+
+It writes only the fw1 container and `ReChord_AP5M.IMG`; it does not create
+the 33 MB image and does not read `stock/` or `community/`. The 0x1F8
+descriptor is generated from the field table in section 10, with our build
+date/brand/tag and fw1 end patched in. The trailing marker container is
+`RKnanoFW` plus eight zero bytes at `0x44C1F8`; the self-consistency copy is
+at `0x44C000`; the trailer is the CRC from `tools/rknano_crc.py`.
+
+The output is byte-identical to the boot-confirmed AP5M image:
+
+| field | value |
+|---|---|
+| size | `0x500004` |
+| trailer CRC | `0x2264CCBA` |
+| SHA-256 | `c2238cb388b14d6bfd984da9328ca0005831b90d42cf4b5be77617b48babb93d` |
+| row-0 end | `0x03087900` |
+| `_bss_end` | `0x03049BE0` |
+
+`tools/verify_fw1_5m.py` rebuilds from the current `.fw1` and compares
+against a saved known-good image. Run it before `make standalone-ap5m` if
+the known-good file is the same path (the build target overwrites it), or
+pass `GOLDEN=/path/to/saved/ReChord_AP5M.IMG`.
+
+This does **not** complete Issue 82: the stock loader/ROM contract at
+`0x03088000`, the legacy 33 MB stock/ref path, the SDK `.lib` codec path and
+the update/flash path remain. See `docs/re/boot-chain.md` for the Phase 0
+map, the loader windows and the Phase 2 gate.

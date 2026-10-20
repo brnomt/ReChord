@@ -115,6 +115,18 @@ $(CFW_ELF): $(CFW_OBJS) $(AP_LDSCRIPT) $(BB_CORE_BLOB)
 cfw-img: $(CFW_ELF)
 	$(PYTHON) tools/make_fw1.py $(CFW_ELF) -o build/ReChord_AP.IMG
 
+# BRNOMT-82 Phase 1a: fw1 -> 5MB AP5M image without reading stock/ref images.
+# The descriptor is generated from docs/fw1-packing.md section 10; the legacy
+# cfw-img path above still uses the stock 33MB image and reference header.
+standalone-ap5m: $(CFW_ELF)
+	$(PYTHON) tools/make_fw1.py $(CFW_ELF) --standalone-5m -o build/ReChord_AP.IMG
+
+# Local regression check against a saved known-good AP5M image. Run before
+# `make standalone-ap5m` (or point GOLDEN at a saved copy).
+GOLDEN ?= build/ReChord_AP5M.IMG
+verify-standalone:
+	$(PYTHON) tools/verify_fw1_5m.py --golden $(GOLDEN)
+
 # HOOK TEST: verbatim reference fw1 calling our panel driver (HANDOVER.md).
 HOOK_DIR := build/hook
 HOOK_SRCS := firmware/hook/ref_hook.c firmware/drivers/panel_io_rknanoc.c \
@@ -257,7 +269,8 @@ AP_CODEC_LIBS := \
 
 .PHONY: all bb ap build-bb build-ap link-bb link-ap build-sdk link-firmware \
         toolchain manifests compile-check pack-img pack-bb-img pack-bb-stub-img \
-        bb-stub release pack-full apbb-experimental test-dsp extract-section3 clean
+        bb-stub release pack-full apbb-experimental test-dsp extract-section3 clean \
+        standalone-ap5m verify-standalone
 
 # Host unit test for the freestanding DSP core (runs on the build machine, no
 # hardware). Verifies the biquad math before it ever touches the device.
