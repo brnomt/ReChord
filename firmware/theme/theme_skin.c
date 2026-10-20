@@ -827,14 +827,12 @@ static int read_text(const char *path)
 
 static int key_from_word(const char *s)
 {
+    /* Only vol+ / vol- are theme-mappable. PLAY is always SELECT and BACK
+     * is always BACK, so a theme can never steal those keys. */
     if (key_eq(s, "up"))
         return THEME_SKIN_KEY_UP;
     if (key_eq(s, "down"))
         return THEME_SKIN_KEY_DOWN;
-    if (key_eq(s, "select"))
-        return THEME_SKIN_KEY_SELECT;
-    if (key_eq(s, "back"))
-        return THEME_SKIN_KEY_BACK;
     return -1;
 }
 
@@ -984,6 +982,19 @@ int theme_skin_selected_default(void)
         return 0;
     return (s_list.selected >= 0 && s_list.selected < s_list.count)
                ? s_list.selected : 0;
+}
+
+int theme_skin_list_bounds(int *y, int *h)
+{
+    const theme_layout_t *l = theme_layout();
+
+    if (s_list.count <= 0)
+        return -1;
+    if (y != 0)
+        *y = s_list.y >= 0 ? s_list.y : l->home_bar_y;
+    if (h != 0)
+        *h = s_list.height > 0 ? s_list.height : l->home_bar_h;
+    return 0;
 }
 
 int theme_skin_refresh_ms(void)

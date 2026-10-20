@@ -71,6 +71,7 @@ static int s_scan_min = ADC_IDLE;    /* lowest ADC seen since idle — the
                                       * the Menu/Back bands; classifying
                                       * by the settled minimum makes those
                                       * sweeps unregistrable.            */
+static int s_debounce_vol = INPUT_DEBOUNCE_SCANS_VOL;
 
 /* Min updates require a real drop (>= this many counts): ADC noise on a
  * held key must not ratchet the minimum into a lower key band. Bands are
@@ -205,7 +206,7 @@ int input_scan(int adc_value, int power)
     }
 
     needed = (key == KEY_UP || key == KEY_DOWN)
-                 ? INPUT_DEBOUNCE_SCANS_VOL : INPUT_DEBOUNCE_SCANS;
+                 ? s_debounce_vol : INPUT_DEBOUNCE_SCANS;
 
     if (key != s_scan_last) {          /* changed: restart stability run */
         s_scan_last = key;
@@ -263,6 +264,15 @@ int input_scan(int adc_value, int power)
     return input_push(key, power ? -1 : s_scan_min) == INPUT_OK;
 }
 
+void input_set_vol_debounce(int scans)
+{
+    if (scans < 1)
+        scans = 1;
+    if (scans > 16)
+        scans = 16;
+    s_debounce_vol = scans;
+}
+
 void input_mock_clear(void)
 {
     s_head = 0;
@@ -271,6 +281,7 @@ void input_mock_clear(void)
     s_scan_held = KEY_NONE;
     s_scan_stable = 0;
     s_long_fired = 0;
+    s_debounce_vol = INPUT_DEBOUNCE_SCANS_VOL;
 }
 
 unsigned input_pending(void)

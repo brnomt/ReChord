@@ -50,7 +50,6 @@ static int media_resolve(uint16_t idx, char *path, int cap)
 }
 
 static int s_adc = 1023, s_power, s_cable;
-static unsigned s_power_held;
 static uint32_t s_user;              /* user volume start, 0 = unknown */
 static char s_emmc[32], s_usb[32] = "plug in", s_sd[32];
 static int s_sd_in = -1;
@@ -342,19 +341,18 @@ static int ask(int any_key)
 static void power_off(void);
 
 /* Power-hold tracking (shared by the idle and playing loops).
- * The power key is a mechanical switch on GPIO2.5; the old counter reset
- * to zero on ANY misread sample, so contact bounce (or one glitched read
- * while the UI is busy — e.g. during playback) restarted the ~2 s count
- * and power-off never triggered. Debounce the level first (3 consecutive
- * samples), then count; `>=` also makes the threshold immune to skips. */
-#define POWER_HOLD_COUNT   400u   /* ~2 s of loop passes (re-tuned after
-                                   * the keys_adc latency fix; pass rate
-                                   * is render-bound, not clock-based) */
+ * The power key is a mechanical switch on GPIO2.5; contact bounce (or one
+ * glitched read while the UI is busy) must not restart the count. Debounce
+ * the level first, then measure held TIME with ap_ms() so a slow render pass
+ * (themes animate) cannot stretch "2 seconds" into tens of seconds. */
+#define POWER_HOLD_MS      2000u
 #define POWER_DEBOUNCE     3
 static int s_power_level;         /* debounced power-key level (0/1) */
 static int s_power_stable;
+static int s_power_t0_set;        /* timestamp valid for this press    */
+static unsigned s_power_down_ms;
 
-static int power_hold_step(int power)
+static int power_hold_step(int power, unsigned now)
 {
     int p = power ? 1 : 0;
 
@@ -362,12 +360,18 @@ static int power_hold_step(int power)
         if (++s_power_stable >= POWER_DEBOUNCE) {
             s_power_level = p;
             s_power_stable = 0;
+            if (p) {
+                s_power_down_ms = now;
+                s_power_t0_set = 1;
+            } else {
+                s_power_t0_set = 0;
+            }
         }
     } else {
         s_power_stable = 0;
     }
-    s_power_held = s_power_level ? s_power_held + 1u : 0u;
-    return s_power_held >= POWER_HOLD_COUNT;
+    return s_power_level && s_power_t0_set &&
+           (unsigned)(now - s_power_down_ms) >= POWER_HOLD_MS;
 }
 
 /* After a USB session: offer HIFIECnn.IMG / ECHOMINI.IMG if present. */
@@ -446,7 +450,7 @@ static void power_off(void)
             panel_io_delay_ms(1);
         while (keys_power())
             panel_io_delay_ms(1);
-        s_power_held = 0;            /* this press must not count as a hold */
+        s_power_t0_set = 0;          /* this press must not count as a hold */
         s_power_level = 0;
         backlight_on();
         ui_invalidate_all();
@@ -911,7 +915,7 @@ static const menu_item_t k_root_items[] = {
 };
 #define ROOT_ITEM_COUNT ((int)(sizeof k_root_items / sizeof k_root_items[0]))
 
-#define RC_BUILD "m9c"
+#define RC_BUILD "m9d"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
                                      ROOT_ITEM_COUNT, vol_status };
 
@@ -1153,7 +1157,7 @@ void ap_ui_loop(void)
 
         /* power-hold: debounced (see power_hold_step); ~2 s of held power
          * turns the device off. Flush any pending settings write first. */
-        if (power_hold_step(power)) {
+        if (power_hold_step(power, ap_ms())) {
             resume_poll(ap_ms(), 1);  /* persist the last position first */
             settings_screen_store();
             (void)log_flush("power");
@@ -1167,6 +1171,11 @@ void ap_ui_loop(void)
         }
         s_adc = adc;
         s_power = power;
+        /* The skin home uses vol+/- as its primary navigation; make those
+         * keys respond quickly there. Everywhere else keeps the stock 8-sample
+         * debounce that suppresses phantom vol keys under playback. */
+        input_set_vol_debounce(ui_top_screen() == &skin_home_screen
+                                   ? 3 : INPUT_DEBOUNCE_SCANS_VOL);
         input_scan(adc, power);
 
         while (input_poll(&ev) > 0) {

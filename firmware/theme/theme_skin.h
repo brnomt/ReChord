@@ -34,7 +34,7 @@
 
 /* Interpreter revision, logged at boot so a device can prove which engine is
  * running (v2 = vector roundrect/triangle + [vars]). */
-#define THEME_SKIN_ENGINE 3
+#define THEME_SKIN_ENGINE 4
 
 /* Key codes match input_key_t (services/input.h) without pulling it in. */
 enum {
@@ -88,6 +88,9 @@ int theme_skin_key(int key, int *sel);
 /* Interactive list metadata (parsed at load). */
 int theme_skin_item_count(void);
 int theme_skin_selected_default(void);
+/* Bounds of the drawn list (for a partial redraw). Returns 0 when a list
+ * exists, < 0 otherwise. */
+int theme_skin_list_bounds(int *y, int *h);
 
 /* Animation refresh hints from the skin's [skin] section. */
 int theme_skin_refresh_ms(void);

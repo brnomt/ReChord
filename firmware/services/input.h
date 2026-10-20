@@ -81,6 +81,12 @@ int input_scan(int adc_value, int power);
 /* Host-mock helper: drop all queued events (also useful between test cases). */
 void input_mock_clear(void);
 
+/* Debounce for the volume keys (KEY_UP/KEY_DOWN), in scan samples. The
+ * default is INPUT_DEBOUNCE_SCANS_VOL; a screen where those keys are the
+ * primary navigation (e.g. the skin home) can lower it for responsiveness.
+ * Clamped to 1..16. */
+void input_set_vol_debounce(int scans);
+
 /* Number of queued events. */
 unsigned input_pending(void);
 

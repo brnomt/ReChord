@@ -74,9 +74,18 @@ static void skin_handle_event(const input_event_t *ev)
     s_last_input_ms = s_now_ms;
     r = theme_skin_key(ev->type, &s_sel);
     switch (r) {
-    case THEME_SKIN_REDRAW:
-        ui_invalidate_all();
+    case THEME_SKIN_REDRAW: {
+        int y, h;
+        int band = theme_skin_refresh_h();
+
+        /* The eyes shift and the selected bar changes; the background and
+         * rule are static. Redraw only those two bands. */
+        ui_invalidate(0, 0, DISPLAY_W - 1,
+                      band > 0 ? band - 1 : DISPLAY_H - 1);
+        if (theme_skin_list_bounds(&y, &h) == 0 && h > 0)
+            ui_invalidate(0, y, DISPLAY_W - 1, y + h - 1);
         break;
+    }
     case THEME_SKIN_BACK:
         ui_pop_screen();
         break;
