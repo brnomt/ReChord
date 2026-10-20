@@ -412,19 +412,24 @@ AP image only contains the loader.
 | field | value |
 |---|---|
 | AP image | `build/cdc/ReChord_AP5M.IMG` |
-| AP CRC | `0x04398F29` |
-| AP SHA-256 | `b8313126bf44485f4396c1fc595c5c0a26d3e88cf36439f75b824ff6984ffa0a` |
+| AP CRC | `0xCC133DD4` |
+| AP SHA-256 | `ffc704d093fe37a99337eeed81c1089df6b93dc48d9b983668bf64c96d5e39ad` |
 | CDC blob | `build/cfw-cdc/cdc/cdc_overlay.bin` |
 | CDC blob size | 1,736 B |
 | CDC blob SHA-256 | `e349a5de108ec25650287e59227615334db5402fcbb9a8ec0e5e9b9f800ac2c9` |
 | row 0 end | `0x030879F0` (1,552 B below `0x03088000`) |
 | normal image | unchanged, CRC `0x2264CCBA` |
 
-Steps: copy `cdc_overlay.bin` to the device as `/.rechord/cdc.bin`, flash
-the AP image, boot. The AP loads the blob and runs the CDC console; the
-host should see `/dev/ttyACM0`, a banner and an echo console. Type `q` to
-return to the UI; the splash then shows `CDC: done`. If the file is
+Steps: copy `cdc_overlay.bin` to the device as `/.rechord/cdc.bin` (the
+host sees the FAT root; the AP addresses it as `/SD/.rechord/cdc.bin`),
+flash the AP image, boot. The AP loads the blob and runs the CDC console;
+the host should see `/dev/ttyACM0`, a banner and an echo console. Type `q`
+to return to the UI; the splash then shows `CDC: done`. If the file is
 missing, the AP boots normally and shows `CDC: no file`.
+
+Note: `fs_target` paths are `/<volume>/...`; the AP mounts the FAT as
+`SD`. The first loader version used `/.rechord/cdc.bin`, which resolves
+`.rechord` as a volume and fails. Use `/SD/.rechord/cdc.bin`.
 
 ### 8.5 When a custom bootloader is actually needed
 
