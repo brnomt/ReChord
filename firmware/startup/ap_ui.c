@@ -39,7 +39,10 @@ static int media_resolve(uint16_t idx, char *path, int cap)
 {
     media_rec_t rec;
 
-    if (media_db_open() != FS_OK)
+    /* Reuse an index that is already open (BRNOMT-98): the indices being
+     * resolved come from the same query, and re-opening re-streams the whole
+     * index just to re-verify its CRC -- twice per first Play otherwise. */
+    if (!media_db_is_open() && media_db_open() != FS_OK)
         return -1;
     if (media_db_get((uint32_t)idx, &rec) != FS_OK)
         return -1;
@@ -75,6 +78,7 @@ static unsigned s_loop_seq;          /* last loop tick (WFI pacing)        */
 static unsigned s_keys_ms;           /* last SARADC key sample             */
 static int      s_key_adc = 1023;    /* last key-ladder sample             */
 static int      s_key_power;         /* last power-key sample              */
+static int      s_keys_fallback;     /* async sampler failed: poll instead */
 static unsigned s_player_ms;         /* last Now Playing refresh           */
 
 /* BRNOMT-75: display-off and Hold. Short power toggles the backlight; holding
@@ -99,46 +103,48 @@ static void screen(const char *title);
  * 0.000 timestamps and input.c silently dropped the clock and fell back to its
  * synthetic per-scan clock -- which is why the hold ladder never accelerated.
  *
- * SysTick IS a core timer and always counts, so it is used as a free-running
- * DOWN-counter for the millisecond clock. BRNOMT-84 also enables its 1 ms
- * interrupt and sleeps in WFI between loop ticks: the counter still runs in
- * sleep, and the empty handler only clears COUNTFLAG. The main loop is paced
- * by the tick instead of a busy-wait.
+ * BRNOMT-98 FIX: RVR used to be 0x00FFFFFF, i.e. a ~84 ms interrupt at
+ * 200 MHz — NOT the 1 ms the loop was documented (and tuned) for. The UI loop
+ * therefore ran at ~12 Hz and every timed constant (key scan, repeat ladder,
+ * WFI pacing) was scaled by 84. RVR is now exactly one millisecond and the ms
+ * counter is advanced in the handler, so the loop really runs at 1 kHz and the
+ * millisecond clock no longer depends on a 24-bit free-running wrap.
  */
 #define AP_CYCLES_PER_MS 200000u   /* SysTick counts core cycles @ 200 MHz */
-#define AP_SYST_MASK     0x00FFFFFFu
 #define AP_SYST_CSR      (*(volatile uint32_t *)0xE000E010u)
 #define AP_SYST_RVR      (*(volatile uint32_t *)0xE000E014u)
 #define AP_SYST_CVR      (*(volatile uint32_t *)0xE000E018u)
 
-static uint32_t s_tick_last;      /* previous CVR reading, masked */
-static uint32_t s_tick_cycles;    /* elapsed cycles, wraps included */
-static volatile unsigned s_tick_seq; /* SysTick handler heartbeat      */
+static volatile unsigned s_ms;       /* 1 ms counter, advanced by SysTick */
+static volatile unsigned s_tick_seq; /* SysTick handler heartbeat         */
 
 /* Wakes the WFI loop once per millisecond. Reading CSR clears COUNTFLAG. */
 void SysTick_Handler(void)
 {
     (void)AP_SYST_CSR;
+    s_ms++;
     s_tick_seq++;
+    /* BRNOMT-98: the SARADC is stepped here, one conversion per tick, so the
+     * main loop never busy-waits on it. The completed scan is picked up by
+     * keys_scan_take() in the loop. */
+    keys_scan_tick();
 }
 
 static unsigned ap_ms(void)
 {
-    uint32_t now = AP_SYST_CVR & AP_SYST_MASK;
-
-    s_tick_cycles += (s_tick_last - now) & AP_SYST_MASK;   /* down-counter */
-    s_tick_last = now;
-    return (unsigned)(s_tick_cycles / AP_CYCLES_PER_MS);
+    return s_ms;
 }
 
 static void ap_clock_init(void)
 {
-    AP_SYST_RVR = AP_SYST_MASK;
+    AP_SYST_RVR = AP_CYCLES_PER_MS - 1u;   /* exactly 1 ms @ 200 MHz      */
     AP_SYST_CVR = 0;
     AP_SYST_CSR = 7u;                /* CLKSOURCE | TICKINT | ENABLE        */
-    s_tick_last = AP_SYST_CVR & AP_SYST_MASK;
-    s_tick_cycles = 0;
+    s_ms = 0;
     input_set_clock(ap_ms);
+    /* BRNOMT-98: the DAC bring-up delays become real milliseconds instead of
+     * the loop-count estimate that overshoots several-fold. */
+    dac_delay_set_clock(ap_ms);
     log_init((log_clock_fn)ap_ms);
 }
 
@@ -1236,18 +1242,35 @@ void ap_ui_loop(void)
         s_loop_seq = s_tick_seq;
         now = ap_ms();
 
-        /* The SARADC triple conversion is ~600 us of busy-wait. Sample it at
-         * 5 ms, not on every pass; the hold ladder is already time-based. */
+        /* BRNOMT-98: the SARADC is stepped from the SysTick hook, so this only
+         * collects a finished scan at the same 5 ms cadence; it never waits on
+         * the converter. If the async sampler ever stops completing, fall back
+         * to the old blocking triple conversion (which also pauses the
+         * sampler's use of the shared ADC). */
         if ((unsigned)(now - s_keys_ms) >= KEYS_SCAN_MS) {
-            s_keys_ms = now;
-            s_key_adc = keys_adc();
-            s_key_power = keys_power();
-            sampled = 1;
-            /* 5 ms samples: 3 samples = 15 ms. The old 8-sample debounce was
-             * tuned for a much faster scan and became a 40 ms delay here
-             * (quick vol taps never registered in lists). */
-            input_set_vol_debounce(3);
-            input_scan(s_key_adc, s_key_power);
+            int adc = 0;
+            int pw = 0;
+
+            if (!s_keys_fallback && keys_scan_take(&adc, &pw)) {
+                s_keys_ms = now;
+                s_key_adc = adc;
+                s_key_power = pw;
+                sampled = 1;
+                /* 5 ms samples: 3 samples = 15 ms (unchanged debounce). */
+                input_set_vol_debounce(3);
+                input_scan(s_key_adc, s_key_power);
+            } else if (!s_keys_fallback && keys_scan_failed()) {
+                s_keys_fallback = 1;
+                log_printf("keys: async scan failed, polling fallback");
+            }
+            if (s_keys_fallback) {
+                s_keys_ms = now;
+                s_key_adc = keys_adc();
+                s_key_power = keys_power();
+                sampled = 1;
+                input_set_vol_debounce(3);
+                input_scan(s_key_adc, s_key_power);
+            }
         }
         cable = usb_cable();
 
@@ -1325,8 +1348,11 @@ void ap_ui_loop(void)
             }
         }
 
-        /* Short power = screen off/on; ~2 s = power off. */
-        pev = power_hold_step(s_key_power, now);
+        /* Short power = screen off/on; ~2 s = power off. Only on a fresh key
+         * sample: the debounce counts samples, so calling this every 1 ms pass
+         * would turn its 3-sample (15 ms) debounce into 3 ms. The HOLD check
+         * is time-based, so a 5 ms cadence still fires it on time. */
+        pev = sampled ? power_hold_step(s_key_power, now) : POWER_EV_NONE;
         if (pev == POWER_EV_HOLD) {
             resume_poll(now, 1);       /* persist the last position first */
             settings_screen_store();

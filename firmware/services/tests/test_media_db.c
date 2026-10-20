@@ -71,6 +71,7 @@ int main(void)
 
     /* No index yet. */
     CHECK(media_db_open() == FS_ERR_OPEN);
+    CHECK(media_db_is_open() == 0);
     CHECK(media_db_count() == 0);
 
     /* Argument guards on the caller-supplied staging buffer. */
@@ -80,6 +81,7 @@ int main(void)
     /* First build -> slot A, seq 1. */
     CHECK(build("One", "Two", "Three") == FS_OK);
     CHECK(media_db_open() == FS_OK);
+    CHECK(media_db_is_open() == 1);                 /* BRNOMT-98 */
     CHECK(media_db_count() == 3);
     CHECK(media_db_get(0, &r) == FS_OK);
     CHECK(strcmp(r.title, "One") == 0 && r.track_no == 1);
@@ -88,6 +90,7 @@ int main(void)
     CHECK(strcmp(r.title, "Three") == 0 && r.duration_ms == 3000u);
     CHECK(media_db_get(3, &r) == FS_ERR_ARG);       /* out of range */
     media_db_close();
+    CHECK(media_db_is_open() == 0);
 
     /* Rebuild -> the other slot, seq 2, the new content wins. */
     CHECK(build("Uno", "Dos", "Tres") == FS_OK);

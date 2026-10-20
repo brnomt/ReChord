@@ -4175,3 +4175,73 @@ Playing, System, lists, theme package, GP same-format, USB power).
   `FLAC | 16/44.1kHz`.
 
 AP5M CRC `0xDA1A49C9`, packer `RESULT: PASS`. Not flashed.
+
+## BP. Session 2026-10-20 — BRNOMT-98: keys off the loop; first-Play latency
+
+**Input (no new IRQ).** The SARADC now runs as a non-blocking sampler stepped by
+the 1 ms SysTick hook: `keys_scan_tick()` starts one fresh conversion per tick,
+collects three and publishes their median; `keys_scan_take()` hands the sample
+to the loop at the same 5 ms cadence, where `input_scan()` still runs in thread
+context (the event queue and the hold clock are untouched). The old three
+`adc_read_fresh()` calls (~600 us of busy-wait) every 5 ms are gone.
+
+- `panel_io_rknanoc.c`: sampler state + `keys_scan_tick/take/failed`. The
+  blocking readers (`keys_adc`, `adc_read_channel`) claim the shared ADC and
+  abort an in-flight scan first, so the battery gauge and the blocking
+  mini-loops (index rebuild, USB prompts) keep working.
+- `ap_ui.c`: `SysTick_Handler()` calls the hook; the loop only consumes. If the
+  converter never reports EOC for 100 ms, the sampler flags itself failed and
+  the loop falls back to the old blocking path with
+  `keys: async scan failed, polling fallback`.
+- Host sim backend has no-op sampler stubs; `test_input` is unchanged and green.
+
+**Pacing bug found in the field (same session).** The first flash was reported
+as "MUY lag" in the UI and on the buttons while audio was much better. Root
+cause: `SysTick_RVR` was `0x00FFFFFF` — 16,777,215 cycles at 200 MHz, i.e. an
+**~84 ms** interrupt, not the 1 ms the loop was documented and tuned for. The
+UI loop therefore ran at ~12 Hz and every timed constant was 84x coarser. The
+old blocking key scan hid it (one sample per pass); the non-blocking sampler
+spreads three conversions over three ticks, which at 84 ms/tick meant ~250 ms
+per scan and ~750 ms with the 3-sample debounce. `ap_clock_init()` now sets
+`RVR = AP_CYCLES_PER_MS - 1`, `ap_ms()` returns a 1 ms counter incremented in
+the handler, and the old free-running cycle counter (which also wrapped every
+~21 s) is gone. The loop is genuinely 1 kHz; key scan 5 ms, debounce 15 ms.
+`ui_render()` already early-outs when no band is dirty, so idle passes stay
+cheap. `power_hold_step()` is now called only on a fresh key sample, keeping
+its 3-sample debounce at 15 ms instead of the 3 ms it would become at 1 kHz
+(its 2 s hold check is time-based and still fires on time).
+
+**First Play.**
+
+- `dac_delay_ms()` now waits real milliseconds from the SysTick clock when one
+  is installed (`dac_delay_set_clock(ap_ms)`), with an optional pump
+  (`dac_delay_set_pump`) that keeps `bfs_poll()` running during the waits. The
+  old loop count overshot several-fold (see §BA); boot-time callers before
+  `ap_clock_init()` (Core B start) keep the conservative loop.
+  `DAC_DELAY_SCALE_NUM/DEN` tune the wait without code changes.
+- `ipc_b_start()` sets `IPC_SH_STATE=RUN` right after the handoff/seek, before
+  `audio_output_configure()`, so Core B pre-buffers the PCM ring while the DAC
+  comes up; the pump keeps its A→B file ring fed. The log now includes
+  `audio: configure N ms` and `ipc: prebuffer N frames`.
+- The unmute no longer ramps 0xFF→user (~86 ms at 0 dB): the level is written
+  while GPIO2.0 (hardware mute) is still asserted, then the mute is released.
+  Build with `-DAO_UNMUTE_DIRECT=0` to restore the stock ramp.
+- `b_seek_now()` uses `b_wait_ack(seq, 300)` (real ms, tight poll, file service
+  pumped) instead of `500 x dac_delay_ms(1)`.
+- Browser: `media_resolve()` reuses an already-open index
+  (`media_db_is_open()`), avoiding a full streaming CRC verify per resolve, and
+  `mq_folder_init_start()` resolves the selected track during the folder scan
+  instead of a second per-track `media_db_get()` pass.
+
+**Verification.** All host suites green (`services` incl. `test_input`,
+`test_media_db` 34 checks and `test_media_query` 47 checks; `ui`, `drivers`,
+`player`). `make cfw-ap` + `make cfw-img`: `RESULT: PASS`, AP5M CRC
+`0x9281AF88`, `_bss_end 0x03049D10` (ceiling `0x0304A000`; ~752 B free).
+Not flashed.
+
+**Device checklist.** Watch for `keys: async scan failed` (must be absent),
+`audio: configure N ms` (~200-260 ms expected instead of several hundred),
+`ipc: prebuffer N frames` (>0), and no first-Play underrun. Verify repeat/Hold,
+the battery row after 15 s, resume seek, and 44.1/48/96k first plays. If the
+CS43131 fails to come up, rebuild with `-DDAC_DELAY_SCALE_NUM=2`; if the direct
+volume clicks, `-DAO_UNMUTE_DIRECT=0`.

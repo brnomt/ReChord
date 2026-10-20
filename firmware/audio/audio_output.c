@@ -22,6 +22,13 @@
 #include "cs43131.h"
 #include "rknano_i2s.h"
 
+/* BRNOMT-98: set the volume while the hardware mute is still asserted instead
+ * of ramping 0xFF -> user (~86 ms at 0 dB). Build with
+ * -DAO_UNMUTE_DIRECT=0 to restore the stock ramp if a click ever appears. */
+#ifndef AO_UNMUTE_DIRECT
+#define AO_UNMUTE_DIRECT 1
+#endif
+
 /* ---- feeder binding (seam: swap for DMA later) --------------------------- */
 
 const ao_feeder_ops ao_feeder_ring_irq = {
@@ -235,9 +242,17 @@ static int ao_configure_rate(uint32_t rate_hz)
      * the real volume regs then sit at their -60 dB reset default
      * (the "extremely quiet" bug). */
     dac_gpio_out(2, 14, 1);
+#if AO_UNMUTE_DIRECT
+    /* GPIO2.0 (hardware mute) is still high here, so the target level can be
+     * written directly and heard only when the mute is released. */
+    dac_volume_set(s_volume_atten);
+    dac_gpio_out(2, 0, 0);
+    dac_gpio_out(1, 4, 1);            /* amp enable again (ref)           */
+#else
     dac_gpio_out(2, 0, 0);
     dac_gpio_out(1, 4, 1);            /* amp enable again (ref)           */
     dac_volume_ramp(0xFF, s_volume_atten); /* FUN_03055f48(0xff, user level) */
+#endif
     /* Ref FUN_03055ecc again right before the feed. */
     dac_map_write_chan(0, 0x0005000A, 0x07);
     dac_map_write_chan(0, 0x0005000B, 0x07);

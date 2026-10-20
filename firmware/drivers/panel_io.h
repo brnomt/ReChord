@@ -38,10 +38,23 @@ void panel_io_delay_ms(uint16_t ms);
 void backlight_on(void);
 void backlight_off(void);
 
-/* Keys: last ADC ladder reading 0..1023 (also starts the next conversion)
- * and the power key level (1 = pressed). Feed both to input_scan(). */
+/* Keys: blocking sample of the ADC ladder (0..1023, median of three fresh
+ * conversions) and the power key level (1 = pressed). Used by the sampler's
+ * fallback and by the blocking mini-loops; the normal path takes samples from
+ * keys_scan_take() below. */
 int keys_adc(void);
 int keys_power(void);
+
+/* Non-blocking key sampler (BRNOMT-98). keys_scan_tick() is the 1 ms hook
+ * (call it from SysTick_Handler): it starts one fresh conversion per tick and
+ * publishes the median of three as soon as they complete. keys_scan_take()
+ * returns 1 once per completed scan and copies the sample out; the caller
+ * still runs input_scan() in thread context. keys_scan_failed() turns 1 when
+ * the converter never completes (the caller then falls back to the blocking
+ * keys_adc()/keys_power() path). */
+void keys_scan_tick(void);
+int  keys_scan_take(int *adc, int *power);
+int  keys_scan_failed(void);
 /* One fresh SARADC conversion on `ch` (0 = battery, 1 = key ladder).
  * Returns the raw 10-bit value, or -1 when the channel is unavailable. */
 int adc_read_channel(int ch);

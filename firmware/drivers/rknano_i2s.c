@@ -30,12 +30,56 @@ void delay_loops(volatile unsigned n)
         ;
 }
 
+/* BRNOMT-98: once the SysTick millisecond clock is running, use it as the
+ * delay reference. The old loop count was calibrated for 200 MHz but overshoots
+ * several-fold (docs/HANDOVER.md:3760-3766), which turned the DAC bring-up's
+ * nominal ~210 ms of delays into hundreds of milliseconds. Boot-time callers
+ * (Core B start) still run before the clock exists, so they keep the loop. */
+#ifndef DAC_DELAY_SCALE_NUM
+#define DAC_DELAY_SCALE_NUM 1
+#endif
+#ifndef DAC_DELAY_SCALE_DEN
+#define DAC_DELAY_SCALE_DEN 1
+#endif
+
+static unsigned (*s_delay_clock)(void);
+static void (*s_delay_pump)(void);
+
+void dac_delay_set_clock(unsigned (*ms)(void))
+{
+    s_delay_clock = ms;
+}
+
+void dac_delay_set_pump(void (*fn)(void))
+{
+    s_delay_pump = fn;
+}
+
 void dac_delay_ms(unsigned ms)
 {
-    /* ~200 MHz AP clock after ap_clock_set_200mhz(): ~200k loops is ~1 ms
-     * (over-shoot is safe). */
-    while (ms--)
-        delay_loops(200000);
+    unsigned target;
+
+    if (s_delay_clock == 0) {
+        /* ~200 MHz AP clock after ap_clock_set_200mhz(): ~200k loops is ~1 ms
+         * (over-shoot is safe). */
+        while (ms--)
+            delay_loops(200000);
+        return;
+    }
+
+    target = (unsigned)(((unsigned long)ms * DAC_DELAY_SCALE_NUM) /
+                        DAC_DELAY_SCALE_DEN);
+    if (target == 0u)
+        return;
+    {
+        unsigned t0 = s_delay_clock();
+
+        while ((unsigned)(s_delay_clock() - t0) < target) {
+            if (s_delay_pump != 0)
+                s_delay_pump();          /* keep the A->B ring fed         */
+            delay_loops(2000);           /* ~10 us between checks          */
+        }
+    }
 }
 
 /* ---- CRU gates (active-low, upper-halfword write-enable, SDK style) ------ */

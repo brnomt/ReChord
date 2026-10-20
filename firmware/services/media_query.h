@@ -53,6 +53,14 @@ const uint16_t *mq_filter_indices(unsigned *out_count);
  * mq_filter_indices(). Returns 0, or FS_ERR_* (no index / scratch busy). */
 int mq_folder_init(const char *prefix);
 
+/* Same as mq_folder_init(), but also reports the SORTED filter position of the
+ * record whose full device path ("/"+rec.path) equals `target`, in
+ * *start_out (-1 when the target is not in the folder or target is NULL).
+ * The lookup happens during the same index scan, so the browser no longer
+ * re-reads every record just to find the selected file (BRNOMT-98). */
+int mq_folder_init_start(const char *prefix, const char *target,
+                         int *start_out);
+
 /* Release the scratch region and drop the current query. */
 void mq_done(void);
 

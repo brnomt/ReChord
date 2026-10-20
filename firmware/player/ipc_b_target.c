@@ -314,18 +314,14 @@ int ipc_b_init(void)
 static int b_seek_now(long ms)
 {
     uint32_t seq;
-    int i;
 
     CTRL[IPC_C_ARG] = (uint32_t)ms;
     dmb();
     seq = cmd_start(IPC_C_SEEK);
-    for (i = 0; i < 500; i++) {          /* ~500 ms: file service repositions */
-        bfs_poll();
-        if (CTRL[IPC_C_ACK] == seq)
-            return 0;
-        dac_delay_ms(1);
-    }
-    return -1;
+    /* BRNOMT-98: real milliseconds on the log clock, tight polling and the
+     * file service pumped -- the old 500 x dac_delay_ms(1) loop overshot by
+     * several-fold on top of throttling the very seek it waited for. */
+    return b_wait_ack(seq, 300UL);
 }
 
 int ipc_b_start(const ipc_b_track_t *track)
@@ -373,23 +369,39 @@ int ipc_b_start(const ipc_b_track_t *track)
             else
                 log_printf("ipc: start at %ld ms", track->start_ms);
         }
+        /* BRNOMT-98: let Core B pre-buffer the PCM ring while the AP runs the
+         * DAC bring-up. The delay pump below keeps B's A->B file ring fed, so
+         * the first I2S feed finds data instead of counting an underrun. */
+        sh_set(IPC_SH_STATE, IPC_SH_RUN);
     }
 
     /* The AP owns the DAC/I2S bring-up in both cases. */
     fmt.sample_rate = (uint32_t)track->sample_rate;
     fmt.bits = (uint8_t)track->bits;
     fmt.channels = (uint8_t)track->channels;
-    if (audio_output_configure(&fmt) != 0) {
-        g_state = IPC_B_FAULT;
-        sh_set(IPC_SH_STATE, IPC_SH_IDLE);
-        return -1;
+    dac_delay_set_pump(bfs_poll);       /* keep B decoding through the waits */
+    {
+        unsigned long t0 = log_now_ms();
+        int rc = audio_output_configure(&fmt);
+
+        log_printf("audio: configure %lu ms%s", log_now_ms() - t0,
+                   rc != 0 ? " fail" : "");
+        if (rc != 0) {
+            dac_delay_set_pump(0);
+            g_state = IPC_B_FAULT;
+            sh_set(IPC_SH_STATE, IPC_SH_IDLE);
+            return -1;
+        }
     }
     audio_output_start(0);              /* serializer on (XFER) */
     rknano_i2s_attach(shared_pull, 0);  /* AP ISR drains the ring */
     rknano_i2s_kick();
     audio_output_fade_in();
+    dac_delay_set_pump(0);
 
-    sh_set(IPC_SH_STATE, IPC_SH_RUN);   /* B starts decoding on RUN */
+    sh_set(IPC_SH_STATE, IPC_SH_RUN);   /* idempotent if B pre-buffered */
+    log_printf("ipc: prebuffer %ld frames",
+               (long)(CTRL[IPC_SH_WR] - CTRL[IPC_SH_RD]) / 8);
     g_state = IPC_B_RUNNING;
     return 0;
 }

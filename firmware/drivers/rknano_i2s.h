@@ -21,6 +21,14 @@
 
 void delay_loops(volatile unsigned n);
 void dac_delay_ms(unsigned ms);
+
+/* Millisecond delay source + optional idle pump (BRNOMT-98). With a clock
+ * installed, dac_delay_ms() waits real milliseconds and calls `pump` between
+ * checks; the player passes bfs_poll so Core B keeps decoding while the DAC
+ * comes up. Without a clock it keeps the old conservative loop-count delay,
+ * which is what the pre-SysTick boot path (Core B start) uses. */
+void dac_delay_set_clock(unsigned (*ms)(void));
+void dac_delay_set_pump(void (*fn)(void));
 void cru_gate(int gate_id, int enable);
 void cru_rst(int rst_id, int assert);
 void grf_iomux(int port, int pin, int func);
