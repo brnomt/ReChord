@@ -412,21 +412,21 @@ AP image only contains the loader.
 | field | value |
 |---|---|
 | AP image | `build/cdc/ReChord_AP5M.IMG` |
-| AP CRC | `0xBEA8DED8` |
-| AP SHA-256 | `783c6caeb1dacf12be1d53e5534697fe40f9ab496faf7fc34160b2d3a79038c0` |
+| AP CRC | `0xDBDEABE7` |
+| AP SHA-256 | `4d3880d43b507ea97a0d32bcd6482cd99ac67dde25671cdd8de1c9b20b2e8b6f` |
 | CDC blob | `build/cfw-cdc/cdc/cdc_overlay.bin` |
 | CDC blob size | 1,736 B |
-| CDC blob SHA-256 | `971c7728923f334e499cc5fb10bdd0a06cf2b0e3b97253bf55011a67f7630f68` |
-| row 0 end | `0x030879A4` (1,628 B below `0x03088000`) |
+| CDC blob SHA-256 | `d7452de460996b9ba795a1c11a14ca539a5324b384d873f5a5928c0ffc036e85` |
+| row 0 end | `0x030879F0` (1,552 B below `0x03088000`) |
 | normal image | unchanged, CRC `0x2264CCBA` |
 
 Steps: copy `cdc_overlay.bin` to the device as `/.rechord/cdc.bin` (the
 host sees the ECHO MINI FAT root; the AP addresses it as
-`/Internal/.rechord/cdc.bin`), flash the AP image, boot. The AP loads the
-blob and runs the CDC console; the host should see `/dev/ttyACM0`, a banner
-and an echo console. Type `q` to return to the UI; the splash then shows
-`CDC: done`. If the file is missing, the AP boots normally and shows
-`CDC: no file`.
+`/Internal/.rechord/cdc.bin`), flash the AP image, boot. The CDC is now a
+menu action: **System → CDC overlay**. It loads the blob after the UI and
+the `Internal` volume are ready, then runs the CDC console; the host should
+see `/dev/ttyACM0`, a banner and an echo console. Type `q` to return to the
+UI. If the file is missing, the menu action returns to the UI.
 
 Note: `fs_target` paths are `/<volume>/...`; the AP mounts `Internal`
 (eMMC, contains `.rechord`) and `SD` (music card). The loader must use

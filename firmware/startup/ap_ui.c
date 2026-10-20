@@ -943,6 +943,19 @@ static void usb_storage_run(void)
     usb_session();
 }
 
+#if AP_CDC_OVERLAY
+/* Menu action: load /Internal/.rechord/cdc.bin into 0x0304AE64 and run the
+ * CDC console. The UI is already initialized and Internal is mounted. */
+static void cdc_overlay_run(void)
+{
+    screen("CDC overlay");
+    line(1, "loading...");
+    display_flush_rows(0, DISPLAY_H - 1);
+    (void)ap_cdc_overlay_run();
+    ui_invalidate_all();
+}
+#endif
+
 /* ---- System: the explicit diagnostic view (BRNOMT-72) -------------------- */
 /* Everything that used to clutter the root menu (hardware probes, USB console,
  * index maintenance) lives here. Same list mechanics as every other menu, but
@@ -952,6 +965,9 @@ static const menu_item_t k_sys_items[] = {
 #if AP_DEBUG_TOOLS
     { "DAC test",      NULL,       dac_test_run },
     { "USB console",   NULL,       usb_console_run },
+#endif
+#if AP_CDC_OVERLAY
+    { "CDC overlay",   NULL,       cdc_overlay_run },
 #endif
     { "Rebuild index", NULL,       index_rebuild_run },
     { "Index",         index_text, NULL },
@@ -1320,11 +1336,6 @@ void ap_ui_loop(void)
     input_event_t ev;
 
     emmc_probe();
-#if AP_CDC_OVERLAY
-    /* The Internal volume (and /.rechord) is mounted by emmc_probe(); only
-     * now can the loader open /Internal/.rechord/cdc.bin. */
-    (void)ap_cdc_overlay_run();
-#endif
     player_init();       /* register wav/mp3/flac codecs (registry) */
     player_set_resolver(media_resolve);   /* BRNOMT-90: list index -> path */
     mq_set_pump(player_process);  /* keep audio fed during library scans */
