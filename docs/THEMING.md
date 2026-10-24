@@ -187,9 +187,10 @@ item2=SETTINGS:settings
 | `fill` | `x y w h color` |
 | `roundrect` | `x y w h r color` (filled, true corner arcs) |
 | `triangle` | `x1 y1 x2 y2 x3 y3 color` (filled; degenerate = no draw) |
+| `gradient` | `x y w h from to dir` (two RGB565 colours; `dir=vertical` or `diagonal`; 4x4 ordered dithering hides RGB565 banding; draws only inside the rect) |
 | `bitmap` | `asset x y color bg` (asset dimensions become `aw`/`ah`) |
 | `art` | `x y size` (`small`\|`large`) `color` (placeholder tint, default `surface`) |
-| `text` | `x y text color bg` |
+| `text` | `x y text color bg [maxc] [align]` (`maxc` cuts to N chars ending in `~`; `align=right` makes `x` the right edge) |
 | `bar` | `x y w h value max color bg` |
 | `list` | `axis x y height selected rows source prev next item0..item3` |
 
@@ -225,7 +226,8 @@ previous frame's value, so keep dependencies ordered.
 Integers, strings, parentheses, `+ - * / %`, comparisons
 (`== != < <= > >=`), logical `&& || !`, ternary `? :`.
 
-Functions: `min max abs clamp mod noise sin seq if`.
+Functions: `min max abs clamp mod noise sin sqrt seq if` (`sqrt` is an
+integer floor, for area-true radii).
 
 - `noise(x, amp)` — deterministic value in `[-amp, amp]`.
 - `sin(x, period, amp)` — integer sine, `amp * sin(2*pi*x/period)`.
@@ -279,7 +281,11 @@ The UI adapter fills a read-only `theme_skin_state_t` before drawing:
 | `battery` | % | `battery_percent()`, `-1` when unknown |
 | `art_ok` | 0/1 | the current track has a cover in `ARTPACK.BIN` |
 | `art_c1` / `art_c2` | RGB565 | cover dominant / secondary colour |
-| `art_mean` / `art_accent` | RGB565 | cover mean / most colourful colour |
+| `art_mean` / `art_accent` | RGB565 | cover mean / the mockup's accent |
+| `art_bg_a` / `art_bg_b` | RGB565 | deep gradient ends (dominant V=0.42 / secondary V=0.24) |
+| `art_glow` / `art_panel` | RGB565 | mid glow (V=0.55) / card panel (mean V=0.16) |
+| `art_label` | RGB565 | cream label (cream mixed 10 % with the mean) |
+| `art_ink` / `art_ink_dim` | RGB565 | fixed label inks (#221E1C / #706860) |
 | `title` | string | `player_get_track().title` |
 | `artist` | string | `player_get_track().artist` |
 | `album` | string | `player_get_track().album` |
@@ -476,7 +482,9 @@ bg=background
 
 ## 8. Limits and safety
 
-- Skin text 4 KiB, 32 sections, 12 properties/section, 144-byte values.
+- Skin text 4 KiB, 52 sections, 12 properties/section, 144-byte values.
+  (Sections are parsed, not stored, so the section cap costs no RAM; the
+  Cassette home uses 50.)
 - Expressions: 2048 steps, recursion depth 12.
 - 8 assets max, 64x64, stride <= 8 B, 1 KiB cache.
 - A malformed `theme.cfg`, skin, or declared asset rejects the package

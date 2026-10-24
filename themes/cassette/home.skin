@@ -1,0 +1,430 @@
+# Cassette — home skin (mockup: 320x170, 8x8 font). RGB565 literals are DECIMAL.
+# art_* colours come from ARTPACK.BIN; without art the theme.cfg palette is
+# used. The reels follow pos_ms (never t), so they freeze on pause.
+
+[skin]
+refresh_ms=50
+refresh_h=140
+
+[vars]
+bg=(art_ok ? art_bg_a : surface)
+bg2=(art_ok ? art_bg_b : background)
+lb=(art_ok ? art_label : text)
+ink=(art_ok ? art_ink : background)
+dim=(art_ok ? art_ink_dim : text_dim)
+acc=(art_ok ? art_accent : accent)
+c1=(art_ok ? art_c1 : accent)
+c2=(art_ok ? art_c2 : text_dim)
+pct=(dur_ms > 0 ? pos_ms * 100 / dur_ms : 0)
+rL=sqrt(169 + (731 * (100 - pct)) / 100)
+rR=sqrt(169 + (731 * pct) / 100)
+
+[vars2]
+phL=-((dur_ms / 1000) * 71) * (30 - rL)
+phR=-((dur_ms / 1000) * 71) * (rR - 13)
+
+[bg]
+type=gradient
+x=0
+y=0
+w=W
+h=H
+from=bg
+to=bg2
+dir=diagonal
+
+[shadow]
+type=roundrect
+x=48
+y=10
+w=228
+h=134
+r=9
+color=2113
+
+[shell]
+type=roundrect
+x=46
+y=6
+w=228
+h=134
+r=9
+color=6339
+
+[hl]
+type=fill
+x=47
+y=6
+w=226
+h=1
+color=10598
+
+[label]
+type=roundrect
+x=58
+y=12
+w=204
+h=88
+r=4
+color=lb
+
+[window]
+type=roundrect
+x=86
+y=49
+w=148
+h=38
+r=19
+color=2146
+
+[packL]
+type=roundrect
+x=112 - rL
+y=68 - rL
+w=2 * rL
+h=2 * rL
+r=rL
+color=14627
+
+[corePackL]
+type=roundrect
+x=112 - (rL - 6)
+y=68 - (rL - 6)
+w=2 * (rL - 6)
+h=2 * (rL - 6)
+r=rL - 6
+color=22980
+
+[packR]
+type=roundrect
+x=208 - rR
+y=68 - rR
+w=2 * rR
+h=2 * rR
+r=rR
+color=14627
+
+[corePackR]
+type=roundrect
+x=208 - (rR - 6)
+y=68 - (rR - 6)
+w=2 * (rR - 6)
+h=2 * (rR - 6)
+r=rR - 6
+color=22980
+
+[hubL]
+type=roundrect
+x=100
+y=56
+w=24
+h=24
+r=12
+color=61309
+
+[coreL]
+type=bitmap
+asset=hub
+x=104
+y=60
+color=4258
+bg=61309
+
+[dotL]
+type=roundrect
+x=111 + sin(phL + 1571, 6283, 10)
+y=67 + sin(phL, 6283, 10)
+w=2
+h=2
+r=0
+color=acc
+
+[hubR]
+type=roundrect
+x=196
+y=56
+w=24
+h=24
+r=12
+color=61309
+
+[coreR]
+type=bitmap
+asset=hub
+x=200
+y=60
+color=4258
+bg=61309
+
+[dotR]
+type=roundrect
+x=207 + sin(phR + 1571, 6283, 10)
+y=67 + sin(phR, 6283, 10)
+w=2
+h=2
+r=0
+color=acc
+
+# Cover the reel spill outside the window.
+[covT]
+type=fill
+x=82
+y=38
+w=157
+h=11
+color=lb
+
+[covB]
+type=fill
+x=82
+y=87
+w=157
+h=13
+color=lb
+
+[covL]
+type=fill
+x=82
+y=49
+w=4
+h=38
+color=lb
+
+[covR]
+type=fill
+x=234
+y=49
+w=5
+h=38
+color=lb
+
+[badge]
+type=roundrect
+x=64
+y=17
+w=14
+h=18
+r=3
+color=acc
+
+[badge_a]
+type=text
+x=67
+y=22
+text="A"
+color=lb
+bg=acc
+
+[title]
+type=text
+x=84
+y=18
+text=title
+maxc=21
+color=ink
+bg=lb
+
+[artist]
+type=text
+x=84
+y=29
+text=artist
+maxc=21
+color=dim
+bg=lb
+
+[str1]
+type=fill
+x=58
+y=40
+w=204
+h=2
+color=c1
+
+[str2]
+type=fill
+x=58
+y=43
+w=204
+h=2
+color=acc
+
+[str3]
+type=fill
+x=58
+y=46
+w=204
+h=2
+color=c2
+
+[stereo]
+type=text
+x=66
+y=90
+text="STEREO"
+color=dim
+bg=lb
+
+[fmt]
+type=text
+x=(rate >= 100000 ? 198 : 206)
+y=90
+text=bits + "/" + (rate / 1000) + "K"
+color=dim
+bg=lb
+
+[trap1]
+type=triangle
+x1=94
+y1=112
+x2=226
+y2=112
+x3=240
+y3=140
+color=8453
+
+[trap2]
+type=triangle
+x1=94
+y1=112
+x2=240
+y2=140
+x3=80
+y3=140
+color=8453
+
+[holeL]
+type=roundrect
+x=104
+y=123
+w=8
+h=8
+r=4
+color=2113
+
+[holeR]
+type=roundrect
+x=208
+y=123
+w=8
+h=8
+r=4
+color=2113
+
+[sqL]
+type=fill
+x=132
+y=122
+w=7
+h=7
+color=2113
+
+[sqR]
+type=fill
+x=181
+y=122
+w=7
+h=7
+color=2113
+
+[pin]
+type=roundrect
+x=158
+y=128
+w=4
+h=4
+r=2
+color=2113
+
+[screw1]
+type=bitmap
+asset=screw
+x=50
+y=10
+color=35954
+bg=6339
+
+[screw2]
+type=bitmap
+asset=screw
+x=262
+y=10
+color=35954
+bg=6339
+
+[screw3]
+type=bitmap
+asset=screw
+x=50
+y=128
+color=35954
+bg=6339
+
+[screw4]
+type=bitmap
+asset=screw
+x=262
+y=128
+color=35954
+bg=6339
+
+[screw5]
+type=bitmap
+asset=screw
+x=156
+y=113
+color=35954
+bg=8453
+
+[tape]
+type=fill
+x=84
+y=137
+w=152
+h=2
+color=14627
+
+[play]
+type=text
+x=60
+y=124
+text=(playing ? ">" : "=")
+color=(playing ? acc : 38066)
+bg=6339
+
+[counter]
+type=text
+x=260
+y=124
+text=pos_fmt
+align=right
+color=38066
+bg=6339
+
+[bar]
+type=fill
+x=0
+y=146
+w=W
+h=24
+color=2113
+
+[barline]
+type=fill
+x=0
+y=146
+w=W
+h=1
+color=23244
+
+[items]
+type=list
+axis=horizontal
+y=152
+height=14
+selected=1
+prev=down
+next=up
+item0=LIBRARY:library
+item1=NOW PLAYING:player
+item2=SETTINGS:settings

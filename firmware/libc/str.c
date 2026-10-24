@@ -55,40 +55,6 @@ int strncmp(const char *a, const char *b, size_t n)
  * build stays self-contained (build-from-source rule). */
 typedef unsigned short u16_t;
 
-unsigned int StrLenW(u16_t *pstr)
-{
-    unsigned int n = 0;
-    while (pstr[n])
-        n++;
-    return n;
-}
-
-int StrCmpW(u16_t *pstr1, u16_t *pstr2, unsigned int len)
-{
-    unsigned int i;
-    for (i = 0; i < len; i++) {
-        if (pstr1[i] != pstr2[i])
-            return (int)pstr1[i] - (int)pstr2[i];
-        if (!pstr1[i])
-            break;
-    }
-    return 0;
-}
-
-
-/* UTF-16 -> ASCII (vendor plug/bsp/BSP.h signature; BB links its own). */
-unsigned int Unicode2Ascii(unsigned char *pbAscii, unsigned short *pwUnicode, unsigned int len)
-{
-    unsigned int i;
-    for (i = 0; i < len; i++) {
-        unsigned short c = pwUnicode[i];
-        if (!c) { pbAscii[i] = 0; break; }
-        pbAscii[i] = (c < 0x80) ? (unsigned char)c : '?';
-    }
-    return i;
-}
-
-
 /* Case-insensitive bounded compare (POSIX; used by the ID3 parser). */
 int strncasecmp(const char *a, const char *b, unsigned int n)
 {

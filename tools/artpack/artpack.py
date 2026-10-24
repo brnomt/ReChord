@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
+import math
 import os
 import struct
 import sys
@@ -26,11 +27,11 @@ import zlib
 
 from PIL import Image, ImageOps
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 MAGIC = b"ARTP"
 HEADER_BYTES = 512
 KEY_ENTRY_BYTES = 16
-IMAGE_ENTRY_BYTES = 16
+IMAGE_ENTRY_BYTES = 32
 AUDIO_EXT = (".mp3", ".flac", ".wav")
 COVER_NAMES = ("cover", "folder", "front")
 COVER_EXT = (".jpg", ".jpeg", ".png")
@@ -152,7 +153,7 @@ def folder_art(directory: str):
 # Image processing
 # --------------------------------------------------------------------------
 
-def _clamp(v: int, lo: int, hi: int) -> int:
+def _clamp(v, lo, hi):
     return lo if v < lo else hi if v > hi else v
 
 
@@ -160,70 +161,127 @@ def rgb_to_565(r: int, g: int, b: int) -> int:
     return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
 
 
-def _hsv(r: int, g: int, b: int):
+def _rgb565(c) -> int:
+    """Vector -> RGB565, truncating like the mockup's `c[0]>>3` bit ops."""
+    return ((int(c[0]) >> 3) << 11) | ((int(c[1]) >> 2) << 5) | (int(c[2]) >> 3)
+
+
+def _hsv(c):
+    r, g, b = c[0] / 255.0, c[1] / 255.0, c[2] / 255.0
     mx = max(r, g, b)
     mn = min(r, g, b)
-    sat = 0.0 if mx == 0 else (mx - mn) / mx
-    return sat, mx / 255.0
+    d = mx - mn
+    h = 0.0
+    if d:
+        if mx == r:
+            h = ((g - b) / d) % 6
+        elif mx == g:
+            h = (b - r) / d + 2
+        else:
+            h = (r - g) / d + 4
+        h *= 60
+        if h < 0:
+            h += 360
+    return h, (d / mx if mx else 0.0), mx
 
 
-def palette_of(im: Image.Image):
-    """dominant, secondary, mean, accent (RGB tuples) — see docs/ART_PACK.md."""
-    px = im.load()
-    w, h = im.size
-    bins = {}          # (r4,g4,b4) -> [count, sum_r, sum_g, sum_b]
-    sum_r = sum_g = sum_b = 0
-    total = w * h
-    for y in range(h):
-        for x in range(w):
-            r, g, b = px[x, y]
-            sum_r += r
-            sum_g += g
-            sum_b += b
-            k = (r >> 4, g >> 4, b >> 4)
-            e = bins.get(k)
-            if e is None:
-                bins[k] = [1, r, g, b]
-            else:
-                e[0] += 1
-                e[1] += r
-                e[2] += g
-                e[3] += b
-
-    entries = []
-    for k, (cnt, sr, sg, sb) in bins.items():
-        entries.append((k, cnt, (sr // cnt, sg // cnt, sb // cnt)))
-    entries.sort(key=lambda e: (-e[1], e[0]))
-
-    dominant = entries[0][2]
-
-    secondary = dominant
-    for _k, _cnt, col in entries[1:]:
-        if max(abs(col[i] - dominant[i]) for i in range(3)) >= 64:
-            secondary = col
-            break
+def _from_hsv(h, s, v):
+    c = v * s
+    x = c * (1 - abs((h / 60) % 2 - 1))
+    m = v - c
+    if h < 60:
+        r, g, b = c, x, 0
+    elif h < 120:
+        r, g, b = x, c, 0
+    elif h < 180:
+        r, g, b = 0, c, x
+    elif h < 240:
+        r, g, b = 0, x, c
+    elif h < 300:
+        r, g, b = x, 0, c
     else:
-        if len(entries) > 1:
-            secondary = entries[1][2]
+        r, g, b = c, 0, x
+    return [(r + m) * 255.0, (g + m) * 255.0, (b + m) * 255.0]
 
-    floor = max(1, total // 100)
-    accent = None
-    accent_rank = None
-    for _k, cnt, col in entries:
-        if cnt < floor:
-            continue
-        sat, val = _hsv(*col)
-        if sat < 0.35 or val < 0.20:
-            continue
-        rank = (-cnt, -sat)
-        if accent_rank is None or rank < accent_rank:
-            accent_rank = rank
-            accent = col
-    if accent is None:
-        accent = secondary
 
-    mean = (round(sum_r / total), round(sum_g / total), round(sum_b / total))
-    return dominant, secondary, mean, accent
+def _mix(a, b, t):
+    return [a[i] + (b[i] - a[i]) * t for i in range(3)]
+
+
+def _lum(c):
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+
+def analyze(im: Image.Image) -> dict:
+    """The mockup's analyze(): k-means (k=4) on a 32x32 downscale, then the
+    cassette theme's derived colours. See docs/ART_PACK.md for the exact rules.
+    """
+    small = im.resize((32, 32), Image.Resampling.LANCZOS)
+    px = list(small.getdata())
+    n = len(px)
+    mean = [sum(p[i] for p in px) / n for i in range(3)]
+
+    # Deterministic init along luminance (stable order, like JS sort).
+    order = sorted(range(n), key=lambda i: _lum(px[i]))
+    C = [[float(v) for v in px[order[int((k + 0.5) / 4 * n)]]] for k in range(4)]
+    cnt = [0] * 4
+    for _ in range(10):
+        acc = [[0.0, 0.0, 0.0] for _ in range(4)]
+        cnt = [0] * 4
+        for p in px:
+            bi, bd = 0, 1e30
+            for k, q in enumerate(C):
+                dd = ((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 +
+                      (p[2] - q[2]) ** 2)
+                if dd < bd:
+                    bd = dd
+                    bi = k
+            acc[bi][0] += p[0]
+            acc[bi][1] += p[1]
+            acc[bi][2] += p[2]
+            cnt[bi] += 1
+        for k in range(4):
+            if cnt[k]:
+                C[k] = [acc[k][0] / cnt[k], acc[k][1] / cnt[k],
+                        acc[k][2] / cnt[k]]
+
+    cl = sorted([(C[k], cnt[k], k) for k in range(4)],
+                key=lambda t: (-t[1], t[2]))
+    dom = cl[0][0]
+
+    sec = cl[1][0]
+    best = -1.0
+    for c, ccount, _k in cl[1:]:
+        dd = math.sqrt((c[0] - dom[0]) ** 2 + (c[1] - dom[1]) ** 2 +
+                       (c[2] - dom[2]) ** 2) * math.sqrt(ccount)
+        if dd > best:
+            best = dd
+            sec = c
+
+    centres = [c for c, _n, _k in cl]
+    acc = sorted(centres,
+                 key=lambda c: -(_hsv(c)[1] * _hsv(c)[2]))[0]
+    h, s, v = _hsv(acc)
+    accent = _from_hsv(h, _clamp(s * 1.1, 0.45, 0.90),
+                       _clamp(v * 1.15, 0.75, 0.98))
+
+    def deep(c, level):
+        hh, ss, _vv = _hsv(c)
+        return _from_hsv(hh, _clamp(ss * 1.05, 0.0, 0.85), level)
+
+    return {
+        "dom": dom,
+        "sec": sec,
+        "mean": mean,
+        "accent": accent,
+        "bg_a": deep(dom, 0.42),
+        "bg_b": deep(sec, 0.24),
+        "glow": deep(_mix(dom, sec, 0.5), 0.55),
+        "panel": deep(mean, 0.16),
+        "label": _mix([242.0, 234.0, 218.0], mean, 0.10),
+        "ink": [34.0, 30.0, 28.0],
+        "ink_dim": [112.0, 104.0, 96.0],
+    }
 
 
 def to_rgb565_bytes(im: Image.Image, dither: bool) -> bytes:
@@ -254,15 +312,10 @@ def render_cover(data: bytes, large: int, small: int, dither: bool):
                        centering=(0.5, 0.5))
     tiny = ImageOps.fit(im, (small, small), method=Image.Resampling.LANCZOS,
                         centering=(0.5, 0.5))
-    dominant, secondary, mean, accent = palette_of(big)
-    return {
-        "large": to_rgb565_bytes(big, dither),
-        "small": to_rgb565_bytes(tiny, dither),
-        "c1": dominant,
-        "c2": secondary,
-        "mean": mean,
-        "accent": accent,
-    }
+    out = analyze(im)
+    out["large"] = to_rgb565_bytes(big, dither)
+    out["small"] = to_rgb565_bytes(tiny, dither)
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -296,13 +349,21 @@ def build_pack(tracks, images, large: int, small: int, dither: bool) -> bytes:
     large_blob = bytearray()
     for im in images:
         img_blob += struct.pack(
-            "<IIHHHH",
+            "<IIHHHHHHHHHHHH",
             len(small_blob),
             len(large_blob),
-            rgb_to_565(*im["c1"]),
-            rgb_to_565(*im["c2"]),
-            rgb_to_565(*im["mean"]),
-            rgb_to_565(*im["accent"]),
+            _rgb565(im["dom"]),
+            _rgb565(im["sec"]),
+            _rgb565(im["mean"]),
+            _rgb565(im["accent"]),
+            _rgb565(im["bg_a"]),
+            _rgb565(im["bg_b"]),
+            _rgb565(im["glow"]),
+            _rgb565(im["panel"]),
+            _rgb565(im["label"]),
+            _rgb565(im["ink"]),
+            _rgb565(im["ink_dim"]),
+            0,                      # reserved (pads the entry to 32 B)
         )
         small_blob += im["small"]
         large_blob += im["large"]
@@ -410,12 +471,15 @@ def build(root: str, extra_root: str | None, large: int, small: int,
                     missing.append(norm)
                     continue
                 rendered[src_hash] = im
-            proc_hash = hashlib.sha256(im["large"] + im["small"] +
-                                       bytes(struct.pack("<HHHH",
-                                       rgb_to_565(*im["c1"]),
-                                       rgb_to_565(*im["c2"]),
-                                       rgb_to_565(*im["mean"]),
-                                       rgb_to_565(*im["accent"])))).hexdigest()
+            proc_hash = hashlib.sha256(
+                im["large"] + im["small"] +
+                bytes(struct.pack("<HHHHHHHHHHH",
+                                  _rgb565(im["dom"]), _rgb565(im["sec"]),
+                                  _rgb565(im["mean"]), _rgb565(im["accent"]),
+                                  _rgb565(im["bg_a"]), _rgb565(im["bg_b"]),
+                                  _rgb565(im["glow"]), _rgb565(im["panel"]),
+                                  _rgb565(im["label"]), _rgb565(im["ink"]),
+                                  _rgb565(im["ink_dim"])))).hexdigest()
             idx = image_index.get(proc_hash)
             if idx is None:
                 idx = len(images)

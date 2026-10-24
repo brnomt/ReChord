@@ -1,0 +1,366 @@
+# Cassette — Now Playing skin.
+#
+# Large art + info card, a mini cassette whose hubs follow pos_ms, and the
+# progress strip. RGB565 literals are DECIMAL (the expression parser has no 0x).
+# refresh_ms is 100: the art is re-streamed on every redraw, so 10 Hz keeps the
+# hubs/progress alive without doubling the read cost.
+
+[skin]
+refresh_ms=100
+refresh_h=170
+
+[vars]
+bg=(art_ok ? art_bg_a : surface)
+bg2=(art_ok ? art_bg_b : background)
+pn=(art_ok ? art_panel : background)
+lb=(art_ok ? art_label : text)
+dim=(art_ok ? art_ink_dim : text_dim)
+acc=(art_ok ? art_accent : accent)
+rL=sqrt(169 + (731 * (100 - (dur_ms > 0 ? pos_ms * 100 / dur_ms : 0))) / 100)
+rR=sqrt(169 + (731 * (dur_ms > 0 ? pos_ms * 100 / dur_ms : 0)) / 100)
+
+[vars2]
+phL=-((dur_ms / 1000) * 71) * (30 - rL)
+phR=-((dur_ms / 1000) * 71) * (rR - 13)
+
+[bg]
+type=gradient
+x=0
+y=0
+w=W
+h=H
+from=bg
+to=bg2
+dir=diagonal
+
+[titlebar]
+type=fill
+x=0
+y=0
+w=W
+h=14
+color=2113
+
+[heading]
+type=text
+x=6
+y=3
+text="NOW PLAYING"
+color=acc
+bg=2113
+
+[listpos]
+type=text
+x=314
+y=3
+text=pl_i + "/" + pl_n
+align=right
+color=dim
+bg=2113
+
+[art_shadow]
+type=fill
+x=13
+y=25
+w=120
+h=120
+color=2113
+
+[art_border]
+type=fill
+x=9
+y=20
+w=122
+h=122
+color=23244
+
+[art]
+type=art
+x=10
+y=21
+size=large
+color=pn
+
+# No cover: a small cassette glyph over the engine's placeholder square.
+[glyph_body]
+type=roundrect
+x=42
+y=66
+w=56
+h=32
+r=4
+visible=(art_ok == 0)
+color=dim
+
+[glyph_label]
+type=roundrect
+x=46
+y=70
+w=48
+h=14
+r=2
+visible=(art_ok == 0)
+color=pn
+
+[glyph_hub1]
+type=roundrect
+x=58
+y=80
+w=8
+h=8
+r=4
+visible=(art_ok == 0)
+color=dim
+
+[glyph_hub2]
+type=roundrect
+x=84
+y=80
+w=8
+h=8
+r=4
+visible=(art_ok == 0)
+color=dim
+
+[card]
+type=roundrect
+x=140
+y=21
+w=172
+h=120
+r=6
+color=pn
+
+[accent]
+type=fill
+x=140
+y=29
+w=2
+h=24
+color=acc
+
+[title]
+type=text
+x=150
+y=29
+text=title
+maxc=20
+color=63389
+bg=pn
+
+[artist]
+type=text
+x=150
+y=41
+text=artist
+maxc=20
+color=acc
+bg=pn
+
+[album]
+type=text
+x=150
+y=53
+text=album
+maxc=20
+color=dim
+bg=pn
+
+[mini]
+type=roundrect
+x=150
+y=71
+w=46
+h=28
+r=4
+color=6339
+
+[minilabel]
+type=roundrect
+x=154
+y=74
+w=38
+h=14
+r=2
+color=lb
+
+[miniwindow]
+type=roundrect
+x=159
+y=78
+w=28
+h=8
+r=4
+color=2146
+
+[minihubL]
+type=roundrect
+x=162
+y=79
+w=7
+h=7
+r=3
+color=61309
+
+[minicoreL]
+type=roundrect
+x=163
+y=80
+w=4
+h=4
+r=2
+color=4258
+
+[minidotL]
+type=roundrect
+x=165 + sin(phL + 1571, 6283, 3)
+y=82 + sin(phL, 6283, 3)
+w=1
+h=1
+r=0
+color=acc
+
+[minihubR]
+type=roundrect
+x=178
+y=79
+w=7
+h=7
+r=3
+color=61309
+
+[minicoreR]
+type=roundrect
+x=179
+y=80
+w=4
+h=4
+r=2
+color=4258
+
+[minidotR]
+type=roundrect
+x=181 + sin(phR + 1571, 6283, 3)
+y=82 + sin(phR, 6283, 3)
+w=1
+h=1
+r=0
+color=acc
+
+[minitrap1]
+type=triangle
+x1=162
+y1=91
+x2=190
+y2=91
+x3=195
+y3=99
+color=10566
+
+[minitrap2]
+type=triangle
+x1=162
+y1=91
+x2=195
+y2=99
+x3=157
+y3=99
+color=10566
+
+[state]
+type=text
+x=206
+y=73
+text=(playing ? "PLAYING" : "PAUSED")
+color=(playing ? 63389 : dim)
+bg=pn
+
+[fmt]
+type=text
+x=206
+y=87
+text=bits + "/" + (rate / 1000) + "kHz"
+color=dim
+bg=pn
+
+[shuf]
+type=text
+x=150
+y=113
+text="SHUF"
+visible=shuffle
+color=acc
+bg=pn
+
+[repeat]
+type=text
+x=(shuffle ? 190 : 150)
+y=113
+text=(repeat == 2 ? "REP1" : "REP")
+visible=repeat
+color=acc
+bg=pn
+
+[voltext]
+type=text
+x=302
+y=113
+text=volume + " dB"
+align=right
+color=dim
+bg=pn
+
+[volbar]
+type=bar
+x=150
+y=127
+w=152
+h=2
+value=volume + 60
+max=80
+color=dim
+bg=12677
+
+[strip]
+type=fill
+x=0
+y=148
+w=W
+h=22
+color=2113
+
+[progress]
+type=bar
+x=10
+y=151
+w=300
+h=3
+value=pos_ms
+max=(dur_ms > 0 ? dur_ms : 1)
+color=acc
+bg=12677
+
+[knob]
+type=fill
+x=9 + (300 * pos_ms) / (dur_ms > 0 ? dur_ms : 1)
+y=149
+w=3
+h=7
+color=63389
+
+[elapsed]
+type=text
+x=10
+y=158
+text=pos_fmt
+color=63389
+bg=2113
+
+[total]
+type=text
+x=310
+y=158
+text=dur_fmt
+align=right
+color=dim
+bg=2113

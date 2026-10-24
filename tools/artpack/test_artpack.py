@@ -79,22 +79,36 @@ class ImageTests(unittest.TestCase):
         self.assertEqual(data, b"\x00\xf8\x00\xf8")   # 0xF800 little-endian
 
     def test_palette_solid(self):
-        im = Image.new("RGB", (16, 16), (200, 10, 10))
-        dom, sec, mean, accent = ap.palette_of(im)
-        self.assertEqual(dom, (200, 10, 10))
-        self.assertEqual(mean, (200, 10, 10))
-        self.assertEqual(accent, (200, 10, 10))
-        self.assertEqual(sec, (200, 10, 10))
+        im = Image.new("RGB", (64, 64), (200, 10, 10))
+        p = ap.analyze(im)
+        self.assertEqual([int(v) for v in p["dom"]], [200, 10, 10])
+        self.assertEqual([int(v) for v in p["mean"]], [200, 10, 10])
+        self.assertEqual([int(v) for v in p["sec"]], [200, 10, 10])
+        # deep(): hue kept, V forced (0.42 for bg_a, 0.16 for panel)
+        self.assertEqual(max(int(v) for v in p["bg_a"]), 107)
+        self.assertEqual(max(int(v) for v in p["panel"]), 40)
+        # accent: S*1.1 clamped to .9, V*1.15 (0.902 here, below the .98 cap)
+        self.assertAlmostEqual(max(p["accent"]) / 255.0,
+                               (200.0 / 255.0) * 1.15, places=2)
+        # ink colours are fixed by analyze()
+        self.assertEqual([int(v) for v in p["ink"]], [34, 30, 28])
+        self.assertEqual([int(v) for v in p["ink_dim"]], [112, 104, 96])
+        # label = cream mixed 10% with the mean
+        self.assertGreater(p["label"][0], 200)
+        self.assertLess(p["label"][1], 234)
 
     def test_palette_secondary_and_accent(self):
-        im = Image.new("RGB", (16, 16), (20, 20, 20))     # dominant
-        for x in range(8):
-            for y in range(8):
-                im.putpixel((x, y), (220, 30, 30))        # accent + secondary
-        dom, sec, mean, accent = ap.palette_of(im)
-        self.assertEqual(dom, (20, 20, 20))
-        self.assertEqual(sec, (220, 30, 30))
-        self.assertEqual(accent, (220, 30, 30))
+        im = Image.new("RGB", (64, 64), (20, 20, 20))     # dominant
+        for x in range(32):
+            for y in range(32):
+                im.putpixel((x, y), (220, 30, 30))        # minority, saturated
+        p = ap.analyze(im)
+        self.assertLess(max(p["dom"]), 60)
+        self.assertGreater(p["sec"][0], 150)
+        self.assertGreater(p["accent"][0], 150)
+        self.assertGreaterEqual(p["accent"][1], 0)
+        # bg_b is the deep secondary: same hue family, V forced to .24
+        self.assertEqual(max(int(v) for v in p["bg_b"]), 61)
 
     def test_dither_changes_output(self):
         im = Image.new("RGB", (8, 8))
@@ -109,6 +123,10 @@ class ImageTests(unittest.TestCase):
         im = ap.render_cover(png((10, 200, 30)), 24, 12, True)
         self.assertEqual(len(im["large"]), 24 * 24 * 2)
         self.assertEqual(len(im["small"]), 12 * 12 * 2)
+        for key in ("dom", "sec", "mean", "accent", "bg_a", "bg_b", "glow",
+                    "panel", "label", "ink", "ink_dim"):
+            self.assertIn(key, im)
+            self.assertEqual(len(im[key]), 3)
 
 
 class PackTests(unittest.TestCase):
@@ -134,7 +152,7 @@ class PackTests(unittest.TestCase):
 
         h = parse_header(pack)
         self.assertEqual(h["magic"], b"ARTP")
-        self.assertEqual(h["version"], 1)
+        self.assertEqual(h["version"], 2)
         self.assertEqual(stats["tracks"], 3)
         self.assertEqual(h["track_count"], 2)      # only tracks WITH art
         self.assertEqual(h["image_count"], 1)      # the album cover
@@ -160,9 +178,11 @@ class PackTests(unittest.TestCase):
         self.assertEqual(keys, sorted(keys))
 
         # image entry -> pixel blob offsets line up
-        img = struct.unpack_from("<IIHHHH", pack, h["img_off"])
+        img = struct.unpack_from("<IIHHHHHHHHHHHH", pack, h["img_off"])
         self.assertEqual(img[0], 0)
         self.assertEqual(img[1], 0)
+        self.assertEqual(img[13], 0)                     # reserved
+        self.assertEqual(h["img_bytes"], (h["image_slots"] * 32 + 511) & ~511)
         self.assertEqual(len(pack), h["large_off"] + h["large_bytes"])
 
     def test_extra_root_keys_use_sd_volume(self):

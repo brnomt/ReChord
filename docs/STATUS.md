@@ -64,6 +64,15 @@ plays audio on hardware:
   through one sector buffer, clipped) and the `art_ok`/`art_c1`/`art_c2`/
   `art_mean`/`art_accent` variables; missing art falls back to a placeholder.
   Format and costs: `docs/ART_PACK.md`.
+- **Cassette theme**: `themes/cassette/` recreates the cassette-deck mockup
+  (`docs/themes/cassette/`): full-screen artwork gradient, cream label with
+  title/artist/stripes, reels whose tape packs and rotation follow `pos_ms`
+  (frozen on pause), the home bar, and a Now Playing card with the 120x120
+  cover, a mini cassette and a progress strip. It uses the ARTPACK v2 palette
+  (`art_bg_a/bg_b/glow/panel/label/ink/ink_dim`); without a cover it falls back
+  to the theme.cfg warm grey/cream/amber palette and draws a cassette glyph.
+  Engine additions: `gradient` meter, `sqrt`, text `maxc`/`align=right`, and
+  the section cap raised 32 -> 52 (parsed, 0 B RAM).
 - **Quick settings**: MENU opens an overlay with Shuffle, Repeat and Playlist
   (BRNOMT-105). The playlist view is the live queue, marks the current track
   and SELECT jumps to/plays the chosen entry. MENU or BACK closes it; MENU

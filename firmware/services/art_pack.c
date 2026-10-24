@@ -15,6 +15,7 @@
  * the gapless pre-open already share.
  */
 #include <stddef.h>
+#include <string.h>
 
 #include "art_pack.h"
 #include "fs.h"
@@ -47,10 +48,10 @@
 #define H_HDR_CRC      84u
 
 #define PACK_MAGIC     0x50545241u   /* "ARTP" little-endian */
-#define PACK_VERSION   1u
+#define PACK_VERSION   2u
 #define HDR_BYTES      512u
 #define KEY_ENTRY      16u
-#define IMAGE_ENTRY    16u
+#define IMAGE_ENTRY    32u
 
 /* ---- state ------------------------------------------------------------- */
 
@@ -60,7 +61,8 @@ static struct {
     uint32_t image;
     uint32_t small_rel, large_rel;
     uint32_t small_base, large_base;
-    uint16_t c1, c2, mean, accent;
+    /* ART_C_* order (the image-entry palette order, docs/ART_PACK.md). */
+    uint16_t pal[11];
     uint16_t large_px, small_px;
 } s;
 
@@ -173,7 +175,7 @@ void art_pack_clear(void)
     s.image = 0;
     s.small_rel = s.large_rel = 0;
     s.small_base = s.large_base = 0;
-    s.c1 = s.c2 = s.mean = s.accent = 0;
+    memset(s.pal, 0, sizeof s.pal);
     s.large_px = s.small_px = 0;
     s.hdr_crc = 0;
 }
@@ -191,6 +193,7 @@ int art_pack_set_track(const char *device_path)
     uint32_t large_px, small_px;
     uint32_t hdr_crc;
     int32_t lo, hi;
+    int i;
     int found = -1;
 
     art_pack_clear();
@@ -285,10 +288,8 @@ int art_pack_set_track(const char *device_path)
         goto fail;
     s.small_rel = le32(s_buf + 0);
     s.large_rel = le32(s_buf + 4);
-    s.c1 = le16(s_buf + 8);
-    s.c2 = le16(s_buf + 10);
-    s.mean = le16(s_buf + 12);
-    s.accent = le16(s_buf + 14);
+    for (i = 0; i < 11; i++)
+        s.pal[i] = le16(s_buf + 8 + (uint32_t)i * 2u);
 
     if (s.small_rel > small_bytes ||
         small_bytes - s.small_rel < (uint32_t)small_px * small_px * 2u ||
@@ -317,12 +318,9 @@ int art_pack_ok(void)
 
 int art_pack_color(int which)
 {
-    switch (which) {
-    case ART_C_SECONDARY: return s.c2;
-    case ART_C_MEAN:      return s.mean;
-    case ART_C_ACCENT:    return s.accent;
-    default:              return s.c1;
-    }
+    if (which < 0 || which >= (int)(sizeof s.pal / sizeof s.pal[0]))
+        return 0;
+    return s.pal[which];
 }
 
 int art_pack_dim(int large)

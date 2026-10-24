@@ -4482,3 +4482,75 @@ UI suite 481 checks, services/player/theme suites green; `make cfw-ap` and
 **Not done (future).** On-device fill of missing covers (the header reserves
 `image_slots`/`free_slots` for it) and a CoverFlow screen (small covers exist
 for the visible tiles). Nothing flashed; PR only.
+
+## BX. Session 2026-10-24 — "Cassette" theme (mockup-faithful) + art palette v2
+
+**Dependency.** PR #3 (ARTPACK, `art`, art_*) is merged as `bab4831`; this work
+branches from it.
+
+**Art palette v2 (`tools/artpack` + `services/art_pack.c`).** The pack now
+stores the mockup's `analyze()` palette per image: k-means (k=4) on a 32x32
+downscale -> dominant/secondary/mean/accent, then the derived shades
+bg_a (dominant V=.42), bg_b (secondary V=.24), glow (mix V=.55), panel (mean
+V=.16), label (cream mixed 10% with the mean), ink/ink_dim (fixed). The image
+entry is 32 B (11 RGB565 + a reserved word), format version 2; the firmware
+exposes `art_bg_a/bg_b/glow/panel/label/ink/ink_dim` to skins. No HSV maths on
+the device.
+
+**Engine additions** (generic, documented in THEMING.md, host-tested):
+- `gradient` meter: two RGB565 colours, vertical or diagonal, 4x4 ordered
+  dithering before quantisation, rect-bounded, rows pushed through
+  `display_blit_span()` (160-px stack buffer; no framebuffer copy).
+- `sqrt()` in expressions (integer floor) for the area-true tape radius.
+- text `maxc` (cut to N chars with `~`) and `align=right` (counters / i/N /
+  volume; the engine has no text measuring helper for themes).
+- section cap 32 -> 52. Sections are parsed per frame, not stored: **0 B RAM**.
+
+**Theme** (`themes/cassette/`, `theme.cfg` + 6 skins + 2 1-bit assets):
+- home 3,947 B / 50 sections, now_playing 3,692 B / 41, the other four ~500 B
+  / 6. Limits: 4 KiB text, 52 sections, 12 props, 20 vars (home uses 13).
+- Reels: tape-pack radius `sqrt(169 + 731*f)` and the hub phase are derived
+  from `pos_ms` (never `t`): they freeze on pause and follow the constant
+  linear tape speed. The hub spoke star + the rotating accent dot make the
+  spin legible; the lower shell/trapezoid/capstans/screws are vector + one
+  8x8 bitmap.
+- No art: the theme.cfg warm grey/cream/amber palette and a cassette glyph on
+  the NP cover slot.
+
+**Budget** (AP image, baseline `bab4831`):
+
+| | before | after |
+|---|---|---|
+| `.text` | 225,172 | 226,268 (+1,096) |
+| `.data` | 292 | 292 |
+| `.bss` | 285,960 | 286,008 (+48) |
+| `_bss_end` | 0x03049E2C (468 B free) | 0x03049E5C (420 B free) |
+| code row 0 end | 0x03087AFC | 0x03087F44 (188 B below 0x03088000) |
+| AP5M CRC | 0x4FB3BA81 (art) | `0x36BF22E1` |
+
+The first build crossed the loader base by 84 B: the pack palette moved to an
+array (-48 B) and the unused wide-string helpers (`StrLenW/StrCmpW/
+Unicode2Ascii`, the vendor BSP.c has its own) left `libc/str.c` (-168 B).
+No other feature was dropped.
+
+**Frame cost.** Host (x86-64, tmpfs pack): 0.35 ms per home render, 0.32 ms
+per Now Playing render (50-render average). On the M3 the gradient dominates:
+its inner loop is 35 Thumb-2 instructions per pixel (disassembled) and the
+home fills 54,400 px -> ~1.9M instructions ~= 10-13 ms at 200 MHz; the rest of
+the skin (parse + 50 sections) adds a few ms. That is ~25 % of the AP core at
+the requested 50 ms refresh. Audio: the I2S feeder is an ISR, Core B decodes
+independently, and the PCM ring covers 74-85 ms at 96 kHz, so a render is far
+below the underrun budget; `refresh_ms` is the knob if battery life matters
+(the Now Playing skin already uses 100 ms because it re-streams the art).
+The panel flush remains the other fixed cost (the home flushes 140 rows).
+
+**Tests.** `tools/artpack` 12 cases (palette rules, v2 layout/CRCs, SD keys,
+ID3); `test_art_pack` 50 checks (v2 entry + new colours); `test_skin_engine`
+(gradient/sqrt/maxc/align); new `test_theme_cassette` applies the real package,
+renders home/NP with a fake art source and checks the mockup's strings,
+palette pieces, truncation, the no-art fallback and all six skins. UI suite
+540 checks, player/theme/services green; `make cfw-ap` and `make cfw-img`
+PASS.
+
+**Screenshots.** `docs/themes/cassette/` (mockup + 8 side-by-side sheets at 2x,
+the mockup HTML and a README with the limitations). Not flashed; PR only.

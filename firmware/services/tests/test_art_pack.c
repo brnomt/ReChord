@@ -84,10 +84,12 @@ static uint16_t pixel_at(int x, int y)
 static void build_pack(uint64_t mid, uint32_t c1, uint32_t c2, uint32_t mean,
                        uint32_t accent, int corrupt_key_crc)
 {
+    uint32_t bg_a = 0xB001, bg_b = 0xB002, glow = 0xB003, panel = 0xB004;
+    uint32_t label = 0xB005, ink = 0xB006, ink_dim = 0xB007;
     uint32_t key_off = 512;
     uint32_t key_bytes = align512(3 * 16);
     uint32_t img_off = key_off + key_bytes;
-    uint32_t img_bytes = align512(IMG_SLOTS * 16);
+    uint32_t img_bytes = align512(IMG_SLOTS * 32);
     uint32_t small_off = img_off + img_bytes;
     uint32_t small_bytes = align512(PACK_SMALL * PACK_SMALL * 2);
     uint32_t large_off = small_off + small_bytes;
@@ -120,6 +122,13 @@ static void build_pack(uint64_t mid, uint32_t c1, uint32_t c2, uint32_t mean,
     wr16(img_off + 10, c2);
     wr16(img_off + 12, mean);
     wr16(img_off + 14, accent);
+    wr16(img_off + 16, bg_a);
+    wr16(img_off + 18, bg_b);
+    wr16(img_off + 20, glow);
+    wr16(img_off + 22, panel);
+    wr16(img_off + 24, label);
+    wr16(img_off + 26, ink);
+    wr16(img_off + 28, ink_dim);
 
     /* pixels: small then large, LE RGB565 */
     for (i = 0; i < PACK_SMALL * PACK_SMALL; i++)
@@ -129,7 +138,7 @@ static void build_pack(uint64_t mid, uint32_t c1, uint32_t c2, uint32_t mean,
 
     /* header */
     memcpy(s_pack, "ARTP", 4);
-    wr32(4, 1);
+    wr32(4, 2);
     wr32(8, 512);
     wr32(12, 1);                       /* dither flag */
     wr16(16, PACK_LARGE);
@@ -222,6 +231,13 @@ int main(void)
     CHECK(art_pack_color(ART_C_SECONDARY) == 0x5678);
     CHECK(art_pack_color(ART_C_MEAN) == 0x9ABC);
     CHECK(art_pack_color(ART_C_ACCENT) == 0xDEF0);
+    CHECK(art_pack_color(ART_C_BG_A) == 0xB001);
+    CHECK(art_pack_color(ART_C_BG_B) == 0xB002);
+    CHECK(art_pack_color(ART_C_GLOW) == 0xB003);
+    CHECK(art_pack_color(ART_C_PANEL) == 0xB004);
+    CHECK(art_pack_color(ART_C_LABEL) == 0xB005);
+    CHECK(art_pack_color(ART_C_INK) == 0xB006);
+    CHECK(art_pack_color(ART_C_INK_DIM) == 0xB007);
     CHECK(art_pack_dim(ART_SIZE_LARGE) == PACK_LARGE);
     CHECK(art_pack_dim(ART_SIZE_SMALL) == PACK_SMALL);
 

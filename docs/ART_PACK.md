@@ -70,26 +70,35 @@ in the summary.
 
 ---
 
-## 2. Palette (documented, deterministic)
+## 2. Palette (the cassette mockup's `analyze()`, deterministic)
 
-Computed from the **large truecolour** image after resize (before dithering):
+The tool reproduces the theme mockup's `analyze()` exactly, on the PC:
 
-1. Quantize every pixel to 4 bits/channel (`r>>4, g>>4, b>>4`) and histogram
-   the 4096 bins, keeping the per-bin sum of the original RGB.
-2. `dominant` = the most frequent bin (ties: lowest `(r,g,b)` bin).
-3. `secondary` = the most frequent bin whose mean colour differs from
-   `dominant` by **at least 64 in some RGB channel**; if none, the next most
-   frequent bin; if there is only one, `dominant`.
-4. `accent` = among bins covering at least 1 % of the pixels, the most
-   frequent one with HSV **saturation ≥ 0.35 and value ≥ 0.20** (ties: higher
-   saturation, then lower bin); if none, `secondary`.
-5. `mean` = rounded average RGB over every pixel.
+1. Downscale the source cover to **32x32** (LANCZOS) and read its pixels.
+2. k-means, **k=4**, 10 iterations, Euclidean RGB, deterministic init: sort
+   the pixels by luminance (stable) and seed the four centres at the 12.5/37.5/
+   62.5/87.5 percentiles. Clusters are sorted by count (ties keep the seed
+   order).
+3. `dominant` = the most populous cluster centre.
+4. `secondary` = among the other clusters, the one maximizing
+   `distance(centre, dominant) * sqrt(count)` (the most prominent distinct
+   colour).
+5. `accent` = the cluster centre with the highest `S*V`; its colour is
+   `fromHsv(h, clamp(s*1.1, .45, .90), clamp(v*1.15, .75, .98))`.
+6. Derived shades (all from those centres):
+   * `bg_a` = dominant at HSV **V=0.42** (S clamped to 0.85),
+   * `bg_b` = secondary at **V=0.24**,
+   * `glow` = mix(dominant, secondary, 0.5) at **V=0.55**,
+   * `panel` = mean at **V=0.16**,
+   * `label` = cream `#F2EADA` mixed **10 %** with the mean,
+   * `ink` = `#221E1C`, `ink_dim` = `#706860` (fixed).
+   `deep(c, V)` keeps the hue and sets `S = clamp(s*1.05, 0, .85)`, `V`.
+7. `mean` = the average RGB of the 32x32 pixels.
 
-Each colour is the mean of its bin (not the bin index), converted to RGB565.
-The four values are stored per image and exposed to themes as `art_c1`
-(dominant), `art_c2` (secondary), `art_mean` and `art_accent`.
-
----
+All eleven colours are converted to RGB565 (channels truncated) and stored in
+the image entry; themes read them as `art_c1`, `art_c2`, `art_mean`,
+`art_accent`, `art_bg_a`, `art_bg_b`, `art_glow`, `art_panel`, `art_label`,
+`art_ink`, `art_ink_dim`. No HSV maths runs on the device.
 
 ## 3. Key normalization
 
@@ -119,7 +128,7 @@ tool.
 
 ---
 
-## 4. File format (version 1)
+## 4. File format (version 2)
 
 All integers little-endian. **Every section starts on a 512-byte boundary**
 (the device reads whole sectors); unused tail bytes are zero. Offsets in the
@@ -129,7 +138,7 @@ padding).
 ```
 offset  type        field
 0       u32         magic 'ARTP' (0x50545241 LE)
-4       u32         version = 1
+4       u32         version = 2
 8       u32         header_bytes = 512
 12      u32         flags: bit0 = ordered dithering used
 16      u16         large_px
@@ -163,12 +172,14 @@ CRC is **CRC-32/ISO-HDLC** (poly `0xEDB88320`, init/final `0xFFFFFFFF`), i.e.
 u64 key; u32 image_index; u32 reserved (0)
 ```
 
-**Image entry** (16 B each, `image_slots` entries; unused ones zero):
+**Image entry** (32 B each, `image_slots` entries; unused ones zero):
 
 ```
 u32 small_off   (relative to small_off)
 u32 large_off   (relative to large_off)
 u16 c1 (dominant), u16 c2 (secondary), u16 mean, u16 accent   (RGB565)
+u16 bg_a, bg_b, glow, panel, label, ink, ink_dim              (RGB565)
+u16 reserved (0)
 ```
 
 **Pixel blobs**: `image_count` covers, tightly packed, row-major,

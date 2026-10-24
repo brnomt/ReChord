@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ReChord · Cassette theme — mockup</title>
+<style>
+  :root{--bg:#111114;--fg:#e9e6df;--dim:#8b8a86;--card:#1a1a1f;--line:#2a2a31}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+  body.screen{background:#000;overflow:hidden}
+  body.screen canvas{width:320px;height:170px}
+  .wrap{max-width:1480px;margin:0 auto;padding:28px}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:.2px}
+  .sub{color:var(--dim);margin:0 0 22px}
+  .screens{display:flex;gap:24px;flex-wrap:wrap}.screens>div{flex:0 0 auto}
+  .dev{background:#050506;padding:12px;border-radius:18px;box-shadow:0 0 0 1px #26262c,0 18px 40px rgba(0,0,0,.45)}
+  .dev canvas{width:640px;height:340px;border-radius:3px}
+  .cap{color:var(--dim);font-size:12px;margin:8px 4px 0;letter-spacing:.3px;text-transform:uppercase}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:22px 0 10px}
+  button{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font:inherit;cursor:pointer}
+  button:hover{border-color:#44444d}
+  button.on{background:#e9e6df;color:#111;border-color:#e9e6df}
+  label.tg{display:flex;gap:6px;align-items:center;color:var(--dim)}
+  input[type=range]{width:220px}
+  .sw{display:flex;gap:8px;align-items:center;margin-top:12px;color:var(--dim);font-size:12px}
+  .sw i{display:inline-block;width:26px;height:26px;border-radius:6px;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+  .notes{margin-top:22px;color:var(--dim);font-size:13px;max-width:1300px}
+  .notes b{color:var(--fg);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(2,auto);gap:26px 28px;justify-content:start}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);margin-left:6px;color:var(--dim)}
+  .ok{color:#8fd19e;border-color:#2f5a3a}.need{color:#f0b46a;border-color:#6a4a22}
+  ul{margin:6px 0 0 18px;padding:0}
+</style>
+</head>
+<body>
+<script>
+"use strict";
+/* ---------------------------------------------------------------------------
+ * ReChord "Cassette" theme — visual mockup (not firmware code).
+ * Panel: 320x170 RGB565 (firmware/drivers/display.h). Text uses the firmware's
+ * own 8x8 font (firmware/drivers/font8x8.c), inlined below.
+ * ------------------------------------------------------------------------- */
+const FONT = [[0,0,0,0,0,0,0,0],[32,32,32,32,32,0,32,0],[80,80,0,0,0,0,0,0],[80,254,80,80,254,80,0,0],[32,124,160,120,40,248,32,0],[200,200,16,32,64,152,152,0],[96,144,160,64,168,144,104,0],[32,32,0,0,0,0,0,0],[16,32,64,64,64,32,16,0],[64,32,16,16,16,32,64,0],[0,32,168,112,168,32,0,0],[0,32,32,254,32,32,0,0],[0,0,0,0,0,96,96,64],[0,0,0,254,0,0,0,0],[0,0,0,0,0,96,96,0],[8,8,16,32,64,128,128,0],[112,136,152,168,200,136,112,0],[32,96,32,32,32,32,112,0],[112,136,8,16,32,64,254,0],[248,16,32,16,8,136,112,0],[16,48,80,144,254,16,16,0],[254,128,240,8,8,136,112,0],[48,64,128,240,136,136,112,0],[254,8,16,32,64,64,64,0],[112,136,136,112,136,136,112,0],[112,136,136,120,8,16,96,0],[0,96,96,0,96,96,0,0],[0,96,96,0,96,96,64,0],[16,32,64,128,64,32,16,0],[0,0,254,0,254,0,0,0],[64,32,16,8,16,32,64,0],[112,136,8,16,32,0,32,0],[112,136,184,168,184,128,112,0],[32,80,136,136,254,136,136,0],[240,136,136,240,136,136,240,0],[112,136,128,128,128,136,112,0],[240,136,136,136,136,136,240,0],[254,128,128,240,128,128,254,0],[254,128,128,240,128,128,128,0],[112,136,128,184,136,136,120,0],[136,136,136,254,136,136,136,0],[112,32,32,32,32,32,112,0],[56,16,16,16,16,144,96,0],[136,144,160,192,160,144,136,0],[128,128,128,128,128,128,254,0],[136,216,168,168,136,136,136,0],[136,136,200,168,152,136,136,0],[112,136,136,136,136,136,112,0],[240,136,136,240,128,128,128,0],[112,136,136,136,168,144,104,0],[240,136,136,240,160,144,136,0],[120,128,128,112,8,8,240,0],[254,32,32,32,32,32,32,0],[136,136,136,136,136,136,112,0],[136,136,136,136,136,80,32,0],[136,136,136,168,168,216,136,0],[136,136,80,32,80,136,136,0],[136,136,80,32,32,32,32,0],[254,8,16,32,64,128,254,0],[112,64,64,64,64,64,112,0],[128,128,64,32,16,8,8,0],[112,16,16,16,16,16,112,0],[32,80,136,0,0,0,0,0],[0,0,0,0,0,0,0,254],[64,32,0,0,0,0,0,0],[0,0,112,8,120,136,120,0],[128,128,240,136,136,136,240,0],[0,0,112,128,128,136,112,0],[8,8,120,136,136,136,120,0],[0,0,112,136,254,128,112,0],[48,72,64,240,64,64,64,0],[0,0,120,136,136,120,8,120],[128,128,240,136,136,136,136,0],[32,0,96,32,32,32,112,0],[16,0,48,16,16,16,144,96],[128,128,144,160,192,160,144,0],[96,32,32,32,32,32,112,0],[0,0,208,168,168,168,168,0],[0,0,240,136,136,136,136,0],[0,0,112,136,136,136,112,0],[0,0,240,136,136,240,128,128],[0,0,120,136,136,120,8,8],[0,0,176,200,128,128,128,0],[0,0,120,128,112,8,240,0],[64,64,240,64,64,72,48,0],[0,0,136,136,136,152,104,0],[0,0,136,136,136,80,32,0],[0,0,136,168,168,168,80,0],[0,0,136,80,32,80,136,0],[0,0,136,136,136,120,8,120],[0,0,254,16,32,64,254,0],[24,32,32,64,32,32,24,0],[32,32,32,32,32,32,32,0],[192,32,32,16,32,32,192,0],[0,0,64,168,16,0,0,0]];
+const W = 320, H = 170;
+const Q = new URLSearchParams(location.search);
+
+/* ---------- small colour helpers ---------- */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const css=(c,a=1)=>`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
+const lum=c=>(0.2126*c[0]+0.7152*c[1]+0.0722*c[2])/255;
+function hsv(c){const r=c[0]/255,g=c[1]/255,b=c[2]/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  let h=0;if(d){h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h*=60;if(h<0)h+=360}
+  return [h,mx?d/mx:0,mx];}
+function fromHsv(h,s,v){const c=v*s,x=c*(1-Math.abs((h/60)%2-1)),m=v-c;let r,g,b;
+  [r,g,b]=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];
+  return [(r+m)*255,(g+m)*255,(b+m)*255];}
+const rgb565=c=>((c[0]>>3)<<11)|((c[1]>>2)<<5)|(c[2]>>3);
+const hex4=n=>'0x'+n.toString(16).toUpperCase().padStart(4,'0');
+
+/* ---------- firmware 8x8 font (opaque-free; always drawn on solid surfaces) */
+function text(ctx,x,y,s,col){
+  ctx.fillStyle=col;
+  for(let i=0;i<s.length;i++){
+    const code=s.charCodeAt(i); if(code<32||code>126) continue;
+    const g=FONT[code-32];
+    for(let r=0;r<8;r++){const row=g[r]; if(!row) continue;
+      for(let b=0;b<8;b++) if(row&(0x80>>b)) ctx.fillRect(x+i*8+b,y+r,1,1);}
+  }
+}
+const fit=(s,n)=>s.length<=n?s:s.slice(0,n-1)+'~';
+
+/* ---------- placeholder artwork (generated, no real covers) ---------- */
+const TRACKS=[
+  {title:"Golden Hour Static",artist:"The Reel Club",album:"Side A Sessions",dur:222,bits:24,rate:96000,i:3,n:12,shuffle:0,repeat:1,vol:-14,cover:coverSunset},
+  {title:"Low Tide Signal",artist:"Coral Static",album:"Blue Hours",dur:258,bits:16,rate:44100,i:7,n:10,shuffle:1,repeat:0,vol:-20,cover:coverOcean},
+  {title:"Moss & Ember",artist:"Field Notes",album:"Evergreen Tape",dur:305,bits:24,rate:48000,i:1,n:9,shuffle:0,repeat:2,vol:-9,cover:coverMoss},
+];
+function coverSunset(c){const S=c.canvas.width;
+  let g=c.createLinearGradient(0,0,0,S);g.addColorStop(0,"#2b1055");g.addColorStop(.55,"#d6336c");g.addColorStop(1,"#ff9f43");
+  c.fillStyle=g;c.fillRect(0,0,S,S);
+  c.fillStyle="#ffd166";c.beginPath();c.arc(S*.5,S*.62,S*.26,0,Math.PI*2);c.fill();
+  c.fillStyle="#2b1055";for(let i=0;i<6;i++){const y=S*.6+i*S*.055;c.fillRect(0,y,S,S*.012+i*.9);}
+  c.fillStyle="#1b0b3a";c.beginPath();c.moveTo(0,S);c.lineTo(S*.28,S*.74);c.lineTo(S*.5,S*.86);c.lineTo(S*.78,S*.7);c.lineTo(S,S*.84);c.lineTo(S,S);c.fill();
+}
+function coverOcean(c){const S=c.canvas.width;
+  let g=c.createLinearGradient(0,0,S,S);g.addColorStop(0,"#03045e");g.addColorStop(1,"#0096c7");
+  c.fillStyle=g;c.fillRect(0,0,S,S);
+  const cols=["#48cae4","#90e0ef","#00b4d8","#caf0f8"];
+  for(let k=0;k<7;k++){c.strokeStyle=cols[k%4];c.globalAlpha=.75-k*.07;c.lineWidth=S*.03;c.beginPath();
+    for(let x=0;x<=S;x+=2){const y=S*.28+k*S*.1+Math.sin(x/S*Math.PI*2*1.5+k*.8)*S*.045;x?c.lineTo(x,y):c.moveTo(x,y);}c.stroke();}
+  c.globalAlpha=1;c.fillStyle="#f1faee";c.beginPath();c.arc(S*.77,S*.2,S*.075,0,Math.PI*2);c.fill();
+}
+function coverMoss(c){const S=c.canvas.width;
+  c.fillStyle="#1b4332";c.fillRect(0,0,S,S);
+  const cols=["#2d6a4f","#40916c","#52b788","#74c69d","#95d5b2"];
+  for(let i=0;i<5;i++){c.fillStyle=cols[i];c.beginPath();const b=S*(.95-i*.13);c.moveTo(-S*.1,S);c.lineTo(S*(.15+i*.17),b-S*.32);c.lineTo(S*(.55+i*.12),S);c.fill();}
+  c.fillStyle="#f4a261";c.beginPath();c.arc(S*.72,S*.27,S*.12,0,Math.PI*2);c.fill();
+  c.fillStyle="#e76f51";c.fillRect(S*.08,S*.1,S*.2,S*.025);c.fillRect(S*.08,S*.15,S*.12,S*.025);
+}
+const COVERS=TRACKS.map(t=>{const cv=document.createElement('canvas');cv.width=cv.height=240;t.cover(cv.getContext('2d'));return cv;});
+
+/* ---------- palette from the artwork, computed in-canvas ---------- */
+function analyze(img){
+  const N=32,cv=document.createElement('canvas');cv.width=cv.height=N;
+  const c=cv.getContext('2d',{willReadFrequently:true});c.drawImage(img,0,0,N,N);
+  const d=c.getImageData(0,0,N,N).data,px=[];let m=[0,0,0];
+  for(let i=0;i<d.length;i+=4){const p=[d[i],d[i+1],d[i+2]];px.push(p);m[0]+=p[0];m[1]+=p[1];m[2]+=p[2];}
+  m=m.map(v=>v/px.length);
+  // k-means, k=4, deterministic init along luminance
+  const sorted=[...px].sort((a,b)=>lum(a)-lum(b));const K=4;
+  let C=[...Array(K)].map((_,k)=>sorted[Math.floor((k+.5)/K*sorted.length)].slice());let cnt;
+  for(let it=0;it<10;it++){const acc=C.map(()=>[0,0,0]);cnt=C.map(()=>0);
+    for(const p of px){let bi=0,bd=1e9;C.forEach((q,k)=>{const dd=(p[0]-q[0])**2+(p[1]-q[1])**2+(p[2]-q[2])**2;if(dd<bd){bd=dd;bi=k}});
+      acc[bi][0]+=p[0];acc[bi][1]+=p[1];acc[bi][2]+=p[2];cnt[bi]++;}
+    C=C.map((q,k)=>cnt[k]?acc[k].map(v=>v/cnt[k]):q);}
+  const cl=C.map((c,k)=>({c,n:cnt[k]})).sort((a,b)=>b.n-a.n);
+  const dom=cl[0].c;
+  let sec=cl[1].c,best=-1;
+  for(const k of cl.slice(1)){const dd=Math.sqrt((k.c[0]-dom[0])**2+(k.c[1]-dom[1])**2+(k.c[2]-dom[2])**2)*Math.sqrt(k.n);if(dd>best){best=dd;sec=k.c}}
+  let acc=cl.map(k=>k.c).sort((a,b)=>{const A=hsv(a),B=hsv(b);return B[1]*B[2]-A[1]*A[2]})[0];
+  let [h,s,v]=hsv(acc);acc=fromHsv(h,clamp(s*1.1,.45,.9),clamp(v*1.15,.75,.98));
+  // background: deep, saturated versions so text/cassette always read
+  const deep=(c,L)=>{let [h,s,v]=hsv(c);return fromHsv(h,clamp(s*1.05,0,.85),L);};
+  const bgA=deep(dom,.42), bgB=deep(sec,.24), glow=deep(mix(dom,sec,.5),.55);
+  const panel=deep(m,.16);
+  const label=mix([242,234,218],m,.10);
+  return {mean:m,dom,sec,accent:acc,bgA,bgB,glow,panel,label,ink:[34,30,28],inkDim:[112,104,96]};
+}
+const PALS=COVERS.map(analyze);
+
+/* ---------- reel physics: equal linear tape speed, ω = v / r ---------- */
+const HUB_L={x:112,y:68}, HUB_R={x:208,y:68};
+const R_MIN=13, R_MAX=30;
+const packR=f=>Math.sqrt(R_MIN*R_MIN+(R_MAX*R_MAX-R_MIN*R_MIN)*clamp(f,0,1)); // area-true
+const TAPE_V=26; // px/s at the pack edge (stylised; real C-cassette is 4.76 cm/s)
+
+/* ---------- drawing primitives ---------- */
+function rr(c,x,y,w,h,r){c.beginPath();c.roundRect(x,y,w,h,r);}
+function circle(c,x,y,r){c.beginPath();c.arc(x,y,r,0,Math.PI*2);}
+function screw(c,x,y,a){
+  const g=c.createRadialGradient(x-1,y-1,0,x,y,3.4);g.addColorStop(0,"#8d8d95");g.addColorStop(1,"#3a3a41");
+  c.fillStyle=g;circle(c,x,y,3.2);c.fill();
+  c.strokeStyle="#1b1b1f";c.lineWidth=1;c.beginPath();
+  c.moveTo(x-2.2*Math.cos(a),y-2.2*Math.sin(a));c.lineTo(x+2.2*Math.cos(a),y+2.2*Math.sin(a));
+  c.moveTo(x-2.2*Math.cos(a+Math.PI/2),y-2.2*Math.sin(a+Math.PI/2));c.lineTo(x+2.2*Math.cos(a+Math.PI/2),y+2.2*Math.sin(a+Math.PI/2));c.stroke();
+}
+function gradientBg(c,P,x0,y0,x1,y1){
+  const g=c.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,css(P.bgA));g.addColorStop(1,css(P.bgB));
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+}
+function reel(c,hub,r,ang,P){
+  // tape pack
+  const g=c.createRadialGradient(hub.x-r*.25,hub.y-r*.3,R_MIN*.6,hub.x,hub.y,r);
+  g.addColorStop(0,"#5a3a26");g.addColorStop(.75,"#3b2618");g.addColorStop(1,"#26180f");
+  c.fillStyle=g;circle(c,hub.x,hub.y,r);c.fill();
+  c.strokeStyle="rgba(255,220,180,.07)";c.lineWidth=1;
+  for(let rr2=R_MIN+3;rr2<r-1;rr2+=3){circle(c,hub.x,hub.y,rr2);c.stroke();}
+  c.strokeStyle="rgba(0,0,0,.45)";circle(c,hub.x,hub.y,r-.5);c.stroke();
+  // hub (spins)
+  c.save();c.translate(hub.x,hub.y);c.rotate(ang);
+  c.fillStyle="#efeee8";circle(c,0,0,11.5);c.fill();
+  c.fillStyle="#c9c7bf";for(let k=0;k<3;k++){c.save();c.rotate(k*Math.PI*2/3+Math.PI/6);c.fillRect(8.4,-1.5,3,3);c.restore();}
+  c.fillStyle="#141417";circle(c,0,0,7.6);c.fill();
+  c.fillStyle="#efeee8";
+  for(let k=0;k<6;k++){c.save();c.rotate(k*Math.PI/3);c.beginPath();c.moveTo(4.2,-1.4);c.lineTo(7.8,-2.1);c.lineTo(7.8,2.1);c.lineTo(4.2,1.4);c.fill();c.restore();}
+  c.fillStyle=css(P.accent);circle(c,9.9,0,1.2);c.fill(); // tiny marker that makes the spin legible
+  c.restore();
+}
+
+/* ======================= MAIN / HOME =========================== */
+const HOME_ITEMS=["LIBRARY","NOW PLAYING","SETTINGS"];
+function drawMain(c,S){
+  const P=PALS[S.cover],T=TRACKS[S.cover],p=S.progress;
+  gradientBg(c,P,0,0,W,H);
+  // soft glow behind the shell
+  let gl=c.createRadialGradient(160,72,10,160,72,190);gl.addColorStop(0,css(P.glow,.55));gl.addColorStop(1,css(P.glow,0));
+  c.fillStyle=gl;c.fillRect(0,0,W,146);
+
+  const X=46,Y=6,CW=228,CH=134;
+  // shadow
+  c.fillStyle="rgba(0,0,0,.35)";rr(c,X+2,Y+4,CW,CH,9);c.fill();
+  // shell
+  const shell=mix([22,22,26],P.bgB,.18);
+  let sg=c.createLinearGradient(0,Y,0,Y+CH);sg.addColorStop(0,css(mix(shell,[255,255,255],.07)));sg.addColorStop(1,css(shell));
+  c.fillStyle=sg;rr(c,X,Y,CW,CH,9);c.fill();
+  c.strokeStyle="rgba(255,255,255,.10)";c.lineWidth=1;rr(c,X+.5,Y+.5,CW-1,CH-1,9);c.stroke();
+
+  // tape packs (under the label, seen through the window)
+  const rL=packR(1-p), rR=packR(p);
+  c.save();
+  // window = stadium; clip packs to it
+  const WX=86,WY=49,WW=148,WH=38;
+  rr(c,WX,WY,WW,WH,WH/2);c.fillStyle="#0d0d10";c.fill();c.clip();
+  reel(c,HUB_L,rL,S.angL,P);reel(c,HUB_R,rR,S.angR,P);
+  // tape path between the packs along the bottom
+  c.fillStyle="#2a1a10";c.fillRect(HUB_L.x,HUB_L.y+rL-1,0,0);
+  // window glass glare + remaining-tape scale
+  let wg=c.createLinearGradient(WX,WY,WX+40,WY+WH);wg.addColorStop(0,"rgba(255,255,255,.13)");wg.addColorStop(.5,"rgba(255,255,255,.02)");wg.addColorStop(1,"rgba(255,255,255,0)");
+  c.fillStyle=wg;c.fillRect(WX,WY,WW,WH);
+  c.restore();
+  c.fillStyle="rgba(255,255,255,.28)";
+  for(let k=0;k<=6;k++){const x=146+k*5;c.fillRect(x,WY+WH-6-(k%3===0?2:0),1,k%3===0?4:2);}
+
+  // label with window cut-out (even-odd)
+  const LX=58,LY=12,LW=204,LH=88;
+  c.beginPath();c.roundRect(LX,LY,LW,LH,4);c.roundRect(WX-2,WY-2,WW+4,WH+4,(WH+4)/2);
+  let lg=c.createLinearGradient(0,LY,0,LY+LH);lg.addColorStop(0,css(P.label));lg.addColorStop(1,css(mix(P.label,[200,190,170],.25)));
+  c.fillStyle=lg;c.fill("evenodd");
+  c.strokeStyle="rgba(0,0,0,.25)";c.beginPath();c.roundRect(WX-2.5,WY-2.5,WW+5,WH+5,(WH+5)/2);c.stroke();
+  // side badge + title/artist (solid label => opaque text works on device)
+  c.fillStyle=css(P.accent);rr(c,LX+6,LY+5,14,18,3);c.fill();
+  text(c,LX+9,LY+10,"A",css(P.label));
+  text(c,LX+26,LY+6,fit(T.title,21),css(P.ink));
+  text(c,LX+26,LY+17,fit(T.artist,21),css(P.inkDim));
+  // palette stripes from the artwork
+  const st=[P.dom,P.accent,P.sec];
+  st.forEach((col,k)=>{c.fillStyle=css(col);c.fillRect(LX,LY+28+k*3,LW,2);});
+  // lower label line
+  text(c,LX+8,LY+LH-10,"STEREO",css(P.inkDim));
+  const fmt=`${T.bits}/${Math.round(T.rate/1000)}K`; text(c,LX+LW-8-fmt.length*8,LY+LH-10,fmt,css(P.inkDim));
+
+  // lower trapezoid with guides, capstan holes
+  const tz=mix(shell,[255,255,255],.06);
+  c.fillStyle=css(tz);c.beginPath();c.moveTo(94,112);c.lineTo(226,112);c.lineTo(240,Y+CH);c.lineTo(80,Y+CH);c.closePath();c.fill();
+  c.strokeStyle="rgba(255,255,255,.08)";c.stroke();
+  c.fillStyle="#0b0b0d";
+  circle(c,108,127,4.2);c.fill();circle(c,212,127,4.2);c.fill();
+  c.fillRect(132,122,7,7);c.fillRect(181,122,7,7);
+  circle(c,160,130,2.4);c.fill();
+  // tape visible through the bottom opening (the head side)
+  c.fillStyle="#3b2618";c.fillRect(84,Y+CH-3,152,2);
+  // screws
+  screw(c,X+8,Y+8,.4);screw(c,X+CW-8,Y+8,1.1);screw(c,X+8,Y+CH-8,.9);screw(c,X+CW-8,Y+CH-8,.2);screw(c,160,117,.6);
+  // tiny play-state + counter on the shell (solid => opaque text ok)
+  const cnt=fmtT(p*T.dur);
+  text(c,X+14,Y+CH-16,S.playing?">":"=",css(S.playing?P.accent:[150,150,150]));
+  text(c,X+CW-14-cnt.length*8,Y+CH-16,cnt,"rgba(255,255,255,.55)");
+
+  // home bar — engine-exact horizontal list (theme_skin.c draw_list)
+  c.fillStyle="#0b0b0e";c.fillRect(0,146,W,24);
+  c.fillStyle="#5a5a60";c.fillRect(0,146,W,1);
+  const widths=HOME_ITEMS.map(s=>s.length*8),total=widths.reduce((a,b)=>a+b,0)+16*(HOME_ITEMS.length-1);
+  let x=Math.max(6,(W-total)>>1);const y=152,h=14;
+  HOME_ITEMS.forEach((s,i)=>{
+    if(i===S.sel){c.fillStyle="#f2ede4";c.fillRect(x-4,y-1,widths[i]+8,h-1);text(c,x,y+1,s,"#0b0b0e");}
+    else text(c,x,y+1,s,"#f2ede4");
+    x+=widths[i]+16;});
+}
+const fmtT=s=>{s=Math.max(0,Math.floor(s));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
+
+/* ======================= NOW PLAYING =========================== */
+function miniTape(c,x,y,S,P){
+  c.fillStyle="#18181c";rr(c,x,y,46,28,4);c.fill();
+  c.fillStyle=css(P.label);rr(c,x+4,y+3,38,14,2);c.fill();
+  c.fillStyle="#0d0d10";rr(c,x+9,y+7,28,8,4);c.fill();
+  for(const [cx,a] of [[x+15,S.angL],[x+31,S.angR]]){
+    c.save();c.translate(cx,y+11);c.rotate(a);c.fillStyle="#efeee8";circle(c,0,0,3.4);c.fill();
+    c.fillStyle="#141417";circle(c,0,0,1.8);c.fill();c.fillStyle="#efeee8";
+    for(let k=0;k<3;k++){c.save();c.rotate(k*Math.PI*2/3);c.fillRect(.6,-.5,1.4,1);c.restore();}c.restore();}
+  c.fillStyle="#2a2a30";c.beginPath();c.moveTo(x+12,y+20);c.lineTo(x+34,y+20);c.lineTo(x+37,y+28);c.lineTo(x+9,y+28);c.fill();
+}
+function drawNP(c,S){
+  const P=PALS[S.cover],T=TRACKS[S.cover],p=S.progress;
+  gradientBg(c,P,0,0,W*.8,H);
+  // titlebar
+  c.fillStyle=css(mix(P.panel,[0,0,0],.35));c.fillRect(0,0,W,14);
+  text(c,6,3,"NOW PLAYING",css(P.accent));
+  const li=`${T.i}/${T.n}`;text(c,W-6-li.length*8,3,li,"rgba(240,236,228,.6)");
+  // artwork
+  const AX=10,AY=21,AS=120;
+  c.fillStyle="rgba(0,0,0,.4)";c.fillRect(AX+3,AY+4,AS,AS);
+  c.drawImage(COVERS[S.cover],AX,AY,AS,AS);
+  c.strokeStyle="rgba(255,255,255,.18)";c.lineWidth=1;c.strokeRect(AX+.5,AY+.5,AS-1,AS-1);
+  // info card (solid panel colour => opaque text with bg=panel works on device)
+  const PX=140,PY=21,PW=172,PH=120;
+  c.fillStyle=css(P.panel);rr(c,PX,PY,PW,PH,6);c.fill();
+  c.fillStyle=css(P.accent);c.fillRect(PX,PY+8,2,24);
+  const tx=PX+10, maxc=Math.floor((PW-16)/8);
+  text(c,tx,PY+8,fit(T.title,maxc),"#f4f0e8");
+  text(c,tx,PY+20,fit(T.artist,maxc),css(mix(P.accent,[255,255,255],.25)));
+  text(c,tx,PY+32,fit(T.album,maxc),"rgba(240,236,228,.55)");
+  miniTape(c,tx,PY+50,S,P);
+  text(c,tx+56,PY+52,S.playing?"PLAYING":"PAUSED",S.playing?"#f4f0e8":"rgba(240,236,228,.55)");
+  text(c,tx+56,PY+66,`${T.bits}/${(T.rate/1000).toString().replace(/\.0$/,'')}kHz`,"rgba(240,236,228,.55)");
+  // modes + volume
+  let mx=tx; if(T.shuffle){text(c,mx,PY+92,"SHUF",css(P.accent));mx+=40;}
+  if(T.repeat){const r=T.repeat===2?"REP1":"REP";text(c,mx,PY+92,r,css(P.accent));}
+  const vt=`${T.vol} dB`;text(c,PX+PW-10-vt.length*8,PY+92,vt,"rgba(240,236,228,.55)");
+  c.fillStyle="rgba(255,255,255,.12)";c.fillRect(tx,PY+106,PW-20,2);
+  c.fillStyle="rgba(240,236,228,.6)";c.fillRect(tx,PY+106,Math.round((PW-20)*clamp((T.vol+60)/80,0,1)),2);
+  // progress strip
+  c.fillStyle=css(mix(P.panel,[0,0,0],.35));c.fillRect(0,148,W,22);
+  const bx=10,bw=W-20,by=151;
+  c.fillStyle="rgba(255,255,255,.14)";c.fillRect(bx,by,bw,3);
+  c.fillStyle=css(P.accent);c.fillRect(bx,by,Math.round(bw*p),3);
+  c.fillStyle="#f4f0e8";c.fillRect(bx+Math.round(bw*p)-1,by-2,3,7);
+  const a=fmtT(p*T.dur), b=fmtT(T.dur);
+  text(c,bx,158,a,"#f4f0e8");text(c,bx+bw-b.length*8,158,b,"rgba(240,236,228,.6)");
+}
+
+/* ---------- optional RGB565 quantisation (what the panel can show) ---------- */
+function to565(c){const im=c.getImageData(0,0,W,H),d=im.data;
+  for(let i=0;i<d.length;i+=4){d[i]=(d[i]&0xF8)|(d[i]>>5);d[i+1]=(d[i+1]&0xFC)|(d[i+1]>>6);d[i+2]=(d[i+2]&0xF8)|(d[i+2]>>5);}
+  c.putImageData(im,0,0);}
+
+function makeCanvas(){const cv=document.createElement('canvas');cv.width=W;cv.height=H;return cv;}
+function render(cv,screen,S,q565){const c=cv.getContext('2d',{willReadFrequently:true});c.imageSmoothingEnabled=true;
+  c.clearRect(0,0,W,H);(screen==='np'?drawNP:drawMain)(c,S);if(q565)to565(c);}
+function anglesAt(tSec,p){const rL=packR(1-p),rR=packR(p);return {angL:-TAPE_V/rL*tSec,angR:-TAPE_V/rR*tSec};}
+
+/* =========================== VIEWS ============================ */
+const view=Q.get('view')||'app';
+if(view==='screen'){
+  document.body.className='screen';
+  const cv=makeCanvas();document.body.appendChild(cv);
+  const cover=+(Q.get('cover')||0),p=+(Q.get('p')||.35),t=+(Q.get('t')||0)/1000;
+  const playing=(Q.get('state')||'playing')==='playing';
+  render(cv,Q.get('screen')||'main',{cover,progress:p,playing,sel:+(Q.get('sel')||1),...anglesAt(t,p)},Q.get('q565')!=='0');
+}else if(view==='sheet'){
+  const w=document.createElement('div');w.className='wrap';w.innerHTML=`
+  <h1>ReChord — “Cassette” theme <span style="color:var(--dim);font-weight:400">· mockup</span></h1>
+  <p class="sub">Echo Mini panel 320×170 (RGB565), shown at 2×. ReChord 8×8 font. Background = gradient from the artwork’s dominant colours (computed in-canvas). Reels spin while playing; tape pack follows track progress.</p>
+  <div class="grid" id="g"></div>
+  <div class="notes" id="n"></div>`;document.body.appendChild(w);
+  const cells=[
+    ['main',{cover:0,progress:.18,playing:1,sel:1},'Main · playing · cover A (reels spin, left pack full)'],
+    ['main',{cover:1,progress:.72,playing:0,sel:0},'Main · paused · cover B (reels stopped, right pack grown)'],
+    ['np',{cover:0,progress:.18,playing:1},'Now Playing · artwork + info card · cover A'],
+    ['np',{cover:2,progress:.46,playing:1},'Now Playing · cover C (palette re-derived)'],
+  ];
+  const g=w.querySelector('#g');
+  cells.forEach(([s,S,cap],i)=>{const d=document.createElement('div');const dv=document.createElement('div');dv.className='dev';
+    const cv=makeCanvas();render(cv,s,{...S,...anglesAt(.9+i*.37,S.progress)},true);dv.appendChild(cv);d.appendChild(dv);
+    const cp=document.createElement('div');cp.className='cap';cp.textContent=cap;d.appendChild(cp);
+    const P=PALS[S.cover];const sw=document.createElement('div');sw.className='sw';
+    sw.innerHTML='palette '+['dom','sec','accent','bgA','bgB','panel'].map(k=>`<i title="${k} ${hex4(rgb565(P[k]))}" style="background:${css(P[k])}"></i>`).join('');
+    d.appendChild(sw);g.appendChild(d);});
+}else{
+  const w=document.createElement('div');w.className='wrap';w.innerHTML=`
+  <h1>ReChord — “Cassette” theme <span style="color:var(--dim);font-weight:400">· interactive mockup</span></h1>
+  <p class="sub">Panel 320×170 shown at 2×. <b>Space</b> play/pause · <b>1 2 3</b> covers · <b>← →</b> home selection (vol keys).</p>
+  <div class="screens">
+    <div><div class="dev"><canvas id="m" width="320" height="170"></canvas></div><div class="cap">Main / home (home.skin)</div></div>
+    <div><div class="dev"><canvas id="np" width="320" height="170"></canvas></div><div class="cap">Now Playing (now_playing.skin)</div></div>
+  </div>
+  <div class="controls">
+    <button id="pp" class="on">❚❚ Pause</button>
+    <button data-c="0" class="cv on">Cover A</button><button data-c="1" class="cv">Cover B</button><button data-c="2" class="cv">Cover C</button>
+    <label class="tg">progress <input id="pr" type="range" min="0" max="1000" value="180"></label>
+    <label class="tg"><input id="q" type="checkbox" checked> RGB565 (panel colour depth)</label>
+  </div>
+  <div class="sw" id="sw"></div>`;document.body.appendChild(w);
+  const S={cover:0,progress:.18,playing:true,sel:1,angL:0,angR:0};
+  let last=performance.now(),from=null;
+  const pp=w.querySelector('#pp'),pr=w.querySelector('#pr'),q=w.querySelector('#q');
+  const target={...PALS[0]};
+  function swatches(){const P=PALS[S.cover];w.querySelector('#sw').innerHTML='computed from artwork: '+['dom','sec','accent','bgA','bgB','panel'].map(k=>`<i title="${k}" style="background:${css(P[k])}"></i><span>${k} ${hex4(rgb565(P[k]))}</span>`).join(' ');}
+  function setPlay(v){S.playing=v;pp.textContent=v?'❚❚ Pause':'▶ Play';pp.classList.toggle('on',v);}
+  function setCover(i){S.cover=i;w.querySelectorAll('.cv').forEach(b=>b.classList.toggle('on',+b.dataset.c===i));swatches();}
+  pp.onclick=()=>setPlay(!S.playing);
+  w.querySelectorAll('.cv').forEach(b=>b.onclick=()=>setCover(+b.dataset.c));
+  pr.oninput=()=>S.progress=pr.value/1000;
+  addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();setPlay(!S.playing);}
+    if('123'.includes(e.key))setCover(+e.key-1);
+    if(e.key==='ArrowLeft')S.sel=(S.sel+2)%3; if(e.key==='ArrowRight')S.sel=(S.sel+1)%3;});
+  swatches();
+  function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;
+    if(S.playing){const rL=packR(1-S.progress),rR=packR(S.progress);S.angL-=TAPE_V/rL*dt;S.angR-=TAPE_V/rR*dt;
+      S.progress=Math.min(1,S.progress+dt/TRACKS[S.cover].dur);pr.value=Math.round(S.progress*1000);}
+    render(w.querySelector('#m'),'main',S,q.checked);render(w.querySelector('#np'),'np',S,q.checked);
+    requestAnimationFrame(frame);}
+  requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>
