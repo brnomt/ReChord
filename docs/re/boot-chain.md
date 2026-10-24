@@ -208,15 +208,23 @@ owns/replaces the ROM loader/update path; the stock app is a red herring.
 
 ### 5.1 Clean-clone check (PASS)
 
-`make clean-clone-check` creates a detached worktree at `HEAD` containing
-only tracked files (so `stock/` and `community/` are absent by construction),
-asserts both directories are missing, runs `make standalone-ap5m`, and
-compares the resulting image SHA-256 against the boot-confirmed value.
+`make clean-clone-check` creates **two independent** detached worktrees at
+`HEAD` containing only tracked files (so `stock/` and `community/` are absent
+by construction), asserts both directories are missing in each, runs
+`make standalone-ap5m` in both, and requires the two 5 MB images to be
+**byte-identical**. That is the property that matters after a `git clone`:
+the build is standalone and the packer is deterministic.
 
-Verified on commit `02482c1`: **PASS**, `stock/` absent, `community/`
-absent, output SHA-256 `c2238...babb93d`. This proves the AP5M build path
-(AP + clean-room BB core + fw1 + 5 MB container) is independent of the
-gitignored stock/reference directories.
+A byte-exact boot-confirmed image can still be demanded explicitly:
+
+```sh
+EXPECT_SHA256=<sha256> make clean-clone-check
+```
+
+The golden is not hardcoded because every firmware commit changes the image;
+it is updated only after a flash is confirmed on hardware. The old check
+pinned `c2238...babb93d` from commit `02482c1`, which made every later commit
+fail even though the build was correct.
 
 ### 5.2 Remaining Issue 82 dependencies
 
@@ -240,9 +248,10 @@ gitignored stock/reference directories.
 
 - **Phase 1a: PASS.** Standalone 5 MB container reproduces the known-good
   image with no stock/ref reads.
-- **Phase 1b: PASS.** `make clean-clone-check` builds from a detached
-  worktree with only tracked files (no `stock/`, no `community/`) and
-  reproduces the known-good SHA. The legacy `cfw-img` path still reads
+- **Phase 1b: PASS.** `make clean-clone-check` builds twice from independent
+  detached worktrees with only tracked files (no `stock/`, no `community/`)
+  and requires byte-identical images. Pass `EXPECT_SHA256=<sha>` to also
+  compare a boot-confirmed golden. The legacy `cfw-img` path still reads
   stock/ref; the standalone target bypasses it. Validate the descriptor on
   hardware when a flash is scheduled.
 - **Phase 2 (revised after the probe):** `0x03088000` is live at runtime;

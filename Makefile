@@ -199,7 +199,9 @@ GOLDEN ?= build/ReChord_AP5M.IMG
 verify-standalone:
 	$(PYTHON) tools/verify_fw1_5m.py --golden $(GOLDEN)
 
-# Clean-clone acceptance: tracked files only (no stock/ or community/).
+# Clean-clone acceptance: tracked files only (no stock/ or community/), built
+# twice in independent worktrees; both images must be byte-identical.
+# Optional boot-confirmed golden: EXPECT_SHA256=<sha256> make clean-clone-check
 clean-clone-check:
 	tools/clean_clone_check.sh
 
