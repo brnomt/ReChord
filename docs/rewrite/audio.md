@@ -29,6 +29,17 @@
                     + ReplayGain)
 ```
 
+**AP metadata-only build (default).** The AP's codecs exist for the
+pre-open/metadata path (format, duration, tags, prescan geometry); the PCM
+always comes from Core B. `AP_LOCAL_DECODE=0` (default) compiles the codec
+adapters with `RECHORD_AP_METADATA_ONLY`, which drops the vendored decoder
+TUs from the AP link (minimp3 and dr_flac: the AP code span fell from 226,428
+to 168,816 B) and leaves `decode()` returning `CODEC_ERR_UNSUPPORTED` there.
+MP3's first-frame probe becomes a header-table parse; FLAC reads
+rate/depth/total from STREAMINFO in the prescan instead of opening dr_flac.
+`AP_LOCAL_DECODE=1` restores the old fallback image (both decoders linked)
+for diagnostics; it does not fit the loader gate with the rest of the UI.
+
 Two cores, strict boundary:
 - **A core (AP, our fw1):** UI, filesystem, decode fallback, tags, gapless,
   gain, the DAC/I2S bring-up, and the I2S TX ISR that drains the PCM ring. It

@@ -29,8 +29,10 @@
  * ReplayGain: ID3v2 TXXX frames via tags_replaygain_id3v2() at open
  * (codec_t.tags), same parser the tests pin.
  */
+#ifndef RECHORD_AP_METADATA_ONLY
 #define MINIMP3_IMPLEMENTATION
 #include "minimp3/minimp3.h"           /* vendored (codecs/minimp3/) */
+#endif
 
 #include <stddef.h>
 #include <string.h>
@@ -74,11 +76,59 @@ typedef struct
     long            duration_ms;        /* -1 unknown                       */
     codec_replaygain_t rg;
     codec_meta_t    meta;               /* ID3v2 text frames (may be empty) */
+#ifndef RECHORD_AP_METADATA_ONLY
     mp3dec_t        dec;                /* 6668 B: must be the big tail    */
+#endif
 } mp3_state_t;
 
 _Static_assert(sizeof(mp3_state_t) <= PLAYER_CODEC_STATE_MAX,
                "mp3_state_t exceeds the player state pool");
+
+#ifdef RECHORD_AP_METADATA_ONLY
+/* Header-only frame info for the AP's metadata pre-open: the decoder lives on
+ * Core B, so the AP must not link minimp3 (its tables are ~20 KB of code span
+ * and the AP sits at the loader gate). Returns 0 when `p` starts a valid
+ * MPEG-1/2/2.5 Layer III frame inside `avail`. */
+static int mp3_frame_info(const unsigned char *p, int avail, int *hz, int *ch,
+                          int *br, int *spf, int *flen)
+{
+    static const int br_m1[16] =
+        { 0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0 };
+    static const int br_m2[16] =
+        { 0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0 };
+    static const int sr_m1[3] = { 44100, 48000, 32000 };
+    static const int sr_m2[3] = { 22050, 24000, 16000 };
+    static const int sr_m25[3] = { 11025, 12000, 8000 };
+    int ver, idx, sri, pad, size, bitrate, rate;
+
+    if (avail < 4 || p[0] != 0xFF || (p[1] & 0xE0) != 0xE0)
+        return -1;
+    if (((p[1] >> 1) & 3) != 1)          /* Layer III only                  */
+        return -1;
+    ver = (p[1] >> 3) & 3;               /* 3 = MPEG-1, 2 = MPEG-2, 0 = 2.5  */
+    if (ver == 1)
+        return -1;
+    idx = (p[2] >> 4) & 0x0F;
+    sri = (p[2] >> 2) & 3;
+    if (idx == 0 || idx == 15 || sri == 3)
+        return -1;
+    bitrate = (ver == 3) ? br_m1[idx] : br_m2[idx];
+    rate = (ver == 3) ? sr_m1[sri] : (ver == 2 ? sr_m2[sri] : sr_m25[sri]);
+    if (bitrate == 0 || rate == 0)
+        return -1;
+    pad = (p[2] >> 1) & 1;
+    size = ((ver == 3) ? 144 : 72) * bitrate * 1000 / rate +
+           pad * ((ver == 3) ? 4 : 1);
+    if (size > avail)
+        return -1;
+    *hz = rate;
+    *br = bitrate;
+    *spf = (ver == 3) ? 1152 : 576;
+    *ch = (((p[3] >> 6) & 3) == 3) ? 1 : 2;
+    *flen = size;
+    return 0;
+}
+#endif
 
 /* ---- helpers ----------------------------------------------------------- */
 
@@ -196,6 +246,7 @@ static int tail_frame_len(const unsigned char *p, int avail)
     return (size <= avail) ? size : 0;   /* 0: cannot trim to a whole frame */
 }
 
+#ifndef RECHORD_AP_METADATA_ONLY
 /* Pull the next decoded frame into the residual (file-statics). Returns
  * frames (>0), 0 at end of stream, or a negative CODEC_ERR_*. */
 static int fill_decode(mp3_state_t *st)
@@ -283,13 +334,18 @@ static int fill_decode(mp3_state_t *st)
         }
     }
 }
+#endif /* !RECHORD_AP_METADATA_ONLY */
 
 static void reset_feed(mp3_state_t *st)
 {
     s_win_pos = s_win_len = 0;
     s_win_eof = 0;
     s_res_frames = s_res_i = 0;
+#ifndef RECHORD_AP_METADATA_ONLY
     mp3dec_init(&st->dec);
+#else
+    (void)st;
+#endif
 }
 
 /* ---- codec_t callbacks -------------------------------------------------- */
@@ -297,7 +353,9 @@ static void reset_feed(mp3_state_t *st)
 static int mp3_open(void *vst, const char *path)
 {
     mp3_state_t *st = (mp3_state_t *)vst;
+#ifndef RECHORD_AP_METADATA_ONLY
     mp3dec_frame_info_t fi;
+#endif
     unsigned char hdr[10];
     long r;
     int i, n = 0, off = 0;
@@ -307,7 +365,9 @@ static int mp3_open(void *vst, const char *path)
         return CODEC_ERR_STATE;
 
     /* The per-track buffers live in the shared workbuf region (see the header
-     * note); a busy region means FLAC or fw_update is up. */
+     * note); a busy region means FLAC or fw_update is up. The metadata-only
+     * AP build keeps the claim: its open probe still reads the first frame
+     * (and the Xing/LAME tag) through this window. */
     if (workbuf_claim(WORKBUF_OWNER_MP3) == 0)
         return CODEC_ERR_IO;
     s_win = (uint8_t *)workbuf_for(WORKBUF_OWNER_MP3);
@@ -382,6 +442,7 @@ static int mp3_open(void *vst, const char *path)
     s_win_len = (int)r;
     s_win_eof = ((size_t)r < MP3_WIN_BYTES);
 
+#ifndef RECHORD_AP_METADATA_ONLY
     mp3dec_init(&st->dec);
     for (i = 0; i < 9 && n <= 0; i++) {
         memset(&fi, 0, sizeof fi);
@@ -413,6 +474,34 @@ static int mp3_open(void *vst, const char *path)
     parse_xing(st, s_win + off, fi.frame_bytes);
     s_win_pos = off + (st->have_xing ? fi.frame_bytes : 0);
     mp3dec_init(&st->dec);               /* fresh state for the audio */
+#else
+    /* Header-only probe: no decoder on the AP. Scan for the first Layer III
+     * frame header and read its geometry from the tables. */
+    {
+        int hz = 0, ch = 0, br = 0, spf = 0, flen = 0;
+
+        for (i = 0; i < s_win_len - 4; i++) {
+            if (mp3_frame_info(s_win + i, s_win_len - i, &hz, &ch, &br,
+                               &spf, &flen) == 0)
+                break;
+        }
+        if (i >= s_win_len - 4) {
+            cio_close(st->io);
+            st->io = 0;
+            rc = CODEC_ERR_FORMAT;
+            goto fail;
+        }
+        off = i;
+        st->rate = hz;
+        st->channels = ch;
+        st->spf = spf;
+        st->layer = 3;
+        st->bitrate = br;
+        n = spf;
+        parse_xing(st, s_win + off, flen);
+        s_win_pos = off + (st->have_xing ? flen : 0);
+    }
+#endif
 
     /* duration: Xing (exact frames) > CBR estimate > unknown.
      * int64 math: samples*1000 overflows 32-bit `long` past ~48 s at
@@ -446,7 +535,11 @@ static int mp3_decode(void *vst, int32_t *pcm, int max_frames)
 
     if (st == 0 || pcm == 0 || max_frames <= 0)
         return CODEC_ERR_STATE;
-
+#ifdef RECHORD_AP_METADATA_ONLY
+    /* The AP never owns the decode (Core B does). */
+    (void)out;
+    return CODEC_ERR_UNSUPPORTED;
+#else
     while (out < max_frames) {
         if (s_res_i < s_res_frames) {
             int avail = s_res_frames - s_res_i;
@@ -472,6 +565,7 @@ static int mp3_decode(void *vst, int32_t *pcm, int max_frames)
         }
     }
     return out;                          /* 0 == EOF (codec contract) */
+#endif
 }
 
 static int mp3_seek(void *vst, long ms)

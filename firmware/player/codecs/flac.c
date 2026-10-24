@@ -185,7 +185,9 @@ static void *pool_realloc(void *ptr, unsigned need)
 }
 
 /* dr_flac configuration — everything before the implementation include. */
+#ifndef RECHORD_AP_METADATA_ONLY
 #define DR_FLAC_IMPLEMENTATION
+#endif
 #define DR_FLAC_NO_STDIO
 #define DR_FLAC_NO_OGG
 #define DRFLAC_ASSERT(x)       ((void)0)
@@ -262,6 +264,12 @@ _Static_assert(sizeof(flac_state_t) <= PLAYER_CODEC_STATE_MAX,
 
 /* ---- helpers ------------------------------------------------------------ */
 
+static unsigned be32(const unsigned char *p)
+{
+    return ((unsigned)p[0] << 24) | ((unsigned)p[1] << 16) |
+           ((unsigned)p[2] << 8) | (unsigned)p[3];
+}
+
 static unsigned be24(const unsigned char *p)
 {
     return ((unsigned)p[0] << 16) | ((unsigned)p[1] << 8) | (unsigned)p[2];
@@ -273,7 +281,8 @@ static unsigned be24(const unsigned char *p)
 static int flac_prescan(codec_io_t *io, codec_meta_t *meta,
                         codec_replaygain_t *rg,
                         unsigned long *seektable_bytes, unsigned *max_block,
-                        unsigned *channels)
+                        unsigned *channels, unsigned *sample_rate,
+                        unsigned *bits, unsigned long *total_samples)
 {
     unsigned char hdr[4], si[34];
     unsigned type, len;
@@ -291,6 +300,11 @@ static int flac_prescan(codec_io_t *io, codec_meta_t *meta,
         return -1;
     *max_block = ((unsigned)si[2] << 8) | (unsigned)si[3];
     *channels = (unsigned)(((si[12] >> 1) & 0x07) + 1);
+    *sample_rate = ((unsigned)si[10] << 12) | ((unsigned)si[11] << 4) |
+                   ((unsigned)si[12] >> 4);
+    *bits = (unsigned)((((si[12] & 1u) << 4) | (si[13] >> 4)) + 1);
+    *total_samples = (unsigned long)(((uint64_t)(si[13] & 0x0Fu) << 32) |
+                                     (uint64_t)be32(si + 14));
 
     for (;;) {
         long pos;
@@ -317,6 +331,7 @@ static int flac_prescan(codec_io_t *io, codec_meta_t *meta,
     return 0;
 }
 
+#ifndef RECHORD_AP_METADATA_ONLY
 /* dr_flac's own allocation formula (dr_flac.h, drflac_open__internal):
  * sizeof(drflac) + SIMD-rounded decode window + alignment slop, plus the
  * in-block SEEKTABLE. Recomputed here so the pool check is exact. */
@@ -338,6 +353,7 @@ static int flac_would_fit(unsigned max_block, unsigned channels,
     need = (unsigned)sizeof(drflac) + window + vec + (unsigned)seektable_bytes;
     return need <= (unsigned)WORKBUF_BYTES;
 }
+#endif /* !RECHORD_AP_METADATA_ONLY */
 
 /* Geometry handed over by the peer core: lets this instance skip the header
  * walk (Core B, whose open sits inside the gapless boundary). */
@@ -376,17 +392,22 @@ static int flac_open(void *vst, const char *path)
     unsigned long seektable_bytes = 0;
     unsigned max_block = 0;
     unsigned scan_channels = 0;
+    unsigned scan_rate = 0, scan_bits = 0;
+    unsigned long scan_total = 0;
     int rc;
 
     if (st == 0 || path == 0)
         return CODEC_ERR_STATE;
 
+#ifndef RECHORD_AP_METADATA_ONLY
     /* Claim the shared decode pool: FLAC, mp3 and fw_update are mutually
-     * exclusive, so a busy region means one of them is up (skip the file). */
+     * exclusive, so a busy region means one of them is up (skip the file).
+     * The metadata-only AP build never decodes, so it skips the pool. */
     if (workbuf_claim(WORKBUF_OWNER_FLAC) == 0)
         return CODEC_ERR_IO;
     s_pool = (unsigned char *)workbuf_for(WORKBUF_OWNER_FLAC);
     s_pool_bytes = WORKBUF_BYTES;
+#endif
 
     st->io = cio_open(path);
     if (st->io == 0) {
@@ -405,19 +426,22 @@ static int flac_open(void *vst, const char *path)
      * plausible; walk the header only otherwise. */
     if (!flac_prescan_supplied(&max_block, &scan_channels, &seektable_bytes) &&
         flac_prescan(st->io, &st->meta, &st->rg, &seektable_bytes, &max_block,
-                     &scan_channels) != 0) {
+                     &scan_channels, &scan_rate, &scan_bits,
+                     &scan_total) != 0) {
         cio_close(st->io);
         st->io = 0;
         flac_diag_reason = -2;
         rc = CODEC_ERR_FORMAT;
         goto fail;
     }
+#ifndef RECHORD_AP_METADATA_ONLY
     flac_diag_block = max_block;
     flac_diag_channels = scan_channels;
     flac_diag_seektable = seektable_bytes;
     flac_diag_need = (unsigned long)sizeof(drflac) +
                      ((max_block + 15u) / 16u) * 64u * scan_channels + 64u +
                      seektable_bytes;
+#endif
     if (scan_channels > 2) {           /* player contract: mono/stereo     */
         cio_close(st->io);
         st->io = 0;
@@ -425,6 +449,7 @@ static int flac_open(void *vst, const char *path)
         rc = CODEC_ERR_UNSUPPORTED;
         goto fail;
     }
+#ifndef RECHORD_AP_METADATA_ONLY
     if (!flac_would_fit(max_block, scan_channels, seektable_bytes)) {
         cio_close(st->io);
         st->io = 0;
@@ -432,7 +457,9 @@ static int flac_open(void *vst, const char *path)
         rc = CODEC_ERR_UNSUPPORTED;
         goto fail;
     }
+#endif
 
+#ifndef RECHORD_AP_METADATA_ONLY
     pool_reset();
     if (cio_seek(st->io, 0) != 0) {    /* dr_flac reads from stream start */
         cio_close(st->io);
@@ -452,8 +479,19 @@ static int flac_open(void *vst, const char *path)
     st->channels = (int)st->f->channels;
     st->bits = (int)st->f->bitsPerSample;
     st->total_samples = (long)st->f->totalPCMFrameCount;
+#else
+    /* Metadata only: STREAMINFO already carries rate/depth/total; Core B
+     * opens its own dr_flac instance for the PCM. */
+    (void)flac_prescan_supplied;
+    st->rate = (long)scan_rate;
+    st->channels = (int)scan_channels;
+    st->bits = (int)scan_bits;
+    st->total_samples = (long)scan_total;
+#endif
     if (st->rate <= 0 || st->channels < 1 || st->channels > 2) {
+#ifndef RECHORD_AP_METADATA_ONLY
         drflac_close(st->f);
+#endif
         cio_close(st->io);
         st->f = 0;
         st->io = 0;
@@ -489,6 +527,10 @@ static int flac_decode(void *vst, int32_t *pcm, int max_frames)
 
     if (st == 0 || pcm == 0 || max_frames <= 0)
         return CODEC_ERR_STATE;
+#ifdef RECHORD_AP_METADATA_ONLY
+    /* The AP never owns the decode (Core B does). */
+    return CODEC_ERR_UNSUPPORTED;
+#else
     if (st->f == 0)
         return CODEC_ERR_STATE;
     /* s32 output is left-justified to 32 bits (dr_flac shifts by 32-bps),
@@ -496,6 +538,7 @@ static int flac_decode(void *vst, int32_t *pcm, int max_frames)
     got = drflac_read_pcm_frames_s32(st->f, (size_t)max_frames,
                                      (drflac_int32 *)pcm);
     return (int)got;                     /* 0 == EOF (codec contract)      */
+#endif
 }
 
 static int flac_seek(void *vst, long ms)
@@ -503,7 +546,14 @@ static int flac_seek(void *vst, long ms)
     flac_state_t *st = (flac_state_t *)vst;
     long frame;
 
-    if (st == 0 || st->f == 0)
+    if (st == 0)
+        return CODEC_ERR_STATE;
+#ifdef RECHORD_AP_METADATA_ONLY
+    /* Core B repositions its own decoder (ipc_b_seek); nothing to move here. */
+    (void)ms;
+    return CODEC_OK;
+#else
+    if (st->f == 0)
         return CODEC_ERR_STATE;
     if (ms < 0)
         ms = 0;
@@ -515,6 +565,7 @@ static int flac_seek(void *vst, long ms)
     if (!drflac_seek_to_pcm_frame(st->f, (drflac_uint64)frame))
         return CODEC_ERR_IO;
     return CODEC_OK;
+#endif
 }
 
 static long flac_duration_ms(void *vst)
@@ -529,17 +580,18 @@ static void flac_close(void *vst)
 
     if (st == 0)
         return;
+#ifndef RECHORD_AP_METADATA_ONLY
     if (st->f != 0)
         drflac_close(st->f);            /* returns memory to the pool     */
     st->f = 0;
     pool_reset();
-    if (st->io != 0)
-        cio_close(st->io);
-    st->io = 0;
     /* Hand the shared region back (no-op if this state never claimed it). */
     workbuf_release(WORKBUF_OWNER_FLAC);
     s_pool = 0;
     s_pool_bytes = 0;
+#else
+    st->f = 0;
+#endif
 }
 
 static int flac_format(void *vst, codec_format_t *out)

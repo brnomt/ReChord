@@ -4633,3 +4633,27 @@ needed for the art itself.
 
 Image: CRC 0xAAE0762F, fw1 228,176 B, row-0 end 0x03087FE4 (28 B margin).
 Screenshots regenerated with the new renderer.
+
+## AP flash: decoders out of the metadata path (2026-10-24)
+
+The AP was at 28 B of its loader window (226,456 B) because `open_codec_only()`
+pre-opens tracks with the *full* adapters: `mp3_open` probed the first frame
+with minimp3 and `flac_open` called `drflac_open`, so both decoder libraries
+(~20 KB + ~35 KB of the AP's code span, plus their tables) were linked even
+though Core B owns every PCM byte.
+
+- `AP_LOCAL_DECODE ?= 0` (firmware/ap.mk) adds `-DRECHORD_AP_METADATA_ONLY`.
+- mp3.c: no minimp3 include/implementation, no `mp3dec_t`, no decode; the
+  first-frame probe is a header-table parse (`mp3_frame_info`, MPEG-1/2/2.5
+  Layer III, also used to fix the MPEG-2 pad step in the EOF tail trim).
+- flac.c: no `DR_FLAC_IMPLEMENTATION`; `flac_open` takes rate/depth/total from
+  STREAMINFO (prescan already parsed it) and never opens dr_flac; decode/seek
+  are metadata-only stubs (B repositions itself via `ipc_b_seek`).
+- The AP keeps its workbuf claim for MP3's probe window; FLAC does not claim it.
+- `AP_LOCAL_DECODE=1` still links the old fallback image (verified with a
+  separate `CFW_BUILD_DIR`).
+
+Result: AP code 226,428 -> **168,816 B**, row-0 end 0x03079ED8, **57,640 B**
+under the loader base. That is the room the codec work (WAV depths, MP3 edges,
+a fixed-point MP3 decoder) needs. Host suites unchanged and green (the host
+builds never define the macro).

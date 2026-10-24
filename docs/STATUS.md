@@ -29,7 +29,10 @@
 The project is now a **from-source fw1 + our own Core B image** that boots and
 plays audio on hardware:
 
-- **Audio**: Core B decodes FLAC/MP3/WAV; the AP does the DAC/I2S bring-up,
+- **Audio**: Core B decodes FLAC/MP3/WAV; the AP does the DAC/I2S bring-up
+  (the AP links the codecs' *metadata* paths only: `AP_LOCAL_DECODE=0` keeps
+  minimp3/dr_flac out of the AP, freeing ~56 KB of the loader window; build
+  with `AP_LOCAL_DECODE=1` for a local-decode diagnostic image),
   serves the track bytes over the A→B file rings (`bfs`) and drains the PCM ring
   in its I2S TX ISR. Verified: 16/44.1 and 24-bit 88.2/96 kHz clean. Note that
   **96 kHz halves every time budget** (64 KiB PCM ring ≈ 74 ms of cover, TX-FIFO
