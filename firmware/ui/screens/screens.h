@@ -125,6 +125,9 @@ void player_screen_set_format(int bits, long sample_rate);  /* stream format */
 void player_screen_set_playlist(int pos, int count);        /* BRNOMT-90 i/N */
 void player_screen_set_modes(int repeat, int shuffle);      /* BRNOMT-90 mode */
 void player_screen_set_playing(bool playing);
+/* Re-apply the play/pause line from player_get_state() at a state transition
+ * (player_set_callback hook). */
+void player_screen_sync_state(void);
 /* Status line ("unsupported format", "no audio renderer", ...); NULL/"" clears. */
 void player_screen_set_status(const char *msg);
 /* Re-sync title/position/state from the player module (app loop). */

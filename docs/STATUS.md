@@ -59,7 +59,9 @@ plays audio on hardware:
   (BRNOMT-102).
 - **Quick settings**: MENU opens an overlay with Shuffle, Repeat and Playlist
   (BRNOMT-105). The playlist view is the live queue, marks the current track
-  and SELECT jumps to/plays the chosen entry. MENU or BACK closes it.
+  and SELECT jumps to/plays the chosen entry. MENU or BACK closes it; MENU
+  acts once per physical press (LONG/RELEASE are ignored, so a long press
+  neither flickers nor leaves the overlay open).
 - **System menu**: the diagnostics info rows (Index, Keys, eMMC, SD, USB)
   stay. The DAC test and USB CDC console are debug-only
   (`make ... AP_DEBUG_TOOLS=1`) because they cost ~3 KB of code and the AP

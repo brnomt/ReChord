@@ -446,13 +446,26 @@ int ipc_b_pause(int paused)
         dac_delay_set_pump(bfs_poll);
         audio_output_fade_out();
         dac_delay_set_pump(0);
+        /* Stop draining the PCM ring while paused. The TX ISR masks its
+         * source when it finds the ring dry, and a resume that only flips B
+         * back to RUN leaves the feeder dead if B has nothing to write yet
+         * (e.g. it was pre-opened/between tracks): the player then reports
+         * PLAYING with no audio. Holding keeps the pending frames for an
+         * instant, gap-free resume. */
+        rknano_i2s_hold(1);
     }
     sh_set(IPC_SH_STATE, g_paused ? IPC_SH_PAUSE : IPC_SH_RUN);
     if (!g_paused) {
         dac_delay_set_pump(bfs_poll);
         audio_output_fade_in();
         dac_delay_set_pump(0);
+        /* Unmask + kick once the stream has had the fade to refill the ring
+         * (the ISR masks itself again on a still-dry ring; B re-arms it on
+         * its next write). */
+        rknano_i2s_hold(0);
     }
+    log_printf("ipc: pause %d ring %ld", paused ? 1 : 0,
+               (long)(CTRL[IPC_SH_WR] - CTRL[IPC_SH_RD]) / 8);
     return 0;
 }
 

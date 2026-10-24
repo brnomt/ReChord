@@ -4376,3 +4376,47 @@ not catch it. DFIU incident `51cc212d-0782-4bcc-8bfe-bfb2c8298de3`, rule
 3. After a successful boot, verify the row end printed by `make cfw-img`
    is below `0x03088000` before any future flash. The DFIU incident stays
    open until the device confirms the fixed image boots.
+
+## BV. Session 2026-10-24 — BRNOMT-105 follow-up: MENU press semantics + Now Playing state
+
+Device feedback on the BRNOMT-105 thread ("botón MENÚ") plus a Now Playing
+report from the same session.
+
+**1) MENU/Quick settings (reported in the issue thread).** Symptoms: the
+overlay appeared only while the key was held; a long press flickered back to
+the screen underneath for a frame and then stayed open; the Playlist view did
+not open.
+
+**Root cause.** `ap_ui_loop()` toggled the overlay for EVERY `KEY_MENU` event
+the scanner delivered, not just the press. A tap is PRESS + RELEASE (open then
+close on release); a hold is PRESS + LONG + RELEASE (three toggles, ending
+open); and the Playlist's own SELECT push was popped by the pending MENU
+RELEASE, so it closed instantly.
+
+**Fix.** The MENU branch acts on `INPUT_PRESS` only (`continue` otherwise);
+LONG/REPEAT/RELEASE are ignored. BACK is unchanged.
+
+**2) Now Playing said "Playing" after a pause, audio silent.** The state
+machine was correct (`player_pause()` -> PAUSED), but the play/pause line
+only re-synced from the 10 Hz app-loop poll, which runs only while the player
+screen is on top and is blocked by the fade itself. The line now follows
+`PLAYER_EV_STATE`/`PLAYER_EV_TRACK` through the existing (previously unused)
+`player_set_callback()`, and the generated image also hardens the target path:
+
+- `ipc_b_pause(1)` holds the AP TX feeder (`rknano_i2s_hold(1)`) after the
+  fade-out, so the ISR cannot drain the PCM ring, mask its source and leave a
+  resumed stream silent; `ipc_b_pause(0)` releases/kicks it after the
+  fade-in. New log line `ipc: pause <0|1> ring <frames>`.
+- `player_play()` no longer reports PLAYING when `ipc_b_pause(0)` fails: it
+  rebuilds the stream (`ipc_b_start`) at the paused position, or errors.
+
+Host checks: UI 460, settings-view 42, player suite and services suite all
+green (new case in `test_player_resume.c` pins the state line without a poll).
+`make cfw-ap` clean; `make cfw-img` RESULT: PASS, new AP5M CRC **`0x56106209`**,
+fw1 payload end `0x03086F9C` (below `0x03088000`). Not flashed.
+
+**Field check.** Flash `build/ReChord_AP5M.IMG`: MENU tap opens the overlay
+and it stays; MENU long press does not flicker; Playlist opens and lists the
+queue; pause/resume shows Paused/Playing and audio returns on resume. If the
+state line still sticks, pull `/.rechord/LOG` (internal volume) and check the
+`ipc: pause` lines.

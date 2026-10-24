@@ -284,7 +284,11 @@ audio/audio_output.c    -- audio_output_t controller: format coordination
   starts at 0xFF (silent) and `fade_in` ramps to the user level; with fade
   off the direct-volume first-Play path is unchanged. The fade blocks the
   caller, so `ipc_b_start`/`ipc_b_pause` keep `bfs_poll()` pumped during it
-  to keep Core B's file ring fed.
+  to keep Core B's file ring fed. Pause also holds the AP TX feeder
+  (`rknano_i2s_hold(1)`) once the fade completes, and resume releases it
+  after the fade-in; otherwise the ISR drains the PCM ring while paused,
+  masks its source on the dry ring and the resumed stream can come back
+  silent with the player already reporting PLAYING.
 - **ReplayGain** (player/rg_math.c): pure fixed-point Q1.15 (LUT-based
   dB->linear — no floats, no libm, no malloc), peak-limited clipping
   prevention (`rg_effective_gain_q16`), applied pre-ring by player.c.

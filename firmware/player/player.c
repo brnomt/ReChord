@@ -759,7 +759,20 @@ int player_play(void)
         return PLAYER_OK;
 
     if (g.state == PLAYER_PAUSED) {
-        ipc_b_pause(0);
+        if (ipc_b_pause(0) < 0) {
+            /* B is not in a state it can resume from (a stop/fault left it
+             * down while the track stayed open). Rebuild the stream at the
+             * paused position instead of reporting PLAYING over a dead one. */
+            g.base_ms = player_get_position_ms();
+            g.eof = 0;
+            build_ipc_track(&t);
+            if (ipc_b_start(&t) < 0) {
+                do_error();
+                return PLAYER_ERR;
+            }
+            g.frames_consumed = 0;
+            g.frames_at_start = 0;
+        }
     } else {
         /* STOPPED: bring the B core up for this track ("B start ... at
          * 400 MHz", then the mock/target negotiates its steady clock). */

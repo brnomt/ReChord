@@ -1332,6 +1332,17 @@ static void resume_boot_restore(void)
     s_res_saved_ms = ap_ms();
 }
 
+/* BRNOMT-105 follow-up: the Now Playing play/pause line tracks the player
+ * state at the transition itself. The 10 Hz poll below only runs while the
+ * player screen is on top, and the fade blocks the loop right after a pause,
+ * so relying on the poll alone let the screen keep saying "Playing". */
+static void player_state_changed(int ev, void *user)
+{
+    (void)user;
+    if (ev == PLAYER_EV_STATE || ev == PLAYER_EV_TRACK)
+        player_screen_sync_state();
+}
+
 void ap_ui_loop(void)
 {
     input_event_t ev;
@@ -1341,6 +1352,8 @@ void ap_ui_loop(void)
     player_set_resolver(media_resolve);   /* BRNOMT-90: list index -> path */
     mq_set_pump(player_process);  /* keep audio fed during library scans */
     ui_init();
+    /* After ui_init(): the hook invalidates the Now Playing rows. */
+    player_set_callback(player_state_changed, 0);
     ap_clock_init();     /* ms clock for the input hold ladder */
     /* Active package: the cfg `theme=` id wins; older configs (no key) fall
      * back to /.rechord/active_theme, then to Mono. Settings reload first
@@ -1501,7 +1514,14 @@ void ap_ui_loop(void)
             if (ev.type == KEY_MENU) {
                 /* BRNOMT-105: MENU opens Quick settings instead of jumping
                  * to the root. MENU again (or BACK) closes whichever quick
-                 * overlay is on top. A dark panel wakes first. */
+                 * overlay is on top. A dark panel wakes first.
+                 *
+                 * ONE ACTION PER PHYSICAL PRESS: the scanner also delivers
+                 * LONG/REPEAT/RELEASE for the same key, so toggling on every
+                 * event closed the overlay on the release of a short tap and
+                 * flickered (and left it open) on a long press. */
+                if (ev.kind != INPUT_PRESS)
+                    continue;
                 if (s_screen_off)
                     screen_wake();
                 if (ui_top_screen() == &quick_playlist_screen ||

@@ -358,6 +358,21 @@ void player_screen_set_playing(bool playing)
                   PLAYER_STATE_Y + THEME_LINE_H);
 }
 
+/* Player event hook (player_set_callback): apply the state at the transition
+ * itself. The 10 Hz app-loop poll only runs while this screen is the top one,
+ * so a pause performed from a blocking path (the fade holds the loop) or with
+ * another screen covering this one could leave the play/pause line stale. */
+void player_screen_sync_state(void)
+{
+    bool playing = player_get_state() == PLAYER_PLAYING;
+
+    if (playing == s_playing)
+        return;
+    player_screen_set_playing(playing);
+    if (s_use_skin)
+        ui_invalidate_all();      /* the skin draws `state`, not this row */
+}
+
 /* Repeat / shuffle mode indicator (BRNOMT-90). Shows what the PLAYER has, so
  * a Settings change is verifiable from Now Playing itself. */
 void player_screen_set_modes(int repeat, int shuffle)

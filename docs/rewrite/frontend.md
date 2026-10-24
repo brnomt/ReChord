@@ -108,6 +108,11 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
   still inside the first 3 s; SELECT = play/pause. Listings act on
   PRESS/REPEAT only; the app loop forwards all four event kinds so the player
   screen can also see LONG/RELEASE.
+- **MENU acts once per press** (BRNOMT-105): the app loop handles the Quick
+  settings overlay on `INPUT_PRESS` only. The scanner also delivers LONG and
+  RELEASE for the same key; toggling on those closed the overlay on the
+  release of a tap, and a long press flickered to the screen underneath and
+  left the overlay open (which also closed the Playlist view immediately).
 - **Browser pagination**: one `fs_list_dir()` call fetches exactly one
   visible page starting at the view top; a stable listing order across
   calls is part of the fs service contract.
