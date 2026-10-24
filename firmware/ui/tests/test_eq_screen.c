@@ -52,7 +52,8 @@ void test_eq_screen(void)
     CHECK(mock_display_text_find("Enabled") >= 0);
     CHECK(mock_display_text_find("Off") >= 0);
     CHECK(mock_display_text_find("Profile") >= 0);
-    CHECK(mock_display_text_find("Band 1") >= 0);
+    CHECK(mock_display_text_find("31 Hz") >= 0);
+    CHECK(mock_display_text_find("1 kHz") >= 0);
     CHECK(mock_display_text_find("0.0") >= 0);
 
     /* Enabled row: SELECT toggles the effect. */
