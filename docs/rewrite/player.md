@@ -326,6 +326,21 @@ API summary (other workstreams code against `player.h`):
 | `player_enqueue(path)` | fill the next-track queue |
 | `player_process()` | pump one streaming step (call periodically) |
 
+### ReplayGain
+
+- Modes: `PLAYER_RG_OFF`, `_TRACK`, `_ALBUM`, `_AUTO`; persisted in
+  `rechord.cfg` as `replaygain=` and selected in Settings > Playback.
+- `AUTO`: shuffle on → track gain; unshuffled album queue
+  (`PLAYER_QUEUE_CAT` + `MQ_ALBUM`) or same-album continuity → album gain;
+  missing album tags fall back to track tags. The album context is a
+  32-bit hash+length of the previous track's tag, not a 64-byte buffer.
+- `compute_rg_gain()` only caches; publishing to `IPC_C_RG` is explicit.
+  Opening the next codec in the pre-open window must NOT publish (it used
+  to apply the next track's gain ~3 s early). Mode/shuffle changes while a
+  track plays republish immediately.
+- The queue source must be set **before** `player_load_list()`/`_play_list()`
+  so AUTO resolves the first track of an album correctly.
+
 IPC summary (`ipc_b.h`): `ipc_b_start(track)`, `ipc_b_stop()`,
 `ipc_b_set_volume(db)`, `ipc_b_poll_state(status*)`,
 `ipc_b_ring_fill(pcm, frames)` + extensions `ipc_b_init()`,

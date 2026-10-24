@@ -47,6 +47,7 @@ static const char *value_text_11(void) { return s_value_buf[11]; }
 static const char *value_text_12(void) { return s_value_buf[12]; }
 static const char *value_text_13(void) { return s_value_buf[13]; }
 static const char *value_text_14(void) { return s_value_buf[14]; }
+static const char *value_text_15(void) { return s_value_buf[15]; }
 
 /* The active theme's name (from theme.c, no scratch buffer needed). */
 static const char *value_text_theme(void) { return theme_get()->name; }
@@ -63,7 +64,7 @@ static const char *(*const s_value_text_fn[SETTING_KEY_COUNT])(void) = {
     value_text_0,  value_text_1,  value_text_2,  value_text_3,
     value_text_4,  value_text_5,  value_text_6,  value_text_7,
     value_text_8,  value_text_9,  value_text_10, value_text_11,
-    value_text_12, value_text_13, value_text_14,
+    value_text_12, value_text_13, value_text_14, value_text_15,
 };
 
 static void on_select_0(void)  { settings_cycle(&setting_schema[0],  &s_settings, +1); }
@@ -93,12 +94,16 @@ static void on_select_14(void) {
     settings_cycle(&setting_schema[14], &s_settings, +1);
     player_set_fade_ms(s_settings.fade_ms);      /* BRNOMT-67: apply now */
 }
+static void on_select_15(void) {
+    settings_cycle(&setting_schema[15], &s_settings, +1);
+    player_set_replaygain_mode(s_settings.replaygain_mode);  /* BRNOMT-106 */
+}
 
 static void (*const s_on_select_fn[SETTING_KEY_COUNT])(void) = {
     on_select_0,  on_select_1,  on_select_2,  on_select_3,
     on_select_4,  on_select_5,  on_select_6,  on_select_7,
     on_select_8,  on_select_9,  on_select_10, on_select_11,
-    on_select_12, on_select_13, on_select_14,
+    on_select_12, on_select_13, on_select_14, on_select_15,
 };
 
 /* ---- list source shared by the category and group screens -------------- */
@@ -203,14 +208,16 @@ typedef struct {
     setting_group_kind_t kind;
 } setting_group_item_t;
 
-/* Playing keeps the playback controls together; Fade is the new row. */
-static const setting_group_item_t s_playing_items[] = {
+/* Playback keeps the controls and the two audio features together. */
+static const setting_group_item_t s_playback_items[] = {
     { "Volume",  "volume", GROUP_KEY },
     { "Shuffle", "shuffle", GROUP_KEY },
     { "Repeat",  "repeat_mode", GROUP_KEY },
     { "Resume",  "resume", GROUP_KEY },
     { "Fade",    "fade", GROUP_KEY },
     { "Auto-off", "auto_off", GROUP_KEY },
+    { "ReplayGain", "replaygain", GROUP_KEY },
+    { "Equalizer", 0, GROUP_EQ },
     { 0, 0, GROUP_KEY },
 };
 
@@ -218,22 +225,21 @@ static const setting_group_item_t s_playing_items[] = {
  * still hidden until they actually control something). */
 static const setting_group_item_t s_interface_items[] = {
     { "Theme", 0, GROUP_THEME },
-    { "Equalizer", 0, GROUP_EQ },
     { 0, 0, GROUP_KEY },
 };
 
 static const setting_group_item_t *const s_group_items_spec[] = {
-    s_playing_items, s_interface_items,
+    s_playback_items, s_interface_items,
 };
-static const char *const s_group_titles[] = { "Playing", "Interface" };
+static const char *const s_group_titles[] = { "Playback", "Interface" };
 #define SETTING_GROUP_COUNT 2
 
 static menu_item_t s_cat_items[SETTING_GROUP_COUNT];
 static menu_view_t s_view;
 static menu_model_t s_model = { "Settings", s_cat_items, SETTING_GROUP_COUNT, NULL };
 
-static menu_item_t s_group_items[8];
-static menu_model_t s_group_model = { "Playing", s_group_items, 0, NULL };
+static menu_item_t s_group_items[8];   /* Playback has exactly 8 rows */
+static menu_model_t s_group_model = { "Playback", s_group_items, 0, NULL };
 static menu_view_t s_group_view;
 static int         s_group;
 
@@ -242,7 +248,7 @@ static void open_interface(void);
 
 static void build_categories(void)
 {
-    s_cat_items[0].label = "Playing";
+    s_cat_items[0].label = "Playback";
     s_cat_items[0].value_text = 0;
     s_cat_items[0].on_select = open_playing;
     s_cat_items[1].label = "Interface";

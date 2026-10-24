@@ -101,10 +101,16 @@ plays audio on hardware:
 - **Battery**: an approximation from the stock SDK constants — SARADC channel 0,
   `((adc<<1)*2500)>>10` mV, 5-step ladder (3350/3500/3600/3800/4000 mV) → 25 %
   steps, polled every 15 s and shown in the root menu's title row.
+- **ReplayGain (BRNOMT-106)**: reads `REPLAYGAIN_*` from ID3v2/Vorbis and
+  normalizes playback with `off/track/album/auto` (Settings > Playback,
+  persisted in `rechord.cfg`). AUTO uses track gain under shuffle and album
+  gain for an unshuffled album queue or same-album run; missing album tags
+  fall back to track. Core B applies `IPC_C_RG` after the gapless trim and
+  before the EQ. The pre-open window never publishes the next track's gain.
 - **Equalizer (BRNOMT-76)**: 5–10 band EQ applied on Core B
   (`firmware/dsp/eq_bank.c`) to the decoded int32 block, with profiles loaded
   at runtime from `/Internal/.rechord/eq*` (no recompilation). The AP publishes
-  the curve over the shared block; Settings → Interface → Equalizer edits it.
+  the curve over the shared block; Settings → Playback → Equalizer edits it.
   Contract, format and budgets: `docs/rewrite/eq.md`.
 - **Open**: 96k margins (above), 192 kHz / FLAC block 16384 (~143 KB window),
   384 kHz, and EQ skin support (the EQ screens use the compiled layout).

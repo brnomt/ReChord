@@ -218,10 +218,14 @@ enum
 {
     PLAYER_RG_OFF = 0,      /* neutral (no adjustment)                       */
     PLAYER_RG_TRACK,        /* track gain, peak-limited                       */
-    PLAYER_RG_ALBUM         /* album gain, peak-limited                       */
+    PLAYER_RG_ALBUM,        /* album gain, peak-limited                       */
+    PLAYER_RG_AUTO          /* track when shuffled, album for album playback */
 };
 
-/* Select the active ReplayGain mode. Default after player_init() is OFF. */
+/* Select the active ReplayGain mode. Default after player_init() is OFF;
+ * the app sets the persisted user choice at boot. AUTO picks track gain when
+ * shuffle is on, album gain for an album queue or same-album continuity, and
+ * falls back to track gain when the album tags are missing. */
 void  player_set_replaygain_mode(int mode);
 int   player_get_replaygain_mode(void);
 

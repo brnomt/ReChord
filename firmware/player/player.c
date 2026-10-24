@@ -19,6 +19,7 @@
 #include "playlist.h"
 #include "rg_math.h"
 #include "tags.h"
+#include "../services/media_query.h"   /* MQ_ALBUM (AUTO album context) */
 
 #define PLAYER_QUEUE_LEN        8     /* next-track queue depth           */
 #define PLAYER_PUMP_FRAMES      512   /* decode staging buffer (frames)   */
@@ -80,6 +81,11 @@ typedef struct
     int             volume_db;
     int             rg_mode;
     int32_t         rg_gain_q16;          /* cached Q16 gain for open track   */
+    /* Album of the track before the open one (hash+length, 0 = none): AUTO
+     * uses it to keep album gain across same-album folder/all-songs runs.
+     * A hash keeps the AP .bss budget: the AP has ~100 B of margin. */
+    uint32_t        prev_album_hash;
+    uint16_t        prev_album_len;
 
     player_event_fn cb;
     void           *cb_user;
@@ -276,6 +282,115 @@ static void close_track(void)
     }
 }
 
+/* ---- ReplayGain selection ----------------------------------------------- */
+
+static unsigned str_len_of(const char *s)
+{
+    unsigned n = 0;
+
+    while (s[n] != '\0')
+        n++;
+    return n;
+}
+
+/* FNV-1a: enough to recognize the same album tag without a 64-byte buffer. */
+static uint32_t str_hash32(const char *s)
+{
+    uint32_t h = 2166136261u;
+
+    while (*s != '\0') {
+        h ^= (uint8_t)*s++;
+        h *= 16777619u;
+    }
+    return h;
+}
+
+static void rg_set_prev_album(const char *album)
+{
+    if (album == 0 || album[0] == '\0') {
+        g.prev_album_hash = 0;
+        g.prev_album_len = 0;
+        return;
+    }
+    g.prev_album_hash = str_hash32(album);
+    g.prev_album_len = (uint16_t)str_len_of(album);
+    if (g.prev_album_hash == 0)
+        g.prev_album_hash = 1;          /* 0 is reserved for "none" */
+}
+
+static int rg_same_album(void)
+{
+    if (g.prev_album_hash == 0)
+        return 0;
+    return g.prev_album_hash == str_hash32(g.track.album) &&
+           g.prev_album_len == str_len_of(g.track.album);
+}
+
+/* AUTO: an unshuffled album queue (or a run of tracks sharing the album tag)
+ * uses album gain; everything else uses track gain. */
+static int rg_auto_is_album(void)
+{
+    if (g.list.shuffle)
+        return 0;
+    if (g.queue_kind == PLAYER_QUEUE_CAT && g.queue_cat == MQ_ALBUM)
+        return 1;
+    return rg_same_album();
+}
+
+/* Pick the gain/peak pair for the active mode. Album modes fall back to the
+ * track tags when the album ones are missing (0/0 means "no tags"). */
+static void rg_select(int *gain_tenth_db, int *peak_q15)
+{
+    int want_album;
+
+    *gain_tenth_db = 0;
+    *peak_q15 = 0;
+    if (!g.track_valid || g.rg_mode == PLAYER_RG_OFF)
+        return;
+
+    if (g.rg_mode == PLAYER_RG_TRACK) {
+        *gain_tenth_db = g.track.replaygain_track_gain_tenth_db;
+        *peak_q15 = g.track.replaygain_track_peak_q15;
+        return;
+    }
+
+    want_album = (g.rg_mode == PLAYER_RG_ALBUM) || rg_auto_is_album();
+    if (want_album) {
+        *gain_tenth_db = g.track.replaygain_album_gain_tenth_db;
+        *peak_q15 = g.track.replaygain_album_peak_q15;
+        if (*gain_tenth_db == 0 && *peak_q15 == 0) {
+            *gain_tenth_db = g.track.replaygain_track_gain_tenth_db;
+            *peak_q15 = g.track.replaygain_track_peak_q15;
+        }
+    } else {
+        *gain_tenth_db = g.track.replaygain_track_gain_tenth_db;
+        *peak_q15 = g.track.replaygain_track_peak_q15;
+    }
+}
+
+/* Compute only. The pre-open window opens another codec and must NOT touch
+ * the live IPC_C_RG word (that was the "next track's gain 3 s early" bug). */
+static void compute_rg_gain(void)
+{
+    int gain, peak;
+
+    rg_select(&gain, &peak);
+    g.rg_gain_q16 = (gain == 0 && peak == 0)
+                    ? 32768 : rg_effective_gain_q16(gain, peak);
+}
+
+static void publish_rg_gain(void)
+{
+    ipc_b_set_replaygain(g.rg_gain_q16);
+}
+
+/* Recompute + publish: only for changes that affect the PLAYING track. */
+static void recalc_rg_gain(void)
+{
+    compute_rg_gain();
+    publish_rg_gain();
+}
+
 /* Open `path` as the current codec and populate format/gapless/track meta.
  * Resets the per-track decode cursors but touches neither the player state
  * nor the B core — the caller decides whether to play, stop, or gapless-
@@ -411,7 +526,8 @@ static int open_codec_only(const char *path)
     }
     g.track_valid = 1;
 
-    recalc_rg_gain();   /* cache Q16 gain for the open track */
+    compute_rg_gain();  /* cache Q16 gain; publishing is the caller's job
+                         * (pre-open must not touch the live IPC_C_RG) */
 
     /* Share what this open learned with Core B, so its re-open of the same
      * file can size its decode pool without repeating the header walk
@@ -513,6 +629,8 @@ static int preopen_next_codec(const char *path)
     long cur_total = g.total_samples;
     long cur_dur = g.duration_ms;
     int32_t cur_rg = g.rg_gain_q16;
+    uint32_t cur_prev_hash = g.prev_album_hash;
+    uint16_t cur_prev_len = g.prev_album_len;
     int cur_track_no = g.track_no;
     int cur_valid = g.track_valid;
     long cur_base = g.base_ms;
@@ -524,6 +642,10 @@ static int preopen_next_codec(const char *path)
     int cur_eof = g.eof;
     int cur_pl = g.preload_done;
     int ok;
+
+    /* AUTO continuity for the NEXT track compares against the track that is
+     * playing now; the live context is restored below. */
+    rg_set_prev_album(g.track.album);
 
     ok = (open_codec_only(path) == PLAYER_OK);
     if (ok) {
@@ -545,6 +667,8 @@ static int preopen_next_codec(const char *path)
 
     g.track = cur_track;
     g.track_valid = cur_valid;
+    g.prev_album_hash = cur_prev_hash;
+    g.prev_album_len = cur_prev_len;
     g.fmt = cur_fmt;
     g.gapless = cur_gap;
     g.total_samples = cur_total;
@@ -605,8 +729,12 @@ static int advance_to(const char *path, int hard)
     int rc;
 
     g.peek_valid = 0;               /* the peek only serves one advance */
-    if (prev_valid)
+    if (prev_valid) {
         prev = g.fmt;
+        /* The outgoing track becomes the album context for AUTO. Done before
+         * either branch so a pre-opened pending track resolves identically. */
+        rg_set_prev_album(g.track.album);
+    }
 
     if (g.pending_valid && str_eq(g.pending_track.path, path)) {
         /* The codec was opened during the pre-open window: adopt its metadata
@@ -743,6 +871,7 @@ int player_open(const char *path)
     playlist_reset(&g.list);        /* a single open ends any playback list */
     g.queue_kind = PLAYER_QUEUE_NONE;
     g.queue_value[0] = '\0';
+    rg_set_prev_album(0);           /* no album continuity across a new file */
     rc = open_track(path);
     return rc;
 }
@@ -920,6 +1049,9 @@ void player_set_resolver(int (*fn)(uint16_t idx, char *path, int cap))
 void player_set_shuffle(int on)
 {
     playlist_set_shuffle(&g.list, on);
+    /* AUTO switches between track and album gain with the play order. */
+    if (g.rg_mode == PLAYER_RG_AUTO)
+        recalc_rg_gain();
 }
 
 int player_get_shuffle(void)
@@ -956,12 +1088,13 @@ int player_load_list(const uint16_t *idx, int n, int start)
     if (s_resolve(ridx, path, (int)sizeof path) != 0)
         return PLAYER_ERR;
 
+    /* A new list starts a new album context. The caller sets the queue source
+     * BEFORE this call so AUTO can already resolve the first track. */
+    rg_set_prev_album(0);
     rc = open_track(path);          /* leaves the player STOPPED */
     if (rc != PLAYER_OK)
         return rc;
     playlist_load(&g.list, idx, n, start);
-    g.queue_kind = PLAYER_QUEUE_NONE;   /* the caller sets the source */
-    g.queue_value[0] = '\0';
     return PLAYER_OK;
 }
 
@@ -1017,6 +1150,8 @@ int player_play_at(int index)
     ridx = g.list.order[index];
     if (s_resolve == 0 || s_resolve(ridx, path, (int)sizeof path) != 0)
         return PLAYER_ERR;
+    /* A manual jump is not an album continuation. */
+    rg_set_prev_album(0);
     rc = open_track(path);
     if (rc != PLAYER_OK)
         return rc;
@@ -1128,45 +1263,15 @@ int player_get_replaygain_mode(void)
     return g.rg_mode;
 }
 
-/* Effective Q16 gain for the open track under the active RG mode, or 0
- * (neutral) if RG is off or the track has no ReplayGain tags. */
+/* Effective gain for the open track under the active RG mode (dB * 10), or 0
+ * if RG is off / the track has no usable tags. AUTO and ALBUM report the
+ * album value only when album tags exist (same fallback as the DSP path). */
 int player_get_replaygain_gain_tenth_db(void)
 {
-    if (g.rg_mode == PLAYER_RG_OFF || !g.track_valid)
-        return 0;
-    if (g.rg_mode == PLAYER_RG_TRACK)
-        return g.track.replaygain_track_gain_tenth_db;
-    return g.track.replaygain_album_gain_tenth_db;
-}
+    int gain, peak;
 
-/* Recompute the cached Q16 gain for the open track from the active RG mode. */
-static void recalc_rg_gain(void)
-{
-    int gain_tenth_db;
-    int peak_q15;
-
-    if (!g.track_valid) {
-        g.rg_gain_q16 = 32768;                 /* 1.0x */
-        return;
-    }
-    if (g.rg_mode == PLAYER_RG_TRACK) {
-        gain_tenth_db = g.track.replaygain_track_gain_tenth_db;
-        peak_q15 = g.track.replaygain_track_peak_q15;
-    } else if (g.rg_mode == PLAYER_RG_ALBUM) {
-        gain_tenth_db = g.track.replaygain_album_gain_tenth_db;
-        peak_q15 = g.track.replaygain_album_peak_q15;
-    } else {
-        g.rg_gain_q16 = 32768;                 /* OFF: neutral 1.0x */
-        return;
-    }
-
-    if (gain_tenth_db == 0 && peak_q15 == 0)
-        g.rg_gain_q16 = 32768;                 /* no tags: neutral */
-    else
-        g.rg_gain_q16 = rg_effective_gain_q16(gain_tenth_db, peak_q15);
-
-    /* Core B decodes and applies the gain; keep it in sync on mode changes. */
-    ipc_b_set_replaygain(g.rg_gain_q16);
+    rg_select(&gain, &peak);
+    return (gain == 0 && peak == 0) ? 0 : gain;
 }
 
 int player_get_track(track_info_t *out)

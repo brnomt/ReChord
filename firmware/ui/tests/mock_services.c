@@ -255,6 +255,7 @@ static int  s_pl_open_count;
 static int  s_pl_play_count;
 static int  s_pl_pause_count;
 static int  s_pl_volume = -23;
+static int  s_pl_rg_mode = 3;
 static int  s_pl_state = PLAYER_STOPPED;
 static long s_pl_pos_ms;
 static int  s_pl_present;               /* player_get_track() has a track?  */
@@ -267,6 +268,7 @@ void mock_player_reset(void)
     s_pl_play_count = 0;
     s_pl_pause_count = 0;
     s_pl_volume = -23;
+    s_pl_rg_mode = 3;               /* auto (BRNOMT-106 default) */
     s_pl_state = PLAYER_STOPPED;
     s_pl_pos_ms = 0;
     s_pl_present = 0;
@@ -441,6 +443,21 @@ int player_set_volume(int db)
 void player_set_fade_ms(int ms)
 {
     (void)ms;                       /* no DAC on the host */
+}
+
+void player_set_replaygain_mode(int mode)
+{
+    s_pl_rg_mode = mode;
+}
+
+int player_get_replaygain_mode(void)
+{
+    return s_pl_rg_mode;
+}
+
+int mock_player_replaygain_mode(void)
+{
+    return s_pl_rg_mode;
 }
 
 void player_set_queue_source(int kind, const char *value, int cat)

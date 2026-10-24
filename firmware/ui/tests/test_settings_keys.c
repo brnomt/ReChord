@@ -15,7 +15,7 @@
 static const char *const k_expected_names[SETTING_KEY_COUNT] = {
     "play", "brightness", "screen_off", "auto_off", "usb", "resume",
     "strip", "tags", "cpu", "volume", "browse", "cursor",
-    "shuffle", "repeat_mode", "fade",
+    "shuffle", "repeat_mode", "fade", "replaygain",
 };
 
 static input_event_t ev(input_key_t key)
@@ -32,7 +32,7 @@ static void test_schema_table(void)
 {
     int i;
 
-    CHECK_EQ_INT(SETTING_KEY_COUNT, 15);
+    CHECK_EQ_INT(SETTING_KEY_COUNT, 16);
     for (i = 0; i < SETTING_KEY_COUNT; i++)
         CHECK_STR_EQ(setting_schema[i].name, k_expected_names[i]);
 
@@ -42,19 +42,21 @@ static void test_schema_table(void)
     CHECK(settings_schema_find("brightness") == &setting_schema[1]);
     CHECK(settings_schema_find("repeat_mode") == &setting_schema[13]);
     CHECK(settings_schema_find("fade") == &setting_schema[14]);
+    CHECK(settings_schema_find("replaygain") == &setting_schema[15]);
     CHECK(settings_schema_find("nope") == NULL);
     CHECK(settings_schema_find(NULL) == NULL);
 
     /* The menu exposes only the wired settings: the playback-mode duplicates
      * (play) and the stale browse/cursor pair stay out. */
-    CHECK_EQ_INT(settings_visible_count(), 5);
+    CHECK_EQ_INT(settings_visible_count(), 6);
     CHECK_STR_EQ(settings_visible_at(0)->name, "resume");
     CHECK_STR_EQ(settings_visible_at(1)->name, "volume");
     CHECK_STR_EQ(settings_visible_at(2)->name, "shuffle");
     CHECK_STR_EQ(settings_visible_at(3)->name, "repeat_mode");
     CHECK_STR_EQ(settings_visible_at(4)->name, "fade");
+    CHECK_STR_EQ(settings_visible_at(5)->name, "replaygain");
     CHECK(settings_visible_at(-1) == NULL);
-    CHECK(settings_visible_at(5) == NULL);
+    CHECK(settings_visible_at(6) == NULL);
 }
 
 static void test_defaults_and_format(void)
@@ -79,6 +81,7 @@ static void test_defaults_and_format(void)
     CHECK_EQ_INT(s.shuffle, 0);          /* off */
     CHECK_EQ_INT(s.repeat_mode, 0);      /* off */
     CHECK_EQ_INT(s.fade_ms, 300);        /* BRNOMT-67 default */
+    CHECK_EQ_INT(s.replaygain_mode, 3);  /* BRNOMT-106: auto */
     CHECK_STR_EQ(s.theme, "");           /* boot falls back to active_theme */
 
     /* values format exactly like the config file writes them */
@@ -121,6 +124,7 @@ static void test_key_field_mapping(void)
         { 12, 1 },   /* shuffle: off -> on                        */
         { 13, 1 },   /* repeat_mode: off -> all                   */
         { 14, 500 }, /* fade: 300 -> 500                          */
+        { 15, 0 },   /* replaygain: auto -> off                   */
     };
 
     for (i = 0; i < SETTING_KEY_COUNT; i++) {
@@ -149,6 +153,7 @@ static void test_key_field_mapping(void)
         if (s.shuffle != old.shuffle) changed++;
         if (s.repeat_mode != old.repeat_mode) changed++;
         if (s.fade_ms != old.fade_ms) changed++;
+        if (s.replaygain_mode != old.replaygain_mode) changed++;
         CHECK_EQ_INT(changed, 1);
 
         /* and it is the right one, with the right value */
@@ -168,6 +173,7 @@ static void test_key_field_mapping(void)
         case 12: CHECK_EQ_INT(s.shuffle, k_after[i].want); break;
         case 13: CHECK_EQ_INT(s.repeat_mode, k_after[i].want); break;
         case 14: CHECK_EQ_INT(s.fade_ms, k_after[i].want); break;
+        case 15: CHECK_EQ_INT(s.replaygain_mode, k_after[i].want); break;
         default: CHECK(0); break;
         }
     }
@@ -215,7 +221,7 @@ static void test_settings_screen_binding(void)
     model = settings_screen_model();
     CHECK_EQ_INT(model->item_count, 2);
     CHECK_STR_EQ(model->title, "Settings");
-    CHECK_STR_EQ(model->items[0].label, "Playing");
+    CHECK_STR_EQ(model->items[0].label, "Playback");
     CHECK_STR_EQ(model->items[1].label, "Interface");
     CHECK(model->items[0].on_select != 0);
     CHECK(model->items[1].on_select != 0);
@@ -225,18 +231,20 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(settings_screen_get()->volume_db, -23);
     CHECK_EQ_INT(settings_screen_get()->fade_ms, 300);
 
-    /* Enter Playing. */
+    /* Enter Playback. */
     e = ev(KEY_SELECT); ui_handle_event(&e);
     CHECK_EQ_INT(ui_stack_depth(), 2);
     group = settings_group_model();
-    CHECK_STR_EQ(group->title, "Playing");
-    CHECK_EQ_INT(group->item_count, 6);
+    CHECK_STR_EQ(group->title, "Playback");
+    CHECK_EQ_INT(group->item_count, 8);
     CHECK_STR_EQ(group->items[0].label, "Volume");
     CHECK_STR_EQ(group->items[1].label, "Shuffle");
     CHECK_STR_EQ(group->items[2].label, "Repeat");
     CHECK_STR_EQ(group->items[3].label, "Resume");
     CHECK_STR_EQ(group->items[4].label, "Fade");
     CHECK_STR_EQ(group->items[5].label, "Auto-off");
+    CHECK_STR_EQ(group->items[6].label, "ReplayGain");
+    CHECK_STR_EQ(group->items[7].label, "Equalizer");
 
     /* Navigate to Resume (index 3) and cycle it. */
     e = ev(KEY_DOWN); ui_handle_event(&e);
@@ -253,13 +261,21 @@ static void test_settings_screen_binding(void)
     e = ev(KEY_SELECT); ui_handle_event(&e);
     CHECK_EQ_INT(settings_screen_get()->fade_ms, 500);
 
-    /* Auto-off is the last Playing row and cycles its own key only. */
+    /* Auto-off row cycles its own key only. */
     e = ev(KEY_DOWN); ui_handle_event(&e);
     CHECK_EQ_INT(settings_group_view()->cursor, 5);
     CHECK_EQ_INT(settings_screen_get()->auto_off_min, 5);
     e = ev(KEY_SELECT); ui_handle_event(&e);
     CHECK_EQ_INT(settings_screen_get()->auto_off_min, 15);
     CHECK_EQ_INT(settings_screen_get()->fade_ms, 500);
+
+    /* ReplayGain: auto (3) -> off (0), applied to the player immediately. */
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_group_view()->cursor, 6);
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_screen_get()->replaygain_mode, 0);
+    CHECK_EQ_INT(mock_player_replaygain_mode(), 0);
+    CHECK_EQ_INT(settings_screen_get()->auto_off_min, 15);
 
     /* The group renders human labels, not config keys. */
     mock_display_reset();
@@ -281,9 +297,8 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(ui_stack_depth(), 2);
     group = settings_group_model();
     CHECK_STR_EQ(group->title, "Interface");
-    CHECK_EQ_INT(group->item_count, 2);
+    CHECK_EQ_INT(group->item_count, 1);
     CHECK_STR_EQ(group->items[0].label, "Theme");
-    CHECK_STR_EQ(group->items[1].label, "Equalizer");
     e = ev(KEY_BACK); ui_handle_event(&e);
     CHECK_EQ_INT(ui_stack_depth(), 1);
 

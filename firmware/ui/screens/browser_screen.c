@@ -399,9 +399,10 @@ static void browser_screen_handle_event(const input_event_t *ev)
                 if (mq_folder_init_start(s_state.path, full, &start) == 0)
                     list = mq_filter_indices(&n);
                 if (start >= 0 && list != 0) {
+                    /* Source first: ReplayGain AUTO resolves the first track
+                     * against the playback context. */
+                    player_set_queue_source(PLAYER_QUEUE_FOLDER, "", -1);
                     rc = player_play_list(list, (int)n, start);
-                    if (rc == PLAYER_OK)
-                        player_set_queue_source(PLAYER_QUEUE_FOLDER, "", -1);
                 } else {
                     rc = player_open(full);     /* not indexed: single track */
                     if (rc == PLAYER_OK)

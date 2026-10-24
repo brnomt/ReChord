@@ -80,6 +80,14 @@ static const setting_opt_t opts_fade[] = {
     { "500", 500 },
 };
 
+/* BRNOMT-106: ReplayGain mode. */
+static const setting_opt_t opts_replaygain[] = {
+    { "off",   0 },
+    { "track", 1 },
+    { "album", 2 },
+    { "auto",  3 },
+};
+
 /* ---- the schema table (canonical key order) --------------------------- */
 
 const setting_schema_t setting_schema[SETTING_KEY_COUNT] = {
@@ -113,6 +121,8 @@ const setting_schema_t setting_schema[SETTING_KEY_COUNT] = {
       1, { .e = { opts_repeat, 3 } } },
     { "fade",        SETTING_KIND_ENUM, offsetof(rechord_settings_t, fade_ms),
       1, { .e = { opts_fade, 4 } } },
+    { "replaygain",  SETTING_KIND_ENUM, offsetof(rechord_settings_t, replaygain_mode),
+      1, { .e = { opts_replaygain, 4 } } },
 };
 
 int settings_visible_count(void)
@@ -170,6 +180,7 @@ void settings_view_defaults(rechord_settings_t *s)
     s->repeat_mode = 0;    /* off */
     s->fade_ms = 300;      /* BRNOMT-67: 300 ms play/pause fade */
     s->theme[0] = '\0';    /* no explicit choice: boot uses active_theme  */
+    s->replaygain_mode = 3; /* BRNOMT-106: auto (shuffle->track, album->album) */
 }
 
 static void cycle_enum(const setting_schema_t *sch, rechord_settings_t *s,
@@ -297,6 +308,7 @@ void settings_view_from_store(const settings_t *in, rechord_settings_t *out)
         else if (strcmp(sc->name, "shuffle") == 0)     { txt = in->shuffle; }
         else if (strcmp(sc->name, "repeat_mode") == 0) { txt = in->repeat_mode; }
         else if (strcmp(sc->name, "fade") == 0)        { txt = in->fade; }
+        else if (strcmp(sc->name, "replaygain") == 0)  { txt = in->replaygain; }
         else if (strcmp(sc->name, "brightness") == 0) { iv = in->brightness; }
         else if (strcmp(sc->name, "screen_off") == 0) { iv = in->screen_off_min; by_opt = 1; }
         else if (strcmp(sc->name, "auto_off") == 0)   { iv = in->auto_off_min;   by_opt = 1; }
@@ -353,6 +365,7 @@ void settings_view_to_store(const rechord_settings_t *in, settings_t *out)
             else if (strcmp(sc->name, "shuffle") == 0)     snprintf(out->shuffle, sizeof out->shuffle, "%s", txt);
             else if (strcmp(sc->name, "repeat_mode") == 0) snprintf(out->repeat_mode, sizeof out->repeat_mode, "%s", txt);
             else if (strcmp(sc->name, "fade") == 0)        snprintf(out->fade, sizeof out->fade, "%s", txt);
+            else if (strcmp(sc->name, "replaygain") == 0)  snprintf(out->replaygain, sizeof out->replaygain, "%s", txt);
         } else if (strcmp(sc->name, "brightness") == 0) out->brightness = *src;
         else if (strcmp(sc->name, "volume") == 0)       out->volume = *src;
         else if (strcmp(sc->name, "cursor") == 0)       out->cursor = *src;

@@ -4628,3 +4628,35 @@ actualizados. Los packers legacy quedan en `tools/` como referencia.
 **No hecho.** El contrato del loader/ROM en `0x03088000`, la validación del
 descriptor 0x1F8 y el camino de update/flash propio siguen fuera del build;
 están en `docs/re/boot-chain.md` §5.2.
+
+## CB. Session 2026-10-24 — ReplayGain real (BRNOMT-106)
+
+**Hallazgo.** El parser (`tags.c`), la matemática (`rg_math.c`) y el IPC
+(`IPC_C_RG`) ya existían, pero `player_set_replaygain_mode()` solo se llamaba
+en tests: en la device el modo quedaba siempre OFF. Además, el pre-open del
+tema siguiente publicaba su ganancia ~3 s antes del boundary.
+
+**Modos.** `off/track/album/auto`, persistidos como `replaygain=` en
+`rechord.cfg` y expuestos en **Settings > Playback** (junto al Equalizer, que
+se movió desde Interface). AUTO: shuffle → track; cola de álbum
+(`PLAYER_QUEUE_CAT` + `MQ_ALBUM`) o continuidad de tag de álbum → album;
+si faltan los tags de álbum, fallback a track. El contexto de álbum se guarda
+como hash+len (8 B) para no gastar `.bss`.
+
+**Fix pre-open.** `compute_rg_gain()` solo cachea; publicar es explícito
+(`publish_rg_gain()`). `open_codec_only()` ya no publica, así que el pre-open
+no pisa `IPC_C_RG`; los cambios de modo/shuffle del tema activo sí republican.
+La fuente de cola se setea antes de `player_load_list()` para que AUTO resuelva
+el primer tema del álbum.
+
+**UI/config.** `SETTING_KEY_COUNT` 15 → 16; grupo "Playing" → "Playback" con
+ReplayGain + Equalizer; Interface queda solo con Theme. Persistencia verificada:
+RG en `rechord.cfg`, EQ en `eq.cfg`.
+
+**Tests.** Player: OFF/TRACK/ALBUM/AUTO, fallback, continuidad, publicación
+del pre-open. Settings: 16 claves, round-trip y defaults. UI: filas del grupo
+Playback y aplicación inmediata al player. Suites verdes; `make cfw-ap` PASS,
+`.bss` con 68 B libres bajo `0x0304A000`.
+
+**No hecho.** Cachear RG en el índice, APEv2/Opus y TXXX con descripción
+UTF-16; quedan documentados en `docs/rewrite/audio.md`.

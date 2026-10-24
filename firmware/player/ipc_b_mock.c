@@ -47,6 +47,8 @@ static int g_b_decodes = 0;
 static int g_b_eof = 0;
 static int g_next_count = 0;
 static int g_preopen_count = 0;
+static int g_rg_gain = 32768;    /* last published IPC_C_RG (host hook)   */
+static int g_rg_calls = 0;
 
 void ipc_b_mock_set_frames_per_tick(int frames)
 {
@@ -98,6 +100,8 @@ int ipc_b_init(void)
     g_b_eof = 0;
     g_next_count = 0;
     g_preopen_count = 0;
+    g_rg_gain = 32768;
+    g_rg_calls = 0;
     return 0;
 }
 
@@ -315,6 +319,17 @@ int ipc_b_seek(long ms)
 /* Phase 3c: the AP applies its own ReplayGain on the host mock. */
 int ipc_b_set_replaygain(int gain_q16)
 {
-    (void)gain_q16;
+    g_rg_gain = gain_q16;
+    g_rg_calls++;
     return 0;
+}
+
+int ipc_b_mock_last_replaygain(void)
+{
+    return g_rg_gain;
+}
+
+int ipc_b_mock_replaygain_calls(void)
+{
+    return g_rg_calls;
 }
