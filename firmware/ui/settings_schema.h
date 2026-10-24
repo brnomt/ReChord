@@ -16,7 +16,8 @@
  * This header is the single source of truth for:
  *   - the in-memory settings struct (rechord_settings_t),
  *   - the per-key metadata table (name, value kind, field offset, options),
- *   - default values (seeded from the observed on-device config).
+ *   - default values (seeded from the observed on-device config; auto_off is
+ *     the one exception: ReChord's standby timer defaults to 5 min).
  *
  * Part of the frontend workstream (settings_screen binds this schema to a
  * menu; the settings service in firmware/services/ persists the struct).

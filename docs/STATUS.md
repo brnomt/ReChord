@@ -47,8 +47,15 @@ plays audio on hardware:
   repeat off/all/one (config keys `shuffle`, `repeat_mode`; 15-key schema),
   applied to the player immediately and preserved when a new list starts.
   Settings is grouped into **Playing** (Volume, Shuffle, Repeat, Resume,
-  Fade) and **Interface** (Theme); `fade` is off/150/300/500 ms and applies
-  to play/pause/resume.
+  Fade, Auto-off) and **Interface** (Theme); `fade` is off/150/300/500 ms and
+  applies to play/pause/resume.
+- **Standby auto-off**: `auto_off` (off/5/15/30/60 min, default **5**)
+  powers the player off when it is paused/stopped and no key has been pressed
+  for that long. Playing keeps the timer fresh, so the window starts at the
+  pause, not at boot; a USB-MSC session and the press that wakes the parked
+  device do not count as activity. The shutdown reuses the 2 s power-hold
+  path (position + config persisted, `log_flush("standby")`), and on VBUS it
+  parks like any other power-off.
 - **Resume**: the last track + position and the browser folder/row live in
   `/.rechord/state` (separate from the config, rewritten in place); the
   `resume` setting (off/folder/track) decides what is restored at boot. It

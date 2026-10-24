@@ -4554,3 +4554,41 @@ PASS.
 
 **Screenshots.** `docs/themes/cassette/` (mockup + 8 side-by-side sheets at 2x,
 the mockup HTML and a README with the limitations). Not flashed; PR only.
+
+## Standby auto-off, and the "resume is broken" report (2026-10-24)
+
+**"Now Playing doesn't resume, the last song is lost."** Not a regression and
+nothing was deleted. The state file (`/.rechord/state`) was current (`track=
+/SD/Laeko ...`, `pos_ms=33466`) and the boot log showed
+`resume: mode 1 ...` — the device's `RECHORD.CFG` has `resume=folder`, and the
+gate from 0c2d1b6 (BRNOMT-87) only restores the *track* at `mode >= 2`; mode 1
+restores the browser folder/row by design. `resume=track` was written to the
+config; the same choice is in Settings -> Playing -> Resume.
+
+**Standby auto-off.** `auto_off` was in the 15-key schema but never read. It
+now powers off when the player is paused/stopped **and** no key has been
+pressed for `auto_off` minutes (off/5/15/30/60; default 5, a deliberate
+deviation from the sample config's 15). Details worth keeping:
+
+- The timer is kept fresh *while playing* (`if PLAYING: s_idle_ms = now`), so
+  the window starts at the pause, not at boot or at the last key.
+- Any key event resets it; the power-key short press does too. A USB-MSC
+  session resets it on exit (`open_usb`), so returning from a long transfer is
+  not "standby" with the timer already expired.
+- Shutdown reuses the 2 s power-hold path: `resume_poll(now, 1)` ->
+  `settings_screen_store()` -> `log_flush("standby")` -> `power_off()`
+  (`log_printf("power: standby %d", mins)` and the `standby` flush name are the
+  device-side evidence). On VBUS `power_off()` parks; the wake press resets
+  the timer so it cannot re-fire.
+- Settings: the Playing group gained a sixth row, `Auto-off` (the schema key
+  `auto_off`, already persisted and parsed).
+- Defaults changed in `settings_defaults()` (services) and
+  `settings_view_defaults()` (UI); the services test now takes the expected
+  auto_off as a parameter because the *sample config* still says 15.
+- UI suite 545 checks (settings_keys now 6 Playing rows + the Auto-off cycle),
+  services 148 checks green.
+
+Build: AP5M CRC **0x4A7D804B**, fw1 payload 228,200 B, segment end
+0x03087494 (loader-base check PASS), `_bss_end` 0x03049E5C (420 B under the
+0x0304A000 assert). Branched as `feat/standby-off` on top of `feat/cassette`
+(PR base: feat/cassette) so the theme PR stays about the theme.

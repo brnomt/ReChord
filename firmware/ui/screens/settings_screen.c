@@ -6,7 +6,7 @@
  * the live Theme picker under Interface). The on-disk 15-key format is
  * unchanged; the categories only decide what the user sees and in what order.
  *
- * Playing:   Volume, Shuffle, Repeat, Resume, Fade (BRNOMT-67)
+ * Playing:   Volume, Shuffle, Repeat, Resume, Fade, Auto-off
  * Interface: Theme
  *
  * The System diagnostics menu stays in the root menu (it is a debug view, not
@@ -194,6 +194,7 @@ static const setting_group_item_t s_playing_items[] = {
     { "Repeat",  "repeat_mode" },
     { "Resume",  "resume" },
     { "Fade",    "fade" },
+    { "Auto-off", "auto_off" },
     { 0, 0 },
 };
 
