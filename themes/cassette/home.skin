@@ -1,6 +1,5 @@
-# Cassette — home skin (mockup: 320x170, 8x8 font). RGB565 literals are DECIMAL.
-# art_* colours come from ARTPACK.BIN; without art the theme.cfg palette is
-# used. The reels follow pos_ms (never t), so they freeze on pause.
+# Cassette home (mockup: 320x170). RGB565 literals are DECIMAL; art_* come
+# from ARTPACK.BIN (theme.cfg palette when there is no cover).
 
 [skin]
 refresh_ms=50
@@ -20,8 +19,12 @@ rL=sqrt(169 + (731 * (100 - pct)) / 100)
 rR=sqrt(169 + (731 * pct) / 100)
 
 [vars2]
-phL=-((dur_ms / 1000) * 71) * (30 - rL)
-phR=-((dur_ms / 1000) * 71) * (rR - 13)
+phL=-(26 * pos_ms) / rL
+phR=-(26 * pos_ms) / rR
+cL=sin(phL + 1571, 6283, 10)
+sL=sin(phL, 6283, 10)
+cR=sin(phR + 1571, 6283, 10)
+sR=sin(phR, 6283, 10)
 
 [bg]
 type=gradient
@@ -130,13 +133,14 @@ y=60
 color=4258
 bg=61309
 
-[dotL]
-type=roundrect
-x=111 + sin(phL + 1571, 6283, 10)
-y=67 + sin(phL, 6283, 10)
-w=2
-h=2
-r=0
+[hubhandL]
+type=triangle
+x1=112
+y1=68
+x2=112 + cL - sL / 5
+y2=68 + sL + cL / 5
+x3=112 + cL + sL / 5
+y3=68 + sL - cL / 5
 color=acc
 
 [hubR]
@@ -156,16 +160,16 @@ y=60
 color=4258
 bg=61309
 
-[dotR]
-type=roundrect
-x=207 + sin(phR + 1571, 6283, 10)
-y=67 + sin(phR, 6283, 10)
-w=2
-h=2
-r=0
+[hubhandR]
+type=triangle
+x1=208
+y1=68
+x2=208 + cR - sR / 5
+y2=68 + sR + cR / 5
+x3=208 + cR + sR / 5
+y3=68 + sR - cR / 5
 color=acc
 
-# Cover the reel spill outside the window.
 [covT]
 type=fill
 x=82

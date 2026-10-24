@@ -20,8 +20,8 @@ rL=sqrt(169 + (731 * (100 - (dur_ms > 0 ? pos_ms * 100 / dur_ms : 0))) / 100)
 rR=sqrt(169 + (731 * (dur_ms > 0 ? pos_ms * 100 / dur_ms : 0)) / 100)
 
 [vars2]
-phL=-((dur_ms / 1000) * 71) * (30 - rL)
-phR=-((dur_ms / 1000) * 71) * (rR - 13)
+phL=-(26 * pos_ms) / rL
+phR=-(26 * pos_ms) / rR
 
 [bg]
 type=gradient
