@@ -171,7 +171,7 @@ From `/home/brnomt/Desktop/ReChord` (branch `master`; remote
 credentials):
 
 ```sh
-make cfw-img                     # AP image; prints "RESULT: PASS" + AP5M CRC
+make                             # standalone AP5M; prints "RESULT: PASS" + CRC
 arm-none-eabi-nm -n build/cfw/rechord_ap.elf | grep _bss_end   # must stay < 0x0304A000
 sha256sum build/ReChord_AP5M.IMG
 ```

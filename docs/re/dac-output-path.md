@@ -40,7 +40,9 @@ chip at all.** The M3 SDK EQ path (`EffectProcess`) is the one in our build.
 
 ## Remaining (Phase 3 — hardware only)
 
-1. Flash `make release` → `build/ReChord_BB.IMG`.
+1. Flash the standalone product image (`make` → `build/ReChord_AP5M.IMG`).
+   The old SDK `make release` → `ReChord_BB.IMG` target was removed in
+   BRNOMT-82; this path is kept as RE history.
 2. Play a track, toggle EQ presets + bass.
 3. Verify audio plays and EQ is audible; no crash, no UI regression.
 

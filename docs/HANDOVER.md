@@ -4596,3 +4596,35 @@ round-trip), player (packing + seqlock), UI (navegación/edición/picker).
 **No hecho.** Sin skin para las pantallas de EQ (el motor de skin solo expone
 strings), sin crossfade al habilitar/cambiar topología, y el fallback AP
 (`AP_LOCAL_DECODE=1`) no aplica EQ.
+
+## CA. Session 2026-10-24 — BRNOMT-82: build sin stock/community
+
+**Decisión.** La línea de producto es solo el AP clean-room + Core B. `make`
+sin argumentos = `make standalone-ap5m` → `build/ReChord_AP5M.IMG`.
+
+**Makefile.** Se eliminaron del grafo los targets legacy y sus variables:
+`cfw-img` (splice con la imagen stock de 33 MB), `release`/`all` (BB del SDK +
+AP stock), `bb`/`ap`/`build-bb`/`link-bb`/`build-ap`/`link-ap`,
+`pack-img`/`pack-bb-img`/`pack-fw1`/`pack-full`/`apbb-experimental`,
+`extract-section3`, `bb-stub`/`pack-bb-stub-img`,
+`hook-img`/`trial-img`/`entry-img`/`hook-early-img`, y los manifiestos
+`firmware/rockchip/manifests/*.mk`. También salieron las variables
+`SDK_LIB`/`BB_CODEC_LIBS`/`AP_CODEC_LIBS` y los objetos del SDK.
+
+Quedan: `cfw-ap`, `standalone-ap5m` (default), `cdc-image`,
+`verify-standalone`, `clean-clone-check`, `test-dsp`, `clean`, y las
+herramientas de RE opcionales `toolchain`/`manifests`/`compile-check` (no
+entran en el build de producto).
+
+**Resultado.** `make` compila únicamente fuentes versionadas: AP + blob de
+Core B + codecs from-source. No lee `stock/`, no linkea `.lib` de
+`community/sdks`, no parchea binarios. `make clean-clone-check` construye dos
+worktrees limpios y exige el mismo SHA-256 (reproducibilidad).
+
+**Docs.** README, FLASHING, audio, boot-chain, fw1-packing, core,
+AP-MAILBOX-GUIDE, dac-output-path, INDEX y el aviso de `pack_img.py`
+actualizados. Los packers legacy quedan en `tools/` como referencia.
+
+**No hecho.** El contrato del loader/ROM en `0x03088000`, la validación del
+descriptor 0x1F8 y el camino de update/flash propio siguen fuera del build;
+están en `docs/re/boot-chain.md` §5.2.

@@ -24,84 +24,64 @@ No PC flashing tool is required. The player reads the IMG from internal flash an
 
 ---
 
-## Build pipeline (current status)
+## Build pipeline (current)
 
 ```bash
-mingw32-make release        # SAFE default: custom BB + STOCK AP
-                            # → build/ReChord_BB.IMG (hardware-verified to boot)
+make                # = make standalone-ap5m
+                    # -> build/ReChord_AP5M.IMG  (5 MB, the only image to flash)
+make cfw-ap         # ELF only -> build/cfw/rechord_ap.elf
+make clean-clone-check   # reproducibility: two clean worktrees, same SHA-256
 ```
 
-> **⚠️ DO NOT flash `ReChord_APBB.IMG` (custom AP + custom BB).** It
-> **bricked a device on 2026-08-25** (maskrom recovery required). The custom
-> fw1 memory-map table does not reproduce the stock 91-entry table, which
-> lays out the whole system RAM (UI framebuffer, audio buffers, FAT cache,
-> stacks) for the Mask ROM. See `make apbb-experimental` and
-> `docs/fw1-packing.md` before touching fw1.
+Everything is built from tracked source: our clean-room AP (`firmware/ap.mk`),
+our Core B decoder (`firmware/bb`, embedded as a blob) and the from-source
+codecs. `make` does **not** read `stock/`, does **not** link `community/` SDK
+blobs and does **not** use proprietary `.lib` archives.
 
-> **⚠️ AP code span: stay below 0x03088000.** The SDK's
-> `LOADER_CODE_BASE` is `0x03088000` (`docs/community.md` §4.2); the stock
-> loader code lives there and the AP image must not overwrite it. AP5M
-> `0xEF0C1BFC` (2026-10-20) bricked the device because its fw1 row 0 ended at
-> `0x03088EB0`; the previous working image ended at `0x03087F8C`. The linker
-> now caps `FW_CODE` at `0x03050000 + 0x38000 = 0x03088000` and
-> `tools/make_fw1.py` fails
-> the pack when a row crosses the loader base (DFIU `51cc212d`). Flash only
-> `build/ReChord_AP5M.IMG`, never the 33 MB `ReChord_AP.IMG` (custom table).
+The legacy targets (`make release`, `make all`, `make cfw-img`, the SDK
+BB/AP pipeline and the stock splice packers) were removed in BRNOMT-82. The
+historical packers stay in `tools/` for reference only.
 
-Legacy (still works):
-
-```bash
-mingw32-make all            # = make release
-python tools/pack_img.py --pack build/bb/section3_custom.bin --keep-stock-tail -o build/custom.IMG
-```
-
-**Status:**
-- ✅ SDK compiles (44 objects) + links with stubs
-- ✅ `section3_custom.bin` has byte-correct RKnanoFW header:
-  `"RKnanoFW"` + SP `0x0301E794` + count `0x52` (matches stock v3.7.0)
-- ✅ `pack_img.py --identity-test` PASS (byte-identical repack)
-- ✅ packaged IMG preserves bootloader + resources + trailer
-- ⬜ **Drivers are stubs** — the linked firmware boots the SDK kernel (Main2)
-  but hardware init is stubbed (globals zero, functions return 0)
-
-> **What this first code flash validates:** the full pipeline — compile,
-> link, pack, bootloader acceptance of our section_3. The device may show
-> a black screen or not fully boot (stubs). Stock is always restorable.
+> **⚠️ AP code span: stay below 0x03088000.** The stock loader code lives
+> there and the AP image must not overwrite it. The linker caps `FW_CODE` at
+> `0x03050000 + 0x38000 = 0x03088000` and `tools/make_fw1.py` fails the pack
+> when a row crosses the loader base (DFIU `51cc212d`). Flash only
+> `build/ReChord_AP5M.IMG`.
 
 ---
 
 ## Flash procedure
 
-### Step 1 — Build + pack (done)
+### Step 1 — Build
 
 ```bash
-mingw32-make all
-python tools/pack_img.py --pack build/section3_custom.bin -o build/custom.IMG
+make
+sha256sum build/ReChord_AP5M.IMG
 ```
-
-Backup of the stock IMG is saved as `build/stock_restore_HIFIEC37.IMG`.
 
 ### Step 2 — Copy to device
 
 1. Connect Echo Mini via USB → enters storage mode.
-2. Copy `build/custom.IMG` to the **root** of internal storage as
-   `HIFIEC37.IMG` (overwrite the existing one if present).
-3. Eject safely.
-4. **Remove the TF/micro-SD card**.
-5. Reboot the player — it applies the upgrade automatically.
+2. Copy `build/ReChord_AP5M.IMG` to the **root** of internal storage as
+   `HIFIEC90.IMG`. The updater accepts `HIFIECnn.IMG` (two digits) or
+   `ECHOMINI.IMG`; do not overwrite the stock `HIFIEC37.IMG`.
+3. Eject safely (our AP offers the update prompt; the stock/RECHO updater
+   installs silently on reboot).
+4. **Remove the TF/micro-SD card.**
+5. Power-cycle — the player applies the upgrade.
 
 ### Step 3 — Verify
 
-- **If it boots:** device powers on. (With stubs, expect at most a
-  boot screen or black screen — this milestone is about pipeline
-  validation, not function.)
-- **If it does not boot / loops:** wait ~10s, then restore stock (below).
+- **If it boots:** ReChord UI (cassette home by default). The update result is
+  in `/.rechord/LOG`.
+- **If it does not boot / loops:** wait ~10 s, then restore stock (below).
 
 ---
 
 ## Recovery (if something goes wrong)
 
-1. Keep `build/stock_restore_HIFIEC37.IMG` (or the stock download).
+1. Keep a stock image: `stock/3.7.0/ECHO MINI V3.7.0/HIFIEC37.IMG` (local,
+   gitignored) or the official download.
 2. Connect device → storage mode. If the device won't enter storage mode,
    power off and retry; the bootloader A/B fallback may also auto-restore.
 3. Copy the **stock** IMG to root as `HIFIEC37.IMG`, remove TF card, reboot.
@@ -121,8 +101,8 @@ Backup of the stock IMG is saved as `build/stock_restore_HIFIEC37.IMG`.
 | Test | Result |
 |------|--------|
 | Resource mod (boot animation colors) | ✅ Flashed, device booted, reversible |
-| `pack_img.py --identity-test` | ✅ Byte-identical IMG |
-| First code flash (stub kernel) | ⬜ Next step |
+| Clean-room AP5M (our AP + Core B) | ✅ Boots on hardware (verdict #20 lineage) |
+| AP5M + cassette/standby/WAV/MP3/EQ | ✅ Boots and plays (2026-10-24) |
 
 ---
 

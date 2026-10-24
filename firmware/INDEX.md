@@ -23,11 +23,15 @@ firmware/
 ## Build
 
 ```
-make build-bb       # compile BB SDK (firmware/rockchip/**/*.c) -> build/bb/objs/
-make link-bb        # link -> build/bb/rechord_bb.elf + section3_custom.bin
-make pack-bb-img    # splice section_3 into stock IMG -> build/ReChord_BB.IMG
-make all            # build-bb + link-bb
+make                # standalone AP5M (our AP + Core B) -> build/ReChord_AP5M.IMG
+make cfw-ap         # AP ELF only -> build/cfw/rechord_ap.elf
+make clean-clone-check   # two clean worktrees must produce the same image
 ```
+
+The SDK BB/stock packing targets (`build-bb`, `link-bb`, `pack-bb-img`,
+`all`, `release`, `cfw-img`) were removed in BRNOMT-82: they depended on
+`community/` blobs and the stock image. `firmware/rockchip/` stays in the tree
+as RE source but is not part of the product build.
 
 ## Archived decompilation (spec only, not compiled)
 

@@ -208,27 +208,36 @@ owns/replaces the ROM loader/update path; the stock app is a red herring.
 
 ### 5.1 Clean-clone check (PASS)
 
-`make clean-clone-check` creates a detached worktree at `HEAD` containing
-only tracked files (so `stock/` and `community/` are absent by construction),
-asserts both directories are missing, runs `make standalone-ap5m`, and
-compares the resulting image SHA-256 against the boot-confirmed value.
+`make clean-clone-check` creates **two independent** detached worktrees at
+`HEAD` containing only tracked files (so `stock/` and `community/` are absent
+by construction), asserts both directories are missing in each, runs
+`make standalone-ap5m` in both, and requires the two 5 MB images to be
+**byte-identical**. That is the property that matters after a `git clone`:
+the build is standalone and the packer is deterministic.
 
-Verified on commit `02482c1`: **PASS**, `stock/` absent, `community/`
-absent, output SHA-256 `c2238...babb93d`. This proves the AP5M build path
-(AP + clean-room BB core + fw1 + 5 MB container) is independent of the
-gitignored stock/reference directories.
+A byte-exact boot-confirmed image can still be demanded explicitly:
 
-### 5.2 Remaining Issue 82 dependencies
+```sh
+EXPECT_SHA256=<sha256> make clean-clone-check
+```
+
+The golden is not hardcoded because every firmware commit changes the image;
+it is updated only after a flash is confirmed on hardware. The old check
+pinned `c2238...babb93d` from commit `02482c1`, which made every later commit
+fail even though the build was correct.
+
+### 5.2 Remaining dependencies after the build cleanup
+
+The build-side dependencies are gone: `make` builds the AP5M from tracked
+sources only. The legacy `cfw-img`/33 MB splice, `make release`/`all` (SDK BB +
+stock AP) and every SDK/stock packing target were removed; the historical
+packers stay in `tools/` for reference only.
+
+What remains is not a build input:
 
 - `0x03088000` is live loader/ROM memory at runtime (the probe hung there).
   The AP5M does not load it in the initial row, but it is not a free overlay
   window. The 113 KB needs a loader-owning bootloader or a different layout.
-- The legacy `cfw-img`/33 MB path still reads `stock/` and `community/refcfw`;
-  it is not on the standalone target and should stay quarantined as a
-  reference/fallback path.
-- The `make release` BB still links proprietary `community/sdks` `.lib`
-  codecs (Phase 3). The clean-room AP already uses `BB_CORE_SRCS`
-  (WAV/MP3/FLAC).
 - Flashing/update path (Phase 4). The stock updater/maskrom is a device
   component, not a build input; a custom updater is a separate decision.
 - The 0x1F8 descriptor field table is RE-derived from the reference and the
@@ -240,9 +249,10 @@ gitignored stock/reference directories.
 
 - **Phase 1a: PASS.** Standalone 5 MB container reproduces the known-good
   image with no stock/ref reads.
-- **Phase 1b: PASS.** `make clean-clone-check` builds from a detached
-  worktree with only tracked files (no `stock/`, no `community/`) and
-  reproduces the known-good SHA. The legacy `cfw-img` path still reads
+- **Phase 1b: PASS.** `make clean-clone-check` builds twice from independent
+  detached worktrees with only tracked files (no `stock/`, no `community/`)
+  and requires byte-identical images. Pass `EXPECT_SHA256=<sha>` to also
+  compare a boot-confirmed golden. The legacy `cfw-img` path still reads
   stock/ref; the standalone target bypasses it. Validate the descriptor on
   hardware when a flash is scheduled.
 - **Phase 2 (revised after the probe):** `0x03088000` is live at runtime;

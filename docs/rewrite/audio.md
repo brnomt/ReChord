@@ -67,9 +67,9 @@ vendored + adapted under `player/codecs/`, licenses pinned), plus gapless /
 ReplayGain / codec_io_fs — all covered by host tests in
 `firmware/player/tests/run_tests.sh` (11 binaries, ~340 assertions, green).
 It is **linked into the AP image** (`AP_PLAYER_SRCS` in `firmware/ap.mk`;
-`make cfw-ap` links `build/cfw/rechord_ap.elf`; `make cfw-img` →
-`build/ReChord_AP5M.IMG` behind the packer's scatter gate, `RESULT: PASS`,
-md5 `5f2a55d301d8861711f762def778245b`). **Audio is live on hardware**: the
+`make cfw-ap` links `build/cfw/rechord_ap.elf`; `make standalone-ap5m` (the
+default `make`) → `build/ReChord_AP5M.IMG` behind the packer's scatter gate,
+`RESULT: PASS`). **Audio is live on hardware**: the
 DAC renderer landed (I2S1 TX-IRQ feeder over the shared PCM ring), and since
 phase 3c **Core B owns the decode** (B image in `firmware/bb/`, started by the
 AP); the AP serves the file over the A→B file ring and feeds the DAC. See
@@ -198,8 +198,8 @@ firmware/player/
    `make cfw-ap` → `build/cfw/rechord_ap.elf` (text 99,600 / data 180 /
    bss 283,836; `_bss_end 0x03049570` inside the linker's FW_RAM window to
    0x0304C000) with player symbols present; all player TUs compile
-   `-mcpu=cortex-m3 -mthumb -Wall`; host tests stay green. `make cfw-img`
-   → AP5M uploaded to the device as HIFIEC90.IMG and installed on hardware
+   `-mcpu=cortex-m3 -mthumb -Wall`; host tests stay green.
+   `make standalone-ap5m` → AP5M uploaded to the device as HIFIEC90.IMG and installed on hardware
    (ECHOLOG `update: result 0`, fw_end 0x44C000); boot verdict pending a
    power-cycle (DFIU `verify_resolution` after the user confirms).
 

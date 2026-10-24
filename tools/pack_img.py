@@ -180,8 +180,9 @@ def pack_full(stock_img: bytes, fw1: bytes, custom_section3: bytes, out_path: Pa
     print("  !!! this combination BRICKED a device on 2026-08-25 (the stock")
     print("  !!! 91-entry table also lays out the UI framebuffer, audio buffers,")
     print("  !!! FAT cache and stacks; a custom table must reproduce all of it).")
-    print("  !!! Flash only with maskrom recovery ready. Safe default:")
-    print("  !!!   make release  ->  build/ReChord_BB.IMG (stock AP + custom BB)")
+    print("  !!! Flash only with maskrom recovery ready. This tool is")
+    print("  !!! reference-only since BRNOMT-82; the product build is:")
+    print("  !!!   make  ->  build/ReChord_AP5M.IMG (clean-room AP + Core B)")
     return out_path
 
 

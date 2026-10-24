@@ -420,13 +420,22 @@ against a saved known-good image. Run it before `make standalone-ap5m` if
 the known-good file is the same path (the build target overwrites it), or
 pass `GOLDEN=/path/to/saved/ReChord_AP5M.IMG`.
 
-`make clean-clone-check` is the stronger acceptance test: it creates a
-detached worktree at `HEAD` with tracked files only (no `stock/`, no
-`community/`), runs `make standalone-ap5m` there and compares the image
-SHA-256. Verified on `02482c1`: PASS, output
-`c2238...babb93d`.
+`make clean-clone-check` is the stronger acceptance test: it creates **two**
+independent detached worktrees at `HEAD` with tracked files only (no `stock/`,
+no `community/`), runs `make standalone-ap5m` in both and requires the two
+images to be byte-identical (standalone build + deterministic packer). A
+boot-confirmed image can be checked explicitly with
+`EXPECT_SHA256=<sha> make clean-clone-check`; the golden is not hardcoded
+because every commit changes the image.
 
-This does **not** complete Issue 82: the stock loader/ROM contract at
-`0x03088000`, the legacy 33 MB stock/ref path, the SDK `.lib` codec path and
-the update/flash path remain. See `docs/re/boot-chain.md` for the Phase 0
-map, the loader windows and the Phase 2 gate.
+The legacy 33 MB `cfw-img`/stock-splice and SDK `release`/`all` Make targets
+described in this document were removed in BRNOMT-82. The packers
+(`tools/pack_img.py`, `tools/pack_fw1.py`) remain in the tree as reference
+implementations; the product build only uses `tools/make_fw1.py
+--standalone-5m`.
+
+This completes the **build** half of Issue 82: the product build is standalone
+and reproducible from a clean clone. Remaining device-side work is the stock
+loader/ROM contract at `0x03088000`, descriptor validation and the
+update/flash path. See `docs/re/boot-chain.md` for the Phase 0 map, the loader
+windows and the Phase 2 gate.

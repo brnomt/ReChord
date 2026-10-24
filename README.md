@@ -105,7 +105,7 @@ boundary is a `NEXT` command over the live ring. Details:
 | 96 kHz margins (ring cover, FIFO refill) | 🟡 every time budget halves at 96k; occasional crackles under investigation |
 | 192 kHz (FLAC block 16384) | ⬜ rate is in the table; needs a ~143 KB decode window (the workbuf is 80,896 B) |
 | 384 kHz | ⬜ not in the rate table / untested |
-| DSP effects in the playback path | 🟡 sources + host tests exist; **not linked into the AP image** |
+| DSP effects in the playback path | 🟢 5–10 band EQ on Core B with runtime profiles (`docs/rewrite/eq.md`) |
 | RMF1 module loader | 🟡 host-tested; later milestone |
 
 ## Build & test
@@ -119,13 +119,16 @@ sh firmware/services/tests/run_tests.sh
 sh firmware/drivers/tests/run_tests.sh
 sh firmware/modules/tests/run_tests.sh
 
-# Clean-room AP image (UI + player + Core B decoder) → flashable IMGs
-make cfw-ap        # build/cfw/rechord_ap.elf
-make cfw-img       # build/ReChord_AP.IMG + build/ReChord_AP5M.IMG
+# Clean-room product image (our AP + Core B + from-source codecs)
+make               # = make standalone-ap5m -> build/ReChord_AP5M.IMG
+make cfw-ap        # ELF only -> build/cfw/rechord_ap.elf
 
-# SDK builds (section_3) — see docs/STATUS.md for the include list
-make build-bb && make link-bb
+# Reproducibility acceptance: two clean worktrees, byte-identical image
+make clean-clone-check
 ```
+
+`make` needs no stock image, no `community/` SDK and no proprietary `.lib`.
+The legacy `release`/`all` and `cfw-img` targets were removed (BRNOMT-82).
 
 ## Flash
 
