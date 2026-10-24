@@ -30,7 +30,7 @@
 
 #define RECHORD_BROWSE_PATH_MAX 64
 #define RECHORD_THEME_ID_MAX    32
-#define SETTING_KEY_COUNT       15
+#define SETTING_KEY_COUNT       16
 
 /* In-memory settings.  Field order is our own; persistence must go through
  * the schema table (or the key names), never through raw offsets on disk. */
@@ -51,6 +51,7 @@ typedef struct rechord_settings {
     int  repeat_mode;                 /* key "repeat_mode"(0=off,1=all,2=one)*/
     int  fade_ms;                     /* key "fade"       (0/150/300/500 ms) */
     char theme[RECHORD_THEME_ID_MAX]; /* key "theme"      (package id)      */
+    int  replaygain_mode;             /* key "replaygain" (0=off..3=auto)   */
 } rechord_settings_t;
 
 typedef enum setting_kind {
@@ -82,8 +83,8 @@ typedef struct setting_schema {
 
 /* The schema table, in canonical key order:
  * play, brightness, screen_off, auto_off, usb, resume,
- * strip, tags, cpu, volume, browse, cursor, shuffle, repeat_mode, fade
- * (15 keys).
+ * strip, tags, cpu, volume, browse, cursor, shuffle, repeat_mode, fade,
+ * replaygain (16 keys).
  *
  * `visible` marks the functional subset the Settings groups offer. Today:
  * resume, volume, shuffle, repeat_mode, fade. `theme` is a live picker

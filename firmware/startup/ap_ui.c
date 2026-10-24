@@ -1305,14 +1305,17 @@ static void resume_boot_restore(void)
         log_printf("resume: browser state '%s' row %d", st.folder, st.row);
     }
     if (mode >= 2 && st.track[0] == '/') {
+        /* Source first: the queue restore opens the first track, and
+         * ReplayGain AUTO needs the album context at that point. */
+        if (st.queue_kind != 0)
+            player_set_queue_source(st.queue_kind,
+                                    st.queue_kind == 2 ? st.queue_value : "",
+                                    st.queue_cat);
         int restored = (st.queue_kind != 0) ? restore_saved_queue(&st) : 0;
 
         if (restored) {
             if (st.pos_ms > 0)
                 (void)player_seek((long)st.pos_ms);
-            player_set_queue_source(st.queue_kind,
-                                    st.queue_kind == 2 ? st.queue_value : "",
-                                    st.queue_cat);
             /* Deliberately NOT pushing Now Playing: the user lands on the
              * home and SELECT resumes from the saved position. */
             log_printf("resume: queue restored, paused");
@@ -1403,6 +1406,7 @@ void ap_ui_loop(void)
     player_set_shuffle(settings_screen_get()->shuffle);           /* BRNOMT-90 */
     player_set_repeat(settings_screen_get()->repeat_mode);
     player_set_fade_ms(settings_screen_get()->fade_ms);           /* BRNOMT-67 */
+    player_set_replaygain_mode(settings_screen_get()->replaygain_mode); /* BRNOMT-106 */
     player_screen_set_volume(player_get_volume());
     s_volume_seen = player_get_volume();
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */

@@ -178,11 +178,14 @@ firmware/player/
    track_peak_q15, album_peak_q15}`. `track_info_t` carries the fields; the
    codec_t `tags` callback populates them (NULL = no tags). Gain math lives in
    `rg_math.c` (`rg_gain_q16`, `rg_effective_gain_q16` peak-limited,
-   `rg_scale_pcm`), applied in the PCM pump **before** the ring push (`>>15`
-   Q1.15 scaling + saturation on the int32 left-justified PCM) — this is the
-   AP-side pre-attenuation that composes
-   with the B-core user volume; `PLAYER_RG_TRACK`/`_ALBUM`/`_OFF` mode is set via
-   `player_set_replaygain_mode` (defaults OFF). Design note: routed through
+   `rg_scale_pcm`). Core B applies the gain to the decoded block right after
+   the gapless trim and before the EQ; the AP applies the same `>>15` Q1.15
+   scaling only on its diagnostic local-decode fallback. Modes are
+   `OFF`/`TRACK`/`ALBUM`/`AUTO`, persisted as
+   `replaygain=` in `rechord.cfg` and selected in Settings > Playback. AUTO
+   uses track gain when shuffled and album gain for an unshuffled album queue
+   (or a same-album run), falling back to track tags when album tags are
+   missing. Design note: routed through
    `rg_math.c` instead of the `dsp/mod_volume.c` chain so the path is host-testable
    end-to-end without wiring the DSP chain into the player; a future milestone
    can fold the gain into the dsp chain (§5.2). Host tests: `test_rg_math`
@@ -250,10 +253,12 @@ firmware/player/
 2. ~~**DAC renderer**~~ DONE — the ring consumer landed as the I2S1 TX-IRQ
    feeder (route A) and FLAC plays on hardware (DFIU 75271e5f); the DMA
    ping-pong backend (route B) remains optional (§6).
-3. B-core gain/DSP register mapping — where ReplayGain's final multiply is
-   applied (AP pre-attenuation vs B-core DSP volume).
-4. SD write + settings on target (the RG mode preference: track vs album)
-   — needs the volume path convention from the storage workstream.
+3. ~~B-core gain/DSP register mapping~~ DONE — Core B applies ReplayGain from
+   `IPC_C_RG` in its decode loop (trim → RG → upmix → EQ); the AP fallback
+   applies the same Q1.15 gain.
+4. ~~SD write + settings on target (the RG mode preference)~~ DONE — the mode
+   is `replaygain=off|track|album|auto` in `rechord.cfg`, under
+   Settings > Playback (BRNOMT-106).
 5. Warm reboot / high-speed USB — polish, not blocking audio.
 
 ## 6. Modular pipeline refactor (2026-10-16)

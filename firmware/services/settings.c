@@ -46,6 +46,7 @@ void settings_defaults(settings_t *s)
     memcpy(s->repeat_mode, "off", 3);
     memcpy(s->fade, "300", 3);   /* BRNOMT-67: 150/300/500 ms, off=0 */
     s->theme[0] = '\0';          /* empty: boot falls back to active_theme */
+    memcpy(s->replaygain, "auto", 5);   /* BRNOMT-106: off/track/album/auto */
 }
 
 /* Copy src into dst (capacity cap), truncating safely. */
@@ -167,6 +168,8 @@ static int parse_line(char *line, settings_t *s)
         copy_value(s->fade, sizeof(s->fade), val);
     } else if (strcmp(key, "theme") == 0) {
         copy_value(s->theme, sizeof(s->theme), val);
+    } else if (strcmp(key, "replaygain") == 0) {
+        copy_value(s->replaygain, sizeof(s->replaygain), val);
     } else {
         return 0;               /* unknown key: ignored by design */
     }
@@ -301,6 +304,8 @@ int settings_serialize_text(const settings_t *s, char *buf, unsigned long cap)
         emit(buf, cap, &pos, s->fade) != 0 ||
         emit(buf, cap, &pos, "\ntheme=") != 0 ||
         emit(buf, cap, &pos, s->theme) != 0 ||
+        emit(buf, cap, &pos, "\nreplaygain=") != 0 ||
+        emit(buf, cap, &pos, s->replaygain) != 0 ||
         emit(buf, cap, &pos, "\n") != 0) {
         return SETTINGS_ERR_FULL;
     }

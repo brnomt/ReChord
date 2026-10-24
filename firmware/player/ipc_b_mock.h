@@ -38,6 +38,11 @@ int  ipc_b_preopen_count(void);
 
 /* Host-only: number of times ipc_b_start() was called (B-core restarts).
  * Tests use this to assert a gapless transition does NOT restart the core. */
-int ipc_b_start_count(void);
+int  ipc_b_start_count(void);
+
+/* Host-only: last Q16 gain published through ipc_b_set_replaygain() and the
+ * number of publishes. The pre-open window must NOT change the live gain. */
+int  ipc_b_mock_last_replaygain(void);
+int  ipc_b_mock_replaygain_calls(void);
 
 #endif /* RECHORD_IPC_B_MOCK_H */

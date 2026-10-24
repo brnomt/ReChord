@@ -63,6 +63,7 @@ static void check_sample_values(const settings_t *s, int auto_off)
     CHECK(strcmp(s->shuffle, "off") == 0);       /* BRNOMT-90 */
     CHECK(strcmp(s->repeat_mode, "off") == 0);
     CHECK(strcmp(s->fade, "300") == 0);          /* BRNOMT-67 */
+    CHECK(strcmp(s->replaygain, "auto") == 0);   /* BRNOMT-106 */
 }
 
 static void check_same(const settings_t *a, const settings_t *b)
@@ -82,6 +83,7 @@ static void check_same(const settings_t *a, const settings_t *b)
     CHECK(strcmp(a->shuffle, b->shuffle) == 0);
     CHECK(strcmp(a->repeat_mode, b->repeat_mode) == 0);
     CHECK(strcmp(a->fade, b->fade) == 0);
+    CHECK(strcmp(a->replaygain, b->replaygain) == 0);
 }
 
 static void write_cfg(const char *content)
@@ -172,6 +174,7 @@ static void test_sample_round_trip(void)
     CHECK(strstr(text, "shuffle=off\n") != NULL);      /* BRNOMT-90 */
     CHECK(strstr(text, "repeat_mode=off\n") != NULL);
     CHECK(strstr(text, "fade=300\n") != NULL);         /* BRNOMT-67 */
+    CHECK(strstr(text, "replaygain=auto\n") != NULL);  /* BRNOMT-106 */
     CHECK(strstr(text, "\nplay=") < strstr(text, "\nbrightness="));
     CHECK(strstr(text, "\nbrightness=") < strstr(text, "\nscreen_off="));
     CHECK(strstr(text, "\nscreen_off=") < strstr(text, "\nauto_off="));
@@ -186,6 +189,7 @@ static void test_sample_round_trip(void)
     CHECK(strstr(text, "\ncursor=") < strstr(text, "\nshuffle="));
     CHECK(strstr(text, "\nshuffle=") < strstr(text, "\nrepeat_mode="));
     CHECK(strstr(text, "\nrepeat_mode=") < strstr(text, "\nfade="));
+    CHECK(strstr(text, "\ntheme=") < strstr(text, "\nreplaygain="));
 }
 
 static void test_tolerance(void)

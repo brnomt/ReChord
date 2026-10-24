@@ -90,6 +90,7 @@ int main(void)
     CHECK(v.auto_off_min == 15);
     CHECK(v.volume_db == -23);
     CHECK(v.fade_ms == 300);             /* BRNOMT-67 default */
+    CHECK(v.replaygain_mode == 3);       /* BRNOMT-106: auto */
     CHECK(v.cursor == 3);
     CHECK(v.play_mode == opt_value("play", "repeat_track"));
     CHECK_STR_EQ(v.theme, "companion-bot");
@@ -107,6 +108,7 @@ int main(void)
     CHECK(s_store.brightness == 4);
     CHECK(strcmp(s_store.play, "shuffle") == 0);
     CHECK(strcmp(s_store.fade, "300") == 0);   /* unchanged default */
+    CHECK(strcmp(s_store.replaygain, "auto") == 0);
     CHECK_STR_EQ(s_store.theme, "night");
 
     /* 3. round-trip through load again */
@@ -144,6 +146,7 @@ int main(void)
         own.shuffle = 1;          /* on */
         own.repeat_mode = 2;      /* one */
         own.fade_ms = 150;        /* BRNOMT-67 */
+        own.replaygain_mode = 1;  /* BRNOMT-106: track */
         snprintf(own.theme, sizeof own.theme, "paper");
 
         settings_view_to_store(&own, &store);
@@ -162,6 +165,7 @@ int main(void)
         CHECK_EQ_INT(back.shuffle, 1);
         CHECK_EQ_INT(back.repeat_mode, 2);
         CHECK_EQ_INT(back.fade_ms, 150);
+        CHECK_EQ_INT(back.replaygain_mode, 1);
         CHECK_STR_EQ(back.theme, "paper");
     }
 

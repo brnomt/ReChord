@@ -120,7 +120,7 @@ project data (standard graphic-EQ shapes), not copied code.
 
 ## 5. UI
 
-Settings → Interface → Equalizer (`firmware/ui/screens/eq_screen.c`):
+Settings → Playback → Equalizer (`firmware/ui/screens/eq_screen.c`):
 
 * `Enabled` — toggles the effect; saved immediately.
 * `Profile` — opens the picker: 5 built-ins followed by the custom slots and a
