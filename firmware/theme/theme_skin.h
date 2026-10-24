@@ -19,7 +19,7 @@
  *   min max abs clamp mod noise sin seq
  * Variables: t idle playing paused stopped volume battery W H sel n aw ah
  *            title artist album state background surface text text_dim
- *            accent danger success
+ *            accent danger success art_ok art_c1 art_c2 art_mean art_accent
  *
  * The engine is intentionally bounded: one 4 KiB skin text, 32 sections,
  * 12 properties per section, 64-byte values, recursion depth 12.
@@ -89,6 +89,21 @@ typedef struct theme_skin_list_source {
 } theme_skin_list_source_t;
 
 void theme_skin_set_list(const theme_skin_list_source_t *src);
+
+/* Album-art source used by the `art` meter and the art_* variables. The UI
+ * adapter registers it (services/art_pack.c backs it on the device); the
+ * engine only reads the palette and calls draw(), so it never touches storage.
+ * NULL = no art support: art_ok is 0 and `art` draws its placeholder. */
+typedef struct theme_skin_art {
+    int ok;                    /* 1 = the current track has a cover        */
+    int c1, c2, mean, accent;  /* RGB565 palette                           */
+    int large_px, small_px;    /* stored cover sizes (0 = unknown)         */
+    /* Stream a cover into the framebuffer at (x,y), clipped. 0 = drawn,
+     * <0 = unavailable (the engine draws the placeholder). */
+    int (*draw)(int x, int y, int large);
+} theme_skin_art_t;
+
+void theme_skin_set_art(const theme_skin_art_t *art);
 
 /* Navigation results for a compiled screen using the skin's prev/next map.
  * Only vol up/down are mapped; SELECT and BACK are fixed. */

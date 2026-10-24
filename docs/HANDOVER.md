@@ -4420,3 +4420,65 @@ and it stays; MENU long press does not flicker; Playlist opens and lists the
 queue; pause/resume shows Paused/Playing and audio returns on resume. If the
 state line still sticks, pull `/.rechord/LOG` (internal volume) and check the
 `ipc: pause` lines.
+
+## BW. Session 2026-10-24 — album art with zero decode / zero device writes
+
+**Goal.** Now Playing covers and theme palette colours with no image decoding
+and no storage writes on the device. A PC tool precomputes everything; the
+firmware reads a packed file.
+
+**Host tool** (`tools/artpack/`, Pillow + mutagen, pinned): scans a mounted
+volume root (and optionally the SD root via `--extra-root`), takes embedded
+FLAC PICTURE / ID3 APIC / MP4 covr / folder `cover|folder|front.jpg`, centre-
+crops and LANCZOS-resizes to 120x120 and 48x48, applies optional 8x8 Bayer
+dithering, converts to little-endian RGB565 (the exact `display_fb` layout),
+computes dominant/secondary/mean/accent, dedupes by processed-image hash and
+writes `<root>/.rechord/ARTPACK.BIN` atomically. Key = FNV-1a 64 over
+`"<Volume>/<relative path>"` (UTF-8, '/', no leading slash) continued over the
+little-endian file size. Format, palette algorithm, vectors and costs:
+`docs/ART_PACK.md`.
+
+**Firmware** (`services/art_pack.{h,c}`): track-change lookup reads only the
+header, the key-table CRC and a binary search (~21 sectors for 300 tracks)
+and keeps the palette in ~48 B. The `art` skin meter streams pixels through
+one 512-byte buffer into a new `display_blit_span()` (row segments, clipped);
+the pack is opened per use so it never takes one of fs_target's four read
+handles. The lookup is deferred by the app loop until after the PCM pump (a
+gapless boundary has ~85 ms of ring cover). Missing file / bad magic/version/
+CRC / key not found → `art_ok=0` and a placeholder; no other feature changes.
+No writes of any kind.
+
+**Theme API.** `art` meter (`x y size=small|large color`), variables
+`art_ok art_c1 art_c2 art_mean art_accent` (RGB565). Documented in
+`docs/THEMING.md` §4/§5 with a sample skin; `themes/README.md` updated.
+Companion Bot untouched.
+
+**Budget** (AP image, link-time):
+
+| | before | after |
+|---|---|---|
+| `.text` | 224,888 | 225,172 (+284) |
+| `.data` | 292 | 292 |
+| `.bss` | 285,372 | 285,960 (+588) |
+| `_bss_end` | 0x03049BE0 (1056 B free) | 0x03049E2C (468 B free) |
+| code RAM end | 0x03086F9C | 0x030870B8 (3400 B below 0x03088000) |
+| AP5M CRC | 0x56106209 | 0x4FB3BA81 |
+
+The art feature itself costs ~2,020 B of `.text`; `libc/math_min.c` was
+dropped from the AP link (only the DSP core/BB uses sin/cos/pow; `nm -u`
+showed no AP reference) to reclaim ~1,736 B, so the net is +292 B. The AP5M
+pack passed every check (`loader code base`, payload, CRC).
+
+**Tests.** `tools/artpack/test_artpack.py` (12 cases: vectors, palette,
+byte order, layout/CRC/alignment, SD keys, ID3 APIC, atomic write). Firmware
+`services/tests/test_art_pack.c` (43 checks: shared key vectors, header/CRC
+validation, binary search, palette, streaming + clipping through
+`panel_io_sim`, missing/corrupt/replaced pack). UI `test_skin_art.c` (21
+checks: hook placement, `color=art_c1`, placeholder, no-source defaults).
+UI suite 481 checks, services/player/theme suites green; `make cfw-ap` and
+`make cfw-img` PASS. End-to-end probe against a tool-generated 300-track pack:
+300/300 lookups, real pixels, 0.056 ms lookup / 0.016 ms draw on the host.
+
+**Not done (future).** On-device fill of missing covers (the header reserves
+`image_slots`/`free_slots` for it) and a CoverFlow screen (small covers exist
+for the visible tiles). Nothing flashed; PR only.

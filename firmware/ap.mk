@@ -127,6 +127,7 @@ AP_SERVICE_SRCS := \
   firmware/services/media_db.c \
   firmware/services/media_scan.c \
   firmware/services/media_query.c \
+  firmware/services/art_pack.c \
   firmware/services/fw_update.c \
   firmware/services/fs_target.c \
   firmware/services/rechord_files.c
@@ -145,12 +146,14 @@ AP_THEME_SRCS := \
 # firmware/libc/libc.mk -- listed explicitly so this fragment is standalone).
 # stdio_fs.c is target-only (it needs services/fs.h): the same stdio subset
 # is real stdio on the host, so it is deliberately NOT in libc.mk.
+# math_min.c is deliberately NOT linked: only the DSP core (BB image) uses
+# sin/cos/pow and no AP object references them (verified with nm -u), while
+# the floating-point versions cost 1.4 KB of the tight FW_CODE window.
 AP_LIBC_SRCS := \
   firmware/libc/mem.c \
   firmware/libc/str.c \
   firmware/libc/stdio_min.c \
-  firmware/libc/stdio_fs.c \
-  firmware/libc/math_min.c
+  firmware/libc/stdio_fs.c
 
 # Player module (audio path): linked from milestone 2a. Includes the
 # target IPC backend (ipc_b_target.c) and the codecs — one file per codec

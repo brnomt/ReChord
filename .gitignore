@@ -26,6 +26,7 @@ stock/ECHO MINI V3.7.0/extracted/firmware_stripped.bin
 # Build artifacts
 build/
 tools/__pycache__/
+__pycache__/
 *.py[cod]
 
 # Community reference material (downloaded 2026-08-12: RSE blog, FlameOcean
