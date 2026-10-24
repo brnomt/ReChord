@@ -78,6 +78,62 @@ void eq_profile_cycle_band(int band, int dir);
 /* Format tenths of dB as "+3.5" / "-12.0" / "0.0". Returns the length. */
 int eq_profile_format_gain(int gain_tdb, char *buf, unsigned cap);
 
+/* Band centre frequency for the UI: "31 Hz", "1 kHz", "3.2 kHz".
+ * Header-inline so the screen and the host mock share one formatter.
+ * Returns the length, or -1 when `cap` is smaller than 10. */
+static inline char *eqpf_put_u(char *p, unsigned v)
+{
+    char tmp[6];
+    int n = 0;
+
+    do {
+        tmp[n++] = (char)('0' + (v % 10u));
+        v /= 10u;
+    } while (v != 0u);
+    while (n > 0)
+        *p++ = tmp[--n];
+    return p;
+}
+
+static inline int eq_profile_format_freq(int hz, char *buf, unsigned cap)
+{
+    char *p = buf;
+
+    if (buf == 0 || cap < 10u)
+        return -1;
+    if (hz <= 0) {
+        buf[0] = '?';
+        buf[1] = '\0';
+        return 1;
+    }
+    if (hz < 1000) {
+        p = eqpf_put_u(p, (unsigned)hz);
+        *p++ = ' ';
+        *p++ = 'H';
+        *p++ = 'z';
+        *p = '\0';
+        return (int)(p - buf);
+    }
+
+    {
+        unsigned r = ((unsigned)hz + 50u) / 100u;   /* tenths of kHz */
+        unsigned whole = r / 10u;
+        unsigned frac = r % 10u;
+
+        p = eqpf_put_u(p, whole);
+        if (frac != 0u) {
+            *p++ = '.';
+            *p++ = (char)('0' + frac);
+        }
+        *p++ = ' ';
+        *p++ = 'k';
+        *p++ = 'H';
+        *p++ = 'z';
+        *p = '\0';
+        return (int)(p - buf);
+    }
+}
+
 /* Pure parser/serializer (host-tested, no I/O). */
 int eq_profile_parse(const char *text, int len, eq_curve_t *out,
                      char *name, unsigned name_cap);

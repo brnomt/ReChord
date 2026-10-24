@@ -162,6 +162,28 @@ static void test_format_gain(void)
     CHECK(strcmp(buf, "+0.5") == 0, "+0.5");
 }
 
+static void test_format_freq(void)
+{
+    char buf[12];
+    char small[8];
+
+    TEST("frequency formatting");
+    eq_profile_format_freq(31, buf, sizeof buf);
+    CHECK(strcmp(buf, "31 Hz") == 0, "31 Hz");
+    eq_profile_format_freq(999, buf, sizeof buf);
+    CHECK(strcmp(buf, "999 Hz") == 0, "999 Hz");
+    eq_profile_format_freq(1000, buf, sizeof buf);
+    CHECK(strcmp(buf, "1 kHz") == 0, "1 kHz");
+    eq_profile_format_freq(3150, buf, sizeof buf);
+    CHECK(strcmp(buf, "3.2 kHz") == 0, "3.2 kHz");
+    eq_profile_format_freq(16000, buf, sizeof buf);
+    CHECK(strcmp(buf, "16 kHz") == 0, "16 kHz");
+    eq_profile_format_freq(0, buf, sizeof buf);
+    CHECK(strcmp(buf, "?") == 0, "0 Hz is a placeholder");
+    CHECK(eq_profile_format_freq(1000, small, sizeof small) < 0,
+          "small buffer is rejected");
+}
+
 static void reset_tree(void)
 {
     make_dirs();
@@ -257,6 +279,7 @@ int main(void)
     printf("=== eq_profile tests ===\n");
     test_parse();
     test_format_gain();
+    test_format_freq();
     test_service();
 
     printf("\n%s (%d failure%s)\n",

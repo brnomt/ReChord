@@ -27,11 +27,6 @@ static uint8_t     s_editing;
 static uint8_t     s_reenter_reset = 1;
 static char        s_value_buf[12];
 
-static const char s_band_label[EQ_BANDS_MAX][8] = {
-    "Band 1", "Band 2", "Band 3", "Band 4", "Band 5",
-    "Band 6", "Band 7", "Band 8", "Band 9", "Band 10"
-};
-
 static const char *eq_value_enabled(void)
 {
     return eq_profile_enabled() ? "On" : "Off";
@@ -97,6 +92,7 @@ static void eq_draw(void)
     menu_item_t items[EQ_BANDS_MAX + 2];
     menu_model_t model;
     const eq_curve_t *c = eq_profile_curve();
+    char band_label[EQ_BANDS_MAX][10];
     int i, n = 0;
 
     items[n].label = "Enabled";
@@ -109,7 +105,10 @@ static void eq_draw(void)
     n++;
 
     for (i = 0; i < (int)c->count && i < EQ_BANDS_MAX; i++) {
-        items[n].label = s_band_label[i];
+        if (eq_profile_format_freq(c->band[i].freq_hz, band_label[i],
+                                   (unsigned)sizeof band_label[i]) < 0)
+            band_label[i][0] = '\0';
+        items[n].label = band_label[i];
         items[n].value_text = s_band_value_fn[i];
         items[n].on_select = 0;
         n++;
