@@ -213,6 +213,7 @@ static long id3v1_len(mp3_state_t *st)
     return (t[0] == 'T' && t[1] == 'A' && t[2] == 'G') ? 128 : 0;
 }
 
+#ifndef RECHORD_AP_METADATA_ONLY
 /* Size of an MPEG-1/2 Layer III frame starting at p, or 0 if p is not a
  * valid header (used to salvage the last frame when trailing junk — e.g.
  * an ID3v1 tag — follows it at EOF: minimp3 accepts a frame only when the
@@ -246,7 +247,6 @@ static int tail_frame_len(const unsigned char *p, int avail)
     return (size <= avail) ? size : 0;   /* 0: cannot trim to a whole frame */
 }
 
-#ifndef RECHORD_AP_METADATA_ONLY
 /* Pull the next decoded frame into the residual (file-statics). Returns
  * frames (>0), 0 at end of stream, or a negative CODEC_ERR_*. */
 static int fill_decode(mp3_state_t *st)
@@ -358,7 +358,10 @@ static int mp3_open(void *vst, const char *path)
 #endif
     unsigned char hdr[10];
     long r;
-    int i, n = 0, off = 0;
+    int i, off = 0;
+#ifndef RECHORD_AP_METADATA_ONLY
+    int n = 0;
+#endif
     int rc;
 
     if (st == 0 || path == 0)
@@ -497,7 +500,6 @@ static int mp3_open(void *vst, const char *path)
         st->spf = spf;
         st->layer = 3;
         st->bitrate = br;
-        n = spf;
         parse_xing(st, s_win + off, flen);
         s_win_pos = off + (st->have_xing ? flen : 0);
     }

@@ -75,6 +75,12 @@ $CC $CFLAGS -I.. -o .work/test_codec_mp3 \
     test_codec_mp3.c ../codecs/mp3.c ../tags.c \
     ../codec_io_stdio.c $IO_DISPATCH $WORKBUF -lm
 
+# Same fixture, AP metadata-only build (no decoder): the open/format/duration/
+# gapless/tags/meta contract must hold and decode() must say UNSUPPORTED.
+$CC $CFLAGS -I.. -DRECHORD_AP_METADATA_ONLY -o .work/test_codec_mp3_meta \
+    test_codec_mp3.c ../codecs/mp3.c ../tags.c \
+    ../codec_io_stdio.c $IO_DISPATCH $WORKBUF -lm
+
 # FLAC adapter: synthesized VERBATIM-subframe FLAC (exact golden) + RG tags.
 $CC $CFLAGS -I.. -o .work/test_codec_flac \
     test_codec_flac.c ../codecs/flac.c ../tags.c \
@@ -96,6 +102,7 @@ $CC $CFLAGS -I.. -I../.. -o .work/test_ao_slots \
 .work/test_player_replaygain
 .work/test_tags
 .work/test_codec_mp3
+.work/test_codec_mp3_meta
 .work/test_codec_flac
 .work/test_ao_slots
 echo "ALL PLAYER TESTS PASSED"

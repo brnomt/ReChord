@@ -185,6 +185,7 @@ static void rm_fix(const char *path)
         remove(path);
 }
 
+#ifndef RECHORD_AP_METADATA_ONLY
 /* Drive the codec to EOF, counting frames and (optionally) checking the
  * PCM is all-zero (our silence frames). Returns frames decoded. */
 static long decode_all(const codec_t *c, void *st, int check_silent,
@@ -213,6 +214,7 @@ static long decode_all(const codec_t *c, void *st, int check_silent,
     }
     return frames;
 }
+#endif /* !RECHORD_AP_METADATA_ONLY */
 
 /* ---- tests ---------------------------------------------------------------- */
 
@@ -229,6 +231,8 @@ static void test_xing_file(void)
     long frames;
     int bad = 0;
 
+    (void)frames;
+    (void)bad;
     TEST("mp3: Xing + LAME + RG + silent frames");
     put_id3v2(&w);
     put_xing_frame(&w, NAUDIO, NAUDIO * FRAME_BYTES);
@@ -277,6 +281,16 @@ static void test_xing_file(void)
     CHECK(strcmp(meta.genre, "Test") == 0, "meta: TCON");
     CHECK_EQI(meta.track, 5, "meta: TRCK \"5/12\" -> 5");
 
+#ifdef RECHORD_AP_METADATA_ONLY
+    {
+        int32_t pcm[SPF * 2];
+
+        CHECK_EQI(codec_mp3.decode(st, pcm, 16), CODEC_ERR_UNSUPPORTED,
+                  "metadata-only: decode reports UNSUPPORTED");
+        CHECK_EQI(codec_mp3.seek(st, 100), 0,
+                  "metadata-only: seek is a no-op");
+    }
+#else
     frames = decode_all(&codec_mp3, st, 1, &bad);
     CHECK_EQI(frames, (long)NAUDIO * SPF,
               "decoded every PCM frame (8 audio mp3 frames)");
@@ -287,6 +301,7 @@ static void test_xing_file(void)
     frames = decode_all(&codec_mp3, st, 1, &bad);
     CHECK(frames >= 4 * SPF && frames <= 6 * SPF,
           "seek resumes mid-track (remaining frames plausible)");
+#endif
 
     codec_mp3.close(st);
     free(st);
@@ -309,6 +324,8 @@ static void test_xing_long_duration(void)
     int bad = 0;
     int i;
 
+    (void)frames;
+    (void)bad;
     TEST("mp3: 78 s Xing file reports its exact length");
     put_xing_frame(&w, LONG_FRAMES, (LONG_FRAMES + 1) * FRAME_BYTES);
     for (i = 0; i < LONG_FRAMES; i++)
@@ -333,10 +350,14 @@ static void test_xing_long_duration(void)
     CHECK(codec_mp3.duration_ms(st) > 48000,
           "length is not the wrapped few-seconds value");
 
+#ifdef RECHORD_AP_METADATA_ONLY
+    CHECK_EQI(codec_mp3.seek(st, 60000), 0, "metadata-only: seek(60 s)");
+#else
     frames = decode_all(&codec_mp3, st, 1, &bad);
     CHECK_EQI(frames, (long)LONG_FRAMES * SPF, "decoded the whole file");
     CHECK_EQI(bad, 0, "silent frames decode to zero");
     CHECK_EQI(codec_mp3.seek(st, 60000), 0, "seek(60 s) works");
+#endif
 
     codec_mp3.close(st);
     free(st);
@@ -354,6 +375,8 @@ static void test_cbr_file(void)
     int bad = 0;
     int i;
 
+    (void)frames;
+    (void)bad;
     TEST("mp3: CBR duration fallback (no Xing)");
     for (i = 0; i < NAUDIO; i++)
         put_silent_frame(&w);
@@ -374,9 +397,18 @@ static void test_cbr_file(void)
               "duration = bytes*8/bitrate (128 kbps)");
     (void)fmt;
 
+#ifdef RECHORD_AP_METADATA_ONLY
+    {
+        int32_t pcm[SPF * 2];
+
+        CHECK_EQI(codec_mp3.decode(st, pcm, 16), CODEC_ERR_UNSUPPORTED,
+                  "metadata-only: CBR decode reports UNSUPPORTED");
+    }
+#else
     frames = decode_all(&codec_mp3, st, 1, &bad);
     CHECK_EQI(frames, (long)NAUDIO * SPF, "decoded every PCM frame");
     CHECK_EQI(bad, 0, "CBR frames decode to zero");
+#endif
 
     codec_mp3.close(st);
     free(st);

@@ -4654,7 +4654,12 @@ though Core B owns every PCM byte.
   separate `CFW_BUILD_DIR`).
 
 Result: AP code 226,428 -> **168,816 B**, row-0 end 0x03079ED8, **57,640 B**
-under the loader base. That is the room the codec work (WAV depths, MP3 edges,
+under the loader base. The MP3 adapter is now host-tested in both builds: the
+same fixture runs with `-DRECHORD_AP_METADATA_ONLY` and asserts that
+open/format/duration/gapless/tags/meta are identical while `decode()` returns
+`CODEC_ERR_UNSUPPORTED` (`.work/test_codec_mp3_meta`). The FLAC metadata path
+was checked the same way by hand (open/format/duration/tags pass, decode
+returns -3); a permanent variant would need the decode goldens guarded. That is the room the codec work (WAV depths, MP3 edges,
 a fixed-point MP3 decoder) needs. Host suites unchanged and green (the host
 builds never define the macro).
 
