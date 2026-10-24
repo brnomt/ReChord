@@ -4657,3 +4657,23 @@ Result: AP code 226,428 -> **168,816 B**, row-0 end 0x03079ED8, **57,640 B**
 under the loader base. That is the room the codec work (WAV depths, MP3 edges,
 a fixed-point MP3 decoder) needs. Host suites unchanged and green (the host
 builds never define the macro).
+
+## WAV depth coverage (2026-10-24)
+
+`wav.c` was 16-bit PCM only. It now accepts 8-bit (unsigned), 16, 24 and
+32-bit PCM, plus `WAVE_FORMAT_EXTENSIBLE` (0xFFFE) when the sub-format GUID's
+first two bytes are PCM (1). Samples are left-justified to the int32 pipeline
+format by one `wav_sample()` switch (u8-128 << 24, s16 << 16, sign-extended
+24 << 8, s32 as-is), the state carries `bits`/`bytes`, and `format()` reports
+the container depth so the UI shows 24/44.1K. Float PCM (sub-format 3) and
+RIFX still return UNSUPPORTED/FORMAT. Staging stayed at 512 B of stack
+(64 frames x 2 ch x 4 B).
+
+Tests: `test_codec_wav` gained 8/24/32-bit goldens (known raw bytes ->
+exact int32), an extensible-24 file, an extensible-float rejection, and the
+old "8-bit rejected" case became a positive test. Suite: ALL PASS.
+
+Open MP3 edges left for the next change: MPEG-2.5 in the EOF tail-frame table,
+VBR-without-Xing duration (currently the first frame's bitrate), and seek
+landing/reporting. BRNOMT-86 (minimp3 soft-float cost) still needs the on-B
+cycle measurement before choosing libmad.

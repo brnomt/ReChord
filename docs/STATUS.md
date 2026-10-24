@@ -74,6 +74,10 @@ plays audio on hardware:
   through one sector buffer, clipped) and the `art_ok`/`art_c1`/`art_c2`/
   `art_mean`/`art_accent` variables; missing art falls back to a placeholder.
   Format and costs: `docs/ART_PACK.md`.
+- **WAV**: 8 (unsigned), 16, 24 and 32-bit PCM, mono/stereo, any rate up to
+  192 kHz, `WAVE_FORMAT_EXTENSIBLE` with a PCM sub-format, `fmt` after `data`,
+  odd-sized chunks, and declared data sizes clamped to the file. Float PCM and
+  RIFX are rejected as unsupported.
 - **Cassette theme**: `themes/cassette/` recreates the cassette-deck mockup
   (`docs/themes/cassette/`): full-screen artwork gradient, cream label with
   title/artist/stripes, reels whose tape packs and rotation follow `pos_ms`

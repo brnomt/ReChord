@@ -93,7 +93,7 @@ firmware/player/
 ├── player.mk           build fragment
 ├── codecs/             one file per codec, self-describing descriptors
 │   ├── codec_registry.h/.c  extension -> codec_t dispatch
-│   ├── wav.c            FULL WAV/RIFF PCM decoder (ours)
+│   ├── wav.c            8/16/24/32-bit PCM + WAVE_FORMAT_EXTENSIBLE (ours)
 │   ├── mp3.c            minimp3 adapter (Xing/LAME gapless + RG)  <-- DONE
 │   ├── flac.c           dr_flac adapter (pool + pre-scan + RG)     <-- DONE
 │   ├── minimp3/         vendored minimp3.h (CC0-1.0, pinned) + LICENSE

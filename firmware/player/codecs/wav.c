@@ -9,8 +9,10 @@
  * user gets a clean "unsupported" instead of garbage audio):
  *   - container : RIFF/WAVE, little-endian fields (both target cores are
  *                 little-endian, so raw PCM copies are byte-exact)
- *   - format    : WAVE_FORMAT_PCM (1) only; no float (3), no extensible
- *   - sample fmt: 16 bits per sample
+ *   - format    : WAVE_FORMAT_PCM (1) and WAVE_FORMAT_EXTENSIBLE (0xFFFE)
+ *                 whose sub-format is PCM; no float (3)
+ *   - sample fmt: 8 (unsigned), 16, 24 and 32 bits per sample, left-justified
+ *                 to the int32 pipeline format
  *   - channels  : 1 (mono) or 2 (stereo), interleaved
  *   - any sample rate (reported via format(); the player forwards it to
  *     the sink — "sample-rate reporting")
@@ -18,8 +20,8 @@
  *     skipped with correct even-size padding (JUNK/LIST/... safe)
  *
  * Not handled (open item, see docs/rewrite/player.md): streamed WAVs with
- * data size 0xFFFFFFFF (clamped to file size instead), WAVE_FORMAT_EXTENSIBLE,
- * 24/32-bit PCM, RIFF big-endian (RIFX).
+ * data size 0xFFFFFFFF (clamped to file size instead), float PCM,
+ * RIFF big-endian (RIFX).
  */
 #include <stdint.h>
 
@@ -28,7 +30,7 @@
 
 /* Stack staging for one decode chunk (frames); the s16 source is widened to
  * the int32 pipeline format in place, so no source-width static buffer. */
-#define WAV_STAGE_FRAMES 128
+#define WAV_STAGE_FRAMES 64
 
 typedef struct
 {
@@ -39,7 +41,9 @@ typedef struct
     long        total_frames;
     long        sample_rate;
     int         channels;
-    int         block_align;   /* bytes per frame = channels * 2          */
+    int         bits;          /* container bits: 8/16/24/32              */
+    int         bytes;         /* bits / 8                                */
+    int         block_align;   /* bytes per frame = channels * bytes      */
 } wav_state_t;
 
 static uint32_t rd_u32le(const uint8_t *b)
@@ -132,16 +136,32 @@ static int wav_open(void *vst, const char *path)
                 uint16_t block_align  = rd_u16le(fmt + 12);
                 uint16_t bits         = rd_u16le(fmt + 14);
 
-                if (audio_format != 1 || bits != 16 ||
-                    (channels != 1 && channels != 2) ||
-                    rate == 0 || rate > 192000)
+                /* WAVE_FORMAT_EXTENSIBLE: the real format is the first two
+                 * bytes of the sub-format GUID (offset 24); everything else
+                 * is the same PCM layout with wBitsPerSample as the container
+                 * size (samples stay left-justified). */
+                if (audio_format == 0xFFFE) {
+                    if (csize < 40)
+                        goto bad_format;
+                    audio_format = rd_u16le(fmt + 24);
+                }
+                if (audio_format != 1)          /* PCM only; float rejected */
                     goto unsupported;
-                if (block_align != 0 && block_align != channels * 2)
+                if (bits != 8 && bits != 16 && bits != 24 && bits != 32)
+                    goto unsupported;
+                if (channels != 1 && channels != 2)
+                    goto unsupported;
+                if (rate == 0 || rate > 192000)
+                    goto unsupported;
+                if (block_align != 0 &&
+                    block_align != (uint16_t)(channels * (bits / 8)))
                     goto bad_format;
 
                 st->sample_rate = (long)rate;
                 st->channels    = (int)channels;
-                st->block_align = (int)channels * 2;
+                st->bits        = (int)bits;
+                st->bytes       = (int)bits / 8;
+                st->block_align = (int)channels * st->bytes;
             }
             have_fmt = 1;
         } else if (tag_eq(chdr, "data")) {
@@ -203,10 +223,32 @@ io_error:
     return CODEC_ERR_IO;
 }
 
+/* One PCM frame sample (LE container) -> int32 left-justified pipeline. */
+static int32_t wav_sample(const uint8_t *p, int bytes)
+{
+    switch (bytes) {
+    case 1:                       /* 8-bit PCM is unsigned, 128 = zero    */
+        return ((int32_t)p[0] - 128) << 24;
+    case 2:
+        return (int32_t)(int16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8))
+               << 16;
+    case 3: {
+        uint32_t u = (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+                     ((uint32_t)p[2] << 16);
+        if (u & 0x800000u)
+            u |= 0xFF000000u;     /* sign-extend 24 -> 32                */
+        return (int32_t)(u << 8);
+    }
+    default:
+        return (int32_t)((uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+                         ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24));
+    }
+}
+
 static int wav_decode(void *vst, int32_t *pcm, int max_frames)
 {
     wav_state_t *st = (wav_state_t *)vst;
-    int16_t stage[WAV_STAGE_FRAMES * 2];    /* stack staging (bss-neutral) */
+    uint8_t stage[WAV_STAGE_FRAMES * 2 * 4];  /* stack staging (bss-neutral) */
     long remaining, want, produced = 0;
 
     if (st == 0 || st->io == 0 || pcm == 0)
@@ -225,17 +267,14 @@ static int wav_decode(void *vst, int32_t *pcm, int max_frames)
 
         if (chunk > WAV_STAGE_FRAMES)
             chunk = WAV_STAGE_FRAMES;
-        got_samples = read_fully(st->io, (uint8_t *)stage,
-                                 chunk * st->channels *
-                                 (long)sizeof(int16_t));
+        got_samples = read_fully(st->io, stage,
+                                 chunk * (long)st->block_align);
         if (got_samples < 0)
             return CODEC_ERR_IO;
-        got_samples /= (long)sizeof(int16_t);
-        frames_read = got_samples / st->channels;   /* whole frames only */
-        /* WAV PCM here is s16; widen to the int32 left-justified pipeline
-         * format (sample << 16). */
+        frames_read = got_samples / st->block_align;   /* whole frames only */
         for (i = 0; i < frames_read * st->channels; i++)
-            pcm[(produced * st->channels) + i] = (int32_t)stage[i] << 16;
+            pcm[(produced * st->channels) + i] =
+                wav_sample(stage + (long)i * st->bytes, st->bytes);
         produced += frames_read;
         st->frame += frames_read;
         if (frames_read < chunk)
@@ -294,7 +333,7 @@ static int wav_format(void *vst, codec_format_t *out)
         return CODEC_ERR_STATE;
     out->sample_rate = (int)st->sample_rate;
     out->channels    = st->channels;
-    out->bits        = 16;
+    out->bits        = st->bits;
     out->total_samples = st->total_frames;
     return CODEC_OK;
 }
