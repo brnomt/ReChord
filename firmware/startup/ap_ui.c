@@ -1629,14 +1629,16 @@ void ap_ui_loop(void)
                 theme_skin_animated() &&
                 (unsigned)(now - s_face_ms) >=
                     (unsigned)theme_skin_refresh_ms()) {
-                int h = theme_skin_refresh_h();
-
                 s_face_ms = now;
-                if (h <= 0)
-                    h = theme_layout()->face_h;
-                if (h <= 0 || h > DISPLAY_H)
-                    h = DISPLAY_H;
-                ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+                if (!skin_home_animate()) {
+                    int h = theme_skin_refresh_h();
+
+                    if (h <= 0)
+                        h = theme_layout()->face_h;
+                    if (h <= 0 || h > DISPLAY_H)
+                        h = DISPLAY_H;
+                    ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+                }
             }
 
             /* Per-screen skins: only animated ones wake the loop; a static
@@ -1645,14 +1647,21 @@ void ap_ui_loop(void)
                 theme_skin_animated() &&
                 (unsigned)(now - s_theme_ms) >=
                     (unsigned)theme_skin_refresh_ms()) {
-                int h = theme_skin_refresh_h();
-
                 s_theme_ms = now;
-                if (h <= 0)
-                    h = theme_layout()->face_h;
-                if (h <= 0 || h > DISPLAY_H)
-                    h = DISPLAY_H;
-                ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+                /* Now Playing animates its mini cassette/progress: same
+                 * static/dynamic split (no art re-stream, small flush). */
+                if (ui_top_screen() == &player_screen &&
+                    player_screen_animate()) {
+                    /* dynamic layer drawn */
+                } else {
+                    int h = theme_skin_refresh_h();
+
+                    if (h <= 0)
+                        h = theme_layout()->face_h;
+                    if (h <= 0 || h > DISPLAY_H)
+                        h = DISPLAY_H;
+                    ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+                }
             }
         }
 

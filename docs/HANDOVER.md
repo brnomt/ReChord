@@ -4682,3 +4682,36 @@ Open MP3 edges left for the next change: MPEG-2.5 in the EOF tail-frame table,
 VBR-without-Xing duration (currently the first frame's bitrate), and seek
 landing/reporting. BRNOMT-86 (minimp3 soft-float cost) still needs the on-B
 cycle measurement before choosing libmad.
+
+## Cassette lag: the static/dynamic split (2026-10-24)
+
+Field report: "los botones tardan unos cuantos frames; algo en el loop debe
+estar bloqueando". The loop was not stuck; every animated tick and every
+selection key re-rendered the *whole* skin and flushed the whole band:
+
+- home: full-screen diagonal gradient + 50 sections + a 140-row flush every
+  66 ms, and again on each nav key (the key path fell back to the band);
+- Now Playing: same, plus the 120x120 cover re-streamed (header + 57 sectors)
+  every 100 ms and on every position/state change (`ui_invalidate_all`). That
+  is what actually ate the input latency: tens of ms of eMMC + gradient per
+  tick.
+
+`theme_skin` now has a static/dynamic split: a section with `dyn=1` belongs to
+the animated layer, and `[skin] dyn/dyn2/dyn3` declare up to three rects. The
+app calls `theme_ui_draw_dynamic()` (no `display_clear`, no static sections, no
+art) and flushes just those rects with the new `display_flush_rect()`. Wired
+into the home tick, the home selection path (`skin_home_animate`), the NP tick
+and `player_screen_refresh`'s position/state updates (`player_screen_animate`);
+a track change still does a full redraw (title/format/cover change).
+
+Measured on the host simulator against the real package (dyncheck): home dyn
+render 214 us vs 348 us full; NP 135 us vs 329 us **and zero art sectors**; the
+dyn-only pass reproduces every pixel inside its rects (0 mismatches on both
+screens). Panel flush drops from 44,800/54,400 px to 28,544 (home) and 17,360
+(NP) — the NP no longer touches the cover on a tick.
+
+Skin budget notes: the home file is 4,088 B of the 4,096 limit, so the blank
+lines between sections were dropped, `corePackL/R`/`hubhandL/R` were shortened,
+`refresh_h` left the home/NP `[skin]` block (the fallback band is unused when
+dyn rects exist), and the home's `str1-3` stay in the dynamic set because the
+label repaint erases them. THEMING.md documents the new keys.

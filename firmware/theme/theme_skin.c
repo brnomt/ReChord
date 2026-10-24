@@ -90,6 +90,12 @@ void theme_skin_set_list(const theme_skin_list_source_t *src)
 
 static int s_refresh_ms = 125;
 static int s_refresh_h = -1;
+/* Static/dynamic split: the app re-renders only the sections marked `dyn=1`
+ * and flushes the declared rects, leaving the background, art and labels
+ * untouched from the last full draw. */
+static int s_dyn_only;
+static int s_dyn_n;
+static int s_dyn_rect[3][4];
 static int s_animated;
 
 /* ---------------------------------------------------------------- values */
@@ -902,6 +908,30 @@ static const char *prop(const skin_section_t *sec, const char *key)
     return 0;
 }
 
+/* "x0,y0,x1,y1" -> four ints (comma or space separated). */
+static int parse_rect(const char *v, int *r)
+{
+    int i = 0;
+
+    if (v == 0)
+        return -1;
+    while (i < 4) {
+        int neg = 0;
+
+        while (*v == ' ' || *v == ',')
+            v++;
+        if (*v == '-') { neg = 1; v++; }
+        if (*v < '0' || *v > '9')
+            return -1;
+        r[i] = 0;
+        while (*v >= '0' && *v <= '9')
+            r[i] = r[i] * 10 + (*v++ - '0');
+        r[i] = neg ? -r[i] : r[i];
+        i++;
+    }
+    return 0;
+}
+
 /* --------------------------------------------------------------- loading */
 
 static int read_text(const char *path)
@@ -1034,6 +1064,8 @@ int theme_skin_load(const char *root, const char *id, const char *path)
     s_refresh_h = -1;
     s_animated = 0;
     s_var_count = 0;
+    s_dyn_n = 0;
+    s_dyn_only = 0;
 
     p = s_text;
     while ((n = next_section(&p, &sec)) > 0) {
@@ -1048,6 +1080,15 @@ int theme_skin_load(const char *root, const char *id, const char *path)
             v = prop(&sec, "refresh_h");
             if (v != 0)
                 s_refresh_h = as_int(v_str(v));
+            v = prop(&sec, "dyn");
+            if (v != 0 && parse_rect(v, s_dyn_rect[0]) == 0)
+                s_dyn_n = 1;
+            v = prop(&sec, "dyn2");
+            if (v != 0 && parse_rect(v, s_dyn_rect[1]) == 0)
+                s_dyn_n = 2;
+            v = prop(&sec, "dyn3");
+            if (v != 0 && parse_rect(v, s_dyn_rect[2]) == 0)
+                s_dyn_n = 3;
         } else if (key_eq(sec.name, "vars") ||
                    key_eq(sec.name, "vars2") ||
                    key_eq(sec.name, "vars3")) {
@@ -1080,11 +1121,29 @@ void theme_skin_reset(void)
     s_refresh_h = -1;
     s_animated = 0;
     s_var_count = 0;
+    s_dyn_n = 0;
+    s_dyn_only = 0;
 }
 
 const char *theme_skin_text(void)
 {
     return s_loaded ? s_text : 0;
+}
+
+void theme_skin_set_dynamic_only(int on)
+{
+    s_dyn_only = on ? 1 : 0;
+}
+
+int theme_skin_dyn_rect(int idx, int *x0, int *y0, int *x1, int *y1)
+{
+    if (idx < 0 || idx >= s_dyn_n || x0 == 0 || y0 == 0 || x1 == 0 || y1 == 0)
+        return -1;
+    *x0 = s_dyn_rect[idx][0];
+    *y0 = s_dyn_rect[idx][1];
+    *x1 = s_dyn_rect[idx][2];
+    *y1 = s_dyn_rect[idx][3];
+    return 0;
 }
 
 void theme_skin_set_art(const theme_skin_art_t *art)
@@ -1686,6 +1745,12 @@ void theme_skin_render(unsigned now, unsigned idle, int sel, int top,
     while (next_section(&p, &sec)) {
         if (++sections > SKIN_SECTIONS)
             break;
+        if (s_dyn_only) {
+            const char *d = prop(&sec, "dyn");
+
+            if (d == 0 || key_eq(d, "0"))
+                continue;
+        }
         render_section(&sec, &ctx, sel);
     }
 }

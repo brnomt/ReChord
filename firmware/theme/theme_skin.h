@@ -108,6 +108,12 @@ typedef struct theme_skin_art {
 
 void theme_skin_set_art(const theme_skin_art_t *art);
 
+/* Static/dynamic split: while `on`, render() draws only the sections carrying
+ * `dyn=1`. The package declares up to three rects with
+ * `[skin] dyn=x0,y0,x1,y1` / `dyn2=...` / `dyn3=...`; flush exactly those. */
+void theme_skin_set_dynamic_only(int on);
+int  theme_skin_dyn_rect(int idx, int *x0, int *y0, int *x1, int *y1);
+
 /* Navigation results for a compiled screen using the skin's prev/next map.
  * Only vol up/down are mapped; SELECT and BACK are fixed. */
 enum {

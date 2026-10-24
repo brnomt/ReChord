@@ -95,6 +95,11 @@ void display_bitmap1(int x, int y, int w, int h, int stride,
  */
 void display_flush_rows(int y0, int y1);
 
+/* Flush an inclusive rect. The panel's CASET/RASET windows make a partial
+ * column range free, so a skin can refresh only its animated primitives
+ * instead of the whole band. */
+void display_flush_rect(int x0, int y0, int x1, int y1);
+
 /*
  * Fill the whole framebuffer with 'rgb565'. Framebuffer only -- flush to make
  * visible.

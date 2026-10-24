@@ -35,6 +35,16 @@ void skin_home_tick(unsigned now_ms)
     s_now_ms = now_ms;
 }
 
+/* Cheap repaint: only the package's dynamic primitives, flushed to their own
+ * rects. The gradient/art/labels keep the pixels from the last full draw. */
+int skin_home_animate(void)
+{
+    theme_skin_state_t st;
+
+    theme_ui_fill_state(&st, "");
+    return theme_ui_draw_dynamic(&st, s_sel, 0);
+}
+
 static void skin_on_enter(void)
 {
     /* A child screen may have loaded its own skin; the home always renders
@@ -72,11 +82,12 @@ static void skin_handle_event(const input_event_t *ev)
     case THEME_SKIN_REDRAW: {
         int y, h;
 
-        /* The selected bar is the only static thing a key changes; anything
-         * else that reacts to the selection (Companion's eyes) lives in the
-         * animated band and repaints on the next tick anyway. Invalidating
-         * that whole band here made every nav press redraw the cassette
-         * (gradient included) for no visible gain. */
+        /* Selection changes only touch the bar; repaint the dynamic layer
+         * (the package marks the bar sections) instead of re-rendering the
+         * whole skin. Themes without dynamic rects fall back to the bar
+         * band; their animated parts refresh on the next tick anyway. */
+        if (skin_home_animate())
+            break;
         if (theme_skin_list_bounds(&y, &h) == 0 && h > 0)
             ui_invalidate(0, y, DISPLAY_W - 1, y + h - 1);
         break;
