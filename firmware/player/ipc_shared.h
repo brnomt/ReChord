@@ -102,7 +102,18 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_C_PRE_SEEKTABLE 42u  /* AP: SEEKTABLE bytes in the stream       */
 #define IPC_C_BSTALL   43u   /* B: increments when a ring read stalls out  */
 
-#define IPC_SH_COUNT   44u
+/* ---- EQ curve (BRNOMT-76): AP -> B PCM post-processing ---- */
+/* A seqlock, not a command: the AP writes the whole curve and bumps
+ * IPC_C_EQ_GEN (odd while writing, even when stable); B applies the curve
+ * when it sees an even generation it has not seen yet. Each band is packed
+ * as freq_hz (15 bits) | Q*100 (9 bits) << 15 | gain (int8) << 24, so one
+ * 32-bit word carries a band (eq_ipc.h owns the codec). */
+#define IPC_C_EQ_EN    44u   /* AP: 0 = bypass, 1 = active                */
+#define IPC_C_EQ_N     45u   /* AP: band count (EQ_BANDS_MIN..MAX)        */
+#define IPC_C_EQ_GEN   46u   /* AP: seqlock generation (even = stable)    */
+#define IPC_C_EQ_BASE  47u   /* AP: 10 packed band words (EQ_BANDS_MAX)   */
+
+#define IPC_SH_COUNT   57u
 
 #define IPC_SH_MAGIC_VAL  0x42524459u   /* 'BRDY' */
 

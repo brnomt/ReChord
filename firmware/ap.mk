@@ -95,6 +95,7 @@ AP_UI_SRCS := \
   firmware/ui/screens/library_cat_screen.c \
   firmware/ui/screens/skin_screen.c \
   firmware/ui/screens/quick_screen.c \
+  firmware/ui/screens/eq_screen.c \
   firmware/ui/screens/theme_ui.c
 
 # Drivers: the TARGET panel backend + the panel init sequence tables
@@ -128,6 +129,7 @@ AP_SERVICE_SRCS := \
   firmware/services/settings.c \
   firmware/services/settings_store.c \
   firmware/services/resume.c \
+  firmware/services/eq_profile.c \
   firmware/services/log.c \
   firmware/services/input.c \
   firmware/services/scratch.c \

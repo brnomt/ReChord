@@ -56,6 +56,13 @@ typedef struct menu_view {
 
 extern const ui_screen_t menu_screen;
 
+/* ======================================================================
+ * eq_screen / eq_profile_screen — Equalizer + profile picker (BRNOMT-76)
+ * ====================================================================== */
+
+extern const ui_screen_t eq_screen;
+extern const ui_screen_t eq_profile_screen;
+
 void menu_screen_bind(const menu_model_t *model); /* model must outlive use */
 const menu_model_t *menu_screen_model(void);
 const menu_view_t  *menu_screen_view(void);

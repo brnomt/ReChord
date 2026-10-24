@@ -4715,3 +4715,45 @@ lines between sections were dropped, `corePackL/R`/`hubhandL/R` were shortened,
 `refresh_h` left the home/NP `[skin]` block (the fallback band is unused when
 dyn rects exist), and the home's `str1-3` stay in the dynamic set because the
 label repaint erases them. THEMING.md documents the new keys.
+
+## BX. Session 2026-10-24 — EQ 5–10 bandas con perfiles (BRNOMT-76)
+
+**Dónde corre.** `firmware/dsp/eq_bank.c` en Core B, sobre el bloque int32
+decodificado, después de ReplayGain y antes de `ring_write()` (`bb_main.c`).
+No va en el AP: su único consumidor de PCM es el ISR de TX (8 bytes por vez) y
+el `.bss` está al límite. El AP solo parsea el perfil y publica la curva por
+el bloque compartido.
+
+**Motor.** Biquads Q2.30 del core (incluido privado, igual que `mod_eq.c`),
+topología posicional (low shelf / peaking / high shelf), 5–10 bandas con
+freq/Q por banda, bandas a ganancia 0 no se instancian (curva plana =
+pass-through bit-exacto), bandas sobre Nyquist se ignoran. Headroom
+`0.9/max_gain` solo cuando hay boost. Retune conserva la historia; OPEN y SEEK
+la limpian, NEXT (gapless) no.
+
+**IPC.** Seqlock `IPC_C_EQ_GEN` + `EN/N` + 10 palabras empaquetadas
+(freq 15b | Q*100 9b | gain int8). `ipc_b_set_eq()` cachea la curva y la
+republica en cada start/handoff.
+
+**Perfiles.** `key=value` (mismo dialecto que theme.cfg), parseo estricto y
+atómico; 5 presets compilados (Flat/Rock/Jazz/EDM/Vocal, 10 bandas ISO) y
+slots `custom1..8.cfg` en `/Internal/.rechord/eq/`, activo en `eq.cfg`.
+Un archivo custom6/7 aparece en la UI sin recompilar.
+
+**UI.** Settings → Interface → Equalizer. Enabled / Profile (picker con
+built-ins, slots y "Save current...") / Band N (SELECT entra en edición;
+UP/DOWN ±0.5 dB con la escalera de repetición; SELECT/BACK salen). BACK guarda.
+
+**Presupuesto.** AP `.text` 175,792 → 181,272 B (+5,480; motor embebido en el
+blob de B + parser + pantalla). `_bss_end` `0x03049F94` (108 B bajo el techo
+`0x0304A000`). Core B: ~800 B de `.bss`, ~2.6 KB de código. `make cfw-ap` y
+`make standalone-ap5m` PASS (CRC `0x882DEC2B`).
+
+**Tests.** DSP (eq_bank: flat/bypass bit-exacto, ±6 dB medidos, headroom,
+Nyquist, rechazo atómico, continuidad de retune), services (parser + slots +
+round-trip), player (packing + seqlock), UI (navegación/edición/picker).
+Suites completas verdes; `make test-dsp` ahora también corre `firmware/dsp/`.
+
+**No hecho.** Sin skin para las pantallas de EQ (el motor de skin solo expone
+strings), sin crossfade al habilitar/cambiar topología, y el fallback AP
+(`AP_LOCAL_DECODE=1`) no aplica EQ.

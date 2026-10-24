@@ -49,6 +49,13 @@ Two cores, strict boundary:
   (`ipc_b_target.c`) — the "/1 → /4 clock negotiation" seen in older notes is
   **host-mock only**; there is no negotiation on hardware.
 
+**EQ (BRNOMT-76).** The 5–10 band equalizer is a Core B post-processing stage:
+`firmware/dsp/eq_bank.c` runs on the decoded int32 block after ReplayGain and
+before `ring_write()`. The AP only parses the active profile and publishes the
+curve over the shared block (`firmware/player/eq_ipc.h`, seqlock). Profiles and
+the UI contract are in `docs/rewrite/eq.md`. The AP local-decode fallback does
+not apply the EQ.
+
 The reference's `ECHOLOG.TXT` is the contract we match:
 `B: boundary to track N: FLAC 44100 Hz, ~5840 frames queued (gapless)` and
 `end of stream, 5843 frames queued`. Gapless is a decode+ring property of

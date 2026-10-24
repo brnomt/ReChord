@@ -35,6 +35,7 @@
 #include <stdint.h>
 
 #include "codec.h"      /* codec_prescan_t (ipc_b_set_prescan) */
+#include "dsp/eq_bank.h" /* eq_curve_t (ipc_b_set_eq)          */
 
 /* Supervisor states (naming follows the documented protocol facts). */
 typedef enum
@@ -229,5 +230,11 @@ int ipc_b_seek(long ms);
 /* Update the ReplayGain Q16 gain used by Core B (mode toggled mid-track).
  * No-op on the host mock (the AP applies its own gain there). */
 int ipc_b_set_replaygain(int gain_q16);
+
+/* Install the EQ curve Core B applies to the decoded PCM block (BRNOMT-76).
+ * The curve is cached and re-published on every start/gapless handoff, so a
+ * curve set before playback still reaches B. Returns 0, or < 0 when the
+ * curve does not validate. */
+int ipc_b_set_eq(int enabled, const eq_curve_t *curve);
 
 #endif /* RECHORD_IPC_B_H */

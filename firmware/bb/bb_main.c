@@ -27,6 +27,8 @@
 #include "ipc_shared.h"
 #include "codec.h"
 #include "rg_math.h"
+#include "dsp/eq_bank.h"
+#include "eq_ipc.h"
 
 #define CTRL ((volatile uint32_t *)IPC_SHARED_BASE)
 
@@ -63,6 +65,12 @@ static uint8_t       s_cstate[PLAYER_CODEC_STATE_MAX];
 static int32_t       s_pcm[CHUNK_FRAMES * 2];
 static const codec_t *s_codec;
 static int           s_channels = 2;
+static int           s_rate = 48000;
+
+/* BRNOMT-76: EQ bank applied to the decoded block before it enters the ring.
+ * The curve itself arrives over the shared block (eq_ipc.h seqlock). */
+static eq_bank_state_t s_eq;
+static uint32_t        s_eq_gen;
 
 /* PCM post-processing state (mirrors player.c's gapless cursors). */
 static long s_emitted;              /* frames emitted after leading trim */
@@ -140,10 +148,19 @@ static void handle_command(void)
         s_codec = codec_by_id(CTRL[IPC_C_ARG]);
         if (s_codec->open(s_cstate, "") == 0) {
             s_channels = 2;
-            if (s_codec->format != 0)
-                (void)s_codec->format(s_cstate, &f),
+            if (s_codec->format != 0) {
+                (void)s_codec->format(s_cstate, &f);
                 s_channels = (f.channels == 1) ? 1 : 2;
+                if (f.sample_rate > 0)
+                    s_rate = f.sample_rate;
+            }
             trim_reset();
+            (void)eq_bank_set_rate(&s_eq, s_rate);
+            /* OPEN starts a new stream: stale history from another position
+             * would click. NEXT is gapless, so it keeps the history (the rate
+             * change, if any, already reset it inside set_rate). */
+            if (cmd == IPC_C_OPEN)
+                eq_bank_reset(&s_eq);
             CTRL[IPC_C_BEOF] = 0;
             CTRL[IPC_C_BERR] = 0;
             CTRL[IPC_C_BSTATE] = IPC_BS_OPEN;
@@ -158,6 +175,7 @@ static void handle_command(void)
         if (s_codec != 0) {
             (void)s_codec->seek(s_cstate, (long)CTRL[IPC_C_ARG]);
             trim_reset();               /* audible stream repositioned */
+            eq_bank_reset(&s_eq);
             CTRL[IPC_C_BEOF] = 0;
         }
         break;
@@ -252,6 +270,17 @@ static void decode_round(void)
         }
     }
 
+    /* BRNOMT-76: install a newly published curve, then run the EQ on the
+     * full block. The buffer is interleaved STEREO here (mono was upmixed
+     * above), so the sample count is frames * 2. */
+    {
+        eq_curve_t curve;
+
+        if (eq_ipc_read(CTRL, &s_eq_gen, &curve) == 1)
+            (void)eq_bank_apply(&s_eq, &curve);
+    }
+    eq_bank_process(&s_eq, s_pcm, got * 2);
+
     ring_write(wr, s_pcm, (uint32_t)got * 8u);
     wr += (uint32_t)got * 8u;
     dmb();
@@ -287,6 +316,7 @@ void bb_reset(void)
     /* Register AFTER the .data/.bss copy (the hook lives in the codec's
      * statics, which that copy just zeroed). */
     flac_set_prescan_source(b_prescan_read);
+    eq_bank_init(&s_eq, s_rate);
 
     CTRL[IPC_SH_MAGIC] = IPC_SH_MAGIC_VAL;   /* phase-1 gate / AP poll */
     CTRL[IPC_C_BSTATE] = IPC_BS_IDLE;

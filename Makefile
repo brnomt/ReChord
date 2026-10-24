@@ -64,7 +64,7 @@ BB_CORE_BLOB := $(BB_CORE_DIR)/bb_core_blob.o
 # Phase 3c: Core B decodes. It links our codecs + registry-free descriptors +
 # tags + the shared workbuf (decode pool) + codec_io over the A file ring.
 BB_INC := -Ifirmware -Ifirmware/libc -Ifirmware/services -Ifirmware/player \
-          -Ifirmware/drivers
+          -Ifirmware/drivers -Ifirmware/dsp
 
 BB_CORE_SRCS := \
   firmware/bb/bb_main.c \
@@ -75,9 +75,11 @@ BB_CORE_SRCS := \
   firmware/player/codecs/wav.c \
   firmware/player/tags.c \
   firmware/player/rg_math.c \
+  firmware/dsp/eq_bank.c \
   firmware/services/workbuf.c \
   firmware/libc/mem.c \
-  firmware/libc/str.c
+  firmware/libc/str.c \
+  firmware/libc/math_min.c
 
 $(BB_CORE_ELF): $(BB_CORE_SRCS) firmware/player/ipc_shared.h firmware/bb/bb.ld
 	@$(MKDIR_P) $(BB_CORE_DIR)
@@ -354,6 +356,7 @@ HOSTCC ?= cc
 test-dsp: firmware/rechord_dsp_core.c firmware/rechord_dsp_core.h firmware/test_dsp_core.c
 	$(HOSTCC) -O2 -o $(BUILD_DIR)/test_dsp_core firmware/test_dsp_core.c firmware/rechord_dsp_core.c -lm
 	$(BUILD_DIR)/test_dsp_core
+	sh firmware/dsp/tests/run_tests.sh
 
 # Single-command SAFE product build: custom BB (audio/DSP) + STOCK AP (UI),
 # packed into one flashable IMG. This combination is hardware-verified to

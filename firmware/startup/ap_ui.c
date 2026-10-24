@@ -31,7 +31,9 @@
 #include "services/resume.h"
 #include "services/input.h"
 #include "services/art_pack.h"
+#include "services/eq_profile.h"
 #include "player.h"
+#include "player/ipc_b.h"
 #include "ui/ui.h"
 #include "ui/screens/screens.h"
 #include "ui/screens/theme_ui.h"
@@ -1336,6 +1338,13 @@ static void resume_boot_restore(void)
     s_res_saved_ms = ap_ms();
 }
 
+/* BRNOMT-76: the EQ curve reaches Core B through the shared block. The
+ * publisher seam keeps services/eq_profile.c independent of the player. */
+static void eq_publish_ipc(int enabled, const eq_curve_t *curve)
+{
+    (void)ipc_b_set_eq(enabled, curve);
+}
+
 /* BRNOMT-105 follow-up: the Now Playing play/pause line tracks the player
  * state at the transition itself. The 10 Hz poll below only runs while the
  * player screen is on top, and the fade blocks the loop right after a pause,
@@ -1385,6 +1394,11 @@ void ap_ui_loop(void)
     /* Volume is runtime state: the player owns it while playing, so load the
      * saved value into the player here and let the loop below persist later
      * changes. The settings view was already reloaded for the theme id. */
+    /* EQ (BRNOMT-76): load the active curve and publish it before the first
+     * track starts; ipc_b_set_eq caches it until Core B accepts a track. */
+    eq_profile_set_publisher(eq_publish_ipc);
+    eq_profile_boot();
+
     player_set_volume(settings_screen_get()->volume_db);
     player_set_shuffle(settings_screen_get()->shuffle);           /* BRNOMT-90 */
     player_set_repeat(settings_screen_get()->repeat_mode);

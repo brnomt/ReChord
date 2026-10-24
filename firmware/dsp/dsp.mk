@@ -22,14 +22,16 @@ DSP_SRCS := \
   $(DSP_DIR)/dsp_chain.c \
   $(DSP_DIR)/mod_eq.c \
   $(DSP_DIR)/mod_bass.c \
-  $(DSP_DIR)/mod_volume.c
+  $(DSP_DIR)/mod_volume.c \
+  $(DSP_DIR)/eq_bank.c
 
 # Host-side per-module tests.
 DSP_TEST_SRCS := \
   $(DSP_DIR)/tests/test_mod_eq.c \
   $(DSP_DIR)/tests/test_mod_bass.c \
   $(DSP_DIR)/tests/test_mod_volume.c \
-  $(DSP_DIR)/tests/test_dsp_chain.c
+  $(DSP_DIR)/tests/test_dsp_chain.c \
+  $(DSP_DIR)/tests/test_eq_bank.c
 
 # Extra libraries the host tests need (the biquad math uses libm).
 DSP_HOST_LIBS := -lm

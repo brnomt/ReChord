@@ -18,6 +18,7 @@
 
 #include "ipc_b.h"
 #include "bfs.h"
+#include "eq_ipc.h"
 #include "ipc_shared.h"
 #include "audio/audio_output.h"
 #include "rknano_i2s.h"
@@ -36,6 +37,17 @@ static int  s_eof_logged;           /* BEOF boundary already logged      */
  * Core B so its re-open can skip the header walk (BRNOMT-73). */
 static codec_prescan_t s_prescan;
 static int  s_prescan_valid;
+/* BRNOMT-76: the EQ curve is cached so a curve chosen before playback is
+ * re-published on every start/gapless handoff (B only reads it while it is
+ * the decoder). */
+static eq_curve_t g_eq;
+static int  g_eq_valid;
+
+static void eq_publish_cached(void)
+{
+    if (g_eq_valid)
+        eq_ipc_publish(CTRL, &g_eq);
+}
 
 static void dmb(void)
 {
@@ -305,6 +317,7 @@ int ipc_b_init(void)
     g_volume_db = 0;
     s_b_decodes = 0;
     s_prescan_valid = 0;
+    g_eq_valid = 0;
     audio_output_clear_played();
     return 0;
 }
@@ -356,6 +369,7 @@ int ipc_b_start(const ipc_b_track_t *track)
     sh_set(IPC_C_GAP_DELAY, (uint32_t)track->gapless_delay);
     sh_set(IPC_C_GAP_PAD, (uint32_t)track->gapless_padding);
     sh_set(IPC_C_GAP_TOTAL, (uint32_t)track->total_samples);
+    eq_publish_cached();
 
     /* Offload decode to Core B; on any failure the AP decodes (phase 2). */
     if (b_handoff(track->path) == 0) {
@@ -601,6 +615,7 @@ int ipc_b_next(const ipc_b_track_t *track)
     sh_set(IPC_C_GAP_DELAY, (uint32_t)track->gapless_delay);
     sh_set(IPC_C_GAP_PAD, (uint32_t)track->gapless_padding);
     sh_set(IPC_C_GAP_TOTAL, (uint32_t)track->total_samples);
+    eq_publish_cached();
     if (b_next_cmd(track->path, (uint32_t)ring) != 0) {
         log_printf("ipc: next failed ack");
         return -1;              /* B did not ACK: caller falls back to hard */
@@ -622,6 +637,25 @@ int ipc_b_set_replaygain(int gain_q16)
 {
     if (s_b_decodes)
         sh_set(IPC_C_RG, (uint32_t)gain_q16);
+    return 0;
+}
+
+int ipc_b_set_eq(int enabled, const eq_curve_t *curve)
+{
+    eq_curve_t c;
+
+    if (curve == 0)
+        return -1;
+    c = *curve;
+    c.enabled = enabled ? 1 : 0;
+    if (!eq_curve_valid(&c))
+        return -1;
+
+    g_eq = c;
+    g_eq_valid = 1;
+    /* Publishing is harmless before B starts (no reader); the cache is what
+     * makes the curve survive until the next handoff. */
+    eq_publish_cached();
     return 0;
 }
 

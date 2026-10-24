@@ -23,6 +23,7 @@ $CC $CFLAGS -I.. -o .work/test_scratch test_scratch.c ../scratch.c
 $CC $CFLAGS -I.. -o .work/test_media_db test_media_db.c ../media_db.c ../scratch.c ../fs_host.c
 $CC $CFLAGS -I.. -o .work/test_media_query test_media_query.c ../media_db.c ../media_query.c ../scratch.c ../fs_host.c
 $CC $CFLAGS -I.. -I../.. -o .work/test_media_scan test_media_scan.c ../media_scan.c ../media_db.c ../scratch.c ../fs_host.c ../log.c ../../player/tags.c ../../player/codec_io.c ../../player/codec_io_stdio.c
+$CC $CFLAGS -I.. -I../.. -o .work/test_eq_profile test_eq_profile.c ../eq_profile.c ../fs_host.c
 $CC $CFLAGS -I.. -I../.. -o .work/test_art_pack test_art_pack.c ../art_pack.c ../fs_host.c \
     ../../drivers/display.c ../../drivers/panel_init_rknanoc.c ../../drivers/font.c \
     ../../drivers/font8x8.c ../../drivers/panel_io_sim.c
@@ -38,5 +39,6 @@ $CC $CFLAGS -I.. -I../.. -o .work/test_art_pack test_art_pack.c ../art_pack.c ..
 .work/test_media_db
 .work/test_media_query
 .work/test_media_scan
+.work/test_eq_profile
 .work/test_art_pack
 echo "ALL SERVICES TESTS PASSED"

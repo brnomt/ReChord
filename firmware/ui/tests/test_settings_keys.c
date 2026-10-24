@@ -281,8 +281,9 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(ui_stack_depth(), 2);
     group = settings_group_model();
     CHECK_STR_EQ(group->title, "Interface");
-    CHECK_EQ_INT(group->item_count, 1);
+    CHECK_EQ_INT(group->item_count, 2);
     CHECK_STR_EQ(group->items[0].label, "Theme");
+    CHECK_STR_EQ(group->items[1].label, "Equalizer");
     e = ev(KEY_BACK); ui_handle_event(&e);
     CHECK_EQ_INT(ui_stack_depth(), 1);
 

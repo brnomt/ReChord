@@ -16,6 +16,7 @@ mkdir -p .work
 $CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
     main.c test_screen_stack.c test_ui_redraw.c test_menu_nav.c \
     test_settings_keys.c test_browser_pagination.c \
+    test_eq_screen.c \
     test_skin_home.c \
     test_skin_screens.c \
     test_skin_art.c \
@@ -27,7 +28,7 @@ $CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
     ../../theme/theme.c ../../theme/themes_builtin.c ../../theme/theme_pkg.c \
     ../../theme/theme_file.c ../../theme/theme_runtime.c \
     ../../theme/theme_assets.c ../../theme/theme_skin.c \
-    mock_display.c mock_services.c -lm
+    mock_display.c mock_services.c mock_eq.c -lm
 
 .work/ui_tests
 
