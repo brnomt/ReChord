@@ -38,6 +38,16 @@ mingw32-make release        # SAFE default: custom BB + STOCK AP
 > stacks) for the Mask ROM. See `make apbb-experimental` and
 > `docs/fw1-packing.md` before touching fw1.
 
+> **⚠️ AP code span: stay below 0x03088000.** The SDK's
+> `LOADER_CODE_BASE` is `0x03088000` (`docs/community.md` §4.2); the stock
+> loader code lives there and the AP image must not overwrite it. AP5M
+> `0xEF0C1BFC` (2026-10-20) bricked the device because its fw1 row 0 ended at
+> `0x03088EB0`; the previous working image ended at `0x03087F8C`. The linker
+> now caps `FW_CODE` at `0x03050000 + 0x38000 = 0x03088000` and
+> `tools/make_fw1.py` fails
+> the pack when a row crosses the loader base (DFIU `51cc212d`). Flash only
+> `build/ReChord_AP5M.IMG`, never the 33 MB `ReChord_AP.IMG` (custom table).
+
 Legacy (still works):
 
 ```bash

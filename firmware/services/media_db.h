@@ -96,6 +96,11 @@ uint32_t media_db_count(void);
 int      media_db_get(uint32_t i, media_rec_t *out);
 void     media_db_close(void);
 
+/* 1 while an index is open (media_db_open() succeeded and no close followed).
+ * Lets callers that resolve several indices in a row reuse the verified open
+ * file instead of re-streaming the whole index for its CRC (BRNOMT-98). */
+int      media_db_is_open(void);
+
 /* The path of slot 0 (A) or 1 (B), for logs and diagnostics. */
 const char *media_db_slot_path(int which);
 

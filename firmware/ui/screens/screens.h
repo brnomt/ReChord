@@ -102,6 +102,9 @@ extern const ui_screen_t browser_screen;
 int browser_page_rows(void);
 /* Set the root directory the browser starts in (call before pushing). */
 void browser_screen_set_root(const char *path);
+/* Set only the BACK clamp, keeping the current folder (resume restore: the
+ * browser must open where the user left it). */
+void browser_screen_set_root_keep_path(const char *path);
 /* Open at `path` with the cursor on `row` (resume); the BACK clamp is kept. */
 void browser_screen_open_at(const char *path, int row);
 const browser_state_t *browser_screen_state(void);
@@ -122,6 +125,9 @@ void player_screen_set_format(int bits, long sample_rate);  /* stream format */
 void player_screen_set_playlist(int pos, int count);        /* BRNOMT-90 i/N */
 void player_screen_set_modes(int repeat, int shuffle);      /* BRNOMT-90 mode */
 void player_screen_set_playing(bool playing);
+/* Re-apply the play/pause line from player_get_state() at a state transition
+ * (player_set_callback hook). */
+void player_screen_sync_state(void);
 /* Status line ("unsupported format", "no audio renderer", ...); NULL/"" clears. */
 void player_screen_set_status(const char *msg);
 /* Re-sync title/position/state from the player module (app loop). */
@@ -137,6 +143,11 @@ int player_bar_width(int width, uint32_t pos, uint32_t dur);
 
 extern const ui_screen_t settings_screen;
 
+/* Quick settings (MENU button): Shuffle, Repeat, Playlist. The playlist view
+ * lists the current queue and SELECT jumps to the chosen track. */
+extern const ui_screen_t quick_screen;
+extern const ui_screen_t quick_playlist_screen;
+
 /* Live theme selection changed: the app syncs the home renderer while this
  * screen remains open (BRNOMT-69). */
 void settings_screen_set_theme_applied(void (*cb)(void));
@@ -147,9 +158,17 @@ void library_cat_open(int cat);                /* set the category before pushin
 
 void settings_screen_reload(void);   /* settings_load() into the live copy  */
 void settings_screen_store(void);    /* settings_save() the live copy       */
+/* Quick settings: apply + persist the playback modes immediately. */
+void settings_screen_set_shuffle(int on);
+void settings_screen_set_repeat(int mode);
 const rechord_settings_t *settings_screen_get(void);
 const menu_model_t       *settings_screen_model(void);
 const menu_view_t        *settings_screen_view(void);
+
+/* The category screen's current model/view (Playing/Interface), for tests and
+ * for callers that need to know which group is open. */
+const menu_model_t       *settings_group_model(void);
+const menu_view_t        *settings_group_view(void);
 
 /* Runtime state that lives outside the settings screen. The volume is owned
  * by the player module while playing, so the screen is *told* about changes

@@ -23,7 +23,7 @@
 #include "internal/hal.h"   /* input_event_t (services input contract) */
 
 #define RECHORD_UI_VERSION "0.1.0"
-#define UI_STACK_MAX       4
+#define UI_STACK_MAX       6
 
 /* Screen vtable.  All hooks are optional (NULL-safe). */
 typedef struct ui_screen {

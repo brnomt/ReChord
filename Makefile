@@ -49,7 +49,7 @@ include firmware/ap.mk
 # ---- CFW AP (fw1) clean-room image: milestone 1, boots to OUR screen ----
 # Distinct from the SDK A_CORE pipeline above (build-ap/link-ap/pack-fw1):
 # this links ONLY firmware/{startup,ui,drivers,services,theme,libc}/*.c.
-CFW_BUILD_DIR := build/cfw
+CFW_BUILD_DIR ?= build/cfw
 CFW_OBJS := $(patsubst %.c,$(CFW_BUILD_DIR)/objs/%.o,$(AP_SRCS))
 CFW_ELF := $(CFW_BUILD_DIR)/rechord_ap.elf
 
@@ -98,6 +98,64 @@ $(BB_CORE_BLOB): $(BB_CORE_BIN)
 	    --rename-section .data=.rodata,alloc,load,readonly,data,contents \
 	    bb_core.bin bb_core_blob.o
 
+# BRNOMT-82: tiny code overlay linked at the free 0x0304AE64 window and
+# embedded in the AP image below the initial-row gate. Linked only when
+# AP_MEM_OVERLAY=1.
+AP_OVERLAY_DIR  := $(CFW_BUILD_DIR)/overlay
+AP_OVERLAY_ELF  := $(AP_OVERLAY_DIR)/overlay_demo.elf
+AP_OVERLAY_BIN  := $(AP_OVERLAY_DIR)/overlay_demo.bin
+AP_OVERLAY_BLOB := $(AP_OVERLAY_DIR)/overlay_demo_blob.o
+AP_OVERLAY_LINK := $(if $(filter 1,$(AP_MEM_OVERLAY)),$(AP_OVERLAY_BLOB),)
+
+$(AP_OVERLAY_ELF): firmware/overlay/overlay_demo.c firmware/overlay/overlay_demo.ld
+	@$(MKDIR_P) $(AP_OVERLAY_DIR)
+	$(CC) -mcpu=cortex-m3 -mthumb -Os -ffreestanding -nostdlib \
+	    -ffunction-sections -fdata-sections \
+	    -T firmware/overlay/overlay_demo.ld \
+	    firmware/overlay/overlay_demo.c -o $@
+
+$(AP_OVERLAY_BIN): $(AP_OVERLAY_ELF)
+	$(OBJCOPY) -O binary $< $@
+
+$(AP_OVERLAY_BLOB): $(AP_OVERLAY_BIN)
+	cd $(AP_OVERLAY_DIR) && $(OBJCOPY) -I binary -O elf32-littlearm -B arm \
+	    --rename-section .data=.rodata,alloc,load,readonly,data,contents \
+	    overlay_demo.bin overlay_demo_blob.o
+
+# BRNOMT-82: CDC-ACM console overlay, loaded from /.rechord/cdc.bin at
+# runtime. It links against the AP USB symbols as absolute addresses, so
+# it must be built after the AP ELF that will be flashed.
+CDC_OVERLAY_DIR  := $(CFW_BUILD_DIR)/cdc
+CDC_OVERLAY_ELF  := $(CDC_OVERLAY_DIR)/cdc_overlay.elf
+CDC_OVERLAY_BIN  := $(CDC_OVERLAY_DIR)/cdc_overlay.bin
+
+$(CDC_OVERLAY_ELF): firmware/overlay/cdc_overlay.c firmware/overlay/cdc_overlay.ld \
+                    firmware/drivers/usb_cdc_rknanoc.c $(CFW_ELF)
+	@$(MKDIR_P) $(CDC_OVERLAY_DIR)
+	@set -e; \
+	CABLE=$$(arm-none-eabi-nm -n $(CFW_ELF) | awk '$$3=="usb_cable"{print "0x"$$1}'); \
+	INIT=$$(arm-none-eabi-nm -n $(CFW_ELF) | awk '$$3=="usb_dwc2_init"{print "0x"$$1}'); \
+	STOP=$$(arm-none-eabi-nm -n $(CFW_ELF) | awk '$$3=="usb_dwc2_stop"{print "0x"$$1}'); \
+	echo "CDC AP symbols: cable=$$CABLE init=$$INIT stop=$$STOP"; \
+	$(CC) -mcpu=cortex-m3 -mthumb -Os -ffreestanding -nostdlib \
+	    -ffunction-sections -fdata-sections -fcommon \
+	    -Wno-incompatible-pointer-types -Wno-int-conversion \
+	    -Wno-implicit-function-declaration -Wno-implicit-int \
+	    -Wno-builtin-declaration-mismatch -Wno-return-mismatch \
+	    -Wno-return-type -Wno-unused-parameter -Wno-unused-variable \
+	    -Ifirmware -Ifirmware/libc -Ifirmware/drivers -Ifirmware/services \
+	    -Ifirmware/rockchip/include \
+	    -include firmware/rockchip/include/armcc_compat.h \
+	    -T firmware/overlay/cdc_overlay.ld \
+	    -Wl,--defsym=usb_cable=$$CABLE \
+	    -Wl,--defsym=usb_dwc2_init=$$INIT \
+	    -Wl,--defsym=usb_dwc2_stop=$$STOP \
+	    firmware/overlay/cdc_overlay.c firmware/drivers/usb_cdc_rknanoc.c \
+	    -lgcc -o $@
+
+$(CDC_OVERLAY_BIN): $(CDC_OVERLAY_ELF)
+	$(OBJCOPY) -O binary $< $@
+
 cfw-ap: $(CFW_ELF)
 	@echo "CFW AP ELF: $(CFW_ELF)"
 
@@ -105,15 +163,43 @@ $(CFW_BUILD_DIR)/objs/%.o: %.c
 	@$(MKDIR_P) $(dir $@)
 	$(CC) $(AP_CFLAGS) -c $< -o $@
 
-$(CFW_ELF): $(CFW_OBJS) $(AP_LDSCRIPT) $(BB_CORE_BLOB)
+$(CFW_ELF): $(CFW_OBJS) $(AP_LDSCRIPT) $(BB_CORE_BLOB) $(AP_OVERLAY_LINK)
 	@$(MKDIR_P) $(dir $@)
-	$(CC) $(AP_LDFLAGS) $(CFW_OBJS) $(BB_CORE_BLOB) $(AP_LDLIBS) -o $@
+	$(CC) $(AP_LDFLAGS) $(CFW_OBJS) $(BB_CORE_BLOB) $(AP_OVERLAY_LINK) $(AP_LDLIBS) -o $@
 
 # Our fw1 + stock section_3 (until the BB module milestone), CRC recomputed.
 # HARD GATE in tools/pack_fw1.py: no scatter row below 0x03004000 (ROM-owned
 # RAM - the 2026-08-25 brick). Debrick: docs/DEBRICK-LINUX.md.
 cfw-img: $(CFW_ELF)
 	$(PYTHON) tools/make_fw1.py $(CFW_ELF) -o build/ReChord_AP.IMG
+
+# BRNOMT-82 Phase 1a: fw1 -> 5MB AP5M image without reading stock/ref images.
+# The descriptor is generated from docs/fw1-packing.md section 10; the legacy
+# cfw-img path above still uses the stock 33MB image and reference header.
+# Probe image:
+#   make standalone-ap5m AP_MEM_PROBE=1 CFW_BUILD_DIR=build/cfw-probe \
+#       AP5M_OUT=build/probe/ReChord_AP.IMG
+AP5M_OUT ?= build/ReChord_AP.IMG
+standalone-ap5m: $(CFW_ELF)
+	$(PYTHON) tools/make_fw1.py $(CFW_ELF) --standalone-5m -o $(AP5M_OUT)
+
+# CDC image: AP with the /.rechord/cdc.bin loader plus the CDC overlay blob.
+# Build with:
+#   make cdc-image AP_CDC_OVERLAY=1 CFW_BUILD_DIR=build/cfw-cdc \
+#       AP5M_OUT=build/cdc/ReChord_AP.IMG
+cdc-image: $(CFW_ELF) $(CDC_OVERLAY_BIN)
+	$(PYTHON) tools/make_fw1.py $(CFW_ELF) --standalone-5m -o $(AP5M_OUT)
+	@echo "CDC overlay blob: $(CDC_OVERLAY_BIN)"
+
+# Local regression check against a saved known-good AP5M image. Run before
+# `make standalone-ap5m` (or point GOLDEN at a saved copy).
+GOLDEN ?= build/ReChord_AP5M.IMG
+verify-standalone:
+	$(PYTHON) tools/verify_fw1_5m.py --golden $(GOLDEN)
+
+# Clean-clone acceptance: tracked files only (no stock/ or community/).
+clean-clone-check:
+	tools/clean_clone_check.sh
 
 # HOOK TEST: verbatim reference fw1 calling our panel driver (HANDOVER.md).
 HOOK_DIR := build/hook
@@ -197,7 +283,7 @@ BB_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_BB_BUILD -D_RK_EQ_ -Ifirmware $(addpre
 # LOG_BUFFER_LINES: 12 lines dropped boundary lines during a track change
 # (BRNOMT-73 field logs), so the ring holds 48 lines of the latest activity —
 # the assembly buffer still fits under the AP .bss ceiling (0x0304A000).
-AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
+AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DAP_MEM_OVERLAY=$(AP_MEM_OVERLAY) -DAP_CDC_OVERLAY=$(AP_CDC_OVERLAY) -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
 
 BB_OBJS := $(foreach src,$(BB_SRCS),\
              $(BB_OBJ_DIR)/$(patsubst firmware/rockchip/%,%,$(src)).o)
@@ -257,7 +343,8 @@ AP_CODEC_LIBS := \
 
 .PHONY: all bb ap build-bb build-ap link-bb link-ap build-sdk link-firmware \
         toolchain manifests compile-check pack-img pack-bb-img pack-bb-stub-img \
-        bb-stub release pack-full apbb-experimental test-dsp extract-section3 clean
+        bb-stub release pack-full apbb-experimental test-dsp extract-section3 clean \
+        standalone-ap5m verify-standalone clean-clone-check cdc-image
 
 # Host unit test for the freestanding DSP core (runs on the build machine, no
 # hardware). Verifies the biquad math before it ever touches the device.

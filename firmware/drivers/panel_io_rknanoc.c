@@ -144,6 +144,16 @@ static void adc_settle(void)
         ;
 }
 
+/* Start one conversion and return immediately. Same CTRL encoding as
+ * adc_read_fresh(): channel + POWERUP|START|INT_ENABLE. int_enable is required
+ * for the EOC status bit to set; the NVIC line is never enabled for this path,
+ * so no interrupt is taken (BRNOMT-98). */
+static void adc_start_fresh(int ch)
+{
+    ADC[2] &= ~0x50u;                        /* SOC=0, clear EOC           */
+    ADC[2] = (ADC[2] & ~0x47u) | ((unsigned)ch & 7u) | 0x38u;
+}
+
 static int adc_read_fresh(int ch)
 {
     unsigned t = 4000;
@@ -153,8 +163,7 @@ static int adc_read_fresh(int ch)
      * 367066f regression polled that flag with int_en clear, so every
      * read burned the full poll timeout and the UI crawled (DFIU
      * ae88365a). */
-    ADC[2] &= ~0x50u;                        /* SOC=0, clear EOC           */
-    ADC[2] = (ADC[2] & ~0x47u) | ((unsigned)ch & 7u) | 0x38u;
+    adc_start_fresh(ch);
     /* EOC is only a FAST PATH: bounded so unknown flag semantics can
      * never stall the UI again; adc_settle() is the always-there floor
      * that guarantees a completed conversion before the read. */
@@ -166,26 +175,143 @@ static int adc_read_fresh(int ch)
     return (int)(ADC[0] & 0x3FFu);
 }
 
+/* ---- non-blocking key sampler (BRNOMT-98) --------------------------------
+ * One conversion per SysTick tick; three consecutive results make one scan.
+ * This replaces the old 3x adc_read_fresh() burst (~600 us of busy-wait every
+ * 5 ms) with a state machine that never waits: the caller polls the result
+ * once per pass. The SARADC is shared with the battery gauge, so the blocking
+ * readers (keys_adc/adc_read_channel) claim the converter first.
+ */
+#define KEYS_SCAN_SAMPLES 3
+#define KEYS_SCAN_WAIT_TICKS 100     /* 100 ms without EOC => sampler failed */
+
+static int s_ks_inflight;            /* conversion started, result pending */
+static int s_ks_n;                   /* samples collected in this scan     */
+static int s_ks_sample[KEYS_SCAN_SAMPLES];
+static volatile int s_ks_ready;      /* a complete scan awaits the caller  */
+static volatile int s_ks_adc = 1023; /* median of the last complete scan   */
+static volatile int s_ks_power;      /* power key level at that scan       */
+static int s_ks_wait;                /* ticks the in-flight conversion ran */
+static volatile int s_ks_failed;
+static volatile int s_ks_paused;     /* a blocking reader owns the ADC     */
+
+static int median3(int a, int b, int c)
+{
+    if (a > b) { int t = a; a = b; b = t; }
+    if (b > c) { int t = b; b = c; c = t; }
+    if (a > b) { int t = a; a = b; b = t; }
+    return b;
+}
+
+/* Mux the power key as an input once, so the tick only reads EXT_PORTA. */
+static void keys_scan_init_once(void)
+{
+    static int done;
+
+    if (done)
+        return;
+    done = 1;
+    iomux_gpio(2, 5);
+    GPIO2->ddr &= ~(1u << 5);
+}
+
+/* Claim the SARADC for a blocking read: stop the sampler mid-scan and leave a
+ * clean EOC so its next tick starts from scratch. Same-thread callers only
+ * (the tick runs in SysTick and merely checks s_ks_paused). */
+static int adc_claim(void)
+{
+    int was_paused = s_ks_paused;
+
+    s_ks_paused = 1;
+    s_ks_inflight = 0;
+    s_ks_n = 0;
+    s_ks_wait = 0;
+    s_ks_ready = 0;                  /* a pre-claim sample is stale      */
+    ADC[2] &= ~0x40u;
+    return was_paused;
+}
+
+static void adc_release(int was_paused)
+{
+    ADC[2] &= ~0x40u;
+    s_ks_paused = was_paused;
+}
+
+void keys_scan_tick(void)
+{
+    keys_scan_init_once();
+
+    if (s_ks_failed || s_ks_paused)
+        return;
+
+    if (s_ks_inflight) {
+        if ((ADC[2] & 0x40u) == 0u) {
+            if (++s_ks_wait > KEYS_SCAN_WAIT_TICKS)
+                s_ks_failed = 1;
+            return;
+        }
+        s_ks_inflight = 0;
+        s_ks_wait = 0;
+        s_ks_sample[s_ks_n++] = (int)(ADC[0] & 0x3FFu);
+        ADC[2] &= ~0x40u;                /* clear EOC                       */
+        if (s_ks_n >= KEYS_SCAN_SAMPLES) {
+            s_ks_adc = median3(s_ks_sample[0], s_ks_sample[1],
+                               s_ks_sample[2]);
+            s_ks_power = (int)((GPIO2->ext_porta >> 5) & 1u);
+            s_ks_ready = 1;
+            s_ks_n = 0;
+        }
+    }
+    if (!s_ks_inflight) {
+        adc_start_fresh(1);
+        s_ks_inflight = 1;
+    }
+}
+
+int keys_scan_take(int *adc, int *power)
+{
+    if (!s_ks_ready)
+        return 0;
+    if (adc != 0)
+        *adc = s_ks_adc;
+    if (power != 0)
+        *power = s_ks_power;
+    s_ks_ready = 0;
+    return 1;
+}
+
+int keys_scan_failed(void)
+{
+    return s_ks_failed;
+}
+
 /* One fresh conversion on an arbitrary channel (BRNOMT-83: the battery gauge
  * uses channel 0; the keys use 1, exactly as the stock SDK's Adc.h defines). */
 int adc_read_channel(int ch)
 {
+    int was_paused;
+    int v;
+
     if (ch < 0 || ch > 7)
         return -1;
-    return adc_read_fresh(ch);
+    was_paused = adc_claim();
+    v = adc_read_fresh(ch);
+    adc_release(was_paused);
+    return v;
 }
 
 int keys_adc(void)
 {
-    int s0 = adc_read_fresh(1);
-    int s1 = adc_read_fresh(1);
-    int s2 = adc_read_fresh(1);
+    int was_paused;
+    int s0, s1, s2;
 
-    /* median of three */
-    if (s0 > s1) { int t = s0; s0 = s1; s1 = t; }
-    if (s1 > s2) { int t = s1; s1 = s2; s2 = t; }
-    if (s0 > s1) { int t = s0; s0 = s1; s1 = t; }
-    return s1;
+    was_paused = adc_claim();
+    s0 = adc_read_fresh(1);
+    s1 = adc_read_fresh(1);
+    s2 = adc_read_fresh(1);
+    adc_release(was_paused);
+
+    return median3(s0, s1, s2);
 }
 
 /* Power key: GPIO2.5 input, 1 = pressed (reference 0x03051b2c). */

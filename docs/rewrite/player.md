@@ -202,6 +202,25 @@ the TX-empty IRQ feeder) and serves B's file reads over the A→B file rings.
 Codec code thus stays in our portable, host-testable tree, while the B image
 carries the decoders + `rg_math.c` + the shared `workbuf`.
 
+### First-Play sequence (BRNOMT-98)
+
+`ipc_b_start()` pre-buffers before the DAC is ready:
+
+1. `b_handoff()` opens the file for B and waits for the OPEN ACK.
+2. A resume seek (if any) is applied while B is still idle.
+3. `IPC_SH_STATE = RUN` — B starts producing PCM into the 64 KiB ring.
+4. `audio_output_configure()` runs the DAC/I2S bring-up. Its delays are real
+   milliseconds from the SysTick clock and pump `bfs_poll()`, so B keeps
+   decoding while the AP waits.
+5. `audio_output_start()`, `rknano_i2s_attach()`, `kick()`, `fade_in()`; the
+   feeder starts with data already in the ring (no first-round underrun).
+
+The log prints `audio: configure <ms>` and `ipc: prebuffer <frames>` around
+steps 4-5. A same-format reopen still takes the `audio_output_configure()`
+early-exit, so only the first Play (or a rate/channel change) pays the bring-up.
+The software volume ramp at unmute is replaced by writing the level while the
+hardware mute is asserted (`-DAO_UNMUTE_DIRECT=0` restores the ramp).
+
 ## 4. Codec vendoring plan (architecture.md §4: prefer open-source C)
 
 Stubs live now; the vendored trees will live under

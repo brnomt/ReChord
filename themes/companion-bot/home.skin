@@ -1,17 +1,13 @@
 # Companion Bot — declarative home skin (BRNOMT-69).
 #
 # This file IS the theme's home logic; the firmware interprets it. The look
-# follows intellar/oled_eye_display (MIT): filled rounded rectangles, no
-# pupils, squash/widen blink, wake ramp, sleep line and a moving lower-lid
-# triangle for "happy".
+# follows intellar/oled_eye_display (MIT): filled rounded rects, no pupils,
+# squash/widen blink, wake ramp, sleep line and a slanted lower-lid mask for
+# "happy". A track playing also bobs the eyes and shows an eighth note.
 #
-# Engineering notes:
-# - The reference is 128x64. This skin scales the 40x40 eyes / 10px gap to
-#   70x70 / 18px on the 320x170 panel (1.75x) and keeps the same proportions.
-# - Both eyes follow the selected item (`gaze`) but their saccades use
-#   different periods, so they move independently and smoothly.
-# - `blink_*`, `idle_h`, `happy_*` are pure functions of t/idle; no compiled
-#   animation state exists.
+# The reference is 128x64; this scales the 40x40 eyes / 10px gap to 70x70 /
+# 18px on the 320x170 panel. `blink_*`, `idle_h`, `happy_*` are pure functions
+# of t/idle; no compiled animation state exists.
 
 [skin]
 refresh_ms=50
@@ -35,9 +31,9 @@ h_l=(blink_on ? blink_h : idle_h)
 w_l=(blink_on ? blink_w : eye_w)
 r_l=(blink_on ? (blink_h / 2 < eye_r ? blink_h / 2 : eye_r) : (idle_h / 2 < eye_r ? idle_h / 2 : eye_r))
 lx=clamp(116 - w_l / 2 + gaze + sin(t, 2400, 11), 4, 154 - w_l)
-ly=clamp(85 - h_l / 2 + sin(t + 700, 3100, 6), 2, 121 - h_l)
+ly=clamp(85 - h_l / 2 + sin(t + 700, 3100, 6) + (playing && !blink_on) * sin(t, 480, 3), 2, 121 - h_l)
 rx=clamp(204 - w_l / 2 + gaze + sin(t + 900, 2200, 11), 166, 316 - w_l)
-ry=clamp(85 - h_l / 2 + sin(t + 300, 2700, 6), 2, 121 - h_l)
+ry=clamp(85 - h_l / 2 + sin(t + 300, 2700, 6) + (playing && !blink_on) * sin(t + 240, 480, 3), 2, 121 - h_l)
 happy_on=(playing && !blink_on)
 happy_off=(h_l / 2) - (clamp(mod(t, 3000) / 150, 0, 9) * h_l) / 20
 
@@ -67,7 +63,9 @@ h=h_l
 r=r_l
 color=text
 
-# Mask the lower lid with a background triangle, mirrored per eye.
+# Lower-lid mask, mirrored per eye. The lid is sloped, so the area below it is
+# a trapezoid: a background rect (below the low end) + a background wedge. A
+# single triangle left one corner visible and read as a pupil.
 [happy_left]
 type=triangle
 visible=happy_on
@@ -76,7 +74,16 @@ y1=ly + h_l / 2 + happy_off
 x2=lx + w_l
 y2=ly + h_l / 2 + 9 + happy_off
 x3=lx
-y3=ly + h_l / 2 + h_l + happy_off
+y3=ly + h_l / 2 + 9 + happy_off
+color=background
+
+[happy_left_body]
+type=fill
+visible=happy_on
+x=lx
+y=ly + h_l / 2 + 9 + happy_off
+w=w_l
+h=max(0, h_l / 2 - 9 - happy_off)
 color=background
 
 [happy_right]
@@ -87,8 +94,50 @@ y1=ry + h_l / 2 + happy_off
 x2=rx
 y2=ry + h_l / 2 + 9 + happy_off
 x3=rx + w_l
-y3=ry + h_l / 2 + h_l + happy_off
+y3=ry + h_l / 2 + 9 + happy_off
 color=background
+
+[happy_right_body]
+type=fill
+visible=happy_on
+x=rx
+y=ry + h_l / 2 + 9 + happy_off
+w=w_l
+h=max(0, h_l / 2 - 9 - happy_off)
+color=background
+
+# --- "music is playing" cue ----------------------------------------------
+# An eighth note bobs in the always-free gap between the eyes (x 154..166)
+# for 1.5 s every 4 s. Stem, flag, then the head on top.
+[note_stem]
+type=fill
+visible=playing && !blink_on && (mod(t, 4000) < 1500)
+x=160
+y=50 + sin(t, 600, 2)
+w=2
+h=14
+color=accent
+
+[note_flag]
+type=triangle
+visible=playing && !blink_on && (mod(t, 4000) < 1500)
+x1=162
+y1=50 + sin(t, 600, 2)
+x2=165
+y2=54 + sin(t, 600, 2)
+x3=162
+y3=59 + sin(t, 600, 2)
+color=accent
+
+[note_head]
+type=roundrect
+visible=playing && !blink_on && (mod(t, 4000) < 1500)
+x=154
+y=62 + sin(t, 600, 2)
+w=8
+h=6
+r=3
+color=accent
 
 [rule]
 type=fill

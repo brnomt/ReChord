@@ -43,21 +43,42 @@
 
 AP_LDSCRIPT := firmware/firmware_ap.ld
 
+# Debug-only actions in the root System menu (DAC test, USB CDC console).
+# Off by default: they cost ~3 KB of code and the AP code span must stay below
+# LOADER_CODE_BASE 0x03088000 (DFIU 51cc212d). Build with
+#   make cfw-ap AP_DEBUG_TOOLS=1
+# only after freeing room elsewhere; the linker/packer gate will refuse an
+# image that crosses the loader code.
+AP_DEBUG_TOOLS ?= 0
+
+# Runtime probe for the 0x03088000 overlay window. Off by default; the
+# probe image is built with AP_MEM_PROBE=1 in a separate CFW_BUILD_DIR.
+AP_MEM_PROBE ?= 0
+
+# Runtime code overlay in the free 0x0304AE64 loader-data window. Off by
+# default; the overlay image is built with AP_MEM_OVERLAY=1 separately.
+AP_MEM_OVERLAY ?= 0
+
+# CDC console overlay loaded from /.rechord/cdc.bin and executed at
+# 0x0304AE64. Off by default; the CDC image is built separately.
+AP_CDC_OVERLAY ?= 0
+
 # ---- link inputs (the clean-room tree) ---------------------------------
 # startup: vector table + reset recipe (ap_startup.c) and the minimal AP
 # main + weak link stubs (ap_main.c).
 AP_STARTUP_SRCS := \
   firmware/startup/ap_startup.c \
-  firmware/startup/vectors.c \
   firmware/startup/ap_main.c \
-  firmware/startup/ap_ui.c
+  firmware/startup/ap_ui.c \
+  firmware/startup/mem_probe.c \
+  firmware/startup/overlay_demo.c \
+  firmware/startup/cdc_overlay.c
 
-# UI layer (same set as $(UI_SRCS) in firmware/ui/ui.mk).
+# UI layer (the AP subset; boot_screen.c is not used by the clean-room AP).
 AP_UI_SRCS := \
   firmware/ui/ui.c \
   firmware/ui/settings_schema.c \
   firmware/ui/settings_view.c \
-  firmware/ui/screens/boot_screen.c \
   firmware/ui/screens/menu_screen.c \
   firmware/ui/screens/browser_screen.c \
   firmware/ui/screens/player_screen.c \
@@ -65,6 +86,7 @@ AP_UI_SRCS := \
   firmware/ui/screens/library_screen.c \
   firmware/ui/screens/library_cat_screen.c \
   firmware/ui/screens/skin_screen.c \
+  firmware/ui/screens/quick_screen.c \
   firmware/ui/screens/theme_ui.c
 
 # Drivers: the TARGET panel backend + the panel init sequence tables
@@ -78,7 +100,7 @@ AP_DRIVER_SRCS := \
   firmware/drivers/panel_io_rknanoc.c \
   firmware/drivers/emmc_rknanoc.c \
   firmware/drivers/usb_msc_rknanoc.c \
-  firmware/drivers/usb_cdc_rknanoc.c \
+  $(if $(filter 1,$(AP_DEBUG_TOOLS)),firmware/drivers/usb_cdc_rknanoc.c) \
   firmware/drivers/cs43131.c \
   firmware/drivers/core_b.c \
   firmware/drivers/cru_pll.c \
@@ -100,12 +122,12 @@ AP_SERVICE_SRCS := \
   firmware/services/resume.c \
   firmware/services/log.c \
   firmware/services/input.c \
-  firmware/services/store.c \
   firmware/services/scratch.c \
   firmware/services/workbuf.c \
   firmware/services/media_db.c \
   firmware/services/media_scan.c \
   firmware/services/media_query.c \
+  firmware/services/art_pack.c \
   firmware/services/fw_update.c \
   firmware/services/fs_target.c \
   firmware/services/rechord_files.c
@@ -124,12 +146,14 @@ AP_THEME_SRCS := \
 # firmware/libc/libc.mk -- listed explicitly so this fragment is standalone).
 # stdio_fs.c is target-only (it needs services/fs.h): the same stdio subset
 # is real stdio on the host, so it is deliberately NOT in libc.mk.
+# math_min.c is deliberately NOT linked: only the DSP core (BB image) uses
+# sin/cos/pow and no AP object references them (verified with nm -u), while
+# the floating-point versions cost 1.4 KB of the tight FW_CODE window.
 AP_LIBC_SRCS := \
   firmware/libc/mem.c \
   firmware/libc/str.c \
   firmware/libc/stdio_min.c \
-  firmware/libc/stdio_fs.c \
-  firmware/libc/math_min.c
+  firmware/libc/stdio_fs.c
 
 # Player module (audio path): linked from milestone 2a. Includes the
 # target IPC backend (ipc_b_target.c) and the codecs — one file per codec
@@ -188,6 +212,7 @@ AP_CFLAGS := $(AP_ARCH_FLAGS) -Os -Wall \
   -Wno-return-mismatch -Wno-int-conversion -Wno-return-type \
   -ffunction-sections -fdata-sections -MMD -MP -fcommon \
   -DRECHORD_AP_BUILD \
+  -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) \
   "-DLOG_BUFFER_LINES=48" \
   $(addprefix -I,$(AP_INCLUDE_DIRS)) \
   -include firmware/rockchip/include/armcc_compat.h

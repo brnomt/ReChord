@@ -60,4 +60,20 @@ void test_player_resume(void)
     e = ev(KEY_BACK);
     ui_handle_event(&e);
     CHECK_EQ_INT(ui_stack_depth(), 0);
+
+    /* The state line follows player transitions even when the 10 Hz poll is
+     * not driving it (BRNOMT-105 follow-up: "Playing" after a pause). */
+    CHECK(ui_push_screen(&player_screen));
+    mock_player_set_state(PLAYER_PLAYING);
+    player_screen_sync_state();
+    mock_display_reset();
+    ui_render();
+    CHECK(mock_display_text_find("Playing") >= 0);
+
+    mock_player_set_state(PLAYER_PAUSED);
+    player_screen_sync_state();
+    mock_display_reset();
+    ui_render();
+    CHECK(mock_display_text_find("Paused") >= 0);
+    CHECK(mock_display_text_find("Playing") < 0);
 }

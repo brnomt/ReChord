@@ -26,6 +26,36 @@ via the memory-map table**, fw1/second-stage validates and then loads
 That is why pack_img.py (flat section_3 splice) works, while fw1 needs the
 scatter table.
 
+### 1.1 Hard limit: LOADER_CODE_BASE 0x03088000
+
+The SDK scatter map (`docs/community.md` §4.2) pins `LOADER_CODE_BASE` at
+`0x03088000`. That loader code is part of the boot chain: an AP image whose
+loaded code crosses it overwrites the loader and **bricks the boot**, even if
+every other size check passes. On 2026-10-20 AP5M `0xEF0C1BFC` did exactly
+that: its fw1 row 0 ended at `0x03088EB0`, while the previous working image
+ended at `0x03087F8C` (116 B below the loader base).
+
+- `firmware/firmware_ap.ld` caps `FW_CODE` at `0x03050000 + 0x38000 =
+  0x03088000`.
+- `tools/make_fw1.py` prints `loader code base ... [OK]` and fails the pack
+  when any scatter row load end crosses `0x03088000`.
+- The fixed image ends at `0x03087900` (1,792 B of margin), `_bss_end
+  0x03049BE0`.
+
+Do not raise the `FW_CODE` length back to `0x3C000`. A pack that does not
+show `loader code base ... [OK]` must not be flashed.
+
+> **Phase 0 correction (BRNOMT-82, 2026-10-20):** the fw1 row-0 source that
+> maps to the `0x03088000` destination is
+> `0x03050000 + (0x03088000 - 0x030795CC) = 0x0305EA34`. Ghidra finds no
+> procedure there and the bytes are a data table, not code. The stock
+> 3.7/3.9 rows do load through `0x03088000`, but the fw1-only HIFIEC90,
+> MB1 and our AP5M end row 0 at `0x030771D4`/`0x03087900` and boot without
+> it. The runtime probe then hung the AP when it wrote `0x03088000`, so the
+> window is live at runtime, not a free overlay. Keep the initial row below
+> `0x03088000` and do not write/copy overlays there; the 113 KB needs a
+> loader-owning bootloader. See `docs/re/boot-chain.md` §4.1 and §8.
+
 ## 2. RKnanoFW container format (confirmed against SDK)
 
 Byte-exact, seen in both the Echo Mini IMG and the prebuilt
@@ -351,3 +381,52 @@ Full non-zero field dump (stock vs reference):
 | 0x150 | 0x016069E8 | 0x00000000 |  |
 | 0x19C | 0x00000001 | 0x00000001 |  |
 | 0x1F4 | 0x01FC4000 | 0x0044C000 |  |
+
+## 11. Standalone 5 MB path (Phase 1a, BRNOMT-82)
+
+The legacy `make_fw1.py` path still wraps the fw1 into the stock 33 MB image
+and clones the 5 MB outer descriptor from
+`community/refcfw/HIFIEC90.IMG`. Both inputs are gitignored, so that path is
+not available in a clean clone.
+
+`tools/fw1_5m.py` builds the fw1-only 5 MB image directly:
+
+```sh
+make standalone-ap5m
+# or
+python3 tools/make_fw1.py build/cfw/rechord_ap.elf --standalone-5m \
+    -o build/ReChord_AP.IMG
+```
+
+It writes only the fw1 container and `ReChord_AP5M.IMG`; it does not create
+the 33 MB image and does not read `stock/` or `community/`. The 0x1F8
+descriptor is generated from the field table in section 10, with our build
+date/brand/tag and fw1 end patched in. The trailing marker container is
+`RKnanoFW` plus eight zero bytes at `0x44C1F8`; the self-consistency copy is
+at `0x44C000`; the trailer is the CRC from `tools/rknano_crc.py`.
+
+The output is byte-identical to the boot-confirmed AP5M image:
+
+| field | value |
+|---|---|
+| size | `0x500004` |
+| trailer CRC | `0x2264CCBA` |
+| SHA-256 | `c2238cb388b14d6bfd984da9328ca0005831b90d42cf4b5be77617b48babb93d` |
+| row-0 end | `0x03087900` |
+| `_bss_end` | `0x03049BE0` |
+
+`tools/verify_fw1_5m.py` rebuilds from the current `.fw1` and compares
+against a saved known-good image. Run it before `make standalone-ap5m` if
+the known-good file is the same path (the build target overwrites it), or
+pass `GOLDEN=/path/to/saved/ReChord_AP5M.IMG`.
+
+`make clean-clone-check` is the stronger acceptance test: it creates a
+detached worktree at `HEAD` with tracked files only (no `stock/`, no
+`community/`), runs `make standalone-ap5m` there and compares the image
+SHA-256. Verified on `02482c1`: PASS, output
+`c2238...babb93d`.
+
+This does **not** complete Issue 82: the stock loader/ROM contract at
+`0x03088000`, the legacy 33 MB stock/ref path, the SDK `.lib` codec path and
+the update/flash path remain. See `docs/re/boot-chain.md` for the Phase 0
+map, the loader windows and the Phase 2 gate.

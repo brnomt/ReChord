@@ -98,6 +98,7 @@ int main(void)
                  "brightness=3\n"
                  "volume=-42\n"
                  "play=shuffle\n"
+                 "fade=150\n"
                  "unknown=ignored\n");
     s_size = n;
     s_present = 1;
@@ -105,6 +106,7 @@ int main(void)
     CHECK(s.brightness == 3);
     CHECK(s.volume == -42);
     CHECK(strcmp(s.play, "shuffle") == 0);
+    CHECK(strcmp(s.fade, "150") == 0);
 
     /* 3. save -> exactly the serialized text reaches the rewrite hook */
     custom_volume = s.volume;

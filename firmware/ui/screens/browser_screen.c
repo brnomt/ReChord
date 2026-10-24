@@ -389,30 +389,19 @@ static void browser_screen_handle_event(const input_event_t *ev)
             memcpy(full + len, ent->name, nlen + 1);
 
             {
-                unsigned n = 0, i;
+                unsigned n = 0;
                 const uint16_t *list = 0;
                 int start = -1;
 
-                /* BRNOMT-90: queue the whole folder, starting at this file. */
-                if (mq_folder_init(s_state.path) == 0)
+                /* BRNOMT-90/98: queue the whole folder and resolve the start
+                 * position during that same scan (no second pass over the
+                 * index, which used to be one media_db_get per track). */
+                if (mq_folder_init_start(s_state.path, full, &start) == 0)
                     list = mq_filter_indices(&n);
-                for (i = 0; list != 0 && i < n; i++) {
-                    media_rec_t rec;
-                    char recfull[MEDIA_PATH_MAX + 2];
-
-                    if (mq_filter_get(i, &rec) != FS_OK)
-                        continue;
-                    if (strlen(rec.path) + 2u > sizeof(recfull))
-                        continue;
-                    recfull[0] = '/';
-                    strcpy(recfull + 1, rec.path);
-                    if (strcmp(recfull, full) == 0) {
-                        start = (int)i;
-                        break;
-                    }
-                }
-                if (start >= 0) {
+                if (start >= 0 && list != 0) {
                     rc = player_play_list(list, (int)n, start);
+                    if (rc == PLAYER_OK)
+                        player_set_queue_source(PLAYER_QUEUE_FOLDER, "", -1);
                 } else {
                     rc = player_open(full);     /* not indexed: single track */
                     if (rc == PLAYER_OK)
@@ -474,6 +463,16 @@ const ui_screen_t browser_screen = {
     browser_screen_draw,
     browser_screen_handle_event,
 };
+
+/* Set only the BACK clamp and leave the current folder alone. Used when the
+ * browser is opened again after a resume restore: the restored folder/row must
+ * survive, while BACK still cannot walk above `/`. */
+void browser_screen_set_root_keep_path(const char *path)
+{
+    if (path == NULL || path[0] == '\0')
+        path = "/";
+    browser_path_copy(s_root, path, BROWSER_PATH_MAX);
+}
 
 void browser_screen_set_root(const char *path)
 {

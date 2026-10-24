@@ -258,9 +258,16 @@ const char *mq_names_get(unsigned i)
     return s_cells + i * MQ_CELL;
 }
 
-int mq_filter_init(int cat, const char *value)
+int mq_filter_init_start(int cat, const char *value, const char *target,
+                         int *start_out)
 {
     unsigned total, i;
+    const char *tgt = target;
+    uint16_t match_idx = 0;
+    int have_match = 0;
+
+    if (start_out != 0)
+        *start_out = -1;
 
     mq_done();
     mq_setup_lists(&s_cap);
@@ -272,6 +279,8 @@ int mq_filter_init(int cat, const char *value)
     }
     s_count = 0;
     s_truncated = 0;
+    if (tgt != 0 && *tgt == '/')   /* target arrives as a device path */
+        tgt++;
     total = media_db_count();
     for (i = 0; i < total; i++) {
         media_rec_t rec;
@@ -295,6 +304,10 @@ int mq_filter_init(int cat, const char *value)
             s_truncated = 1;
             break;
         }
+        if (tgt != 0 && !have_match && strcmp(rec.path, tgt) == 0) {
+            match_idx = (uint16_t)i;
+            have_match = 1;
+        }
         s_idx[s_count] = (uint16_t)i;
         /* All Songs sorts by title; a category's songs by album then track. */
         mq_key_set(&s_key[s_count], rec.track_no,
@@ -302,7 +315,21 @@ int mq_filter_init(int cat, const char *value)
         s_count++;
     }
     mq_sort_items();
+
+    if (start_out != 0 && have_match) {
+        for (i = 0; i < s_count; i++) {
+            if (s_idx[i] == match_idx) {
+                *start_out = (int)i;
+                break;
+            }
+        }
+    }
     return 0;
+}
+
+int mq_filter_init(int cat, const char *value)
+{
+    return mq_filter_init_start(cat, value, 0, 0);
 }
 
 unsigned mq_filter_count(void)
@@ -324,11 +351,18 @@ const uint16_t *mq_filter_indices(unsigned *out_count)
     return (s_idx != 0 && s_count > 0) ? s_idx : 0;
 }
 
-int mq_folder_init(const char *prefix)
+int mq_folder_init_start(const char *prefix, const char *target,
+                         int *start_out)
 {
     unsigned total, i;
     const char *p;
+    const char *tgt = target;
     size_t plen;
+    uint16_t match = 0;
+    int have_match = 0;
+
+    if (start_out != 0)
+        *start_out = -1;
 
     mq_done();
     mq_setup_lists(&s_cap);
@@ -347,6 +381,8 @@ int mq_folder_init(const char *prefix)
     if (*p == '/')               /* record paths are volume-relative */
         p++;
     plen = strlen(p);
+    if (tgt != 0 && *tgt == '/') /* target arrives as a device path   */
+        tgt++;
 
     total = media_db_count();
     for (i = 0; i < total; i++) {
@@ -363,12 +399,32 @@ int mq_folder_init(const char *prefix)
             s_truncated = 1;
             break;
         }
+        if (tgt != 0 && !have_match && strcmp(rec.path, tgt) == 0) {
+            match = (uint16_t)i;
+            have_match = 1;
+        }
         s_idx[s_count] = (uint16_t)i;
         mq_key_set(&s_key[s_count], rec.track_no, rec.title);
         s_count++;
     }
     mq_sort_items();
+
+    /* The list is sorted, so the start position is the record's slot now, not
+     * the order it was scanned in (BRNOMT-98). */
+    if (start_out != 0 && have_match) {
+        for (i = 0; i < s_count; i++) {
+            if (s_idx[i] == match) {
+                *start_out = (int)i;
+                break;
+            }
+        }
+    }
     return 0;
+}
+
+int mq_folder_init(const char *prefix)
+{
+    return mq_folder_init_start(prefix, 0, 0);
 }
 
 void mq_done(void)

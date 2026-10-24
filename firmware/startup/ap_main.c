@@ -25,6 +25,12 @@
 #include "drivers/core_b.h"    /* BRNOMT-68 phase 1: Core B heartbeat */
 #include "ui/theme.h"       /* THEME_* geometry + palette (theme module) */
 
+#if AP_MEM_PROBE
+#include "startup/mem_probe.h"
+#endif
+#if AP_MEM_OVERLAY
+#include "startup/overlay_demo.h"
+#endif
 void ap_ui_loop(void);   /* ap_ui.c */
 
 uint32_t Main(void)
@@ -33,6 +39,12 @@ uint32_t Main(void)
     uint16_t fg = THEME_COLOR_FG;
     const theme_t *th = theme_get();
     int b_rc;
+#if AP_MEM_PROBE
+    int probe_rc;
+#endif
+#if AP_MEM_OVERLAY
+    int overlay_rc;
+#endif
 
     /* The stock/reference boot raises the AP from the 24 MHz oscillator to
      * the APLL at 200 MHz here (pclk 50 MHz). Everything below — and the
@@ -40,6 +52,15 @@ uint32_t Main(void)
     ap_clock_set_200mhz();
 
     display_init();
+
+#if AP_MEM_PROBE
+    /* Runtime-only test: the initial fw1 row stays below 0x03088000. */
+    probe_rc = ap_mem_probe_run();
+#endif
+#if AP_MEM_OVERLAY
+    /* Copy the tiny overlay to 0x0304AE64 and execute it. */
+    overlay_rc = ap_overlay_demo_run();
+#endif
 
     /* BRNOMT-68 phase 1: start Core B with our heartbeat image. Failure is
      * non-blocking (the AP keeps running; audio is unchanged). */
@@ -62,8 +83,31 @@ uint32_t Main(void)
                       THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + THEME_LINE_H,
                       b_rc == 0 ? "Core B: ready" : "Core B: no", fg, bg);
 
+#if AP_MEM_PROBE
+    /* Fourth line: 0x0304AE64 loader-data window probe result. */
+    display_draw_text(THEME_PAD,
+                      THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + 2 * THEME_LINE_H,
+                      probe_rc == 0 ? "RAM 0304AE64: free" : "RAM 0304AE64: used",
+                      fg, bg);
+#endif
+#if AP_MEM_OVERLAY
+    /* Fourth line: code overlay execution result. */
+    display_draw_text(THEME_PAD,
+                      THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + 2 * THEME_LINE_H,
+                      overlay_rc == 0 ? "Overlay: OK" : "Overlay: FAIL",
+                      fg, bg);
+#endif
+
     /* Make the lines visible on the panel. */
+#if AP_MEM_PROBE
+    display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 3 * THEME_LINE_H);
+    panel_io_delay_ms(2000);   /* keep the probe line visible */
+#elif AP_MEM_OVERLAY
+    display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 3 * THEME_LINE_H);
+    panel_io_delay_ms(2000);   /* keep the overlay line visible */
+#else
     display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 2 * THEME_LINE_H);
+#endif
 
 #ifdef AP_TRIAL
     /* trial vehicle (firmware/hook/trial_entry.c): hand back to the host fw */
@@ -82,17 +126,11 @@ uint32_t Main(void)
  * ========================================================================== */
 
 /*
- * rechord_startup_entry: reset target of the legacy Route-B vector table
- * (firmware/startup/vectors.c, table "vectors").  That table is kept in the
- * image for reference but is NOT the boot path of the clean-room fw1 AP
- * (the real entry is PowerOn_Reset via ap_vectors in ap_startup.c).  Stub:
- * park forever instead of running a boot recipe that does not belong here.
+ * rechord_startup_entry (the legacy Route-B vector table's reset target) is
+ * gone with firmware/startup/vectors.c: that table was never the boot path
+ * (the real entry is PowerOn_Reset via ap_vectors in ap_startup.c) and the
+ * AP code has to stay below LOADER_CODE_BASE 0x03088000.
  */
-__attribute__((weak)) void rechord_startup_entry(void)
-{
-    for (;;) {
-    }
-}
 
 /*
  * panel_init_sequence: DCS power-on init for the panel (declared in

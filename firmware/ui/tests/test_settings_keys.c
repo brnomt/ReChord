@@ -15,7 +15,7 @@
 static const char *const k_expected_names[SETTING_KEY_COUNT] = {
     "play", "brightness", "screen_off", "auto_off", "usb", "resume",
     "strip", "tags", "cpu", "volume", "browse", "cursor",
-    "shuffle", "repeat_mode",
+    "shuffle", "repeat_mode", "fade",
 };
 
 static input_event_t ev(input_key_t key)
@@ -32,7 +32,7 @@ static void test_schema_table(void)
 {
     int i;
 
-    CHECK_EQ_INT(SETTING_KEY_COUNT, 14);
+    CHECK_EQ_INT(SETTING_KEY_COUNT, 15);
     for (i = 0; i < SETTING_KEY_COUNT; i++)
         CHECK_STR_EQ(setting_schema[i].name, k_expected_names[i]);
 
@@ -41,18 +41,20 @@ static void test_schema_table(void)
     CHECK(settings_schema_find("cursor") == &setting_schema[11]);
     CHECK(settings_schema_find("brightness") == &setting_schema[1]);
     CHECK(settings_schema_find("repeat_mode") == &setting_schema[13]);
+    CHECK(settings_schema_find("fade") == &setting_schema[14]);
     CHECK(settings_schema_find("nope") == NULL);
     CHECK(settings_schema_find(NULL) == NULL);
 
     /* The menu exposes only the wired settings: the playback-mode duplicates
      * (play) and the stale browse/cursor pair stay out. */
-    CHECK_EQ_INT(settings_visible_count(), 4);
+    CHECK_EQ_INT(settings_visible_count(), 5);
     CHECK_STR_EQ(settings_visible_at(0)->name, "resume");
     CHECK_STR_EQ(settings_visible_at(1)->name, "volume");
     CHECK_STR_EQ(settings_visible_at(2)->name, "shuffle");
     CHECK_STR_EQ(settings_visible_at(3)->name, "repeat_mode");
+    CHECK_STR_EQ(settings_visible_at(4)->name, "fade");
     CHECK(settings_visible_at(-1) == NULL);
-    CHECK(settings_visible_at(4) == NULL);
+    CHECK(settings_visible_at(5) == NULL);
 }
 
 static void test_defaults_and_format(void)
@@ -76,6 +78,7 @@ static void test_defaults_and_format(void)
     CHECK_EQ_INT(s.cursor, 0);
     CHECK_EQ_INT(s.shuffle, 0);          /* off */
     CHECK_EQ_INT(s.repeat_mode, 0);      /* off */
+    CHECK_EQ_INT(s.fade_ms, 300);        /* BRNOMT-67 default */
     CHECK_STR_EQ(s.theme, "");           /* boot falls back to active_theme */
 
     /* values format exactly like the config file writes them */
@@ -91,6 +94,8 @@ static void test_defaults_and_format(void)
     CHECK_STR_EQ(buf, "on");
     settings_format(&setting_schema[9], &s, buf, (int)sizeof(buf));
     CHECK_STR_EQ(buf, "-23");
+    settings_format(&setting_schema[14], &s, buf, (int)sizeof(buf));
+    CHECK_STR_EQ(buf, "300");
 }
 
 static void test_key_field_mapping(void)
@@ -115,6 +120,7 @@ static void test_key_field_mapping(void)
         { 11, 1 },   /* cursor: 0 -> 1                            */
         { 12, 1 },   /* shuffle: off -> on                        */
         { 13, 1 },   /* repeat_mode: off -> all                   */
+        { 14, 500 }, /* fade: 300 -> 500                          */
     };
 
     for (i = 0; i < SETTING_KEY_COUNT; i++) {
@@ -142,6 +148,7 @@ static void test_key_field_mapping(void)
         if (s.cursor != old.cursor) changed++;
         if (s.shuffle != old.shuffle) changed++;
         if (s.repeat_mode != old.repeat_mode) changed++;
+        if (s.fade_ms != old.fade_ms) changed++;
         CHECK_EQ_INT(changed, 1);
 
         /* and it is the right one, with the right value */
@@ -160,6 +167,7 @@ static void test_key_field_mapping(void)
         case 11: CHECK_EQ_INT(s.cursor, k_after[i].want); break;
         case 12: CHECK_EQ_INT(s.shuffle, k_after[i].want); break;
         case 13: CHECK_EQ_INT(s.repeat_mode, k_after[i].want); break;
+        case 14: CHECK_EQ_INT(s.fade_ms, k_after[i].want); break;
         default: CHECK(0); break;
         }
     }
@@ -182,53 +190,94 @@ static void test_key_field_mapping(void)
     settings_cycle(&setting_schema[7], &s, +1);   /* on -> off -> on */
     settings_cycle(&setting_schema[7], &s, +1);
     CHECK_EQ_INT(s.tags, 1);
+
+    s.fade_ms = 500;
+    settings_cycle(&setting_schema[14], &s, +1);  /* 500 -> off */
+    CHECK_EQ_INT(s.fade_ms, 0);
+    settings_cycle(&setting_schema[14], &s, -1);  /* off -> 500 */
+    CHECK_EQ_INT(s.fade_ms, 500);
 }
 
 static void test_settings_screen_binding(void)
 {
     const menu_model_t *model;
+    const menu_model_t *group;
     input_event_t e;
 
     ui_init();
     mock_display_reset();
     mock_services_reset();
 
+    settings_screen_reload();            /* fresh defaults + top cursor */
     CHECK(ui_push_screen(&settings_screen));
 
+    /* Top level: categories, not a flat key list. */
     model = settings_screen_model();
-    CHECK_EQ_INT(model->item_count, settings_visible_count() + 1);
+    CHECK_EQ_INT(model->item_count, 2);
     CHECK_STR_EQ(model->title, "Settings");
-    /* BRNOMT-69: the live theme picker is the FIRST row (discoverability). */
-    CHECK_STR_EQ(model->items[0].label, "Theme");
+    CHECK_STR_EQ(model->items[0].label, "Playing");
+    CHECK_STR_EQ(model->items[1].label, "Interface");
     CHECK(model->items[0].on_select != 0);
-    /* Only the wired settings are offered (no play/browse/cursor duplicates
-     * and no dead hardware rows). */
-    CHECK_STR_EQ(model->items[1].label, "resume");
-    CHECK_STR_EQ(model->items[2].label, "volume");
-    CHECK_STR_EQ(model->items[3].label, "shuffle");
-    CHECK_STR_EQ(model->items[4].label, "repeat_mode");
-    CHECK_EQ_INT(model->item_count, 5);
+    CHECK(model->items[1].on_select != 0);
 
     /* defaults are live after enter */
     CHECK_EQ_INT(settings_screen_get()->resume_mode, 1);    /* folder */
     CHECK_EQ_INT(settings_screen_get()->volume_db, -23);
+    CHECK_EQ_INT(settings_screen_get()->fade_ms, 300);
 
-    /* navigate to "resume" (menu index 1) and cycle it */
+    /* Enter Playing. */
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(ui_stack_depth(), 2);
+    group = settings_group_model();
+    CHECK_STR_EQ(group->title, "Playing");
+    CHECK_EQ_INT(group->item_count, 5);
+    CHECK_STR_EQ(group->items[0].label, "Volume");
+    CHECK_STR_EQ(group->items[1].label, "Shuffle");
+    CHECK_STR_EQ(group->items[2].label, "Repeat");
+    CHECK_STR_EQ(group->items[3].label, "Resume");
+    CHECK_STR_EQ(group->items[4].label, "Fade");
+
+    /* Navigate to Resume (index 3) and cycle it. */
     e = ev(KEY_DOWN); ui_handle_event(&e);
-    CHECK_EQ_INT(settings_screen_view()->cursor, 1);
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_group_view()->cursor, 3);
     e = ev(KEY_SELECT); ui_handle_event(&e);
     CHECK_EQ_INT(settings_screen_get()->resume_mode, 2);    /* track */
     CHECK_EQ_INT(settings_screen_get()->volume_db, -23);    /* untouched */
 
-    /* the menu shows the visible key and its value */
+    /* Fade applies immediately to the player (300 -> 500). */
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_group_view()->cursor, 4);
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_screen_get()->fade_ms, 500);
+
+    /* The group renders human labels, not config keys. */
     mock_display_reset();
     ui_render();
-    CHECK(mock_display_text_find("resume") >= 0);
-    CHECK(mock_display_text_find("track") >= 0);
-    CHECK(mock_display_text_find("play") < 0);
-    CHECK(mock_display_text_find("browse") < 0);
+    CHECK(mock_display_text_find("Fade") >= 0);
+    CHECK(mock_display_text_find("Resume") >= 0);
+    CHECK(mock_display_text_find("repeat_mode") < 0);
 
-    /* BACK saves through the settings service and pops */
+    /* BACK returns to the categories with the changes intact. */
+    e = ev(KEY_BACK); ui_handle_event(&e);
+    CHECK_EQ_INT(ui_stack_depth(), 1);
+    CHECK_EQ_INT(settings_screen_get()->resume_mode, 2);
+    CHECK_EQ_INT(settings_screen_get()->fade_ms, 500);
+
+    /* Interface: the live Theme picker. */
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_screen_view()->cursor, 1);
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(ui_stack_depth(), 2);
+    group = settings_group_model();
+    CHECK_STR_EQ(group->title, "Interface");
+    CHECK_EQ_INT(group->item_count, 1);
+    CHECK_STR_EQ(group->items[0].label, "Theme");
+    e = ev(KEY_BACK); ui_handle_event(&e);
+    CHECK_EQ_INT(ui_stack_depth(), 1);
+
+    /* BACK saves through the settings service and pops. */
     e = ev(KEY_BACK); ui_handle_event(&e);
     CHECK_EQ_INT(ui_stack_depth(), 0);
     CHECK_EQ_INT(mock_settings_save_count(), 1);
@@ -277,6 +326,47 @@ static void test_settings_volume_flush(void)
     CHECK_EQ_INT(mock_settings_save_count(), 3);
 }
 
+/* BRNOMT-105: MENU overlay — Shuffle/Repeat apply + persist, Playlist opens
+ * the live queue view (empty on the host mock) and BACK unwinds it. */
+static void test_quick_screen(void)
+{
+    input_event_t e;
+
+    ui_init();
+    mock_display_reset();
+    mock_services_reset();
+    settings_screen_reload();
+
+    CHECK(ui_push_screen(&quick_screen));
+    mock_display_reset();
+    ui_render();
+    CHECK(mock_display_text_find("Quick settings") >= 0);
+    CHECK(mock_display_text_find("Shuffle") >= 0);
+    CHECK(mock_display_text_find("Repeat") >= 0);
+    CHECK(mock_display_text_find("Playlist") >= 0);
+
+    CHECK_EQ_INT(settings_screen_get()->shuffle, 0);
+    e = ev(KEY_SELECT); ui_handle_event(&e);          /* Shuffle off -> on */
+    CHECK_EQ_INT(settings_screen_get()->shuffle, 1);
+
+    e = ev(KEY_DOWN); ui_handle_event(&e);            /* Repeat */
+    e = ev(KEY_SELECT); ui_handle_event(&e);          /* off -> all */
+    CHECK_EQ_INT(settings_screen_get()->repeat_mode, 1);
+
+    e = ev(KEY_DOWN); ui_handle_event(&e);            /* Playlist */
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK(ui_top_screen() == &quick_playlist_screen);
+    mock_display_reset();
+    ui_render();
+    CHECK(mock_display_text_find("Playlist") >= 0);
+    CHECK(mock_display_text_find("No queue") >= 0);
+
+    e = ev(KEY_BACK); ui_handle_event(&e);
+    CHECK(ui_top_screen() == &quick_screen);
+    e = ev(KEY_BACK); ui_handle_event(&e);
+    CHECK_EQ_INT(ui_stack_depth(), 0);
+}
+
 void test_settings_keys(void)
 {
     test_schema_table();
@@ -284,4 +374,5 @@ void test_settings_keys(void)
     test_key_field_mapping();
     test_settings_screen_binding();
     test_settings_volume_flush();
+    test_quick_screen();
 }

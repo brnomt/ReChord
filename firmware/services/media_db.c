@@ -267,3 +267,8 @@ void media_db_close(void)
     }
     s_rd_count = 0;
 }
+
+int media_db_is_open(void)
+{
+    return s_rd != 0;
+}

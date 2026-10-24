@@ -111,6 +111,24 @@ int adc_read_channel(int ch)
     return ch == 1 ? 1023 : -1;
 }
 
+/* Host has no SARADC and no SysTick hook: the async sampler never produces a
+ * sample, and the UI tests drive events through input_push() instead. */
+void keys_scan_tick(void)
+{
+}
+
+int keys_scan_take(int *adc, int *power)
+{
+    (void)adc;
+    (void)power;
+    return 0;
+}
+
+int keys_scan_failed(void)
+{
+    return 0;
+}
+
 void board_power_off(void)
 {
     for (;;) { }

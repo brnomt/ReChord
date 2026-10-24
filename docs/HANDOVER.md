@@ -4175,3 +4175,310 @@ Playing, System, lists, theme package, GP same-format, USB power).
   `FLAC | 16/44.1kHz`.
 
 AP5M CRC `0xDA1A49C9`, packer `RESULT: PASS`. Not flashed.
+
+## BP. Session 2026-10-20 — BRNOMT-98: keys off the loop; first-Play latency
+
+**Input (no new IRQ).** The SARADC now runs as a non-blocking sampler stepped by
+the 1 ms SysTick hook: `keys_scan_tick()` starts one fresh conversion per tick,
+collects three and publishes their median; `keys_scan_take()` hands the sample
+to the loop at the same 5 ms cadence, where `input_scan()` still runs in thread
+context (the event queue and the hold clock are untouched). The old three
+`adc_read_fresh()` calls (~600 us of busy-wait) every 5 ms are gone.
+
+- `panel_io_rknanoc.c`: sampler state + `keys_scan_tick/take/failed`. The
+  blocking readers (`keys_adc`, `adc_read_channel`) claim the shared ADC and
+  abort an in-flight scan first, so the battery gauge and the blocking
+  mini-loops (index rebuild, USB prompts) keep working.
+- `ap_ui.c`: `SysTick_Handler()` calls the hook; the loop only consumes. If the
+  converter never reports EOC for 100 ms, the sampler flags itself failed and
+  the loop falls back to the old blocking path with
+  `keys: async scan failed, polling fallback`.
+- Host sim backend has no-op sampler stubs; `test_input` is unchanged and green.
+
+**Pacing bug found in the field (same session).** The first flash was reported
+as "MUY lag" in the UI and on the buttons while audio was much better. Root
+cause: `SysTick_RVR` was `0x00FFFFFF` — 16,777,215 cycles at 200 MHz, i.e. an
+**~84 ms** interrupt, not the 1 ms the loop was documented and tuned for. The
+UI loop therefore ran at ~12 Hz and every timed constant was 84x coarser. The
+old blocking key scan hid it (one sample per pass); the non-blocking sampler
+spreads three conversions over three ticks, which at 84 ms/tick meant ~250 ms
+per scan and ~750 ms with the 3-sample debounce. `ap_clock_init()` now sets
+`RVR = AP_CYCLES_PER_MS - 1`, `ap_ms()` returns a 1 ms counter incremented in
+the handler, and the old free-running cycle counter (which also wrapped every
+~21 s) is gone. The loop is genuinely 1 kHz; key scan 5 ms, debounce 15 ms.
+`ui_render()` already early-outs when no band is dirty, so idle passes stay
+cheap. `power_hold_step()` is now called only on a fresh key sample, keeping
+its 3-sample debounce at 15 ms instead of the 3 ms it would become at 1 kHz
+(its 2 s hold check is time-based and still fires on time).
+
+**First Play.**
+
+- `dac_delay_ms()` now waits real milliseconds from the SysTick clock when one
+  is installed (`dac_delay_set_clock(ap_ms)`), with an optional pump
+  (`dac_delay_set_pump`) that keeps `bfs_poll()` running during the waits. The
+  old loop count overshot several-fold (see §BA); boot-time callers before
+  `ap_clock_init()` (Core B start) keep the conservative loop.
+  `DAC_DELAY_SCALE_NUM/DEN` tune the wait without code changes.
+- `ipc_b_start()` sets `IPC_SH_STATE=RUN` right after the handoff/seek, before
+  `audio_output_configure()`, so Core B pre-buffers the PCM ring while the DAC
+  comes up; the pump keeps its A→B file ring fed. The log now includes
+  `audio: configure N ms` and `ipc: prebuffer N frames`.
+- The unmute no longer ramps 0xFF→user (~86 ms at 0 dB): the level is written
+  while GPIO2.0 (hardware mute) is still asserted, then the mute is released.
+  Build with `-DAO_UNMUTE_DIRECT=0` to restore the stock ramp.
+- `b_seek_now()` uses `b_wait_ack(seq, 300)` (real ms, tight poll, file service
+  pumped) instead of `500 x dac_delay_ms(1)`.
+- Browser: `media_resolve()` reuses an already-open index
+  (`media_db_is_open()`), avoiding a full streaming CRC verify per resolve, and
+  `mq_folder_init_start()` resolves the selected track during the folder scan
+  instead of a second per-track `media_db_get()` pass.
+
+**Verification.** All host suites green (`services` incl. `test_input`,
+`test_media_db` 34 checks and `test_media_query` 47 checks; `ui`, `drivers`,
+`player`). `make cfw-ap` + `make cfw-img`: `RESULT: PASS`, AP5M CRC
+`0x9281AF88`, `_bss_end 0x03049D10` (ceiling `0x0304A000`; ~752 B free).
+Not flashed.
+
+**Device checklist.** Watch for `keys: async scan failed` (must be absent),
+`audio: configure N ms` (~200-260 ms expected instead of several hundred),
+`ipc: prebuffer N frames` (>0), and no first-Play underrun. Verify repeat/Hold,
+the battery row after 15 s, resume seek, and 44.1/48/96k first plays. If the
+CS43131 fails to come up, rebuild with `-DDAC_DELAY_SCALE_NUM=2`; if the direct
+volume clicks, `-DAO_UNMUTE_DIRECT=0`.
+
+## BQ. Session 2026-10-20 — BRNOMT-67: categorized Settings + play/pause fade
+
+**Settings overhaul (wired only).** Settings is now a category list:
+
+- **Playing**: Volume, Shuffle, Repeat, Resume, Fade
+- **Interface**: Theme (live package picker)
+
+Selecting a category pushes `settings_group_screen` with that group's rows.
+The System diagnostics menu stays in the root (debug view, not a config
+group). Rows use human labels while the config keys are unchanged. Changing
+Volume now also applies to the player immediately (it used to only rewrite
+the config). Returning from a group keeps the in-memory edits and the
+category cursor; the top level reloads from disk only when opened from the
+root. New 15th schema key: `fade`.
+
+**BRNOMT-67 fade.** `fade` = off / 150 / 300 / 500 ms (default 300).
+`dac_volume_ramp_ms()` keeps the stock 6-code step but paces the whole ramp
+over the requested duration; `audio_output_fade_in/out` use it. With a fade
+active the bring-up unmute starts at 0xFF (silent) and `fade_in` ramps to the
+user level; fade=off keeps the direct-volume first-Play path. Stop/track
+change uses `audio_output_quick_mute()` (stock fixed ramp) so skipping does
+not wait for the user fade. The fade blocks its caller, so `ipc_b_start` and
+`ipc_b_pause` keep `bfs_poll()` pumped during it (300-500 ms exceeds the PCM
+ring cover at 96 kHz). Volume changes while faded out now stay muted until
+the next `fade_in` (before, they could unmute a paused stream). The DAC
+diagnostic calls `fade_in` after configure so its tone is audible.
+
+**Tests.** services (`test_settings` 148 checks), UI (439 + 42),
+drivers and player: all green. `make cfw-ap` + `make cfw-img`: `RESULT:
+PASS`, AP5M CRC `0x50FD2844`, `_bss_end 0x03049D20` (ceiling `0x0304A000`;
+~736 B free). Not flashed.
+
+**Device checklist.** Settings -> Playing/Interface navigation, SELECT applies
+without leaving the group, BACK returns with the cursor intact; Fade 300 and
+off; pause/resume fade; no dropout during a 300-500 ms fade at 96 kHz; volume
+change while paused stays silent; track skip is not delayed by the user fade.
+
+## BR. Session 2026-10-20 — pre-flash fixes (BRNOMT-101/102/105, queue, shuffle)
+
+- **BRNOMT-102 (boot landed in the File Explorer).** `resume_boot_restore()`
+  pushed `browser_screen` after restoring the folder/row. It now restores them
+  as browser state only, so boot stays on the active theme's home. Files opens
+  at the saved folder via the new `browser_screen_set_root_keep_path()` (the
+  old `open_files()` called `browser_screen_set_root("/")`, which reset the
+  path and would have discarded the restore).
+
+- **BRNOMT-101 (MENU showed another theme's Main UI).** The KEY_MENU handler
+  popped every screen down to depth 1. With `home=skin` the active home is the
+  skin screen inserted at depth 2, so MENU always revealed the classic menu.
+  It now pops only down to the real home depth (1 or 2 from the package's
+  `home=`).
+
+- **Shuffle order repeated across boots.** `playlist_seed()` was never called;
+  `player_init()` zeroes the playlist and xorshift32's fallback constant made
+  every boot produce the same order. The resume state now carries a `boot`
+  counter (`/.rechord/state`, incremented once per boot) and
+  `resume_boot_restore()` seeds the PRNG from it plus boot-time ms/ADC noise.
+  `s_res.boot` is carried into every later state save so the counter is not
+  reset.
+
+- **Playback queue lost on reboot.** `/.rechord/state` only stored the current
+  track, position and browser folder/row; the list behind it was gone. The
+  state now stores the queue **origin** (`queue=none|folder|cat`,
+  `queue_cat`, `queue_value`) instead of a 2 KB index dump. The browser and
+  library screens call `player_set_queue_source()` when a list starts;
+  `resume_boot_restore()` rebuilds it with `mq_*` and `player_load_list()`
+  (opens the start track, leaves STOPPED), so next/prev and repeat/shuffle
+  work after a reboot. The folder case derives the folder from the restored
+  track's parent. If the index no longer contains the track, it falls back to
+  the single-track restore. `mq_filter_init_start()` finds the start record
+  in the same index pass.
+
+- **BRNOMT-105 (MENU -> Quick settings).** MENU now opens an overlay instead
+  of jumping to the root: **Shuffle**, **Repeat** and **Playlist**. The modes
+  apply and persist immediately; Playlist lists the live queue (titles resolved
+  through the media index), marks the current track with `>` and SELECT jumps
+  to/plays the chosen entry (`player_play_at()` keeps the list and its queue
+  origin). The screen stack cap grew 4 -> 6 so the overlay fits on the deepest
+  lists. This supersedes the BRNOMT-101 MENU-to-home path: the old
+  theme-mismatch route no longer exists.
+
+**Verification (all five tasks).** services, UI (`test_settings_keys` now 456
+checks + 42), player and drivers host suites green. `make cfw-ap` +
+`make cfw-img`: `RESULT: PASS`, AP5M CRC `0xEF0C1BFC`, `_bss_end 0x03049DA8`
+(ceiling `0x0304A000`; ~600 B free). Not flashed.
+
+## BS. Session 2026-10-20 — POST-MORTEM: AP5M 0xEF0C1BFC bricked (loader code overwritten)
+
+**What happened.** The user flashed the pre-flash batch AP5M image
+(`0xEF0C1BFC`, the five commits plus the Settings/Fade work), the device did
+not boot, and they recovered it via maskrom. The flash was technically
+"PASS" by every existing check (linker, packer, CRC), but the image was not
+bootable.
+
+**Root cause.** The AP code was loaded past `LOADER_CODE_BASE 0x03088000`
+(the SDK scatter map, `docs/community.md` §4.2). The previous working image
+(`0x9281AF88`) had fw1 row 0 end `0x03087F8C` (116 B below the loader code);
+the bricked build ended at `0x03088EB0` (3,760 B past it) because the new
+features grew the AP code by ~3.9 KB. `firmware_ap.ld` allowed FW_CODE up to
+`0x0308C000` (`LENGTH 0x3C000`) and `tools/make_fw1.py` did not check the
+loader base, so both the linker and the packer accepted it. This was **not**
+the `_bss_end` ceiling: the bricked build ended at `0x03049DA8`, below both
+`0x0304A000` and the known-good `0x03049F84`, so the existing bss rule could
+not catch it. DFIU incident `51cc212d-0782-4bcc-8bfe-bfb2c8298de3`, rule
+`R-f1d637ac0361`.
+
+**Fix (this session).**
+- `firmware/firmware_ap.ld`: `FW_CODE` length is now `0x38000`, ending at
+  `0x03088000`; the comment records the brick and forbids raising it.
+- `tools/make_fw1.py`: new `loader code base` check; the pack fails if any
+  scatter row load end crosses `0x03088000`.
+- Code reclaimed to fit: dropped the unreferenced `boot_screen.c`, the
+  legacy `vectors.c` and its `rechord_startup_entry` stub, and the unused
+  `store.c` from the AP link. The DAC test and USB CDC console are now
+  behind `AP_DEBUG_TOOLS` (default 0); the System info rows stay. Building
+  `AP_DEBUG_TOOLS=1` is only possible after freeing more code, otherwise
+  the linker/packer refuses the image.
+- New AP5M: **CRC `0x2264CCBA`**, fw1 row 0 end **`0x03087900`** (1,792 B
+  below the loader), `_bss_end 0x03049BE0`, packer `RESULT: PASS` and
+  `loader code base ... [OK]`. This is a *safer* footprint than the last
+  known-good image.
+
+**Flash ladder (AP5M only).**
+1. Flash `build/ReChord_AP5M.IMG` (CRC `0x2264CCBA`). Do **not** flash the
+   33 MB `ReChord_AP.IMG` (custom fw1 table).
+2. If it does not boot, the last known-good is AP5M `0x9281AF88`; recover
+   with maskrom if needed and report the SHA-256 of the flashed file.
+3. After a successful boot, verify the row end printed by `make cfw-img`
+   is below `0x03088000` before any future flash. The DFIU incident stays
+   open until the device confirms the fixed image boots.
+
+## BV. Session 2026-10-24 — BRNOMT-105 follow-up: MENU press semantics + Now Playing state
+
+Device feedback on the BRNOMT-105 thread ("botón MENÚ") plus a Now Playing
+report from the same session.
+
+**1) MENU/Quick settings (reported in the issue thread).** Symptoms: the
+overlay appeared only while the key was held; a long press flickered back to
+the screen underneath for a frame and then stayed open; the Playlist view did
+not open.
+
+**Root cause.** `ap_ui_loop()` toggled the overlay for EVERY `KEY_MENU` event
+the scanner delivered, not just the press. A tap is PRESS + RELEASE (open then
+close on release); a hold is PRESS + LONG + RELEASE (three toggles, ending
+open); and the Playlist's own SELECT push was popped by the pending MENU
+RELEASE, so it closed instantly.
+
+**Fix.** The MENU branch acts on `INPUT_PRESS` only (`continue` otherwise);
+LONG/REPEAT/RELEASE are ignored. BACK is unchanged.
+
+**2) Now Playing said "Playing" after a pause, audio silent.** The state
+machine was correct (`player_pause()` -> PAUSED), but the play/pause line
+only re-synced from the 10 Hz app-loop poll, which runs only while the player
+screen is on top and is blocked by the fade itself. The line now follows
+`PLAYER_EV_STATE`/`PLAYER_EV_TRACK` through the existing (previously unused)
+`player_set_callback()`, and the generated image also hardens the target path:
+
+- `ipc_b_pause(1)` holds the AP TX feeder (`rknano_i2s_hold(1)`) after the
+  fade-out, so the ISR cannot drain the PCM ring, mask its source and leave a
+  resumed stream silent; `ipc_b_pause(0)` releases/kicks it after the
+  fade-in. New log line `ipc: pause <0|1> ring <frames>`.
+- `player_play()` no longer reports PLAYING when `ipc_b_pause(0)` fails: it
+  rebuilds the stream (`ipc_b_start`) at the paused position, or errors.
+
+Host checks: UI 460, settings-view 42, player suite and services suite all
+green (new case in `test_player_resume.c` pins the state line without a poll).
+`make cfw-ap` clean; `make cfw-img` RESULT: PASS, new AP5M CRC **`0x56106209`**,
+fw1 payload end `0x03086F9C` (below `0x03088000`). Not flashed.
+
+**Field check.** Flash `build/ReChord_AP5M.IMG`: MENU tap opens the overlay
+and it stays; MENU long press does not flicker; Playlist opens and lists the
+queue; pause/resume shows Paused/Playing and audio returns on resume. If the
+state line still sticks, pull `/.rechord/LOG` (internal volume) and check the
+`ipc: pause` lines.
+
+## BW. Session 2026-10-24 — album art with zero decode / zero device writes
+
+**Goal.** Now Playing covers and theme palette colours with no image decoding
+and no storage writes on the device. A PC tool precomputes everything; the
+firmware reads a packed file.
+
+**Host tool** (`tools/artpack/`, Pillow + mutagen, pinned): scans a mounted
+volume root (and optionally the SD root via `--extra-root`), takes embedded
+FLAC PICTURE / ID3 APIC / MP4 covr / folder `cover|folder|front.jpg`, centre-
+crops and LANCZOS-resizes to 120x120 and 48x48, applies optional 8x8 Bayer
+dithering, converts to little-endian RGB565 (the exact `display_fb` layout),
+computes dominant/secondary/mean/accent, dedupes by processed-image hash and
+writes `<root>/.rechord/ARTPACK.BIN` atomically. Key = FNV-1a 64 over
+`"<Volume>/<relative path>"` (UTF-8, '/', no leading slash) continued over the
+little-endian file size. Format, palette algorithm, vectors and costs:
+`docs/ART_PACK.md`.
+
+**Firmware** (`services/art_pack.{h,c}`): track-change lookup reads only the
+header, the key-table CRC and a binary search (~21 sectors for 300 tracks)
+and keeps the palette in ~48 B. The `art` skin meter streams pixels through
+one 512-byte buffer into a new `display_blit_span()` (row segments, clipped);
+the pack is opened per use so it never takes one of fs_target's four read
+handles. The lookup is deferred by the app loop until after the PCM pump (a
+gapless boundary has ~85 ms of ring cover). Missing file / bad magic/version/
+CRC / key not found → `art_ok=0` and a placeholder; no other feature changes.
+No writes of any kind.
+
+**Theme API.** `art` meter (`x y size=small|large color`), variables
+`art_ok art_c1 art_c2 art_mean art_accent` (RGB565). Documented in
+`docs/THEMING.md` §4/§5 with a sample skin; `themes/README.md` updated.
+Companion Bot untouched.
+
+**Budget** (AP image, link-time):
+
+| | before | after |
+|---|---|---|
+| `.text` | 224,888 | 225,172 (+284) |
+| `.data` | 292 | 292 |
+| `.bss` | 285,372 | 285,960 (+588) |
+| `_bss_end` | 0x03049BE0 (1056 B free) | 0x03049E2C (468 B free) |
+| code RAM end | 0x03086F9C | 0x030870B8 (3400 B below 0x03088000) |
+| AP5M CRC | 0x56106209 | 0x4FB3BA81 |
+
+The art feature itself costs ~2,020 B of `.text`; `libc/math_min.c` was
+dropped from the AP link (only the DSP core/BB uses sin/cos/pow; `nm -u`
+showed no AP reference) to reclaim ~1,736 B, so the net is +292 B. The AP5M
+pack passed every check (`loader code base`, payload, CRC).
+
+**Tests.** `tools/artpack/test_artpack.py` (12 cases: vectors, palette,
+byte order, layout/CRC/alignment, SD keys, ID3 APIC, atomic write). Firmware
+`services/tests/test_art_pack.c` (43 checks: shared key vectors, header/CRC
+validation, binary search, palette, streaming + clipping through
+`panel_io_sim`, missing/corrupt/replaced pack). UI `test_skin_art.c` (21
+checks: hook placement, `color=art_c1`, placeholder, no-source defaults).
+UI suite 481 checks, services/player/theme suites green; `make cfw-ap` and
+`make cfw-img` PASS. End-to-end probe against a tool-generated 300-track pack:
+300/300 lookups, real pixels, 0.056 ms lookup / 0.016 ms draw on the host.
+
+**Not done (future).** On-device fill of missing covers (the header reserves
+`image_slots`/`free_slots` for it) and a CoverFlow screen (small covers exist
+for the visible tiles). Nothing flashed; PR only.

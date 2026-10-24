@@ -461,6 +461,46 @@ static void test_stopped_seek_then_play(void)
     player_stop();
 }
 
+/* Resume queue: player_load_list opens the start track and leaves the player
+ * STOPPED; the caller sets the origin and a single-track open clears it. */
+static void test_load_list_paused(void)
+{
+    static const uint16_t idx[3] = { 0, 1, 2 };
+    mock_codec_cfg_t cfg = {0};
+    track_info_t ti;
+    int kind = -1, cat = -1;
+    char val[16];
+
+    cfg.total_frames = 44100;
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+
+    ipc_b_init();
+    player_init();
+    player_register_codec("mock", mock_codec_get());
+    player_set_resolver(test_resolve);
+    ipc_b_mock_set_b_decodes(0);
+    ipc_b_mock_set_b_eof(0);
+
+    CHECK_EQI(player_load_list(idx, 3, 1), PLAYER_OK, "queue: load list");
+    CHECK_EQI(player_get_state(), PLAYER_STOPPED, "queue: leaves STOPPED");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "queue: track query");
+    CHECK(strcmp(ti.path, "t1.mock") == 0, "queue: opens the start track");
+    CHECK_EQI(player_get_position_ms(), 0, "queue: paused at zero");
+
+    player_set_queue_source(PLAYER_QUEUE_CAT, "Blue", 3);
+    player_get_queue_source(&kind, val, (int)sizeof val, &cat);
+    CHECK_EQI(kind, PLAYER_QUEUE_CAT, "queue: source kind");
+    CHECK_EQI(cat, 3, "queue: source cat");
+    CHECK(strcmp(val, "Blue") == 0, "queue: source value");
+
+    CHECK_EQI(player_open("t0.mock"), PLAYER_OK, "queue: single open");
+    player_get_queue_source(&kind, val, (int)sizeof val, &cat);
+    CHECK_EQI(kind, PLAYER_QUEUE_NONE, "queue: single open clears source");
+}
+
 int main(void)
 {
     TEST("player gapless");
@@ -473,6 +513,7 @@ int main(void)
     test_playlist_resolve_cache();
     test_repeat_modes();
     test_stopped_seek_then_play();
+    test_load_list_paused();
     if (failures == 0) {
         printf("test_player_gapless: OK\n");
         return 0;

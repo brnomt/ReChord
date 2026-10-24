@@ -11,14 +11,19 @@
  * data sectors + the dirent size, no allocation, no FAT writes), so a power cut
  * mid-save loses that one save and nothing else.
  *
- * Keys: track=<device path>, pos_ms=<n>, folder=<browser path>, row=<n>.
+ * Keys: track=<device path>, pos_ms=<n>, folder=<browser path>, row=<n>,
+ * boot=<n>, queue=<none|folder|cat>, queue_cat=<n>, queue_value=<text>.
+ * The boot counter is incremented once per boot and feeds the shuffle PRNG.
+ * The queue keys describe the list the current track came from, so the app
+ * can rebuild it from the media index after a reboot (no 2 KB index dump).
  */
 #ifndef RECHORD_SERVICES_RESUME_H
 #define RECHORD_SERVICES_RESUME_H
 
 /* Device paths, leading '/', same form the browser and the player use. */
-#define RESUME_TRACK_MAX  208
-#define RESUME_FOLDER_MAX 208
+#define RESUME_TRACK_MAX       208
+#define RESUME_FOLDER_MAX      208
+#define RESUME_QUEUE_VALUE_MAX 32
 
 typedef struct
 {
@@ -26,6 +31,10 @@ typedef struct
     unsigned long pos_ms;
     char          folder[RESUME_FOLDER_MAX];
     int           row;
+    unsigned long boot;              /* monotonic boot counter (shuffle seed) */
+    int           queue_kind;        /* 0 none, 1 folder, 2 category           */
+    int           queue_cat;         /* media_query MQ_* for kind 2            */
+    char          queue_value[RESUME_QUEUE_VALUE_MAX]; /* album/artist/...    */
 } resume_state_t;
 
 /* Zero the struct (empty track/folder, position 0, row 0). */

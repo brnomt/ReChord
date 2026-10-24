@@ -62,6 +62,11 @@ typedef struct {
 static char s_text[THEME_SKIN_TEXT_MAX + 1];
 static int  s_loaded;
 
+/* Album-art source (palette + pixel stream), registered by the UI adapter.
+ * NULL when the app has no art support, which makes art_ok 0 and an `art`
+ * meter draw its placeholder. */
+static const theme_skin_art_t *s_art;
+
 static struct {
     int count;
     int axis;
@@ -231,6 +236,16 @@ static skin_val_t variable(const char *name)
         return v_int(c != 0 && c->st != 0 ? c->st->volume_db : 0);
     if (strcmp(name, "battery") == 0)
         return v_int(c != 0 && c->st != 0 ? c->st->battery_pct : -1);
+    if (strcmp(name, "art_ok") == 0)
+        return v_int(s_art != 0 ? s_art->ok : 0);
+    if (strcmp(name, "art_c1") == 0)
+        return v_int(s_art != 0 ? s_art->c1 : 0);
+    if (strcmp(name, "art_c2") == 0)
+        return v_int(s_art != 0 ? s_art->c2 : 0);
+    if (strcmp(name, "art_mean") == 0)
+        return v_int(s_art != 0 ? s_art->mean : 0);
+    if (strcmp(name, "art_accent") == 0)
+        return v_int(s_art != 0 ? s_art->accent : 0);
     if (strcmp(name, "pos") == 0)
         return v_int(c != 0 && c->st != 0
                          ? (int)(c->st->position_ms / 1000) : 0);
@@ -1048,6 +1063,11 @@ const char *theme_skin_text(void)
     return s_loaded ? s_text : 0;
 }
 
+void theme_skin_set_art(const theme_skin_art_t *art)
+{
+    s_art = art;
+}
+
 int theme_skin_item_count(void)
 {
     if (s_list.dynamic && s_list_src != 0)
@@ -1396,6 +1416,26 @@ static void render_section(const skin_section_t *sec, skin_ctx_t *ctx, int sel)
         display_fill_rect(x, y, x + w - 1, y + h - 1,
                           color_of(prop(sec, "color"), ctx,
                                    theme_get()->text));
+        return;
+    }
+
+    if (key_eq(type, "art")) {
+        const char *sz = prop(sec, "size");
+        int large = (sz != 0 && key_eq(sz, "large")) ? 1 : 0;
+        int dim = s_art != 0 ? (large ? s_art->large_px : s_art->small_px) : 0;
+
+        x = eval_int(prop(sec, "x"), ctx, 0);
+        y = eval_int(prop(sec, "y"), ctx, 0);
+        if (s_art != 0 && s_art->ok && s_art->draw != 0 &&
+            s_art->draw(x, y, large) == 0)
+            return;
+        /* No art for this track (or the stream failed): placeholder block in
+         * the requested size, tinted by `color` (default: the surface). */
+        if (dim <= 0)
+            dim = large ? 120 : 48;
+        skin_roundrect(x, y, dim, dim, dim / 8,
+                       color_of(prop(sec, "color"), ctx,
+                                theme_get()->surface));
         return;
     }
 

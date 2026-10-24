@@ -179,8 +179,9 @@ home adapter. Full guide: `docs/THEMING.md`.
 
 ## 8. Milestones
 
-- **A (small). DONE (2026-10-18).** Runtime theme switch from Settings: a 15th
-  "Theme" row (the schema and its 14-key on-disk layout are untouched) whose
+- **A (small). DONE (2026-10-18).** Runtime theme switch from Settings: a
+  "Theme" row (the schema and its on-disk key layout are untouched; the
+  layout now has 15 keys after BRNOMT-67) whose
   value is `theme_get()->name`; SELECT cycles the built-ins with
   `theme_load_named()` + `ui_invalidate_all()`, so every screen restyles
   immediately — no reboot, no audio interruption. Measured `.bss_end
@@ -227,8 +228,12 @@ home adapter. Full guide: `docs/THEMING.md`.
     UI adapter (no theme symbols).
   - `themes/companion-bot/` now contains `theme.cfg` + `home.skin`; the
     firmware seeds no theme content. The Companion is vector exactly like the
-    reference (rounded rects + masking triangle), with independent saccades,
-    gaze at the selected item, blink/wake/sleep/happy as data.
+    reference (rounded rects + a lower-lid mask), with independent saccades,
+    gaze at the selected item, blink/wake/sleep/happy as data. The slanted
+    happy lid is a trapezoid, so its mask is a `fill` (below the lid's low
+    end) plus a `triangle` (the wedge); one triangle alone left a corner
+    sliver that read as a pupil. While playing, the eyes bob and an eighth
+    note (fill + triangle + roundrect) shows for 1.5 s every 4 s.
   - Tests: `test_skin_home` loads the real package, verifies expressions,
     vector drawing and `prev=down`/`next=up` mapping; `test_theme_pkg` covers
     skin/asset validation; `test_theme_runtime` covers atomic apply + skin

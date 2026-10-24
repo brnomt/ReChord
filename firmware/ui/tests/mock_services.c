@@ -438,6 +438,52 @@ int player_set_volume(int db)
     return PLAYER_OK;
 }
 
+void player_set_fade_ms(int ms)
+{
+    (void)ms;                       /* no DAC on the host */
+}
+
+void player_set_queue_source(int kind, const char *value, int cat)
+{
+    (void)kind;
+    (void)value;
+    (void)cat;
+}
+
+void player_get_queue_source(int *kind, char *value, int cap, int *cat)
+{
+    if (kind != NULL)
+        *kind = 0;
+    if (cat != NULL)
+        *cat = 0;
+    if (value != NULL && cap > 0)
+        value[0] = '\0';
+}
+
+int player_list_count(void)
+{
+    return 0;
+}
+
+int player_list_position(void)
+{
+    return -1;
+}
+
+int player_list_title(int index, char *buf, int cap)
+{
+    (void)index;
+    if (buf != NULL && cap > 0)
+        buf[0] = '\0';
+    return -1;
+}
+
+int player_play_at(int index)
+{
+    (void)index;
+    return PLAYER_ERR;
+}
+
 int player_get_track(track_info_t *out)
 {
     const char *base;
@@ -484,3 +530,29 @@ int media_db_open(void) { return FS_ERR_OPEN; }
 uint32_t media_db_count(void) { return 0u; }
 int media_db_get(uint32_t i, media_rec_t *out) { (void)i; (void)out; return FS_ERR_ARG; }
 void media_db_close(void) { }
+
+/* ---- album art (theme `art` meter, services/art_pack.c) ------------------
+ * The UI tests have no ARTPACK: report "no art", so the engine takes the
+ * placeholder path. */
+#include "../../services/art_pack.h"
+
+uint64_t art_pack_key(const char *path, uint32_t bytes)
+{
+    (void)path;
+    (void)bytes;
+    return 0;
+}
+
+int art_pack_set_track(const char *path) { (void)path; return -1; }
+void art_pack_clear(void) { }
+int art_pack_ok(void) { return 0; }
+int art_pack_color(int which) { (void)which; return 0; }
+int art_pack_dim(int large) { (void)large; return 0; }
+
+int art_pack_draw(int x, int y, int large)
+{
+    (void)x;
+    (void)y;
+    (void)large;
+    return -1;
+}

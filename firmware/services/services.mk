@@ -21,6 +21,7 @@ SERVICES_COMMON_SRCS := \
 # Sources compiled for the ARM target image.
 SERVICES_TARGET_SRCS := \
   $(SERVICES_COMMON_SRCS) \
+  $(SERVICES_DIR)/art_pack.c \
   $(SERVICES_DIR)/settings_store.c \
   $(SERVICES_DIR)/resume.c \
   $(SERVICES_DIR)/fs_target.c \

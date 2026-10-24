@@ -70,6 +70,13 @@ void audio_output_power_off(void);
  * ramp. No-op when the DAC is not up. */
 void audio_output_fade_out(void);
 void audio_output_fade_in(void);
+/* Stop/track-change mute with the stock fixed ramp (not the user fade). */
+void audio_output_quick_mute(void);
+
+/* BRNOMT-67: play/pause fade duration in milliseconds (0 = immediate).
+ * The app seeds it from the `fade` setting at boot and on every change;
+ * configure() starts silent when a fade is active so fade_in() has a ramp. */
+void audio_output_set_fade_ms(int ms);
 
 /* User volume -> CS43131 PCM_VOLUME attenuation (0.5 dB/step), applied
  * with the stock's click-free soft ramp (= FUN_03055f48 to the user

@@ -57,39 +57,10 @@ TOOLS_DIR = Path(__file__).resolve().parent
 if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
+import fw1_5m  # noqa: E402  (fw1-only 5MB AP5M builder)
 import pack_fw1  # noqa: E402  (Elf32, build_scatter_table, MAGIC, FLASH_BASE)
 import pack_img  # noqa: E402  (IMG layout constants, pack_full)
-
-# --- trailer CRC (device checksum primitive, see docstring) ---
-CRC_POLY = 0x04C10DB7  # NOT 0x04C11DB7 - bit 0x1000 is missing
-
-
-def _crc_table() -> list:
-    tbl = []
-    for i in range(256):
-        c = i << 24
-        for _ in range(8):
-            if c & 0x80000000:
-                c = ((c << 1) ^ CRC_POLY) & 0xFFFFFFFF
-            else:
-                c = (c << 1) & 0xFFFFFFFF
-        tbl.append(c)
-    return tbl
-
-
-_CRC_TABLE = _crc_table()
-
-
-def rknano_crc32(data: bytes) -> int:
-    """CRC-32(poly 0x04C10DB7, non-reflected, init 0, xorout 0).
-
-    Table form of the known-good MSB-first bit loop; identical results
-    (cross-checked bit-loop vs table during dry runs)."""
-    crc = 0
-    tbl = _CRC_TABLE
-    for b in data:
-        crc = (tbl[((crc >> 24) ^ b) & 0xFF] ^ (crc << 8)) & 0xFFFFFFFF
-    return crc
+from rknano_crc import rknano_crc32  # noqa: E402  (shared trailer CRC)
 
 
 # --- flat-binary input adapter (same interface pack_fw1.Elf32 exposes) ---
@@ -269,6 +240,10 @@ def main() -> int:
     ap.add_argument("--placeholder", action="store_true",
                     help="build a tiny placeholder ELF (vector table + reset "
                          "loop at 0x03050000) and run the chain on it")
+    ap.add_argument("--standalone-5m", action="store_true",
+                    help="build only the 5MB AP5M image directly from the fw1; "
+                         "no stock/ref IMG reads (ignores --stock/--bb). The "
+                         "descriptor is generated from docs/fw1-packing.md §10.")
     args = ap.parse_args()
 
     # ---- safety guards: never touch the fallback image or the stock source ----
@@ -385,15 +360,66 @@ def main() -> int:
     ok_xip = all(row_ok(i, r) for i, r in enumerate(rows))
     print(f"        src loaded-RAM window: 0x{load_lo:08X}..0x{load_hi:08X}  "
           f"[{'OK' if ok_xip else 'FAIL'}]")
+    # Loader-code guard (DFIU 51cc212d): the stock loader code starts at
+    # 0x03088000. A row that loads code past it overwrites the loader and
+    # bricks the boot even when every size check above passes.
+    LOADER_CODE_BASE = 0x03088000
+    def row_load_end(i, r):
+        a, b, c, d = r
+        if i % 2 == 0:                 # Type B: dest_end (or dest+size poke)
+            return d if d != 0 else ((a + c) & 0xFFFFFFFF)
+        return c                       # Type A: ram_end
+    loader_bad = [i for i, r in enumerate(rows)
+                  if row_load_end(i, r) > LOADER_CODE_BASE]
+    ok_loader = not loader_bad
+    print(f"        loader code base: <= 0x{LOADER_CODE_BASE:08X}          "
+          f"[{'OK' if ok_loader else 'FAIL'}]")
+    if loader_bad:
+        print(f"        rows crossing it: {loader_bad}", file=sys.stderr)
     # entry must land inside a loaded segment
     ok_entry = any(s["vaddr"] <= entry < s["vaddr"] + s["memsz"]
                    for s in img_obj.program_headers()
                    if s["type"] == pack_fw1.PT_LOAD)
     print(f"        entry in seg : 0x{entry:08X}                       "
           f"[{'OK' if ok_entry else 'FAIL'}]")
-    if not (ok_rows and ok_payload and ok_xip and ok_entry):
+    if not (ok_rows and ok_payload and ok_xip and ok_entry and ok_loader):
         print("ERROR: slot limit / contract check failed", file=sys.stderr)
         return 1
+
+    # ---- 2c. fw1-only 5MB AP5M image (no stock/ref reads) ----
+    if args.standalone_5m:
+        print("[3/5] standalone 5MB image (no stock/ref reads)")
+        out5m = args.output.with_name("ReChord_AP5M.IMG")
+        fw1_bytes = bytes(fw1)
+        try:
+            fw1_5m.build_standalone_5m(fw1_bytes, out5m, verbose=True)
+        except (OSError, fw1_5m.LayoutError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+
+        img = out5m.read_bytes()
+        crc = struct.unpack_from("<I", img, len(img) - 4)[0]
+        checks = [
+            ("IMG size", len(img) == fw1_5m.IMG_SIZE),
+            ("fw1 @ 0x1F8",
+             img[fw1_5m.FW1_HEADER_OFF:
+                 fw1_5m.FW1_HEADER_OFF + len(fw1_bytes)] == fw1_bytes),
+            ("header copy @ marker",
+             img[fw1_5m.MARKER_BASE:fw1_5m.MARKER_BASE + 0x200] == img[:0x200]),
+            ("marker @ 0x44C1F8",
+             img[fw1_5m.MARKER_HDR:fw1_5m.MARKER_HDR + 16]
+             == fw1_5m.MARKER_HEADER),
+            ("trailer == CRC", crc == rknano_crc32(img[:-4])),
+        ]
+        for name, ok in checks:
+            print(f"      [{'OK' if ok else 'FAIL'}] {name}")
+        if not all(ok for _, ok in checks):
+            print("ERROR: standalone 5MB verification failed", file=sys.stderr)
+            return 1
+        print("RESULT: PASS - standalone 5MB image; no stock/ref reads")
+        print(f"      output: {out5m} ({len(img):,} bytes)")
+        print("      flash only ReChord_AP5M.IMG (not the 33MB ReChord_AP.IMG)")
+        return 0
 
     # ---- 2b. neutralize the sec2 stage (SIGNATURE GATE) ----
     # The stock's second-stage loader at IMG 0x57820 ("RKnanoFW" header)

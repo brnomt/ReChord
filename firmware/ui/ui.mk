@@ -26,6 +26,7 @@ UI_SRCS := $(UI_DIR)/ui.c \
            $(UI_DIR)/screens/library_screen.c \
            $(UI_DIR)/screens/library_cat_screen.c \
            $(UI_DIR)/screens/skin_screen.c \
+           $(UI_DIR)/screens/quick_screen.c \
            $(UI_DIR)/screens/theme_ui.c
 
 UI_CFLAGS := -std=c99 -Wall -Werror -Os -I$(UI_DIR)

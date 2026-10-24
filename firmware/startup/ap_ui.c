@@ -11,6 +11,9 @@
 #include "drivers/panel_io.h"
 #include "drivers/usb_msc.h"
 #include "drivers/usb_cdc.h"
+#if AP_CDC_OVERLAY
+#include "startup/cdc_overlay.h"
+#endif
 #include "audio/audio_output.h"
 #include "drivers/rknano_i2s.h"
 #include "drivers/battery.h"
@@ -27,6 +30,7 @@
 #include "services/rechord_files.h"
 #include "services/resume.h"
 #include "services/input.h"
+#include "services/art_pack.h"
 #include "player.h"
 #include "ui/ui.h"
 #include "ui/screens/screens.h"
@@ -34,12 +38,21 @@
 #include "ui/screens/skin_screen.h"
 #include "player/bfs.h"     /* phase 3: A-side file service for Core B */
 
+/* Debug-only System actions (DAC test + USB CDC console). Off by default:
+ * the AP code must stay below LOADER_CODE_BASE 0x03088000 (DFIU 51cc212d). */
+#ifndef AP_DEBUG_TOOLS
+#define AP_DEBUG_TOOLS 0
+#endif
+
 /* BRNOMT-90: playlist record index -> track path (player_play_list). */
 static int media_resolve(uint16_t idx, char *path, int cap)
 {
     media_rec_t rec;
 
-    if (media_db_open() != FS_OK)
+    /* Reuse an index that is already open (BRNOMT-98): the indices being
+     * resolved come from the same query, and re-opening re-streams the whole
+     * index just to re-verify its CRC -- twice per first Play otherwise. */
+    if (!media_db_is_open() && media_db_open() != FS_OK)
         return -1;
     if (media_db_get((uint32_t)idx, &rec) != FS_OK)
         return -1;
@@ -55,6 +68,7 @@ static uint32_t s_user;              /* user volume start, 0 = unknown */
 static char s_emmc[32], s_usb[32] = "plug in", s_sd[32];
 static int s_sd_in = -1;
 static int s_volume_seen;            /* last volume persisted (see loop) */
+static int s_art_dirty;              /* new track: look up its cover      */
 static unsigned s_log_ms;            /* last periodic log flush (see loop) */
 static unsigned s_batt_ms;           /* last battery poll (see loop) */
 static int      s_resume_done;       /* boot resume restore ran (BRNOMT-87) */
@@ -75,6 +89,7 @@ static unsigned s_loop_seq;          /* last loop tick (WFI pacing)        */
 static unsigned s_keys_ms;           /* last SARADC key sample             */
 static int      s_key_adc = 1023;    /* last key-ladder sample             */
 static int      s_key_power;         /* last power-key sample              */
+static int      s_keys_fallback;     /* async sampler failed: poll instead */
 static unsigned s_player_ms;         /* last Now Playing refresh           */
 
 /* BRNOMT-75: display-off and Hold. Short power toggles the backlight; holding
@@ -99,46 +114,48 @@ static void screen(const char *title);
  * 0.000 timestamps and input.c silently dropped the clock and fell back to its
  * synthetic per-scan clock -- which is why the hold ladder never accelerated.
  *
- * SysTick IS a core timer and always counts, so it is used as a free-running
- * DOWN-counter for the millisecond clock. BRNOMT-84 also enables its 1 ms
- * interrupt and sleeps in WFI between loop ticks: the counter still runs in
- * sleep, and the empty handler only clears COUNTFLAG. The main loop is paced
- * by the tick instead of a busy-wait.
+ * BRNOMT-98 FIX: RVR used to be 0x00FFFFFF, i.e. a ~84 ms interrupt at
+ * 200 MHz — NOT the 1 ms the loop was documented (and tuned) for. The UI loop
+ * therefore ran at ~12 Hz and every timed constant (key scan, repeat ladder,
+ * WFI pacing) was scaled by 84. RVR is now exactly one millisecond and the ms
+ * counter is advanced in the handler, so the loop really runs at 1 kHz and the
+ * millisecond clock no longer depends on a 24-bit free-running wrap.
  */
 #define AP_CYCLES_PER_MS 200000u   /* SysTick counts core cycles @ 200 MHz */
-#define AP_SYST_MASK     0x00FFFFFFu
 #define AP_SYST_CSR      (*(volatile uint32_t *)0xE000E010u)
 #define AP_SYST_RVR      (*(volatile uint32_t *)0xE000E014u)
 #define AP_SYST_CVR      (*(volatile uint32_t *)0xE000E018u)
 
-static uint32_t s_tick_last;      /* previous CVR reading, masked */
-static uint32_t s_tick_cycles;    /* elapsed cycles, wraps included */
-static volatile unsigned s_tick_seq; /* SysTick handler heartbeat      */
+static volatile unsigned s_ms;       /* 1 ms counter, advanced by SysTick */
+static volatile unsigned s_tick_seq; /* SysTick handler heartbeat         */
 
 /* Wakes the WFI loop once per millisecond. Reading CSR clears COUNTFLAG. */
 void SysTick_Handler(void)
 {
     (void)AP_SYST_CSR;
+    s_ms++;
     s_tick_seq++;
+    /* BRNOMT-98: the SARADC is stepped here, one conversion per tick, so the
+     * main loop never busy-waits on it. The completed scan is picked up by
+     * keys_scan_take() in the loop. */
+    keys_scan_tick();
 }
 
 static unsigned ap_ms(void)
 {
-    uint32_t now = AP_SYST_CVR & AP_SYST_MASK;
-
-    s_tick_cycles += (s_tick_last - now) & AP_SYST_MASK;   /* down-counter */
-    s_tick_last = now;
-    return (unsigned)(s_tick_cycles / AP_CYCLES_PER_MS);
+    return s_ms;
 }
 
 static void ap_clock_init(void)
 {
-    AP_SYST_RVR = AP_SYST_MASK;
+    AP_SYST_RVR = AP_CYCLES_PER_MS - 1u;   /* exactly 1 ms @ 200 MHz      */
     AP_SYST_CVR = 0;
     AP_SYST_CSR = 7u;                /* CLKSOURCE | TICKINT | ENABLE        */
-    s_tick_last = AP_SYST_CVR & AP_SYST_MASK;
-    s_tick_cycles = 0;
+    s_ms = 0;
     input_set_clock(ap_ms);
+    /* BRNOMT-98: the DAC bring-up delays become real milliseconds instead of
+     * the loop-count estimate that overshoots several-fold. */
+    dac_delay_set_clock(ap_ms);
     log_init((log_clock_fn)ap_ms);
 }
 
@@ -635,7 +652,16 @@ static void usb_session(void)
     ui_invalidate_all();
 }
 
-static void open_files(void)    { browser_screen_set_root("/"); ui_push_screen(&browser_screen); }
+static void open_files(void)
+{
+    /* Keep the folder restored by the resume boot (and the navigation memory);
+     * only establish the BACK clamp. The first open starts at the root. */
+    if (browser_screen_state()->path[0] == '\0')
+        browser_screen_set_root("/");
+    else
+        browser_screen_set_root_keep_path("/");
+    ui_push_screen(&browser_screen);
+}
 static void open_player(void)   { ui_push_screen(&player_screen); }
 static void open_settings(void) { settings_screen_reload(); ui_push_screen(&settings_screen); }
 
@@ -646,6 +672,7 @@ static const char *keys_text(void)
     return buf;
 }
 
+#if AP_DEBUG_TOOLS
 /* Feed `seconds` of the 64-sample sine at 44.1 kHz through the polled I2S
  * FIFO. Returns dac_i2s_feed's rc (DAC_ERR_TIMEOUT = FIFO stopped
  * draining = no I2S clock); *frames_out = frames actually queued. */
@@ -706,6 +733,8 @@ static void dac_test_run(void)
         fmt.bits = 16;
         fmt.channels = 2;
         rc = audio_output_configure(&fmt);
+        if (rc == DAC_OK)
+            audio_output_fade_in();  /* configure starts silent when fade is on */
     }
 
     dac_get_hp_status(hp);
@@ -902,6 +931,7 @@ static void usb_console_run(void)
     usb_cdc_request_exit();
     usb_dwc2_stop();               /* host-visible disconnect, no stale EPs */
 }
+#endif /* AP_DEBUG_TOOLS */
 
 /* MSC on demand (was the automatic VBUS action; the console owns that now). */
 static void usb_storage_run(void)
@@ -915,14 +945,33 @@ static void usb_storage_run(void)
     usb_session();
 }
 
+#if AP_CDC_OVERLAY
+/* Menu action: load /Internal/.rechord/cdc.bin into 0x0304AE64 and run the
+ * CDC console. The UI is already initialized and Internal is mounted. */
+static void cdc_overlay_run(void)
+{
+    screen("CDC overlay");
+    line(1, "loading...");
+    display_flush_rows(0, DISPLAY_H - 1);
+    usb_dwc2_stop();           /* release the MSC/USB core before CDC */
+    (void)ap_cdc_overlay_run();
+    ui_invalidate_all();
+}
+#endif
+
 /* ---- System: the explicit diagnostic view (BRNOMT-72) -------------------- */
 /* Everything that used to clutter the root menu (hardware probes, USB console,
  * index maintenance) lives here. Same list mechanics as every other menu, but
  * with its own view: the shared menu_screen holds ONE model/view, so pushing it
  * twice would clobber the root's cursor. */
 static const menu_item_t k_sys_items[] = {
+#if AP_DEBUG_TOOLS
     { "DAC test",      NULL,       dac_test_run },
     { "USB console",   NULL,       usb_console_run },
+#endif
+#if AP_CDC_OVERLAY
+    { "CDC overlay",   NULL,       cdc_overlay_run },
+#endif
     { "Rebuild index", NULL,       index_rebuild_run },
     { "Index",         index_text, NULL },
     { "Keys",          keys_text,  NULL },
@@ -1101,6 +1150,25 @@ static void resume_poll(unsigned now, int force)
         }
     }
 
+    /* Playback list origin (folder/category), so the queue can be rebuilt on
+     * the next boot. The folder kind needs no value: the queue folder is the
+     * parent of the restored track. */
+    {
+        int qkind = 0;
+        int qcat = 0;
+        char qval[RESUME_QUEUE_VALUE_MAX];
+
+        player_get_queue_source(&qkind, qval, (int)sizeof qval, &qcat);
+        if (qkind != s_res.queue_kind || qcat != s_res.queue_cat ||
+            !text_eq(qval, s_res.queue_value)) {
+            s_res.queue_kind = qkind;
+            s_res.queue_cat = qcat;
+            text_copy(s_res.queue_value, (unsigned)sizeof s_res.queue_value,
+                      qval);
+            moved = 1;
+        }
+    }
+
     if (moved || force)
         s_res_due = force ? now : now + RESUME_QUIET_MS;
 
@@ -1119,23 +1187,107 @@ static void resume_poll(unsigned now, int force)
     }
 }
 
-/* BRNOMT-87: land where the user left off, per `resume`:
- *   off    -> plain root menu
- *   folder -> the browser at the saved folder/row
+/* Directory of a device path ("/SD/Music/t.flac" -> "/SD/Music"). */
+static int path_parent(const char *path, char *out, int cap)
+{
+    int i = (int)strlen(path);
+
+    if (path[0] != '/' || cap <= 1)
+        return -1;
+    while (i > 0 && path[i] != '/')
+        i--;
+    if (i <= 0) {
+        out[0] = '/';
+        out[1] = '\0';
+        return 0;
+    }
+    if (i >= cap)
+        i = cap - 1;
+    memcpy(out, path, (size_t)i);
+    out[i] = '\0';
+    return 0;
+}
+
+/* Rebuild the saved playback queue from the media index and load it with the
+ * current track at `start`, leaving the player STOPPED. Returns 1 on success.
+ * The list is identified by its origin (folder/category + value), not by a
+ * 2 KB dump of indices, so it survives index rebuilds. */
+static int restore_saved_queue(const resume_state_t *st)
+{
+    char folder[RESUME_FOLDER_MAX];
+    const uint16_t *list;
+    unsigned n = 0;
+    int start = -1;
+    int rc;
+
+    if (st->track[0] != '/')
+        return 0;
+    if (st->queue_kind == 1) {
+        if (path_parent(st->track, folder, (int)sizeof folder) != 0)
+            return 0;
+        if (mq_folder_init_start(folder, st->track, &start) != 0)
+            return 0;
+    } else if (st->queue_kind == 2) {
+        if (mq_filter_init_start(st->queue_cat,
+                                 st->queue_value[0] ? st->queue_value : 0,
+                                 st->track, &start) != 0)
+            return 0;
+    } else {
+        return 0;
+    }
+
+    list = mq_filter_indices(&n);
+    if (start < 0 || list == 0 || n == 0) {
+        mq_done();
+        return 0;
+    }
+    rc = player_load_list(list, (int)n, start);
+    mq_done();                       /* the player copied the indices */
+    return rc == PLAYER_OK;
+}
+
+/* BRNOMT-87: restore where the user left off, per `resume`:
+ *   off    -> nothing
+ *   folder -> the browser's saved folder/row (as state; boot stays on the
+ *             Main UI, and Files opens there)
  *   track  -> that, plus the last track opened at pos_ms
  * Never autoplays: the restored track is opened + seeked and left STOPPED
- * (shown as "Paused"); SELECT/PLAY resumes from there. */
+ * (shown as "Paused"); SELECT/PLAY resumes from there.
+ * BRNOMT-102: the old path pushed the browser here, so every boot landed in
+ * the File Explorer instead of the active theme's home. */
 static void resume_boot_restore(void)
 {
     resume_state_t st;
     int mode = settings_screen_get()->resume_mode;
+    int have_state = (resume_load(&st) == 0);
+    uint32_t seed;
+
+    if (!have_state)
+        resume_default(&st);
+
+    /* BRNOMT: the shuffle PRNG was never seeded, so every boot produced the
+     * same order (xs32's fixed fallback). Advance a persistent boot counter
+     * and seed from it, plus the boot ms/ADC noise as a second source. */
+    st.boot++;
+    seed = (uint32_t)(st.boot * 2654435761UL);
+    seed ^= (uint32_t)(ap_ms() + 1u) * 2246822519u;
+    seed ^= (uint32_t)(battery_mv() + 1) << 16;
+    player_seed_shuffle(seed);
+
+    /* Keep the counter even when resume is off; a later resume_poll save must
+     * carry it forward (s_res.boot), never write it back to zero. */
+    s_res.boot = st.boot;
+    if (have_state) {
+        if (resume_save(&st) != 0)
+            log_printf("resume: boot counter save failed");
+    } else {
+        log_printf("resume: no state file");
+    }
 
     if (mode <= 0)
         return;
-    if (resume_load(&st) != 0) {
-        log_printf("resume: no state file");
+    if (!have_state)
         return;
-    }
     /* Field diagnostics (numbers first so a long path cannot truncate them). */
     log_printf("resume: mode %d row %d pos %lu track '%s'",
                mode, st.row, st.pos_ms, st.track);
@@ -1144,15 +1296,25 @@ static void resume_boot_restore(void)
     if (st.folder[0] == '/') {
         browser_screen_set_root("/");
         browser_screen_open_at(st.folder, st.row);
-        ui_push_screen(&browser_screen);   /* land where the user was        */
-        log_printf("resume: browser '%s' row %d", st.folder, st.row);
+        /* Do NOT push: boot lands on the Main UI (BRNOMT-102). The folder and
+         * row stay loaded, so Files opens exactly where the user left off. */
+        log_printf("resume: browser state '%s' row %d", st.folder, st.row);
     }
     if (mode >= 2 && st.track[0] == '/') {
-        if (player_open(st.track) == PLAYER_OK) {
+        int restored = (st.queue_kind != 0) ? restore_saved_queue(&st) : 0;
+
+        if (restored) {
             if (st.pos_ms > 0)
                 (void)player_seek((long)st.pos_ms);
+            player_set_queue_source(st.queue_kind,
+                                    st.queue_kind == 2 ? st.queue_value : "",
+                                    st.queue_cat);
             /* Deliberately NOT pushing Now Playing: the user lands on the
-             * browser/menu and SELECT resumes from the saved position. */
+             * home and SELECT resumes from the saved position. */
+            log_printf("resume: queue restored, paused");
+        } else if (player_open(st.track) == PLAYER_OK) {
+            if (st.pos_ms > 0)
+                (void)player_seek((long)st.pos_ms);
             log_printf("resume: track loaded, paused");
         } else {
             log_printf("resume: open failed '%s'", st.track);
@@ -1165,7 +1327,24 @@ static void resume_boot_restore(void)
     text_copy(s_res.folder, (unsigned)sizeof s_res.folder, st.folder);
     s_res.pos_ms = st.pos_ms;
     s_res.row = st.row;
+    s_res.queue_kind = st.queue_kind;
+    s_res.queue_cat = st.queue_cat;
+    text_copy(s_res.queue_value, (unsigned)sizeof s_res.queue_value,
+              st.queue_value);
     s_res_saved_ms = ap_ms();
+}
+
+/* BRNOMT-105 follow-up: the Now Playing play/pause line tracks the player
+ * state at the transition itself. The 10 Hz poll below only runs while the
+ * player screen is on top, and the fade blocks the loop right after a pause,
+ * so relying on the poll alone let the screen keep saying "Playing". */
+static void player_state_changed(int ev, void *user)
+{
+    (void)user;
+    if (ev == PLAYER_EV_TRACK)
+        s_art_dirty = 1;              /* cover lookup, deferred to the loop */
+    if (ev == PLAYER_EV_STATE || ev == PLAYER_EV_TRACK)
+        player_screen_sync_state();
 }
 
 void ap_ui_loop(void)
@@ -1177,6 +1356,8 @@ void ap_ui_loop(void)
     player_set_resolver(media_resolve);   /* BRNOMT-90: list index -> path */
     mq_set_pump(player_process);  /* keep audio fed during library scans */
     ui_init();
+    /* After ui_init(): the hook invalidates the Now Playing rows. */
+    player_set_callback(player_state_changed, 0);
     ap_clock_init();     /* ms clock for the input hold ladder */
     /* Active package: the cfg `theme=` id wins; older configs (no key) fall
      * back to /.rechord/active_theme, then to Mono. Settings reload first
@@ -1205,6 +1386,7 @@ void ap_ui_loop(void)
     player_set_volume(settings_screen_get()->volume_db);
     player_set_shuffle(settings_screen_get()->shuffle);           /* BRNOMT-90 */
     player_set_repeat(settings_screen_get()->repeat_mode);
+    player_set_fade_ms(settings_screen_get()->fade_ms);           /* BRNOMT-67 */
     player_screen_set_volume(player_get_volume());
     s_volume_seen = player_get_volume();
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */
@@ -1236,18 +1418,35 @@ void ap_ui_loop(void)
         s_loop_seq = s_tick_seq;
         now = ap_ms();
 
-        /* The SARADC triple conversion is ~600 us of busy-wait. Sample it at
-         * 5 ms, not on every pass; the hold ladder is already time-based. */
+        /* BRNOMT-98: the SARADC is stepped from the SysTick hook, so this only
+         * collects a finished scan at the same 5 ms cadence; it never waits on
+         * the converter. If the async sampler ever stops completing, fall back
+         * to the old blocking triple conversion (which also pauses the
+         * sampler's use of the shared ADC). */
         if ((unsigned)(now - s_keys_ms) >= KEYS_SCAN_MS) {
-            s_keys_ms = now;
-            s_key_adc = keys_adc();
-            s_key_power = keys_power();
-            sampled = 1;
-            /* 5 ms samples: 3 samples = 15 ms. The old 8-sample debounce was
-             * tuned for a much faster scan and became a 40 ms delay here
-             * (quick vol taps never registered in lists). */
-            input_set_vol_debounce(3);
-            input_scan(s_key_adc, s_key_power);
+            int adc = 0;
+            int pw = 0;
+
+            if (!s_keys_fallback && keys_scan_take(&adc, &pw)) {
+                s_keys_ms = now;
+                s_key_adc = adc;
+                s_key_power = pw;
+                sampled = 1;
+                /* 5 ms samples: 3 samples = 15 ms (unchanged debounce). */
+                input_set_vol_debounce(3);
+                input_scan(s_key_adc, s_key_power);
+            } else if (!s_keys_fallback && keys_scan_failed()) {
+                s_keys_fallback = 1;
+                log_printf("keys: async scan failed, polling fallback");
+            }
+            if (s_keys_fallback) {
+                s_keys_ms = now;
+                s_key_adc = keys_adc();
+                s_key_power = keys_power();
+                sampled = 1;
+                input_set_vol_debounce(3);
+                input_scan(s_key_adc, s_key_power);
+            }
         }
         cable = usb_cable();
 
@@ -1317,16 +1516,34 @@ void ap_ui_loop(void)
              * not light the panel. Only a short Power press (or unlocking
              * Hold / USB insertion) wakes it. */
             if (ev.type == KEY_MENU) {
-                while (ui_stack_depth() > 1)
+                /* BRNOMT-105: MENU opens Quick settings instead of jumping
+                 * to the root. MENU again (or BACK) closes whichever quick
+                 * overlay is on top. A dark panel wakes first.
+                 *
+                 * ONE ACTION PER PHYSICAL PRESS: the scanner also delivers
+                 * LONG/REPEAT/RELEASE for the same key, so toggling on every
+                 * event closed the overlay on the release of a short tap and
+                 * flickered (and left it open) on a long press. */
+                if (ev.kind != INPUT_PRESS)
+                    continue;
+                if (s_screen_off)
+                    screen_wake();
+                if (ui_top_screen() == &quick_playlist_screen ||
+                    ui_top_screen() == &quick_screen)
                     ui_pop_screen();
+                else
+                    (void)ui_push_screen(&quick_screen);
             } else {
                 theme_ui_note_input();
                 ui_handle_event(&ev);
             }
         }
 
-        /* Short power = screen off/on; ~2 s = power off. */
-        pev = power_hold_step(s_key_power, now);
+        /* Short power = screen off/on; ~2 s = power off. Only on a fresh key
+         * sample: the debounce counts samples, so calling this every 1 ms pass
+         * would turn its 3-sample (15 ms) debounce into 3 ms. The HOLD check
+         * is time-based, so a 5 ms cadence still fires it on time. */
+        pev = sampled ? power_hold_step(s_key_power, now) : POWER_EV_NONE;
         if (pev == POWER_EV_HOLD) {
             resume_poll(now, 1);       /* persist the last position first */
             settings_screen_store();
@@ -1435,6 +1652,22 @@ void ap_ui_loop(void)
                 (void)player_process();
         } else {
             (void)player_process();
+        }
+
+        /* Album art for the new track. Deliberately AFTER the pump: a gapless
+         * boundary has ~85 ms of ring cover, and this reads the pack header,
+         * the key-table CRC and a binary search (a handful of sectors). It
+         * never runs with the panel off; the current track is looked up once
+         * on wake. */
+        if (s_art_dirty && !s_screen_off) {
+            track_info_t ti;
+
+            s_art_dirty = 0;
+            if (player_get_track(&ti) == PLAYER_OK)
+                (void)art_pack_set_track(ti.path);
+            else
+                art_pack_clear();
+            ui_invalidate_all();      /* cover + art_* palette changed */
         }
 
         /* Only the visible screen needs a UI refresh; a dark panel skips all

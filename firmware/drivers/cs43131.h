@@ -88,6 +88,11 @@ void dac_volume_set(uint8_t atten);              /* = ref FUN_03055f28    */
  * (step 6 codes = 3 dB, 2 ms apart, click-free fade). */
 void dac_volume_ramp(uint8_t from, uint8_t to);  /* = ref FUN_03055f48    */
 
+/* Same 6-code step, but spread over `ms` milliseconds (BRNOMT-67). Used by
+ * the play/pause fade so its duration is the user setting, not the fixed
+ * 2 ms/step of the stock volume ramp. ms == 0 jumps to the target. */
+void dac_volume_ramp_ms(uint8_t from, uint8_t to, unsigned ms);
+
 /* GPIO power/reset sequence (ref FUN_03056550 entry). */
 void dac_power_sequence(void);
 

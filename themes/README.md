@@ -185,6 +185,7 @@ Meter types:
 | `roundrect` | `x y w h r color` (filled, true corner arcs) |
 | `triangle` | `x1 y1 x2 y2 x3 y3 color` (filled; degenerate = no draw) |
 | `bitmap` | `asset x y color bg` (asset dimensions become `aw`/`ah`) |
+| `art` | `x y size color` (`size=small\|large`; RGB565 cover from ARTPACK.BIN, `color` tints the placeholder) |
 | `text` | `x y text color bg` |
 | `bar` | `x y w h value max color bg` |
 | `list` | `axis x y height selected rows source prev next item0..item3` |
@@ -225,6 +226,7 @@ Strings concatenate with `+` and ints are converted (`pl_i + "/" + pl_n`).
 | `playing`, `paused`, `stopped` | player state bits |
 | `volume` | volume dB |
 | `battery` | battery %, -1 unknown |
+| `art_ok`, `art_c1`, `art_c2`, `art_mean`, `art_accent` | cover availability + palette (RGB565), from ARTPACK.BIN |
 | `title`, `artist`, `album`, `path` | current track metadata |
 | `heading` | screen title/path (Library, Settings, browser path, category) |
 | `state` | `"Playing"` / `"Paused"` / `"Stopped"` |
@@ -250,9 +252,15 @@ power is global.
 Bounded by design: 4 KiB skin text, 32 sections, 12 properties/section,
 144-byte values, expression recursion depth 12, 2048 evaluation steps.
 
+Masks compose: a slanted cut (a lower lid, a roof) bounds a trapezoid, so it
+needs a `fill` for the area below the low end plus a `triangle` for the wedge
+above it. A single triangle covering a slanted edge leaves the opposite corner
+of the shape visible. Companion Bot's `happy_left`/`happy_left_body` pair is the
+working example.
+
 ## Assets
 
 1-bit raw rows, MSB-first. `theme.cfg` declares the width/height and the file.
 The cache holds up to 1 KiB; a declared-but-unreadable asset rejects the whole
 package (no half-themed home). Assets are optional: Companion Bot is vector
-(`roundrect` + `triangle`) exactly like the reference.
+(`roundrect` + `triangle` masks) exactly like the reference.

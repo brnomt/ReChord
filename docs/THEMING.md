@@ -188,6 +188,7 @@ item2=SETTINGS:settings
 | `roundrect` | `x y w h r color` (filled, true corner arcs) |
 | `triangle` | `x1 y1 x2 y2 x3 y3 color` (filled; degenerate = no draw) |
 | `bitmap` | `asset x y color bg` (asset dimensions become `aw`/`ah`) |
+| `art` | `x y size` (`small`\|`large`) `color` (placeholder tint, default `surface`) |
 | `text` | `x y text color bg` |
 | `bar` | `x y w h value max color bg` |
 | `list` | `axis x y height selected rows source prev next item0..item3` |
@@ -276,6 +277,9 @@ The UI adapter fills a read-only `theme_skin_state_t` before drawing:
 | `playing` / `paused` / `stopped` | 0/1 | `player_get_state()` |
 | `volume` | dB | `player_get_volume()` |
 | `battery` | % | `battery_percent()`, `-1` when unknown |
+| `art_ok` | 0/1 | the current track has a cover in `ARTPACK.BIN` |
+| `art_c1` / `art_c2` | RGB565 | cover dominant / secondary colour |
+| `art_mean` / `art_accent` | RGB565 | cover mean / most colourful colour |
 | `title` | string | `player_get_track().title` |
 | `artist` | string | `player_get_track().artist` |
 | `album` | string | `player_get_track().album` |
@@ -359,6 +363,61 @@ color=text_dim
 
 String concatenation with `+` keeps the expression self-contained.
 Missing values are empty strings / 0, never a crash.
+
+### Example: album art + cover colours
+
+The device does no image decoding: the PC tool (`tools/artpack`, see
+`docs/ART_PACK.md`) precomputes a large (120x120 default) and a small (48x48)
+RGB565 cover per track plus a palette. `art` streams the current track's cover
+from `/Internal/.rechord/ARTPACK.BIN`; when the track has no cover (or the pack
+is missing) it draws a filled rounded rect in `color` (default `surface`), so
+the layout never jumps.
+
+```
+[backdrop]
+type=fill
+x=0
+y=0
+w=W
+h=H
+color=art_c1
+visible=art_ok
+
+[cover]
+type=art
+x=8
+y=8
+size=large
+
+[title]
+type=text
+x=136
+y=24
+text=title
+color=text
+
+[artist]
+type=text
+x=136
+y=38
+text=artist
+color=text_dim
+
+[accent_rule]
+type=fill
+x=136
+y=54
+w=W - 144
+h=2
+color=art_accent
+visible=art_ok
+```
+
+`art_c1`/`art_c2` (and `art_mean`/`art_accent`) are plain RGB565 integers, so
+they work anywhere a colour expression does (`color=`, `bg=`,
+`visible=art_ok`). A static skin (no `refresh_ms`) draws the cover once; an
+animated skin whose refresh band covers the `art` meter re-streams it on every
+refresh, which costs sectors — keep covers outside the animated band.
 
 ---
 

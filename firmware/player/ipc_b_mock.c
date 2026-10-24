@@ -159,6 +159,11 @@ int ipc_b_set_volume(int db)
     return 0;
 }
 
+void ipc_b_set_fade_ms(int ms)
+{
+    (void)ms;                       /* host mock has no DAC fade */
+}
+
 static void mock_consume(void)
 {
     int32_t chunk[MOCK_SINK_CHUNK_FRAMES * 2];

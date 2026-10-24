@@ -44,12 +44,35 @@ plays audio on hardware:
   UTF-8 text, dual `INDEX.A`/`INDEX.B` slots) — an index built by an older
   firmware is ignored, so **rebuild it once from the menu** after flashing.
 - **Playback lists**: album/genre/folder queue with Rockbox-style shuffle and
-  repeat off/all/one (config keys `shuffle`, `repeat_mode`; 14-key schema),
+  repeat off/all/one (config keys `shuffle`, `repeat_mode`; 15-key schema),
   applied to the player immediately and preserved when a new list starts.
+  Settings is grouped into **Playing** (Volume, Shuffle, Repeat, Resume,
+  Fade) and **Interface** (Theme); `fade` is off/150/300/500 ms and applies
+  to play/pause/resume.
 - **Resume**: the last track + position and the browser folder/row live in
   `/.rechord/state` (separate from the config, rewritten in place); the
   `resume` setting (off/folder/track) decides what is restored at boot. It
-  opens paused — never autoplays.
+  opens paused — never autoplays. The playback queue is persisted by origin
+  (folder, or media category + value) and rebuilt from the media index at
+  boot, so next/prev keep working. The folder/row are restored as browser
+  state (Files opens there), but boot stays on the active theme's home
+  (BRNOMT-102).
+- **Album art (read-only, no decoding)**: `tools/artpack` (PC, Pillow+mutagen)
+  precomputes a 120x120 and a 48x48 RGB565 cover plus a palette per track and
+  writes `/Internal/.rechord/ARTPACK.BIN`; the firmware only reads it
+  (`firmware/services/art_pack.c`). Themes get the `art` meter (streamed
+  through one sector buffer, clipped) and the `art_ok`/`art_c1`/`art_c2`/
+  `art_mean`/`art_accent` variables; missing art falls back to a placeholder.
+  Format and costs: `docs/ART_PACK.md`.
+- **Quick settings**: MENU opens an overlay with Shuffle, Repeat and Playlist
+  (BRNOMT-105). The playlist view is the live queue, marks the current track
+  and SELECT jumps to/plays the chosen entry. MENU or BACK closes it; MENU
+  acts once per physical press (LONG/RELEASE are ignored, so a long press
+  neither flickers nor leaves the overlay open).
+- **System menu**: the diagnostics info rows (Index, Keys, eMMC, SD, USB)
+  stay. The DAC test and USB CDC console are debug-only
+  (`make ... AP_DEBUG_TOOLS=1`) because they cost ~3 KB of code and the AP
+  code must end below `LOADER_CODE_BASE 0x03088000` (DFIU `51cc212d`).
 - **Memory** (vendor `B_Core.sct` + TRM): B code in HIGHRAM0
   `0x01000000..0x01020000`; control block `0x01020000`; A→B file ring
   `0x01021000` (32 KiB) + **pre-open ring** `0x01029000` (16 KiB); PCM ring

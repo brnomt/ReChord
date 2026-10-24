@@ -62,6 +62,7 @@ static void check_sample_values(const settings_t *s)
     CHECK(s->cursor == 0);
     CHECK(strcmp(s->shuffle, "off") == 0);       /* BRNOMT-90 */
     CHECK(strcmp(s->repeat_mode, "off") == 0);
+    CHECK(strcmp(s->fade, "300") == 0);          /* BRNOMT-67 */
 }
 
 static void check_same(const settings_t *a, const settings_t *b)
@@ -80,6 +81,7 @@ static void check_same(const settings_t *a, const settings_t *b)
     CHECK(a->cursor == b->cursor);
     CHECK(strcmp(a->shuffle, b->shuffle) == 0);
     CHECK(strcmp(a->repeat_mode, b->repeat_mode) == 0);
+    CHECK(strcmp(a->fade, b->fade) == 0);
 }
 
 static void write_cfg(const char *content)
@@ -169,6 +171,7 @@ static void test_sample_round_trip(void)
     CHECK(strstr(text, "cursor=0\n") != NULL);
     CHECK(strstr(text, "shuffle=off\n") != NULL);      /* BRNOMT-90 */
     CHECK(strstr(text, "repeat_mode=off\n") != NULL);
+    CHECK(strstr(text, "fade=300\n") != NULL);         /* BRNOMT-67 */
     CHECK(strstr(text, "\nplay=") < strstr(text, "\nbrightness="));
     CHECK(strstr(text, "\nbrightness=") < strstr(text, "\nscreen_off="));
     CHECK(strstr(text, "\nscreen_off=") < strstr(text, "\nauto_off="));
@@ -182,6 +185,7 @@ static void test_sample_round_trip(void)
     CHECK(strstr(text, "\nbrowse=") < strstr(text, "\ncursor="));
     CHECK(strstr(text, "\ncursor=") < strstr(text, "\nshuffle="));
     CHECK(strstr(text, "\nshuffle=") < strstr(text, "\nrepeat_mode="));
+    CHECK(strstr(text, "\nrepeat_mode=") < strstr(text, "\nfade="));
 }
 
 static void test_tolerance(void)
@@ -199,6 +203,7 @@ static void test_tolerance(void)
         "brightness=15\n"                /* duplicate: last one wins */
         "no_equals_sign_here\n"
         "  volume = -7  \n"              /* whitespace around key and value */
+        "fade=500\n"
         "browse=/MUSIC/Album\n"
         "this_line_is_far_too_long_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -208,6 +213,7 @@ static void test_tolerance(void)
     CHECK(strcmp(s.play, "repeat_track") == 0);
     CHECK(s.brightness == 15);           /* not 99: over-long line ignored */
     CHECK(s.volume == -7);
+    CHECK(strcmp(s.fade, "500") == 0);
     CHECK(strcmp(s.browse, "/MUSIC/Album") == 0);
     /* untouched keys keep defaults */
     CHECK(s.screen_off_min == 30);

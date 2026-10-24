@@ -96,10 +96,20 @@ void display_bitmap1(int x, int y, int w, int h, int stride,
 void display_flush_rows(int y0, int y1);
 
 /*
- * Fill the whole framebuffer with 'rgb565'. Framebuffer only -- flush
- * to make visible.
+ * Fill the whole framebuffer with 'rgb565'. Framebuffer only -- flush to make
+ * visible.
  */
 void display_clear(uint16_t rgb565);
+
+/*
+ * Copy `w` RGB565 pixels into framebuffer row `y`, starting at column `x`.
+ * The source is one row segment (native uint16_t, i.e. the same layout
+ * display_fb uses). Both ends are clipped: pixels left of 0 or right of
+ * DISPLAY_W-1 are skipped, and an off-screen row is a no-op. This is the
+ * streaming hook for image data (album art) that is decoded/read row by row —
+ * it never allocates and never buffers the whole image.
+ */
+void display_blit_span(int x, int y, int w, const uint16_t *src);
 
 /*
  * Panel power-on init sequence: emits the DCS command stream extracted

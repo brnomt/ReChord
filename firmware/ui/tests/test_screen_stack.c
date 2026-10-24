@@ -55,14 +55,16 @@ void test_screen_stack(void)
     CHECK_EQ_INT(s_enter[0], 2);
     CHECK_EQ_INT(s_exit[0], 0);
 
-    /* stack overflow: depth capped at UI_STACK_MAX */
+    /* stack overflow: depth capped at UI_STACK_MAX (6) */
     CHECK(ui_push_screen(&screen_b));
     CHECK(ui_push_screen(&screen_c));
     CHECK(ui_push_screen(&screen_a));
+    CHECK(ui_push_screen(&screen_b));
+    CHECK(ui_push_screen(&screen_c));
     CHECK_EQ_INT(ui_stack_depth(), UI_STACK_MAX);
-    CHECK(!ui_push_screen(&screen_b));       /* full: refused */
+    CHECK(!ui_push_screen(&screen_a));       /* full: refused */
     CHECK_EQ_INT(ui_stack_depth(), UI_STACK_MAX);
-    CHECK(ui_top_screen() == &screen_a);
+    CHECK(ui_top_screen() == &screen_c);
 
     /* drain */
     while (ui_stack_depth() > 0)
@@ -73,14 +75,14 @@ void test_screen_stack(void)
 
     /* every screen left the stack exactly as often as it was pushed
      * (re-enter on pop of the covering screen adds enters on purpose):
-     * A pushed 2x, B pushed 2x, C pushed 1x */
+     * A pushed 2x, B pushed 3x, C pushed 2x */
     CHECK_EQ_INT(s_exit[0], 2);
-    CHECK_EQ_INT(s_exit[1], 2);
-    CHECK_EQ_INT(s_exit[2], 1);
-    /* enters = pushes + re-enters: A 2+2, B 2+1, C 1+1 */
-    CHECK_EQ_INT(s_enter[0], 4);
-    CHECK_EQ_INT(s_enter[1], 3);
-    CHECK_EQ_INT(s_enter[2], 2);
+    CHECK_EQ_INT(s_exit[1], 3);
+    CHECK_EQ_INT(s_exit[2], 2);
+    /* enters = pushes + re-enters: A 2+3, B 3+2, C 2+1 */
+    CHECK_EQ_INT(s_enter[0], 5);
+    CHECK_EQ_INT(s_enter[1], 5);
+    CHECK_EQ_INT(s_enter[2], 3);
 
     /* BRNOMT-69: replace a covered screen without disturbing the top one
      * (the theme picker swaps the home renderer under open Settings). */

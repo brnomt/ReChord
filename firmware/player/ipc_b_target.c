@@ -314,18 +314,14 @@ int ipc_b_init(void)
 static int b_seek_now(long ms)
 {
     uint32_t seq;
-    int i;
 
     CTRL[IPC_C_ARG] = (uint32_t)ms;
     dmb();
     seq = cmd_start(IPC_C_SEEK);
-    for (i = 0; i < 500; i++) {          /* ~500 ms: file service repositions */
-        bfs_poll();
-        if (CTRL[IPC_C_ACK] == seq)
-            return 0;
-        dac_delay_ms(1);
-    }
-    return -1;
+    /* BRNOMT-98: real milliseconds on the log clock, tight polling and the
+     * file service pumped -- the old 500 x dac_delay_ms(1) loop overshot by
+     * several-fold on top of throttling the very seek it waited for. */
+    return b_wait_ack(seq, 300UL);
 }
 
 int ipc_b_start(const ipc_b_track_t *track)
@@ -373,23 +369,39 @@ int ipc_b_start(const ipc_b_track_t *track)
             else
                 log_printf("ipc: start at %ld ms", track->start_ms);
         }
+        /* BRNOMT-98: let Core B pre-buffer the PCM ring while the AP runs the
+         * DAC bring-up. The delay pump below keeps B's A->B file ring fed, so
+         * the first I2S feed finds data instead of counting an underrun. */
+        sh_set(IPC_SH_STATE, IPC_SH_RUN);
     }
 
     /* The AP owns the DAC/I2S bring-up in both cases. */
     fmt.sample_rate = (uint32_t)track->sample_rate;
     fmt.bits = (uint8_t)track->bits;
     fmt.channels = (uint8_t)track->channels;
-    if (audio_output_configure(&fmt) != 0) {
-        g_state = IPC_B_FAULT;
-        sh_set(IPC_SH_STATE, IPC_SH_IDLE);
-        return -1;
+    dac_delay_set_pump(bfs_poll);       /* keep B decoding through the waits */
+    {
+        unsigned long t0 = log_now_ms();
+        int rc = audio_output_configure(&fmt);
+
+        log_printf("audio: configure %lu ms%s", log_now_ms() - t0,
+                   rc != 0 ? " fail" : "");
+        if (rc != 0) {
+            dac_delay_set_pump(0);
+            g_state = IPC_B_FAULT;
+            sh_set(IPC_SH_STATE, IPC_SH_IDLE);
+            return -1;
+        }
     }
     audio_output_start(0);              /* serializer on (XFER) */
     rknano_i2s_attach(shared_pull, 0);  /* AP ISR drains the ring */
     rknano_i2s_kick();
     audio_output_fade_in();
+    dac_delay_set_pump(0);
 
-    sh_set(IPC_SH_STATE, IPC_SH_RUN);   /* B starts decoding on RUN */
+    sh_set(IPC_SH_STATE, IPC_SH_RUN);   /* idempotent if B pre-buffered */
+    log_printf("ipc: prebuffer %ld frames",
+               (long)(CTRL[IPC_SH_WR] - CTRL[IPC_SH_RD]) / 8);
     g_state = IPC_B_RUNNING;
     return 0;
 }
@@ -410,7 +422,7 @@ int ipc_b_stop(void)
     }
     rknano_i2s_detach();
     sh_set(IPC_SH_STATE, IPC_SH_IDLE);
-    audio_output_fade_out();
+    audio_output_quick_mute();          /* stop/track change: no user fade */
     audio_output_stop();
     audio_output_clear_played();
     bfs_close();
@@ -428,11 +440,32 @@ int ipc_b_pause(int paused)
         return -1;
 
     g_paused = paused ? 1 : 0;
-    if (g_paused)
+    if (g_paused) {
+        /* The fade blocks the loop; keep Core B's file ring fed so the ring
+         * does not run dry during the fade (300-500 ms > ring cover at 96k). */
+        dac_delay_set_pump(bfs_poll);
         audio_output_fade_out();
+        dac_delay_set_pump(0);
+        /* Stop draining the PCM ring while paused. The TX ISR masks its
+         * source when it finds the ring dry, and a resume that only flips B
+         * back to RUN leaves the feeder dead if B has nothing to write yet
+         * (e.g. it was pre-opened/between tracks): the player then reports
+         * PLAYING with no audio. Holding keeps the pending frames for an
+         * instant, gap-free resume. */
+        rknano_i2s_hold(1);
+    }
     sh_set(IPC_SH_STATE, g_paused ? IPC_SH_PAUSE : IPC_SH_RUN);
-    if (!g_paused)
+    if (!g_paused) {
+        dac_delay_set_pump(bfs_poll);
         audio_output_fade_in();
+        dac_delay_set_pump(0);
+        /* Unmask + kick once the stream has had the fade to refill the ring
+         * (the ISR masks itself again on a still-dry ring; B re-arms it on
+         * its next write). */
+        rknano_i2s_hold(0);
+    }
+    log_printf("ipc: pause %d ring %ld", paused ? 1 : 0,
+               (long)(CTRL[IPC_SH_WR] - CTRL[IPC_SH_RD]) / 8);
     return 0;
 }
 
@@ -441,6 +474,11 @@ int ipc_b_set_volume(int db)
     audio_output_set_volume_db(db);
     g_volume_db = db;
     return 0;
+}
+
+void ipc_b_set_fade_ms(int ms)
+{
+    audio_output_set_fade_ms(ms);
 }
 
 int ipc_b_poll_state(ipc_b_status_t *out)

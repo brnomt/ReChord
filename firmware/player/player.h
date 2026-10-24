@@ -133,6 +133,12 @@ long  player_get_position_ms(void);
 int   player_set_volume(int db);
 int   player_get_track(track_info_t *out);
 
+/* BRNOMT-67: play/pause fade duration in milliseconds (0 = off). */
+void  player_set_fade_ms(int ms);
+
+/* Seed the shuffle PRNG (per-boot seed; 0 falls back to a fixed constant). */
+void  player_seed_shuffle(uint32_t seed);
+
 /* ---- extensions (UI glue / host tests) ---- */
 
 /* Register `codec` for files with extension `ext` ("wav", "mp3", ...).
@@ -153,6 +159,32 @@ void  player_set_resolver(int (*fn)(uint16_t idx, char *path, int cap));
  * plays; on end-of-stream the player advances within the list. Returns
  * PLAYER_OK or a negative code. */
 int   player_play_list(const uint16_t *idx, int n, int start);
+
+/* Load a list and open its start track, leaving the player STOPPED (resume
+ * boot: the queue is restored without autoplay). Returns PLAYER_OK or < 0. */
+int   player_load_list(const uint16_t *idx, int n, int start);
+
+/* Queue source, persisted by the app so the list can be rebuilt after a
+ * reboot. FOLDER uses the resume folder; CAT uses `value` (album/artist/...)
+ * and `cat` (media_query MQ_*). */
+#define PLAYER_QUEUE_VALUE_MAX 32
+enum {
+    PLAYER_QUEUE_NONE = 0,
+    PLAYER_QUEUE_FOLDER,
+    PLAYER_QUEUE_CAT
+};
+void  player_set_queue_source(int kind, const char *value, int cat);
+void  player_get_queue_source(int *kind, char *value, int cap, int *cat);
+
+/* Current queue, for the Quick settings playlist view. `position` is 0-based
+ * (-1 when empty). `title` resolves the record index and returns the filename
+ * title; the caller falls back to "Track N" when it returns < 0. */
+int   player_list_count(void);
+int   player_list_position(void);
+int   player_list_title(int index, char *buf, int cap);
+/* Jump to list position `index` and play it (0-based). Keeps the list and its
+ * queue origin. Returns PLAYER_OK or < 0. */
+int   player_play_at(int index);
 
 /* Rockbox-style shuffle: reorders the list (current track kept playing).
  * Repeat: PLAYLIST_REPEAT_OFF/ALL/ONE (see playlist.h). */

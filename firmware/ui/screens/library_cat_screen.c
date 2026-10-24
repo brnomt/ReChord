@@ -179,6 +179,7 @@ static void cat_play(int idx)
     if (player_play_list(list, (int)n, idx) == PLAYER_OK) {
         track_info_t ti;
 
+        player_set_queue_source(PLAYER_QUEUE_CAT, s_cat.value, s_cat.cat);
         player_screen_set_status(NULL);
         if (player_get_track(&ti) == PLAYER_OK)
             player_screen_set_track(ti.title,

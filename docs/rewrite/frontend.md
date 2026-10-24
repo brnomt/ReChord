@@ -36,7 +36,7 @@ RKNanoC's dual Cortex-M3 environment and host-testable with mock backends.
 |   +-----------------+   +------------------+   +---------------------+ |
 |   | event loop      |   | screen stack     |   | redraw model        | |
 |   | ui_run/         |   | push/pop/top     |   | dirty row bands ->  | |
-|   | ui_handle_event |   | (depth 4)        |   | display_flush_rows  | |
+|   | ui_handle_event |   | (depth 6)        |   | display_flush_rows  | |
 |   +--------+--------+   +--------+---------+   +----------+----------+ |
 |            |                     |                        |            |
 |            v                     v                        v            |
@@ -52,7 +52,7 @@ RKNanoC's dual Cortex-M3 environment and host-testable with mock backends.
 |           v                                                              |
 |  +---------------------+    +---------------------+                      |
 |  | settings_schema.c/h |    | tests/              |   HOST ONLY          |
-|  | 12-key schema table |    | mock_display (log)  |                      |
+|  | 15-key schema table |    | mock_display (log)  |                      |
 |  | names/values/offsets|    | mock_services       |                      |
 |  +---------------------+    | 5 test suites       |                      |
 |                             +---------------------+                      |
@@ -68,15 +68,16 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
 
 | File | Role |
 |---|---|
-| `ui.h` / `ui.c` | UI core: event loop skeleton (`ui_run/ui_quit`), screen stack (`ui_push_screen/ui_pop_screen`, depth 4, enter/exit/re-enter hooks), redraw model (`ui_invalidate*`, sorted+merged dirty row bands, coalesced flushes) |
+| `ui.h` / `ui.c` | UI core: event loop skeleton (`ui_run/ui_quit`), screen stack (`ui_push_screen/ui_pop_screen`, depth 6, enter/exit/re-enter hooks), redraw model (`ui_invalidate*`, sorted+merged dirty row bands, coalesced flushes) |
 | `theme.h` | Colors (RGB565), font metrics (6x11 class: 6 px advance, 11 px glyph, 12 px line pitch, +1 px text offset), spacing/layout constants |
-| `settings_schema.h` / `settings_schema.c` | The 12-key config schema: `rechord_settings_t`, per-key table (name, kind, field offset, options/range), defaults (seeded from observed device values), cycle/format helpers |
+| `settings_schema.h` / `settings_schema.c` | The 15-key config schema: `rechord_settings_t`, per-key table (name, kind, field offset, options/range), defaults (seeded from observed device values), cycle/format helpers |
 | `screens/screens.h` | Public API of all screens (control functions + state introspection) |
 | `screens/boot_screen.c` | ReChord branding (own wordmark rendering, 1 px weight pass), version, divider, printf-style status lines at 12 px pitch (id × 12 px contract) |
 | `screens/menu_screen.c` | Generic list menu (title + scrollable items + selection + right-aligned values) AND the shared navigation/rendering helpers (`menu_view_move`, `menu_draw`, `menu_draw_item`) reused by the other lists |
 | `screens/browser_screen.c` | File browser over `fs_list_dir()` (names + counts only): window = one visible page fetched at the view top, cursor wrap-around, enter-dir/back path handling clamped at a configured root with the parent cursor restored on BACK, footer counts |
 | `screens/player_screen.c` | Now-playing skeleton: track title, progress bar, times, volume bar (-60..0 dB), play/pause toggle |
-| `screens/settings_screen.c` | Binds the 12 schema keys to a menu (label = key name, value = formatted config value), SELECT cycles values, BACK saves via `settings_save()`. Also owns runtime-state writes: `settings_screen_volume_changed()` adopts the player's volume into the view and arms a deferred save; `settings_screen_flush_pending()` writes it once the value has been quiet for `SETTINGS_FLUSH_QUIET_MS` (the caller passes its clock — ap_ui's loop) so a volume sweep is one write; `settings_screen_store()` covers any pending flush (BACK, power-off) |
+| `screens/settings_screen.c` | Categorized settings: the top level lists **Playing** (Volume, Shuffle, Repeat, Resume, Fade) and **Interface** (Theme); SELECT pushes `settings_group_screen`, which cycles the wired schema values and returns on BACK. The System diagnostics menu stays in the root. Also owns runtime-state writes: `settings_screen_volume_changed()` adopts the player's volume into the view and arms a deferred save; `settings_screen_flush_pending()` writes it once the value has been quiet for `SETTINGS_FLUSH_QUIET_MS`; `settings_screen_store()` covers any pending flush (BACK, power-off) |
+| `screens/quick_screen.c` | MENU overlay (BRNOMT-105): Shuffle, Repeat and Playlist. The modes are applied and persisted immediately; Playlist lists the live queue with the current track marked and SELECT jumps to/plays the chosen entry |
 | `internal/hal.h` | The single include door to display + services |
 | `internal/shims/*.h` | **TEMPORARY** forward headers (`display.h`, `input.h`, `settings.h`, `log.h`, `fs.h`) — declarations only, delete when the real headers land |
 | `tests/` | Host tests with MOCK display backend (records every draw call) and mock services (input queue, log capture, in-memory settings, fake fs tree) |
@@ -107,6 +108,11 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
   still inside the first 3 s; SELECT = play/pause. Listings act on
   PRESS/REPEAT only; the app loop forwards all four event kinds so the player
   screen can also see LONG/RELEASE.
+- **MENU acts once per press** (BRNOMT-105): the app loop handles the Quick
+  settings overlay on `INPUT_PRESS` only. The scanner also delivers LONG and
+  RELEASE for the same key; toggling on those closed the overlay on the
+  release of a tap, and a long press flickered to the screen underneath and
+  left the overlay open (which also closed the Playlist view immediately).
 - **Browser pagination**: one `fs_list_dir()` call fetches exactly one
   visible page starting at the view top; a stable listing order across
   calls is part of the fs service contract.
@@ -190,10 +196,10 @@ time — that is intentional.
 
 | Suite | Verifies |
 |---|---|
-| `test_screen_stack.c` | push/pop semantics, covered-screen re-enter, depth cap (4), NULL/full rejection, empty pop |
+| `test_screen_stack.c` | push/pop semantics, covered-screen re-enter, depth cap (6), NULL/full rejection, empty pop |
 | `test_ui_redraw.c` | dirty row bands: disjoint flushes, overlap/adjacency merging, clamping, overflow coalescing, flush-only-when-dirty |
 | `test_menu_nav.c` | `menu_view_move` cyclic wrap-around/minimal scrolling + `menu_screen` key handling (select fires actions, back pops) + rendering output |
-| `test_settings_keys.c` | exact 12 key names/order, per-key field mapping (cycle touches exactly one field), value formatting (`repeat_track`, `8`, `-23`, ...), wrap behavior, settings_screen menu binding + save-on-exit |
+| `test_settings_keys.c` | exact 15 key names/order, per-key field mapping (cycle touches exactly one field), value formatting (`repeat_track`, `8`, `-23`, `300`, ...), wrap behavior, category + group navigation (Playing/Interface, Fade apply) and save-on-exit |
 | `test_browser_pagination.c` | fetch window == page at view top, refetch offsets, end/start wrap-around, enter-dir re-rooting, parent navigation with cursor restore, pop at root, rendered names/counts |
 
 Run: `cd firmware/ui && make test` (exits non-zero on any failure).
