@@ -464,10 +464,24 @@ void player_screen_refresh(void)
     if ((st == PLAYER_PLAYING) != s_playing)
         player_screen_set_playing(st == PLAYER_PLAYING);
 
-    /* The skin draws from the live player state, so a position/state change
-     * must repaint the whole skin (the compiled widgets invalidate their own
-     * rows only). */
+    /* The skin draws from the live player state. Position/state only touch
+     * the dynamic primitives (mini cassette, strip, time, volume), so repaint
+     * that layer instead of the whole skin: the background and the 120x120
+     * art are static and must not be re-streamed. A track change still takes
+     * the full path (title/format/art change). */
     if (s_use_skin && (pos != old_pos ||
-                       (st == PLAYER_PLAYING) != old_playing))
-        ui_invalidate_all();
+                       (st == PLAYER_PLAYING) != old_playing)) {
+        if (!player_screen_animate())
+            ui_invalidate_all();
+    }
+}
+
+int player_screen_animate(void)
+{
+    theme_skin_state_t st;
+
+    if (!s_use_skin)
+        return 0;
+    theme_ui_fill_state(&st, "Now playing");
+    return theme_ui_draw_dynamic(&st, 0, 0);
 }

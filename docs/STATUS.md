@@ -29,7 +29,10 @@
 The project is now a **from-source fw1 + our own Core B image** that boots and
 plays audio on hardware:
 
-- **Audio**: Core B decodes FLAC/MP3/WAV; the AP does the DAC/I2S bring-up,
+- **Audio**: Core B decodes FLAC/MP3/WAV; the AP does the DAC/I2S bring-up
+  (the AP links the codecs' *metadata* paths only: `AP_LOCAL_DECODE=0` keeps
+  minimp3/dr_flac out of the AP, freeing ~56 KB of the loader window; build
+  with `AP_LOCAL_DECODE=1` for a local-decode diagnostic image),
   serves the track bytes over the A→B file rings (`bfs`) and drains the PCM ring
   in its I2S TX ISR. Verified: 16/44.1 and 24-bit 88.2/96 kHz clean. Note that
   **96 kHz halves every time budget** (64 KiB PCM ring ≈ 74 ms of cover, TX-FIFO
@@ -47,8 +50,15 @@ plays audio on hardware:
   repeat off/all/one (config keys `shuffle`, `repeat_mode`; 15-key schema),
   applied to the player immediately and preserved when a new list starts.
   Settings is grouped into **Playing** (Volume, Shuffle, Repeat, Resume,
-  Fade) and **Interface** (Theme); `fade` is off/150/300/500 ms and applies
-  to play/pause/resume.
+  Fade, Auto-off) and **Interface** (Theme); `fade` is off/150/300/500 ms and
+  applies to play/pause/resume.
+- **Standby auto-off**: `auto_off` (off/5/15/30/60 min, default **5**)
+  powers the player off when it is paused/stopped and no key has been pressed
+  for that long. Playing keeps the timer fresh, so the window starts at the
+  pause, not at boot; a USB-MSC session and the press that wakes the parked
+  device do not count as activity. The shutdown reuses the 2 s power-hold
+  path (position + config persisted, `log_flush("standby")`), and on VBUS it
+  parks like any other power-off.
 - **Resume**: the last track + position and the browser folder/row live in
   `/.rechord/state` (separate from the config, rewritten in place); the
   `resume` setting (off/folder/track) decides what is restored at boot. It
@@ -64,6 +74,10 @@ plays audio on hardware:
   through one sector buffer, clipped) and the `art_ok`/`art_c1`/`art_c2`/
   `art_mean`/`art_accent` variables; missing art falls back to a placeholder.
   Format and costs: `docs/ART_PACK.md`.
+- **WAV**: 8 (unsigned), 16, 24 and 32-bit PCM, mono/stereo, any rate up to
+  192 kHz, `WAVE_FORMAT_EXTENSIBLE` with a PCM sub-format, `fmt` after `data`,
+  odd-sized chunks, and declared data sizes clamped to the file. Float PCM and
+  RIFX are rejected as unsupported.
 - **Cassette theme**: `themes/cassette/` recreates the cassette-deck mockup
   (`docs/themes/cassette/`): full-screen artwork gradient, cream label with
   title/artist/stripes, reels whose tape packs and rotation follow `pos_ms`
@@ -72,7 +86,11 @@ plays audio on hardware:
   (`art_bg_a/bg_b/glow/panel/label/ink/ink_dim`); without a cover it falls back
   to the theme.cfg warm grey/cream/amber palette and draws a cassette glyph.
   Engine additions: `gradient` meter, `sqrt`, text `maxc`/`align=right`, and
-  the section cap raised 32 -> 52 (parsed, 0 B RAM).
+  the section cap raised 32 -> 52 (parsed, 0 B RAM). Cost: the diagonal
+  gradient is the hot spot, so its channel accumulators step by 16.16 deltas
+  instead of multiplying per pixel, the home animates at 66 ms (15 Hz), and a
+  nav key now invalidates only the bar (the selection does not change anything
+  above it) instead of the whole cassette.
 - **Quick settings**: MENU opens an overlay with Shuffle, Repeat and Playlist
   (BRNOMT-105). The playlist view is the live queue, marks the current track
   and SELECT jumps to/plays the chosen entry. MENU or BACK closes it; MENU

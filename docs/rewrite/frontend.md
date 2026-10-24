@@ -229,8 +229,8 @@ Run: `cd firmware/ui && make test` (exits non-zero on any failure).
    descriptor and metrics per font.
 8. **KEY_POWER policy** — implemented for BRNOMT-75: short press toggles the
    backlight, Power+MENU toggles Hold, and the 2 s hold powers off. The
-   `screen_off`/`auto_off` settings themselves are still not wired (manual
-   policy only).
+   `screen_off` is still not wired (manual policy only); `auto_off` is the
+   standby timer wired in `ap_ui.c` (paused + idle -> off).
 9. **Root Makefile integration** — `ui.mk` is ready to be included by the
    root Makefile (owned by the build workstream).
 10. **i18n / long text** — labels are ASCII, one line, fixed 6 px advance;

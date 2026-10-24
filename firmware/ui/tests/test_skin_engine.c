@@ -127,5 +127,62 @@ void test_skin_engine(void)
         CHECK(right);
     }
 
+    /* ---- static/dynamic split: dyn=1 sections and their rects ---------- */
+    {
+        FILE *f2 = fopen("rechord_dyn.skin", "w");
+
+        if (f2 != 0) {
+            fputs("[skin]\n"
+                  "refresh_ms=50\n"
+                  "dyn=2,2,6,6\n"
+                  "dyn2=10,10,12,12\n"
+                  "[still]\n"
+                  "type=fill\nx=0\ny=0\nw=2\nh=2\ncolor=63488\n"
+                  "[moving]\n"
+                  "type=fill\nx=3\ny=3\nw=2\nh=2\ndyn=1\ncolor=2016\n",
+                  f2);
+            fclose(f2);
+            CHECK_EQ_INT(theme_skin_load(".", "", "rechord_dyn.skin"), 0);
+            {
+                int x0, y0, x1, y1;
+
+                CHECK_EQ_INT(theme_skin_dyn_rect(0, &x0, &y0, &x1, &y1), 0);
+                CHECK_EQ_INT(x0, 2);
+                CHECK_EQ_INT(y0, 2);
+                CHECK_EQ_INT(x1, 6);
+                CHECK_EQ_INT(y1, 6);
+                CHECK_EQ_INT(theme_skin_dyn_rect(1, &x0, &y0, &x1, &y1), 0);
+                CHECK_EQ_INT(x1, 12);
+                CHECK_EQ_INT(theme_skin_dyn_rect(2, &x0, &y0, &x1, &y1), -1);
+            }
+            mock_display_reset();
+            theme_skin_set_dynamic_only(1);
+            theme_skin_render(1000, 0, 0, 0, &st);
+            theme_skin_set_dynamic_only(0);
+            /* only the dyn section reached the display */
+            {
+                int i, n = mock_display_rect_count(), saw_still = 0;
+                int saw_moving = 0;
+
+                for (i = 0; i < n; i++) {
+                    const mock_rect_t *r = mock_display_rect(i);
+
+                    if (r->color == 63488)
+                        saw_still = 1;
+                    if (r->color == 2016)
+                        saw_moving = 1;
+                }
+                CHECK_EQ_INT(saw_still, 0);
+                CHECK_EQ_INT(saw_moving, 1);
+            }
+            /* theme_skin_dyn_rect() is only meaningful for the loaded skin;
+             * reloading the engine skin in the later checks keeps the rest of
+             * this test valid. */
+            CHECK_EQ_INT(theme_skin_load(".", "", "rechord_engine.skin"), 0);
+        }
+    }
+
+
     (void)remove("rechord_engine.skin");
+    (void)remove("rechord_dyn.skin");
 }

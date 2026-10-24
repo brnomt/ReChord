@@ -111,20 +111,22 @@ void display_bitmap1(int x, int y, int w, int h, int stride,
     }
 }
 
-void display_flush_rows(int y0, int y1)
+void display_flush_rect(int x0, int y0, int x1, int y1)
 {
     int x, y;
 
+    if (x0 < 0) { x0 = 0; }
     if (y0 < 0) { y0 = 0; }
+    if (x1 > DISPLAY_W - 1) { x1 = DISPLAY_W - 1; }
     if (y1 > DISPLAY_H - 1) { y1 = DISPLAY_H - 1; }
-    if (y0 > y1) {
-        return;   /* empty range */
+    if (x0 > x1 || y0 > y1) {
+        return;   /* empty rect */
     }
 
-    /* CASET: full row width (extracted contract: columns 0..0x013F). */
+    /* CASET: the inclusive column range (full width for a row flush). */
     panel_io_send_cmd(DCS_CASET);
-    send_u16(0);
-    send_u16((uint16_t)(DISPLAY_W - 1));
+    send_u16((uint16_t)x0);
+    send_u16((uint16_t)x1);
 
     /* RASET: the inclusive row range y0..y1, mapped to physical panel
      * rows by PANEL_ROW_OFFSET (extracted contract: the reference's
@@ -137,10 +139,15 @@ void display_flush_rows(int y0, int y1)
     panel_io_send_cmd(DCS_RAMWR);
     for (y = y0; y <= y1; y++) {
         const uint16_t *row = &display_fb[y][0];
-        for (x = 0; x < DISPLAY_W; x++) {
+        for (x = x0; x <= x1; x++) {
             panel_io_send_pixel(row[x]);
         }
     }
+}
+
+void display_flush_rows(int y0, int y1)
+{
+    display_flush_rect(0, y0, DISPLAY_W - 1, y1);
 }
 
 void display_clear(uint16_t rgb565)

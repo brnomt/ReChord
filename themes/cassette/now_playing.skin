@@ -7,7 +7,8 @@
 
 [skin]
 refresh_ms=100
-refresh_h=170
+dyn=140,71,312,130
+dyn2=0,148,319,169
 
 [vars]
 bg=(art_ok ? art_bg_a : surface)
@@ -167,6 +168,7 @@ color=dim
 bg=pn
 
 [mini]
+dyn=1
 type=roundrect
 x=150
 y=71
@@ -176,6 +178,7 @@ r=4
 color=6339
 
 [minilabel]
+dyn=1
 type=roundrect
 x=154
 y=74
@@ -185,6 +188,7 @@ r=2
 color=lb
 
 [miniwindow]
+dyn=1
 type=roundrect
 x=159
 y=78
@@ -194,6 +198,7 @@ r=4
 color=2146
 
 [minihubL]
+dyn=1
 type=roundrect
 x=162
 y=79
@@ -203,6 +208,7 @@ r=3
 color=61309
 
 [minicoreL]
+dyn=1
 type=roundrect
 x=163
 y=80
@@ -212,6 +218,7 @@ r=2
 color=4258
 
 [minidotL]
+dyn=1
 type=roundrect
 x=165 + sin(phL + 1571, 6283, 3)
 y=82 + sin(phL, 6283, 3)
@@ -221,6 +228,7 @@ r=0
 color=acc
 
 [minihubR]
+dyn=1
 type=roundrect
 x=178
 y=79
@@ -230,6 +238,7 @@ r=3
 color=61309
 
 [minicoreR]
+dyn=1
 type=roundrect
 x=179
 y=80
@@ -239,6 +248,7 @@ r=2
 color=4258
 
 [minidotR]
+dyn=1
 type=roundrect
 x=181 + sin(phR + 1571, 6283, 3)
 y=82 + sin(phR, 6283, 3)
@@ -248,6 +258,7 @@ r=0
 color=acc
 
 [minitrap1]
+dyn=1
 type=triangle
 x1=162
 y1=91
@@ -258,6 +269,7 @@ y3=99
 color=10566
 
 [minitrap2]
+dyn=1
 type=triangle
 x1=162
 y1=91
@@ -268,6 +280,7 @@ y3=99
 color=10566
 
 [state]
+dyn=1
 type=text
 x=206
 y=73
@@ -302,6 +315,7 @@ color=acc
 bg=pn
 
 [voltext]
+dyn=1
 type=text
 x=302
 y=113
@@ -311,6 +325,7 @@ color=dim
 bg=pn
 
 [volbar]
+dyn=1
 type=bar
 x=150
 y=127
@@ -322,6 +337,7 @@ color=dim
 bg=12677
 
 [strip]
+dyn=1
 type=fill
 x=0
 y=148
@@ -330,6 +346,7 @@ h=22
 color=2113
 
 [progress]
+dyn=1
 type=bar
 x=10
 y=151
@@ -341,6 +358,7 @@ color=acc
 bg=12677
 
 [knob]
+dyn=1
 type=fill
 x=9 + (300 * pos_ms) / (dur_ms > 0 ? dur_ms : 1)
 y=149
@@ -349,6 +367,7 @@ h=7
 color=63389
 
 [elapsed]
+dyn=1
 type=text
 x=10
 y=158
@@ -357,6 +376,7 @@ color=63389
 bg=2113
 
 [total]
+dyn=1
 type=text
 x=310
 y=158

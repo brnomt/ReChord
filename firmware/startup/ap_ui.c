@@ -71,6 +71,7 @@ static int s_volume_seen;            /* last volume persisted (see loop) */
 static int s_art_dirty;              /* new track: look up its cover      */
 static unsigned s_log_ms;            /* last periodic log flush (see loop) */
 static unsigned s_batt_ms;           /* last battery poll (see loop) */
+static unsigned s_idle_ms;           /* last user input / last playing ms */
 static int      s_resume_done;       /* boot resume restore ran (BRNOMT-87) */
 static int      s_resume_started;    /* first probe seen; settle timer     */
 static unsigned s_resume_ms;         /* when the settle wait began         */
@@ -943,6 +944,7 @@ static void usb_storage_run(void)
         return;
     }
     usb_session();
+    s_idle_ms = ap_ms();      /* a long MSC session is not standby */
 }
 
 #if AP_CDC_OVERLAY
@@ -1279,7 +1281,7 @@ static void resume_boot_restore(void)
     s_res.boot = st.boot;
     if (have_state) {
         if (resume_save(&st) != 0)
-            log_printf("resume: boot counter save failed");
+            log_printf("resume: save failed");
     } else {
         log_printf("resume: no state file");
     }
@@ -1390,6 +1392,7 @@ void ap_ui_loop(void)
     player_screen_set_volume(player_get_volume());
     s_volume_seen = player_get_volume();
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */
+    s_idle_ms = ap_ms();
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
     /* The package decides the home: a menu-only theme keeps the classic list;
@@ -1510,6 +1513,7 @@ void ap_ui_loop(void)
              * everything except the chord handled above. */
             if (s_hold || s_combo_latch)
                 continue;
+            s_idle_ms = now;           /* any key is user activity */
             if (ev.type == KEY_POWER)
                 continue;              /* global power handling below */
             /* Screen-off is display-only: keys keep working, but they must
@@ -1550,6 +1554,7 @@ void ap_ui_loop(void)
             (void)log_flush("power");
             power_off();
         } else if (pev == POWER_EV_SHORT) {
+            s_idle_ms = now;
             if (!s_hold) {
                 if (s_screen_off)
                     screen_wake();
@@ -1584,6 +1589,25 @@ void ap_ui_loop(void)
         settings_screen_flush_pending(now);
         resume_poll(now, 0);      /* BRNOMT-87: deferred position save */
 
+        /* Standby auto-off: paused/stopped and no user input for the
+         * configured minutes (0 = off). Playing keeps the timer fresh, so the
+         * window starts at the pause, not at boot. */
+        {
+            int mins = settings_screen_get()->auto_off_min;
+
+            if (mins > 0 && player_get_state() != PLAYER_PLAYING &&
+                (unsigned)(now - s_idle_ms) >= (unsigned)mins * 60000u) {
+                log_printf("power: standby %d", mins);
+                resume_poll(now, 1);      /* persist the position first */
+                settings_screen_store();
+                (void)log_flush("standby");
+                power_off();              /* on VBUS this parks and returns */
+                s_idle_ms = ap_ms();      /* the wake press is not standby */
+            }
+        }
+        if (player_get_state() == PLAYER_PLAYING)
+            s_idle_ms = now;
+
         /* Battery gauge (BRNOMT-83): one slow poll (the SARADC is shared with
          * the keys); repaint the title row only when the step changed. */
         if ((unsigned)(now - s_batt_ms) >= 15000u) {
@@ -1605,14 +1629,16 @@ void ap_ui_loop(void)
                 theme_skin_animated() &&
                 (unsigned)(now - s_face_ms) >=
                     (unsigned)theme_skin_refresh_ms()) {
-                int h = theme_skin_refresh_h();
-
                 s_face_ms = now;
-                if (h <= 0)
-                    h = theme_layout()->face_h;
-                if (h <= 0 || h > DISPLAY_H)
-                    h = DISPLAY_H;
-                ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+                if (!skin_home_animate()) {
+                    int h = theme_skin_refresh_h();
+
+                    if (h <= 0)
+                        h = theme_layout()->face_h;
+                    if (h <= 0 || h > DISPLAY_H)
+                        h = DISPLAY_H;
+                    ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+                }
             }
 
             /* Per-screen skins: only animated ones wake the loop; a static
@@ -1621,14 +1647,21 @@ void ap_ui_loop(void)
                 theme_skin_animated() &&
                 (unsigned)(now - s_theme_ms) >=
                     (unsigned)theme_skin_refresh_ms()) {
-                int h = theme_skin_refresh_h();
-
                 s_theme_ms = now;
-                if (h <= 0)
-                    h = theme_layout()->face_h;
-                if (h <= 0 || h > DISPLAY_H)
-                    h = DISPLAY_H;
-                ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+                /* Now Playing animates its mini cassette/progress: same
+                 * static/dynamic split (no art re-stream, small flush). */
+                if (ui_top_screen() == &player_screen &&
+                    player_screen_animate()) {
+                    /* dynamic layer drawn */
+                } else {
+                    int h = theme_skin_refresh_h();
+
+                    if (h <= 0)
+                        h = theme_layout()->face_h;
+                    if (h <= 0 || h > DISPLAY_H)
+                        h = DISPLAY_H;
+                    ui_invalidate(0, 0, DISPLAY_W - 1, h - 1);
+                }
             }
         }
 

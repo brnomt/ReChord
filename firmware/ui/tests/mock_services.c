@@ -244,7 +244,7 @@ void settings_defaults(settings_t *s)
     snprintf(s->cpu, sizeof s->cpu, "auto");
     s->brightness = 8;
     s->screen_off_min = 30;
-    s->auto_off_min = 15;
+    s->auto_off_min = 5;
     s->volume = -23;
 }
 

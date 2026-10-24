@@ -4554,3 +4554,164 @@ PASS.
 
 **Screenshots.** `docs/themes/cassette/` (mockup + 8 side-by-side sheets at 2x,
 the mockup HTML and a README with the limitations). Not flashed; PR only.
+
+## Standby auto-off, and the "resume is broken" report (2026-10-24)
+
+**"Now Playing doesn't resume, the last song is lost."** Not a regression and
+nothing was deleted. The state file (`/.rechord/state`) was current (`track=
+/SD/Laeko ...`, `pos_ms=33466`) and the boot log showed
+`resume: mode 1 ...` — the device's `RECHORD.CFG` has `resume=folder`, and the
+gate from 0c2d1b6 (BRNOMT-87) only restores the *track* at `mode >= 2`; mode 1
+restores the browser folder/row by design. `resume=track` was written to the
+config; the same choice is in Settings -> Playing -> Resume.
+
+**Standby auto-off.** `auto_off` was in the 15-key schema but never read. It
+now powers off when the player is paused/stopped **and** no key has been
+pressed for `auto_off` minutes (off/5/15/30/60; default 5, a deliberate
+deviation from the sample config's 15). Details worth keeping:
+
+- The timer is kept fresh *while playing* (`if PLAYING: s_idle_ms = now`), so
+  the window starts at the pause, not at boot or at the last key.
+- Any key event resets it; the power-key short press does too. A USB-MSC
+  session resets it on exit (`open_usb`), so returning from a long transfer is
+  not "standby" with the timer already expired.
+- Shutdown reuses the 2 s power-hold path: `resume_poll(now, 1)` ->
+  `settings_screen_store()` -> `log_flush("standby")` -> `power_off()`
+  (`log_printf("power: standby %d", mins)` and the `standby` flush name are the
+  device-side evidence). On VBUS `power_off()` parks; the wake press resets
+  the timer so it cannot re-fire.
+- Settings: the Playing group gained a sixth row, `Auto-off` (the schema key
+  `auto_off`, already persisted and parsed).
+- Defaults changed in `settings_defaults()` (services) and
+  `settings_view_defaults()` (UI); the services test now takes the expected
+  auto_off as a parameter because the *sample config* still says 15.
+- UI suite 545 checks (settings_keys now 6 Playing rows + the Auto-off cycle),
+  services 148 checks green.
+
+Build: AP5M CRC **0x4A7D804B**, fw1 payload 228,200 B, segment end
+0x03087494 (loader-base check PASS), `_bss_end` 0x03049E5C (420 B under the
+0x0304A000 assert). Branched as `feat/standby-off` on top of `feat/cassette`
+(PR base: feat/cassette) so the theme PR stays about the theme.
+
+## Cassette animation cost, and the 0-byte ARTPACK (2026-10-24)
+
+**"Cassette makes the UI slower than Companion."** Measured, not guessed: the
+home skin's background is a full-screen diagonal `gradient` (54,400 px), and
+Companion's home has no gradient at all (solid fills). The renderer's per-pixel
+loop multiplied each channel by the 8.16 progress, so the gradient alone was
+~1.6M instructions per frame (~8 ms at 200 MHz), on top of a 140-row panel
+flush (~7 ms over the bit-banged parallel bus). At the requested 50 ms that is
+~32 % of the core and up to 16 ms of input latency.
+
+Fixes that fit the flash gate (226,456 B: row 0 copies the block up by the
+reference's 0xB68 and must stay under LOADER_CODE_BASE 0x03088000):
+
+- gradient: 16.16 accumulators stepped per row (vertical) / per pixel
+  (diagonal) instead of three multiplies per pixel; the step is rounded away
+  from zero so the far end still lands on the requested colour (visual diff vs
+  the previous renderer is <=1 LSB in RGB565 on ~2 % of the background).
+- a nav key redraws only the list/bar bounds; the old code invalidated the
+  whole `refresh_h` band for "the eyes shift", which the cassette does not
+  have (Companion's eyes repaint on the next animation tick anyway).
+- cassette home `refresh_ms` 50 -> 66 (15 Hz; the hub hand still moves ~3.7 deg
+  per frame and freezes on pause via `pos_ms`).
+
+Tried and dropped: a `dyn=1` per-section layer plus `display_flush_rect()` so
+the 15 Hz tick would repaint only the reels and flush two small rects. It
+worked in the simulator (home render 8 ms -> ~2 ms, flush 7.8 ms -> ~3.6 ms)
+but needs ~500 B more than the image has; the packer refused the image. If the
+AP ever frees room (e.g. dropping the unused local codec path), that patch is
+the next step.
+
+**"Artworks still don't work."** `/.rechord/ARTPACK.BIN` was **0 bytes** on the
+device: the directory entry said size 0 while the 8 MB of clusters were still
+allocated, so every `art_pack_set_track()` missed (no log, no palette, art_ok
+0). Regenerated the pack (710 tracks -> 697 with art, 238 covers, 7.97 MB) and
+validated all five CRCs plus 697/697 key lookups against the real paths. The
+tool is unchanged; see ART_PACK.md's operational check. No firmware change was
+needed for the art itself.
+
+Image: CRC 0xAAE0762F, fw1 228,176 B, row-0 end 0x03087FE4 (28 B margin).
+Screenshots regenerated with the new renderer.
+
+## AP flash: decoders out of the metadata path (2026-10-24)
+
+The AP was at 28 B of its loader window (226,456 B) because `open_codec_only()`
+pre-opens tracks with the *full* adapters: `mp3_open` probed the first frame
+with minimp3 and `flac_open` called `drflac_open`, so both decoder libraries
+(~20 KB + ~35 KB of the AP's code span, plus their tables) were linked even
+though Core B owns every PCM byte.
+
+- `AP_LOCAL_DECODE ?= 0` (firmware/ap.mk) adds `-DRECHORD_AP_METADATA_ONLY`.
+- mp3.c: no minimp3 include/implementation, no `mp3dec_t`, no decode; the
+  first-frame probe is a header-table parse (`mp3_frame_info`, MPEG-1/2/2.5
+  Layer III, also used to fix the MPEG-2 pad step in the EOF tail trim).
+- flac.c: no `DR_FLAC_IMPLEMENTATION`; `flac_open` takes rate/depth/total from
+  STREAMINFO (prescan already parsed it) and never opens dr_flac; decode/seek
+  are metadata-only stubs (B repositions itself via `ipc_b_seek`).
+- The AP keeps its workbuf claim for MP3's probe window; FLAC does not claim it.
+- `AP_LOCAL_DECODE=1` still links the old fallback image (verified with a
+  separate `CFW_BUILD_DIR`).
+
+Result: AP code 226,428 -> **168,816 B**, row-0 end 0x03079ED8, **57,640 B**
+under the loader base. The MP3 adapter is now host-tested in both builds: the
+same fixture runs with `-DRECHORD_AP_METADATA_ONLY` and asserts that
+open/format/duration/gapless/tags/meta are identical while `decode()` returns
+`CODEC_ERR_UNSUPPORTED` (`.work/test_codec_mp3_meta`). The FLAC metadata path
+was checked the same way by hand (open/format/duration/tags pass, decode
+returns -3); a permanent variant would need the decode goldens guarded. That is the room the codec work (WAV depths, MP3 edges,
+a fixed-point MP3 decoder) needs. Host suites unchanged and green (the host
+builds never define the macro).
+
+## WAV depth coverage (2026-10-24)
+
+`wav.c` was 16-bit PCM only. It now accepts 8-bit (unsigned), 16, 24 and
+32-bit PCM, plus `WAVE_FORMAT_EXTENSIBLE` (0xFFFE) when the sub-format GUID's
+first two bytes are PCM (1). Samples are left-justified to the int32 pipeline
+format by one `wav_sample()` switch (u8-128 << 24, s16 << 16, sign-extended
+24 << 8, s32 as-is), the state carries `bits`/`bytes`, and `format()` reports
+the container depth so the UI shows 24/44.1K. Float PCM (sub-format 3) and
+RIFX still return UNSUPPORTED/FORMAT. Staging stayed at 512 B of stack
+(64 frames x 2 ch x 4 B).
+
+Tests: `test_codec_wav` gained 8/24/32-bit goldens (known raw bytes ->
+exact int32), an extensible-24 file, an extensible-float rejection, and the
+old "8-bit rejected" case became a positive test. Suite: ALL PASS.
+
+Open MP3 edges left for the next change: MPEG-2.5 in the EOF tail-frame table,
+VBR-without-Xing duration (currently the first frame's bitrate), and seek
+landing/reporting. BRNOMT-86 (minimp3 soft-float cost) still needs the on-B
+cycle measurement before choosing libmad.
+
+## Cassette lag: the static/dynamic split (2026-10-24)
+
+Field report: "los botones tardan unos cuantos frames; algo en el loop debe
+estar bloqueando". The loop was not stuck; every animated tick and every
+selection key re-rendered the *whole* skin and flushed the whole band:
+
+- home: full-screen diagonal gradient + 50 sections + a 140-row flush every
+  66 ms, and again on each nav key (the key path fell back to the band);
+- Now Playing: same, plus the 120x120 cover re-streamed (header + 57 sectors)
+  every 100 ms and on every position/state change (`ui_invalidate_all`). That
+  is what actually ate the input latency: tens of ms of eMMC + gradient per
+  tick.
+
+`theme_skin` now has a static/dynamic split: a section with `dyn=1` belongs to
+the animated layer, and `[skin] dyn/dyn2/dyn3` declare up to three rects. The
+app calls `theme_ui_draw_dynamic()` (no `display_clear`, no static sections, no
+art) and flushes just those rects with the new `display_flush_rect()`. Wired
+into the home tick, the home selection path (`skin_home_animate`), the NP tick
+and `player_screen_refresh`'s position/state updates (`player_screen_animate`);
+a track change still does a full redraw (title/format/cover change).
+
+Measured on the host simulator against the real package (dyncheck): home dyn
+render 214 us vs 348 us full; NP 135 us vs 329 us **and zero art sectors**; the
+dyn-only pass reproduces every pixel inside its rects (0 mismatches on both
+screens). Panel flush drops from 44,800/54,400 px to 28,544 (home) and 17,360
+(NP) — the NP no longer touches the cover on a tick.
+
+Skin budget notes: the home file is 4,088 B of the 4,096 limit, so the blank
+lines between sections were dropped, `corePackL/R`/`hubhandL/R` were shortened,
+`refresh_h` left the home/NP `[skin]` block (the fallback band is unused when
+dyn rects exist), and the home's `str1-3` stay in the dynamic set because the
+label repaint erases them. THEMING.md documents the new keys.

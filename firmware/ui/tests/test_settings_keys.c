@@ -67,7 +67,7 @@ static void test_defaults_and_format(void)
     CHECK_EQ_INT(s.play_mode, 0);        /* repeat_track */
     CHECK_EQ_INT(s.brightness, 8);
     CHECK_EQ_INT(s.screen_off_s, 30);
-    CHECK_EQ_INT(s.auto_off_min, 15);
+    CHECK_EQ_INT(s.auto_off_min, 5);    /* standby auto-off, ReChord default */
     CHECK_EQ_INT(s.usb_mode, 0);         /* ask */
     CHECK_EQ_INT(s.resume_mode, 1);      /* folder */
     CHECK_EQ_INT(s.strip, 0);            /* off */
@@ -109,7 +109,7 @@ static void test_key_field_mapping(void)
         { 0, 1 },    /* play_mode: repeat_track -> repeat_folder */
         { 1, 9 },    /* brightness: 8 -> 9                        */
         { 2, 60 },   /* screen_off_s: 30 -> 60                    */
-        { 3, 30 },   /* auto_off_min: 15 -> 30                    */
+        { 3, 15 },   /* auto_off_min: 5 -> 15                     */
         { 4, 1 },    /* usb_mode: ask -> charge                   */
         { 5, 2 },    /* resume_mode: folder -> track              */
         { 6, 1 },    /* strip: off -> on                          */
@@ -230,12 +230,13 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(ui_stack_depth(), 2);
     group = settings_group_model();
     CHECK_STR_EQ(group->title, "Playing");
-    CHECK_EQ_INT(group->item_count, 5);
+    CHECK_EQ_INT(group->item_count, 6);
     CHECK_STR_EQ(group->items[0].label, "Volume");
     CHECK_STR_EQ(group->items[1].label, "Shuffle");
     CHECK_STR_EQ(group->items[2].label, "Repeat");
     CHECK_STR_EQ(group->items[3].label, "Resume");
     CHECK_STR_EQ(group->items[4].label, "Fade");
+    CHECK_STR_EQ(group->items[5].label, "Auto-off");
 
     /* Navigate to Resume (index 3) and cycle it. */
     e = ev(KEY_DOWN); ui_handle_event(&e);
@@ -250,6 +251,14 @@ static void test_settings_screen_binding(void)
     e = ev(KEY_DOWN); ui_handle_event(&e);
     CHECK_EQ_INT(settings_group_view()->cursor, 4);
     e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_screen_get()->fade_ms, 500);
+
+    /* Auto-off is the last Playing row and cycles its own key only. */
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_group_view()->cursor, 5);
+    CHECK_EQ_INT(settings_screen_get()->auto_off_min, 5);
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_screen_get()->auto_off_min, 15);
     CHECK_EQ_INT(settings_screen_get()->fade_ms, 500);
 
     /* The group renders human labels, not config keys. */

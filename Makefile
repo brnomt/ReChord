@@ -283,7 +283,7 @@ BB_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_BB_BUILD -D_RK_EQ_ -Ifirmware $(addpre
 # LOG_BUFFER_LINES: 12 lines dropped boundary lines during a track change
 # (BRNOMT-73 field logs), so the ring holds 48 lines of the latest activity —
 # the assembly buffer still fits under the AP .bss ceiling (0x0304A000).
-AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DAP_MEM_OVERLAY=$(AP_MEM_OVERLAY) -DAP_CDC_OVERLAY=$(AP_CDC_OVERLAY) -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
+AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DAP_MEM_OVERLAY=$(AP_MEM_OVERLAY) -DAP_CDC_OVERLAY=$(AP_CDC_OVERLAY) $(if $(filter 0,$(AP_LOCAL_DECODE)),-DRECHORD_AP_METADATA_ONLY=1) -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
 
 BB_OBJS := $(foreach src,$(BB_SRCS),\
              $(BB_OBJ_DIR)/$(patsubst firmware/rockchip/%,%,$(src)).o)

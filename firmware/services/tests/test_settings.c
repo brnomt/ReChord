@@ -46,12 +46,12 @@ static const char k_sample_cfg[] =
     "cursor=0\n";
 
 /* Expected sample values, spelled out for independent comparison. */
-static void check_sample_values(const settings_t *s)
+static void check_sample_values(const settings_t *s, int auto_off)
 {
     CHECK(strcmp(s->play, "repeat_track") == 0);
     CHECK(s->brightness == 8);
     CHECK(s->screen_off_min == 30);
-    CHECK(s->auto_off_min == 15);
+    CHECK(s->auto_off_min == auto_off);
     CHECK(strcmp(s->usb, "ask") == 0);
     CHECK(strcmp(s->resume, "folder") == 0);
     CHECK(strcmp(s->strip, "off") == 0);
@@ -119,7 +119,7 @@ static void test_defaults(void)
 
     memset(&s, 0xAA, sizeof(s));
     settings_defaults(&s);
-    check_sample_values(&s);
+    check_sample_values(&s, 5);          /* ReChord default: 5 min */
 
     settings_defaults(NULL);            /* must not crash */
     CHECK(1);
@@ -135,7 +135,7 @@ static void test_sample_round_trip(void)
     settings_defaults(&a);
     rc = settings_parse_text(k_sample_cfg, &a);
     CHECK(rc == SETTINGS_OK);
-    check_sample_values(&a);
+    check_sample_values(&a, 15);         /* the sample says 15 */
 
     /* 2. save it back out */
     write_cfg("garbage to be truncated");
@@ -145,7 +145,7 @@ static void test_sample_round_trip(void)
     /* 3. load again and compare field by field */
     settings_defaults(&b);
     CHECK(settings_load(&b) == SETTINGS_OK);
-    check_sample_values(&b);
+    check_sample_values(&b, 15);
     check_same(&a, &b);
 
     /* 4. serialize again: pure parse/serialize round trip */
@@ -217,7 +217,7 @@ static void test_tolerance(void)
     CHECK(strcmp(s.browse, "/MUSIC/Album") == 0);
     /* untouched keys keep defaults */
     CHECK(s.screen_off_min == 30);
-    CHECK(s.auto_off_min == 15);
+    CHECK(s.auto_off_min == 5);
     CHECK(strcmp(s.cpu, "auto") == 0);
 
     /* value truncation: play[16] holds 15 chars + NUL */
@@ -235,7 +235,7 @@ static void test_missing_file_and_args(void)
     (void)remove(".work/RECHORD.CFG");     /* pre-BRNOMT-71 location */
     settings_defaults(&s);
     CHECK(settings_load(&s) == SETTINGS_ERR_OPEN);
-    check_sample_values(&s);             /* defaults still applied */
+    check_sample_values(&s, 5);          /* defaults still applied */
 
     CHECK(settings_load(NULL) == SETTINGS_ERR_ARG);
     CHECK(settings_save(NULL) == SETTINGS_ERR_ARG);

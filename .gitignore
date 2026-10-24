@@ -50,3 +50,9 @@ tools/HIFIEC37_unpacked/
 tools/rkflashtool/
 .work/
 stubs.d
+
+# Local tool/IDE leftovers and analysis dumps (never committed)
+.kiro/
+interrupt2.d
+kb.sqlite3
+store_dump.bin

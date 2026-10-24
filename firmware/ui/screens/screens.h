@@ -133,6 +133,9 @@ void player_screen_set_status(const char *msg);
 /* Re-sync title/position/state from the player module (app loop). */
 void player_screen_refresh(void);
 
+/* Repaint just the package's dynamic primitives (0 = no dyn rects). */
+int  player_screen_animate(void);
+
 /* Pure geometry helper (host-tested): filled width in px of a bar `width`
  * px wide at position/duration.  dur==0 or overflow-safe: returns 0. */
 int player_bar_width(int width, uint32_t pos, uint32_t dur);

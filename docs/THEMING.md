@@ -442,11 +442,38 @@ idle_h=(idle > 6000 ? 4 : (idle < 300 ? 4 + (idle * (eye_h - 4)) / 300 : eye_h))
 ```
 
 `[skin] refresh_ms` opts a screen into animation and controls its refresh
-rate (Companion home: 50 ms); `refresh_h` is the band the UI re-flushes. A
-skin with no `refresh_ms` is static: the app repaints it only on input or on
-new player state. That is why the Now Playing skin in this package costs
-nothing while paused, and why Settings/Library/Browser do not wake the CPU.
-`[skin]` accepts only `refresh_ms` and `refresh_h`.
+rate (Companion home: 50 ms); `refresh_h` is the fallback band the UI
+re-flushes when the skin declares no dynamic rects. A skin with no
+`refresh_ms` is static: the app repaints it only on input or on new player
+state. That is why the Now Playing skin in this package costs nothing while
+paused, and why Settings/Library/Browser do not wake the CPU.
+
+**Static/dynamic split (`dyn`).** Re-rendering the whole skin every tick is
+what makes an animated theme feel heavy: a full-screen gradient plus a
+120x120 cover stream are drawn again just to move a 10-px hand. Mark the
+primitives that actually change with `dyn=1` and declare up to three rects
+that contain them:
+
+```
+[skin]
+refresh_ms=66
+dyn=58,12,262,100      # label + reels
+dyn2=56,120,264,134    # play symbol + counter
+dyn3=0,146,319,169     # bottom bar + items
+```
+
+On a tick or a key that only changes the selection, the app calls the
+engine with `theme_skin_set_dynamic_only(1)`: it draws only the `dyn=1`
+sections (no clear, no background, no `art`) and flushes exactly the three
+rects with `display_flush_rect()`. Everything else keeps the pixels of the
+last full draw, so the cover is never re-read and the panel only receives
+those rects. The dynamic sections must therefore cover every pixel they
+change; if a shape can shrink (a tape pack), redraw its background inside
+the dynamic set (the cassette marks the label for this). A skin without
+`dyn` rects falls back to the `refresh_h` band, which is correct but
+expensive.
+
+`[skin]` accepts `refresh_ms`, `refresh_h`, `dyn`, `dyn2` and `dyn3`.
 
 The per-screen refresh is driven by the app loop only while that screen is on
 top; the home keeps its own tick. A theme can animate any screen by declaring
