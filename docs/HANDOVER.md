@@ -4511,8 +4511,8 @@ the device.
   / 6. Limits: 4 KiB text, 52 sections, 12 props, 20 vars (home uses 13).
 - Reels: tape-pack radius `sqrt(169 + 731*f)` and the hub phase are derived
   from `pos_ms` (never `t`): they freeze on pause and follow the constant
-  linear tape speed. The hub spoke star + the rotating accent dot make the
-  spin legible; the lower shell/trapezoid/capstans/screws are vector + one
+  linear tape speed. The static hub spoke star plus a rotating accent hand (phase =
+  -26*pos_ms/r, smooth) make the spin legible; the lower shell/trapezoid/capstans/screws are vector + one
   8x8 bitmap.
 - No art: the theme.cfg warm grey/cream/amber palette and a cassette glyph on
   the NP cover slot.

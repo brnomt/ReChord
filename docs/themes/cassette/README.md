@@ -38,7 +38,7 @@ When the track has no cover, every `art_*` is 0 and the skins fall back to the
 ## How it is built
 
 * **Home**: gradient > shell (shadow, body, 1-px highlight) > window > reels
-  (pack + lighter core + hub bitmap + rotating accent dot) > label pieces that
+  (pack + lighter core + hub bitmap + a rotating accent hand) > label pieces that
   cover the reel spill > badge/title/artist/stripes > lower shell (trapezoid,
   capstan holes, screws from an 8x8 bitmap, tape line) > status/counter >
   engine-drawn home list. The reels derive their radius and angle from
