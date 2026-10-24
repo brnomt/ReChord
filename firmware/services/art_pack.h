@@ -22,12 +22,22 @@
 #define ART_SIZE_SMALL 0
 #define ART_SIZE_LARGE 1
 
-/* art_pack_color() selectors (RGB565). */
+/* art_pack_color() selectors (RGB565). The first four are the cover's
+ * dominant/secondary/mean colours and the mockup's accent; the rest are the
+ * derived shades (docs/ART_PACK.md §"Palette") so themes never do colour
+ * maths on the device. */
 enum {
-    ART_C_DOMINANT = 0,
-    ART_C_SECONDARY,
-    ART_C_MEAN,
-    ART_C_ACCENT
+    ART_C_DOMINANT = 0,     /* art_c1   */
+    ART_C_SECONDARY,        /* art_c2   */
+    ART_C_MEAN,             /* art_mean */
+    ART_C_ACCENT,           /* art_accent (S .45-.90, V .75-.98) */
+    ART_C_BG_A,             /* art_bg_a   dominant at V=0.42 */
+    ART_C_BG_B,             /* art_bg_b   secondary at V=0.24 */
+    ART_C_GLOW,             /* art_glow   mix(dom,sec) at V=0.55 */
+    ART_C_PANEL,            /* art_panel  mean at V=0.16 */
+    ART_C_LABEL,            /* art_label  cream mixed 10% with mean */
+    ART_C_INK,              /* art_ink     #221E1C (fixed) */
+    ART_C_INK_DIM           /* art_ink_dim #706860 (fixed) */
 };
 
 /* Key for a device track path ("/Internal/Music/...") and file size:

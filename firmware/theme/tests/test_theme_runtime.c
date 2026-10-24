@@ -32,6 +32,11 @@ void display_bitmap1(int x, int y, int w, int h, int stride,
     (void)bits; (void)fg; (void)bg;
 }
 
+void display_blit_span(int x, int y, int w, const uint16_t *src)
+{
+    (void)x; (void)y; (void)w; (void)src;
+}
+
 static int checks;
 static int fails;
 

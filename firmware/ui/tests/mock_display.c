@@ -107,6 +107,18 @@ void display_fill_rect(int x0, int y0, int x1, int y1, uint16_t rgb565)
     }
 }
 
+/* Row-segment blit (image streaming / gradient): record one rect per pixel so
+ * tests can inspect the pixels, like display_fill_rect would. */
+void display_blit_span(int x, int y, int w, const uint16_t *src)
+{
+    int i;
+
+    if (src == 0)
+        return;
+    for (i = 0; i < w; i++)
+        display_fill_rect(x + i, y, x + i, y, src[i]);
+}
+
 void display_draw_text(int x, int y, const char *s, uint16_t fg, uint16_t bg)
 {
     if (s_text_count < MOCK_DISPLAY_MAX_TEXT) {

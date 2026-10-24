@@ -184,9 +184,10 @@ Meter types:
 | `fill` | `x y w h color` |
 | `roundrect` | `x y w h r color` (filled, true corner arcs) |
 | `triangle` | `x1 y1 x2 y2 x3 y3 color` (filled; degenerate = no draw) |
+| `gradient` | `x y w h from to dir` (`vertical`/`diagonal`, 4x4 dithering) |
 | `bitmap` | `asset x y color bg` (asset dimensions become `aw`/`ah`) |
 | `art` | `x y size color` (`size=small\|large`; RGB565 cover from ARTPACK.BIN, `color` tints the placeholder) |
-| `text` | `x y text color bg` |
+| `text` | `x y text color bg [maxc] [align]` (`maxc` -> `~` cut, `align=right`) |
 | `bar` | `x y w h value max color bg` |
 | `list` | `axis x y height selected rows source prev next item0..item3` |
 
@@ -212,7 +213,7 @@ color=text
 ```
 
 Expressions support integers, strings, `+ - * / %`, comparisons, `&& || !`,
-ternary `? :`, and functions `min max abs clamp mod noise sin seq if`.
+ternary `? :`, and functions `min max abs clamp mod noise sin sqrt seq if`.
 Strings concatenate with `+` and ints are converted (`pl_i + "/" + pl_n`).
 
 ### Runtime variables (read-only)
@@ -227,6 +228,7 @@ Strings concatenate with `+` and ints are converted (`pl_i + "/" + pl_n`).
 | `volume` | volume dB |
 | `battery` | battery %, -1 unknown |
 | `art_ok`, `art_c1`, `art_c2`, `art_mean`, `art_accent` | cover availability + palette (RGB565), from ARTPACK.BIN |
+| `art_bg_a`, `art_bg_b`, `art_glow`, `art_panel`, `art_label`, `art_ink`, `art_ink_dim` | derived shades for backgrounds/labels (see docs/ART_PACK.md) |
 | `title`, `artist`, `album`, `path` | current track metadata |
 | `heading` | screen title/path (Library, Settings, browser path, category) |
 | `state` | `"Playing"` / `"Paused"` / `"Stopped"` |
@@ -249,7 +251,7 @@ fallback. For the horizontal home bar, `prev=down` makes vol+ move left. Only
 vol up/down are theme-mappable; PLAY is always SELECT, BACK is always BACK,
 power is global.
 
-Bounded by design: 4 KiB skin text, 32 sections, 12 properties/section,
+Bounded by design: 4 KiB skin text, 52 sections (parsed, not stored: no RAM), 12 properties/section,
 144-byte values, expression recursion depth 12, 2048 evaluation steps.
 
 Masks compose: a slanted cut (a lower lid, a roof) bounds a trapezoid, so it

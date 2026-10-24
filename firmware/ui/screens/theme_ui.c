@@ -32,6 +32,13 @@ static void art_source_sync(void)
     s_art_src.c2 = art_pack_color(ART_C_SECONDARY);
     s_art_src.mean = art_pack_color(ART_C_MEAN);
     s_art_src.accent = art_pack_color(ART_C_ACCENT);
+    s_art_src.bg_a = art_pack_color(ART_C_BG_A);
+    s_art_src.bg_b = art_pack_color(ART_C_BG_B);
+    s_art_src.glow = art_pack_color(ART_C_GLOW);
+    s_art_src.panel = art_pack_color(ART_C_PANEL);
+    s_art_src.label = art_pack_color(ART_C_LABEL);
+    s_art_src.ink = art_pack_color(ART_C_INK);
+    s_art_src.ink_dim = art_pack_color(ART_C_INK_DIM);
     s_art_src.large_px = art_pack_dim(ART_SIZE_LARGE);
     s_art_src.small_px = art_pack_dim(ART_SIZE_SMALL);
     s_art_src.draw = art_draw;

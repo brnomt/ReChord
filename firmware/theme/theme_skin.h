@@ -16,12 +16,14 @@
  *
  * Expressions: integers, strings, variables, arithmetic, comparisons,
  * logical operators, ternary and a small function set:
- *   min max abs clamp mod noise sin seq
+ *   min max abs clamp mod noise sin sqrt seq
  * Variables: t idle playing paused stopped volume battery W H sel n aw ah
  *            title artist album state background surface text text_dim
  *            accent danger success art_ok art_c1 art_c2 art_mean art_accent
+ *            art_bg_a art_bg_b art_glow art_panel art_label art_ink
+ *            art_ink_dim
  *
- * The engine is intentionally bounded: one 4 KiB skin text, 32 sections,
+ * The engine is intentionally bounded: one 4 KiB skin text, 48 sections,
  * 12 properties per section, 64-byte values, recursion depth 12.
  */
 #ifndef RECHORD_THEME_SKIN_H
@@ -97,6 +99,7 @@ void theme_skin_set_list(const theme_skin_list_source_t *src);
 typedef struct theme_skin_art {
     int ok;                    /* 1 = the current track has a cover        */
     int c1, c2, mean, accent;  /* RGB565 palette                           */
+    int bg_a, bg_b, glow, panel, label, ink, ink_dim;  /* derived shades   */
     int large_px, small_px;    /* stored cover sizes (0 = unknown)         */
     /* Stream a cover into the framebuffer at (x,y), clipped. 0 = drawn,
      * <0 = unavailable (the engine draws the placeholder). */

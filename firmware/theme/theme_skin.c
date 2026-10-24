@@ -21,7 +21,10 @@
 #endif
 
 #define SKIN_LINE_MAX   256
-#define SKIN_SECTIONS   32
+/* Parsed, not stored: the engine scans the text per frame, so raising this
+ * costs no RAM (the cassette theme's home needs 49). Keep it just above the
+ * largest shipped skin. */
+#define SKIN_SECTIONS   52
 #define SKIN_PROPS      12
 #define SKIN_KEY_MAX    20
 #define SKIN_PROP_MAX   144
@@ -116,6 +119,8 @@ typedef struct {
 
 static skin_val_t eval_expr(skin_expr_t *e, int depth);
 static skin_val_t eval_raw(const char *text);
+/* Integer square root (defined with the drawing helpers; used by sqrt()). */
+static int isqrt_i(int v);
 
 static skin_val_t v_int(int i)
 {
@@ -246,6 +251,20 @@ static skin_val_t variable(const char *name)
         return v_int(s_art != 0 ? s_art->mean : 0);
     if (strcmp(name, "art_accent") == 0)
         return v_int(s_art != 0 ? s_art->accent : 0);
+    if (strcmp(name, "art_bg_a") == 0)
+        return v_int(s_art != 0 ? s_art->bg_a : 0);
+    if (strcmp(name, "art_bg_b") == 0)
+        return v_int(s_art != 0 ? s_art->bg_b : 0);
+    if (strcmp(name, "art_glow") == 0)
+        return v_int(s_art != 0 ? s_art->glow : 0);
+    if (strcmp(name, "art_panel") == 0)
+        return v_int(s_art != 0 ? s_art->panel : 0);
+    if (strcmp(name, "art_label") == 0)
+        return v_int(s_art != 0 ? s_art->label : 0);
+    if (strcmp(name, "art_ink") == 0)
+        return v_int(s_art != 0 ? s_art->ink : 0);
+    if (strcmp(name, "art_ink_dim") == 0)
+        return v_int(s_art != 0 ? s_art->ink_dim : 0);
     if (strcmp(name, "pos") == 0)
         return v_int(c != 0 && c->st != 0
                          ? (int)(c->st->position_ms / 1000) : 0);
@@ -465,6 +484,11 @@ static skin_val_t call_function(skin_expr_t *e, const char *name, int depth)
         return v_int(noise_int(as_int(a[0]), as_int(a[1])));
     if (strcmp(name, "sin") == 0 && n >= 3)
         return v_int(sin_int(as_int(a[0]), as_int(a[1]), as_int(a[2])));
+    if (strcmp(name, "sqrt") == 0 && n >= 1) {
+        int v = as_int(a[0]);
+
+        return v_int(v > 0 ? isqrt_i(v) : 0);   /* integer floor, generic */
+    }
     if (strcmp(name, "seq") == 0 && n >= 4)
         return seq_value(as_int(a[0]), as_int(a[1]), as_int(a[2]), a[3]);
     if (strcmp(name, "if") == 0 && n >= 3)
@@ -1232,6 +1256,91 @@ static void skin_triangle(int x1, int y1, int x2, int y2, int x3, int y3,
     }
 }
 
+/* Two-colour gradient (vertical or diagonal) with 4x4 ordered dithering.
+ * Channels are interpolated in 8-bit space (16.16 fixed point) and dithered
+ * BEFORE the 5/6/5 quantisation, which hides the banding a plain RGB565 ramp
+ * shows across 320 px. Rows are assembled in a small stack buffer and pushed
+ * through display_blit_span(), so there is no framebuffer-sized allocation and
+ * every row goes out as one or two spans. Draws only inside its rect. */
+#define SKIN_GRAD_CHUNK 160
+
+static void skin_gradient(int x, int y, int w, int h, uint16_t from,
+                          uint16_t to, int diagonal)
+{
+    static const uint8_t k_bayer[4][4] = {
+        { 0,  8,  2, 10 },
+        { 12, 4, 14,  6 },
+        { 3, 11,  1,  9 },
+        { 15, 7, 13,  5 }
+    };
+    uint16_t pix[SKIN_GRAD_CHUNK];
+    int fr = ((from >> 11) & 0x1F), fg = ((from >> 5) & 0x3F);
+    int fb = (from & 0x1F);
+    int tr = ((to >> 11) & 0x1F), tg = ((to >> 5) & 0x3F);
+    int tb = (to & 0x1F);
+    int den, yy, xx;
+
+    if (w <= 0 || h <= 0)
+        return;
+    if (x >= DISPLAY_W || y >= DISPLAY_H || x + w <= 0 || y + h <= 0)
+        return;
+
+    fr = (fr << 3) | (fr >> 2);          /* 5-bit -> 8-bit */
+    fg = (fg << 2) | (fg >> 4);          /* 6-bit -> 8-bit */
+    fb = (fb << 3) | (fb >> 2);
+    tr = (tr << 3) | (tr >> 2);
+    tg = (tg << 2) | (tg >> 4);
+    tb = (tb << 3) | (tb >> 2);
+
+    den = diagonal ? (w - 1) + (h - 1) : (h - 1);
+    if (den <= 0) {
+        display_fill_rect(x, y, x + w - 1, y + h - 1, from);
+        return;
+    }
+
+    {
+        uint32_t step = ((uint32_t)255 << 16) / (uint32_t)den;
+
+        for (yy = 0; yy < h; yy++) {
+            uint32_t t = (uint32_t)yy * step;
+            int py = y + yy;
+
+            if (py < 0 || py >= DISPLAY_H)
+                continue;
+            for (xx = 0; xx < w; xx += SKIN_GRAD_CHUNK) {
+                int n = w - xx;
+                int i;
+
+                if (n > SKIN_GRAD_CHUNK)
+                    n = SKIN_GRAD_CHUNK;
+                for (i = 0; i < n; i++) {
+                    int tt = (int)(t >> 16);
+                    int px = x + xx + i;
+                    int r8 = fr + (((tr - fr) * tt) >> 8);
+                    int g8 = fg + (((tg - fg) * tt) >> 8);
+                    int b8 = fb + (((tb - fb) * tt) >> 8);
+                    int d = (int)k_bayer[py & 3][px & 3] - 8;
+                    int r5, g6, b5;
+
+                    if (diagonal)
+                        t += step;
+                    r8 += d;
+                    g8 += d;
+                    b8 += d;
+                    if (r8 < 0) r8 = 0; else if (r8 > 255) r8 = 255;
+                    if (g8 < 0) g8 = 0; else if (g8 > 255) g8 = 255;
+                    if (b8 < 0) b8 = 0; else if (b8 > 255) b8 = 255;
+                    r5 = (r8 * 249) >> 11;          /* 31/255 */
+                    g6 = (g8 * 253) >> 10;          /* 63/255 */
+                    b5 = (b8 * 249) >> 11;
+                    pix[i] = (uint16_t)((r5 << 11) | (g6 << 5) | b5);
+                }
+                display_blit_span(x + xx, py, n, pix);
+            }
+        }
+    }
+}
+
 static uint16_t color_of(const char *value, skin_ctx_t *ctx, uint16_t fallback)
 {
     skin_val_t v;
@@ -1419,6 +1528,22 @@ static void render_section(const skin_section_t *sec, skin_ctx_t *ctx, int sel)
         return;
     }
 
+    if (key_eq(type, "gradient")) {
+        const char *dir = prop(sec, "dir");
+        uint16_t from = color_of(prop(sec, "from"), ctx,
+                                 theme_get()->background);
+        uint16_t to = color_of(prop(sec, "to"), ctx,
+                               theme_get()->background);
+
+        x = eval_int(prop(sec, "x"), ctx, 0);
+        y = eval_int(prop(sec, "y"), ctx, 0);
+        w = eval_int(prop(sec, "w"), ctx, THEME_LAYOUT_MAX_W);
+        h = eval_int(prop(sec, "h"), ctx, THEME_LAYOUT_MAX_H);
+        skin_gradient(x, y, w, h, from, to,
+                      dir != 0 && key_eq(dir, "diagonal"));
+        return;
+    }
+
     if (key_eq(type, "art")) {
         const char *sz = prop(sec, "size");
         int large = (sz != 0 && key_eq(sz, "large")) ? 1 : 0;
@@ -1462,11 +1587,31 @@ static void render_section(const skin_section_t *sec, skin_ctx_t *ctx, int sel)
 
     if (key_eq(type, "text")) {
         char text[SKIN_VAL_MAX];
+        int maxc;
 
         if (eval_string(prop(sec, "text"), ctx, text, sizeof text) != 0)
             return;
+        /* Optional hard truncation for fixed-width slots: keep the first
+         * maxc-1 characters and mark the cut with '~' (the theme mockup's
+         * fit()). Without it a long title overflows its surface. */
+        maxc = eval_int(prop(sec, "maxc"), ctx, 0);
+        if (maxc > 0 && (int)strlen(text) > maxc) {
+            if (maxc >= SKIN_VAL_MAX)
+                maxc = SKIN_VAL_MAX - 1;
+            text[maxc - 1] = '~';
+            text[maxc] = '\0';
+        }
         x = eval_int(prop(sec, "x"), ctx, 0);
         y = eval_int(prop(sec, "y"), ctx, 0);
+        {
+            const char *al = prop(sec, "align");
+
+            /* Optional right alignment: `x` is the right edge. The mockups
+             * need it for counters, volume and i/N (the engine has no text
+             * measuring helper for themes). */
+            if (al != 0 && key_eq(al, "right"))
+                x -= (int)strlen(text) * SKIN_FONT_W;
+        }
         display_draw_text(x, y, text,
                           color_of(prop(sec, "color"), ctx, theme_get()->text),
                           color_of(prop(sec, "bg"), ctx, theme_get()->background));

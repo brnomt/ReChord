@@ -13,7 +13,7 @@
 
 #include "internal/shims/display.h"
 
-#define MOCK_DISPLAY_MAX_RECT  512
+#define MOCK_DISPLAY_MAX_RECT  60000  /* a full-screen gradient records a rect per pixel */
 #define MOCK_DISPLAY_MAX_TEXT  512
 #define MOCK_DISPLAY_MAX_FLUSH 64
 #define MOCK_DISPLAY_MAX_BITMAP 16
