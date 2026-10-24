@@ -226,17 +226,18 @@ it is updated only after a flash is confirmed on hardware. The old check
 pinned `c2238...babb93d` from commit `02482c1`, which made every later commit
 fail even though the build was correct.
 
-### 5.2 Remaining Issue 82 dependencies
+### 5.2 Remaining dependencies after the build cleanup
+
+The build-side dependencies are gone: `make` builds the AP5M from tracked
+sources only. The legacy `cfw-img`/33 MB splice, `make release`/`all` (SDK BB +
+stock AP) and every SDK/stock packing target were removed; the historical
+packers stay in `tools/` for reference only.
+
+What remains is not a build input:
 
 - `0x03088000` is live loader/ROM memory at runtime (the probe hung there).
   The AP5M does not load it in the initial row, but it is not a free overlay
   window. The 113 KB needs a loader-owning bootloader or a different layout.
-- The legacy `cfw-img`/33 MB path still reads `stock/` and `community/refcfw`;
-  it is not on the standalone target and should stay quarantined as a
-  reference/fallback path.
-- The `make release` BB still links proprietary `community/sdks` `.lib`
-  codecs (Phase 3). The clean-room AP already uses `BB_CORE_SRCS`
-  (WAV/MP3/FLAC).
 - Flashing/update path (Phase 4). The stock updater/maskrom is a device
   component, not a build input; a custom updater is a separate decision.
 - The 0x1F8 descriptor field table is RE-derived from the reference and the

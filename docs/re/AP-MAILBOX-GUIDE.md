@@ -186,8 +186,9 @@ Three verified mechanisms, in order of impact:
 
 ## Appendix B — the minimal BB stub
 
-`firmware/bb_stub/bb_stub.c` (build: `make bb-stub`, flash:
-`make pack-bb-stub-img` → `build/ReChord_BB_Stub.IMG`):
+`firmware/bb_stub/bb_stub.c` (the `make bb-stub` / `make pack-bb-stub-img`
+targets were removed with the legacy stock path in BRNOMT-82; the source stays
+as RE reference):
 
 - option-B boot (stock ROM HW init) then a WFI loop — no UI, no framebuffer;
 - full 57-entry RAM vector table in `bb_vect` (256-aligned), VTOR set,

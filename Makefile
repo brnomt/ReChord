@@ -1,15 +1,15 @@
 # ReChord — Echo Mini custom firmware build system
 #
 # Target: ARM Cortex-M3 (Thumb-2), Rockchip RKnanoC
-# SDK: Rockchip RKnanoD MP3 v1.3
 #
-# The device contains two independently built firmware images:
-#   AP (fw1)       — application, UI, filesystem, and hardware drivers
-#   BB (section_3) — audio services, codecs, and DSP
+# Clean-room product line only. `make` builds the standalone AP5M image from
+# tracked sources:
+#   AP (fw1)       — our UI, filesystem, drivers, services, player, DSP
+#   BB (Core B)    — our decoder + codecs, embedded in the AP as a blob
 #
-# Never build the entire SDK as one target. The source manifests below are
-# derived from the original Keil project and keep the AP and BB object graphs
-# isolated.
+# It does NOT read stock/ images, community/ SDK blobs or proprietary .lib
+# archives. The legacy SDK/stock packing targets were removed in BRNOMT-82;
+# tools/ keeps the historical packers for reference only.
 
 ifeq ($(OS),Windows_NT)
     PYTHON ?= py -3
@@ -27,28 +27,22 @@ CC      := $(CROSS_COMPILE)gcc
 OBJCOPY := $(CROSS_COMPILE)objcopy
 SIZE    := $(CROSS_COMPILE)size
 
-BUILD_DIR    := build
-BB_BUILD_DIR := $(BUILD_DIR)/bb
-AP_BUILD_DIR := $(BUILD_DIR)/ap
-BB_OBJ_DIR   := $(BB_BUILD_DIR)/objs
-AP_OBJ_DIR   := $(AP_BUILD_DIR)/objs
-BB_LINKER    := firmware/firmware.ld
+.DEFAULT_GOAL := standalone-ap5m
 
-include firmware/rockchip/manifests/bb.mk
-include firmware/rockchip/manifests/ap.mk
+BUILD_DIR    := build
 
 # ReChord module fragments (docs/rewrite/architecture.md §2): one subsystem,
 # one folder, one .mk. Fragments only define *_SRCS/*_INCLUDE_DIRS variables;
 # build targets stay in this file so the graph lives in one place.
-# Header-change tracking for EVERY pipeline (missing build/cfw once left a
-# stale 64 KiB ipc_b_target.o in a flashable image — always list all three).
--include $(shell find build/bb build/ap build/cfw -name "*.d" 2>/dev/null)
+# Header-change tracking for the product pipeline (missing build/cfw once left
+# a stale 64 KiB ipc_b_target.o in a flashable image).
+-include $(shell find build/cfw -name "*.d" 2>/dev/null)
 
 include firmware/ap.mk
 
-# ---- CFW AP (fw1) clean-room image: milestone 1, boots to OUR screen ----
-# Distinct from the SDK A_CORE pipeline above (build-ap/link-ap/pack-fw1):
-# this links ONLY firmware/{startup,ui,drivers,services,theme,libc}/*.c.
+# ---- CFW AP (fw1) clean-room image ---------------------------------------
+# This links ONLY firmware/{startup,ui,drivers,services,theme,libc,player,dsp}
+# plus our Core B decoder blob. No SDK AP/BB objects, no vendor .lib.
 CFW_BUILD_DIR ?= build/cfw
 CFW_OBJS := $(patsubst %.c,$(CFW_BUILD_DIR)/objs/%.o,$(AP_SRCS))
 CFW_ELF := $(CFW_BUILD_DIR)/rechord_ap.elf
@@ -169,16 +163,8 @@ $(CFW_ELF): $(CFW_OBJS) $(AP_LDSCRIPT) $(BB_CORE_BLOB) $(AP_OVERLAY_LINK)
 	@$(MKDIR_P) $(dir $@)
 	$(CC) $(AP_LDFLAGS) $(CFW_OBJS) $(BB_CORE_BLOB) $(AP_OVERLAY_LINK) $(AP_LDLIBS) -o $@
 
-# Our fw1 + stock section_3 (until the BB module milestone), CRC recomputed.
-# HARD GATE in tools/pack_fw1.py: no scatter row below 0x03004000 (ROM-owned
-# RAM - the 2026-08-25 brick). Debrick: docs/DEBRICK-LINUX.md.
-cfw-img: $(CFW_ELF)
-	$(PYTHON) tools/make_fw1.py $(CFW_ELF) -o build/ReChord_AP.IMG
-
-# BRNOMT-82 Phase 1a: fw1 -> 5MB AP5M image without reading stock/ref images.
-# The descriptor is generated from docs/fw1-packing.md section 10; the legacy
-# cfw-img path above still uses the stock 33MB image and reference header.
-# Probe image:
+# Product image: fw1 -> 5MB AP5M, no stock/ref reads. This is the default
+# `make` target and the only image to flash.
 #   make standalone-ap5m AP_MEM_PROBE=1 CFW_BUILD_DIR=build/cfw-probe \
 #       AP5M_OUT=build/probe/ReChord_AP.IMG
 AP5M_OUT ?= build/ReChord_AP.IMG
@@ -205,61 +191,9 @@ verify-standalone:
 clean-clone-check:
 	tools/clean_clone_check.sh
 
-# HOOK TEST: verbatim reference fw1 calling our panel driver (HANDOVER.md).
-HOOK_DIR := build/hook
-HOOK_SRCS := firmware/hook/ref_hook.c firmware/drivers/panel_io_rknanoc.c \
-             firmware/drivers/panel_init_rknanoc.c
-HOOK_CC = $(CC) -mcpu=cortex-m3 -mthumb -Os -ffreestanding -fno-builtin \
-    -nostdlib -ffunction-sections -Ifirmware/drivers -T firmware/hook/ref_hook.ld
-hook-img:
-	@$(MKDIR_P) $(HOOK_DIR)
-	$(HOOK_CC) $(HOOK_SRCS) -lgcc -o $(HOOK_DIR)/ref_hook.elf
-	$(OBJCOPY) -O binary $(HOOK_DIR)/ref_hook.elf $(HOOK_DIR)/ref_hook.bin
-	$(PYTHON) tools/make_hook_img.py $(HOOK_DIR)/ref_hook.bin \
-	    $(HOOK_DIR)/ref_hook.elf -o build/ReChord_HOOK.IMG
-
-# TRIAL: our whole fw1 Main() inside the reference image, then back to it.
-TRIAL_DIR := build/trial
-TRIAL_SRCS := firmware/hook/trial_entry.c \
-    $(filter-out firmware/startup/ap_startup.c firmware/startup/vectors.c,$(AP_SRCS))
-TRIAL_OBJS := $(patsubst %.c,$(TRIAL_DIR)/objs/%.o,$(TRIAL_SRCS))
-$(TRIAL_DIR)/objs/%.o: %.c
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(AP_CFLAGS) -DAP_TRIAL -c $< -o $@
-trial-img: $(TRIAL_OBJS)
-	$(CC) $(AP_ARCH_FLAGS) -T firmware/hook/trial.ld -nostartfiles -nostdlib \
-	    $(TRIAL_OBJS) -lgcc -o $(TRIAL_DIR)/trial.elf
-	$(OBJCOPY) -O binary $(TRIAL_DIR)/trial.elf $(TRIAL_DIR)/trial.bin
-	$(PYTHON) tools/make_hook_img.py --early $(TRIAL_DIR)/trial.bin \
-	    $(TRIAL_DIR)/trial.elf -o build/ReChord_TRIAL.IMG
-
-# ENTRY: ROM -> OUR reset/startup/Main via the patched reset vector, then
-# chain to the reference reset (standalone boot path with an escape hatch).
-ENTRY_DIR := build/entry
-ENTRY_SRCS := $(filter-out firmware/startup/vectors.c,$(AP_SRCS))
-ENTRY_OBJS := $(patsubst %.c,$(ENTRY_DIR)/objs/%.o,$(ENTRY_SRCS))
-$(ENTRY_DIR)/objs/%.o: %.c
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(AP_CFLAGS) -DAP_TRIAL -DAP_CHAIN_REF -c $< -o $@
-entry-img: $(ENTRY_OBJS)
-	$(CC) $(AP_ARCH_FLAGS) -T firmware/hook/entry.ld -nostartfiles -nostdlib \
-	    $(ENTRY_OBJS) -lgcc -o $(ENTRY_DIR)/entry.elf
-	$(OBJCOPY) -O binary $(ENTRY_DIR)/entry.elf $(ENTRY_DIR)/entry.bin
-	$(PYTHON) tools/make_hook_img.py --vector 0x03050004 $(ENTRY_DIR)/entry.bin \
-	    $(ENTRY_DIR)/entry.elf -o build/ReChord_ENTRY.IMG
-	$(PYTHON) tools/make_hook_img.py --vector 0x03074B74 $(ENTRY_DIR)/entry.bin \
-	    $(ENTRY_DIR)/entry.elf -o build/ReChord_ENTRY2.IMG
-	$(PYTHON) tools/make_hook_img.py --vector 0x03050004 --vector 0x03074B74 \
-	    --vector 0x03076670 $(ENTRY_DIR)/entry.bin $(ENTRY_DIR)/entry.elf \
-	    -o build/ReChord_ENTRY3.IMG
-
-# Early hook: our code at ref main entry (ROM handoff state, no ref init).
-hook-early-img:
-	@$(MKDIR_P) $(HOOK_DIR)
-	$(HOOK_CC) -DHOOK_EARLY $(HOOK_SRCS) -lgcc -o $(HOOK_DIR)/ref_hook_early.elf
-	$(OBJCOPY) -O binary $(HOOK_DIR)/ref_hook_early.elf $(HOOK_DIR)/ref_hook_early.bin
-	$(PYTHON) tools/make_hook_img.py --early $(HOOK_DIR)/ref_hook_early.bin \
-	    $(HOOK_DIR)/ref_hook_early.elf -o build/ReChord_HOOK_EARLY.IMG
+# Reference-image hook/trial/entry targets were removed with the legacy
+# stock/refcfw build path (BRNOMT-82). firmware/hook/ and
+# tools/make_hook_img.py stay in the tree as RE reference material only.
 
 include firmware/libc/libc.mk
 include firmware/startup/startup.mk
@@ -272,83 +206,24 @@ include firmware/dsp/dsp.mk
 include firmware/modules/modules.mk
 include firmware/player/player.mk
 
-ARCH_FLAGS   := -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
-# SDK-era leniency (same policy as tools/compile_check.py): the vendor SDK is
-# armcc-era C90 and relies on implicit declarations; GCC 14 makes those hard
-# errors. Our own code passes -Wall cleanly regardless.
-COMMON_FLAGS := $(ARCH_FLAGS) -Os -Wall -Wno-unused-parameter \
-                -Wno-unused-variable -Wno-implicit-function-declaration \
-                -Wno-implicit-int -Wno-builtin-declaration-mismatch \
+# Flags for our own sources. The SDK-era leniency is kept only because
+# firmware/rockchip/include/armcc_compat.h is still on the include line; our
+# clean-room sources pass -Wall cleanly.
+COMMON_FLAGS := -mcpu=cortex-m3 -mthumb -mfloat-abi=soft -Os -Wall \
+                -Wno-unused-parameter -Wno-unused-variable \
+                -Wno-implicit-function-declaration -Wno-implicit-int \
+                -Wno-builtin-declaration-mismatch \
                 -Wno-incompatible-pointer-types -Wno-return-mismatch \
                 -Wno-int-conversion -Wno-return-type \
                 -ffunction-sections -fdata-sections -MMD -MP -fcommon \
                 -include firmware/rockchip/include/armcc_compat.h
-BB_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_BB_BUILD -D_RK_EQ_ -Ifirmware $(addprefix -I,$(BB_INCLUDE_DIRS))
 # LOG_BUFFER_LINES: 12 lines dropped boundary lines during a track change
 # (BRNOMT-73 field logs), so the ring holds 48 lines of the latest activity —
 # the assembly buffer still fits under the AP .bss ceiling (0x0304A000).
 AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DAP_MEM_OVERLAY=$(AP_MEM_OVERLAY) -DAP_CDC_OVERLAY=$(AP_CDC_OVERLAY) $(if $(filter 0,$(AP_LOCAL_DECODE)),-DRECHORD_AP_METADATA_ONLY=1) -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
 
-BB_OBJS := $(foreach src,$(BB_SRCS),\
-             $(BB_OBJ_DIR)/$(patsubst firmware/rockchip/%,%,$(src)).o)
-AP_OBJS := $(foreach src,$(AP_SRCS),\
-             $(AP_OBJ_DIR)/$(patsubst firmware/rockchip/%,%,$(src)).o)
-
-BB_RECHORD_OBJS := \
-    $(BB_BUILD_DIR)/startup.o \
-    $(BB_BUILD_DIR)/stubs.o \
-    $(BB_BUILD_DIR)/fault.o \
-    $(BB_BUILD_DIR)/rechord_win.o \
-    $(BB_BUILD_DIR)/rechord_app.o \
-    $(BB_BUILD_DIR)/rechord_dsp.o \
-    $(BB_BUILD_DIR)/rechord_dsp_core.o \
-    $(BB_BUILD_DIR)/bb_trace.o \
-    $(BB_BUILD_DIR)/entry_stubs.o
-
-BB_ELF := $(BB_BUILD_DIR)/rechord_bb.elf
-BB_BIN := $(BB_BUILD_DIR)/section3_custom.bin
-AP_ELF := $(AP_BUILD_DIR)/rechord_ap.elf
-AP_BIN := $(AP_BUILD_DIR)/fw1_custom.bin
-
-# Prebuilt codec .lib binaries the Keil RkNano project links (ARM AR archives).
-SDK_LIB := community/sdks/RKNanoD_MP3_V1.3_20161102/Common/Codec
-# The BB milestone links the bring-up codec set; the heavy formats (DSF,
-# DSDIFF, Ogg, AAC) and the image decoders return later as overlay modules -
-# their .bss alone blows past FW_RAM when everything is resident.
-BB_CODEC_LIBS := \
-  $(SDK_LIB)/BlueTooth/RKNanoD_LwBT_20161014.lib \
-  $(SDK_LIB)/Audio/HIFI/flac/RkNanoD_BHFLAC_20160807.lib \
-  $(SDK_LIB)/Audio/Library/RkNano_EQ_24BIT_20150630.lib \
-  $(SDK_LIB)/Audio/Library/RkNano_FADE_24BIT_20150611.lib \
-  $(SDK_LIB)/Audio/Library/RkNano_Spectrum_V09_0420.lib \
-  $(SDK_LIB)/Audio/Mp3/RkNanoD_BMP3_20161031.lib \
-  $(SDK_LIB)/Audio/sbc/RKNanoD_SBCEnc_20160718.lib \
-  $(SDK_LIB)/Audio/ShuffleAll/RKNANO_MyRandom_20150927.lib \
-  $(SDK_LIB)/Audio/SSRC/RKNanoD_SSRC_20160718.lib \
-  $(SDK_LIB)/Audio/Wav/RkNanoD_BWAV_20151223.lib
-
-AP_CODEC_LIBS := \
-  $(SDK_LIB)/Image/Jpg/RkNanoD_JPG_DEC_V150906.lib \
-  $(SDK_LIB)/Image/Bmp/RkNano_BMP_DEC_V20150511.lib \
-  $(SDK_LIB)/BlueTooth/RKNanoD_LwBT_20161014.lib \
-  $(SDK_LIB)/Audio/AAC/RkNanoD_BAAC_20151223.lib \
-  $(SDK_LIB)/Audio/DSDIFF/RkNanoD_BDSDIFF_20160929.lib \
-  $(SDK_LIB)/Audio/DSF/RkNanoD_BDSF_20160929.lib \
-  $(SDK_LIB)/Audio/HIFI/flac/RkNanoD_BHFLAC_20160807.lib \
-  $(SDK_LIB)/Audio/Library/RkNano_EQ_24BIT_20150630.lib \
-  $(SDK_LIB)/Audio/Library/RkNano_FADE_24BIT_20150611.lib \
-  $(SDK_LIB)/Audio/Library/RkNano_Spectrum_V09_0420.lib \
-  $(SDK_LIB)/Audio/Mp3/RkNanoD_BMP3_20161031.lib \
-  $(SDK_LIB)/Audio/Ogg/RkNanoD_BOGG_20160901.lib \
-  $(SDK_LIB)/Audio/sbc/RKNanoD_SBCEnc_20160718.lib \
-  $(SDK_LIB)/Audio/ShuffleAll/RKNANO_MyRandom_20150927.lib \
-  $(SDK_LIB)/Audio/SSRC/RKNanoD_SSRC_20160718.lib \
-  $(SDK_LIB)/Audio/Wav/RkNanoD_BWAV_20151223.lib
-
-.PHONY: all bb ap build-bb build-ap link-bb link-ap build-sdk link-firmware \
-        toolchain manifests compile-check pack-img pack-bb-img pack-bb-stub-img \
-        bb-stub release pack-full apbb-experimental test-dsp extract-section3 clean \
-        standalone-ap5m verify-standalone clean-clone-check cdc-image
+.PHONY: cfw-ap standalone-ap5m cdc-image verify-standalone clean-clone-check \
+        test-dsp toolchain manifests compile-check clean
 
 # Host unit test for the freestanding DSP core (runs on the build machine, no
 # hardware). Verifies the biquad math before it ever touches the device.
@@ -360,38 +235,7 @@ test-dsp: firmware/rechord_dsp_core.c firmware/rechord_dsp_core.h firmware/test_
 	$(BUILD_DIR)/test_dsp_core
 	sh firmware/dsp/tests/run_tests.sh
 
-# Single-command SAFE product build: custom BB (audio/DSP) + STOCK AP (UI),
-# packed into one flashable IMG. This combination is hardware-verified to
-# boot (cassette UI + working mailbox). `release` is the documented entry
-# point; `all` is the alias.
-#
-# DO NOT ship a custom fw1 (AP) in the default build: the fw1 memory-map
-# table format is NOT fully reverse-engineered — the stock table's 91
-# entries describe the whole system RAM layout (UI framebuffer, audio
-# buffers, FAT cache, stacks) that the Mask ROM sets up at boot. Our
-# 3-entry replacement destroys that layout and BRICKS the device
-# (confirmed on hardware 2026-08-25). Use `make apbb-experimental` for
-# fw1-replacement research only.
-release: bb pack-bb-img
-
-all: release
-
-bb: build-bb link-bb
-	@echo ""
-	@echo "ReChord BB firmware built:"
-	@$(SIZE) $(BB_ELF)
-
-# AP (fw1) image: compile + link + emit the scatter image consumed by pack-full.
-ap: build-ap link-ap pack-fw1
-	@echo ""
-	@echo "ReChord AP firmware built:"
-	@$(SIZE) $(AP_ELF)
-
-# Backward-compatible aliases used by existing documentation and scripts.
-build-sdk: build-bb
-link-firmware: link-bb
-
-# ---- toolchain and manifest validation -----------------------------------
+# ---- RE tooling (optional; not part of the product build) ----------------
 toolchain:
 	@$(CC) -dumpversion
 	@echo "Toolchain OK."
@@ -399,168 +243,8 @@ toolchain:
 manifests:
 	$(PYTHON) tools/check_sdk_manifests.py
 
-# ---- BB / section_3 ------------------------------------------------------
-build-bb: toolchain manifests $(BB_OBJS)
-	@echo "BB SDK compiled: $(words $(BB_OBJS)) objects"
-
-$(BB_OBJ_DIR)/%.o: firmware/rockchip/%
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(BB_CFLAGS) -c $< -o $@
-
-$(BB_BUILD_DIR)/startup.o: firmware/startup/startup.c
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(BB_CFLAGS) -c $< -o $@
-
-$(BB_BUILD_DIR)/bb_trace.o: firmware/bb_trace.c firmware/bb_trace.h
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(BB_CFLAGS) -c $< -o $@
-
-$(BB_BUILD_DIR)/stubs.o: firmware/stubs.c
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(BB_CFLAGS) -c $< -o $@
-
-$(BB_BUILD_DIR)/fault.o: firmware/fault.c
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(BB_CFLAGS) -c $< -o $@
-
-$(AP_BUILD_DIR)/stubs.o: firmware/stubs.c
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(AP_CFLAGS) -c $< -o $@
-
-$(AP_BUILD_DIR)/fault.o: firmware/fault.c
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(AP_CFLAGS) -c $< -o $@
-
-$(AP_BUILD_DIR)/ap_startup.o: firmware/startup/ap_startup.c
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(AP_CFLAGS) -c $< -o $@
-
-$(BB_BUILD_DIR)/rechord_win.o: firmware/rechord_win.c
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(BB_CFLAGS) -c $< -o $@
-
-$(BB_BUILD_DIR)/rechord_app.o: firmware/rechord_app.c
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(BB_CFLAGS) -c $< -o $@
-
-$(BB_BUILD_DIR)/rechord_dsp.o: firmware/rockchip/audio/RkEQ/Effect/rechord_dsp.c \
-		firmware/rockchip/audio/RkEQ/Effect/rechord_dsp.h \
-		firmware/rechord_dsp_core.h
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(BB_CFLAGS) -c $< -o $@
-
-$(BB_BUILD_DIR)/rechord_dsp_core.o: firmware/rechord_dsp_core.c \
-		firmware/rechord_dsp_core.h
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(BB_CFLAGS) -c $< -o $@
-
-$(BB_BUILD_DIR)/entry_stubs.o: firmware/entry_stubs.S
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(ARCH_FLAGS) -c $< -o $@
-
-link-bb: $(BB_RECHORD_OBJS) $(BB_OBJS)
-	# -nostdlib: this host has no arm-none-eabi newlib (no crt0/-lc/-lm).
-	# Libc is our own freestanding module (firmware/libc, build-from-source);
-	# -lgcc supplies the compiler runtime (__aeabi_d* soft-float doubles).
-	# Objects are grouped so vendor .lib archives resolve regardless of order.
-	$(CC) $(ARCH_FLAGS) -T $(BB_LINKER) -nostartfiles -nostdlib -ffreestanding \
-		$(BB_RECHORD_OBJS) $(LIBC_SRCS) \
-		-Wl,--allow-multiple-definition -Wl,--start-group $(BB_OBJS) $(BB_CODEC_LIBS) -Wl,--end-group -lgcc -o $(BB_ELF)
-	$(OBJCOPY) -O binary -j .fw_header -j .text $(BB_ELF) $(BB_BIN)
-	@echo "Built: $(BB_BIN)"
-
-# ---- minimal dummy BB (mailbox responder, no SDK) ------------------------
-# Links startup.o + stubs.o + fault.o + entry_stubs.o + bb_stub.o only:
-# bb_stub.c provides rechord_hw_init/rechord_main that entry_stubs.S calls,
-# plus its own RAM vector table (bb_vect) and direct-MMIO mailbox ISRs.
-BB_STUB_ELF := $(BB_BUILD_DIR)/rechord_bb_stub.elf
-BB_STUB_BIN := $(BB_BUILD_DIR)/section3_stub.bin
-BB_STUB_OBJS := $(BB_BUILD_DIR)/startup.o $(BB_BUILD_DIR)/stubs.o \
-                $(BB_BUILD_DIR)/fault.o $(BB_BUILD_DIR)/entry_stubs.o \
-                $(BB_BUILD_DIR)/bb_stub.o
-
-$(BB_BUILD_DIR)/bb_stub.o: firmware/bb_stub/bb_stub.c firmware/rechord_version.h
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(ARCH_FLAGS) -Os -Wall -Ifirmware -c $< -o $@
-
-# Link uses -nostdlib: the stub references no libc, so it builds on hosts
-# without libnewlib-arm-none-eabi ("cannot find -lc"). The full SDK link
-# (link-bb) still needs newlib for memcpy/printf etc.
-bb-stub: $(BB_STUB_OBJS)
-	$(CC) $(ARCH_FLAGS) -T $(BB_LINKER) -nostdlib -ffreestanding \
-		$(BB_STUB_OBJS) -o $(BB_STUB_ELF)
-	$(OBJCOPY) -O binary -j .fw_header -j .text $(BB_STUB_ELF) $(BB_STUB_BIN)
-	@$(SIZE) $(BB_STUB_ELF)
-	@echo "Built: $(BB_STUB_BIN)"
-
-# Pack the dummy BB into a flashable IMG (stock AP preserved).
-# --keep-stock-tail: preserve stock section_3 bytes beyond our small stub so
-# the stock AP's scatter-table/overlay references into that flash region
-# stay valid (blank-UI-text / crash fix; see docs/re/AP-MAILBOX-GUIDE.md).
-pack-bb-stub-img: $(BB_STUB_BIN)
-	$(PYTHON) tools/pack_img.py --pack $(BB_STUB_BIN) --keep-stock-tail -o $(BUILD_DIR)/ReChord_BB_Stub.IMG
-
-# Attempt the AP (fw1) link to enumerate remaining undefined symbols.
-# The AP (fw1) is the resident A_CORE: UI + drivers + filesystem. The codec
-# .lib (AP_CODEC_LIBS) and audio/image/BT/FM sources live in the BB/overlays,
-# so they are NOT linked here; their entry points are weak stubs in stubs.c.
-# ap_startup.o is linked FIRST so its .vectors table lands at SYS_CODE
-# (0x03060000) — the reset vector [1] points at Main.
-link-ap: $(AP_OBJS) $(AP_BUILD_DIR)/ap_startup.o $(AP_BUILD_DIR)/stubs.o $(AP_BUILD_DIR)/fault.o
-	$(CC) $(ARCH_FLAGS) -T firmware/firmware_ap.ld -nostartfiles -ffreestanding \
-		$(AP_BUILD_DIR)/ap_startup.o $(AP_BUILD_DIR)/stubs.o $(AP_BUILD_DIR)/fault.o $(AP_OBJS) -lm -o $(AP_ELF)
-	$(OBJCOPY) -O binary -j .text -j .data $(AP_ELF) $(AP_BIN)
-	@echo "AP linked: $(AP_ELF) -> $(AP_BIN)"
-
-# ---- AP / fw1 ------------------------------------------------------------
-# Compiles the resident A_CORE AP (UI + drivers + filesystem + LCD). The
-# codec .lib / audio / image / BT / FM / record overlay sources live in the
-# BB/overlays, so their entry points are weak stubs in stubs.c. Links and
-# packs cleanly (see link-ap / pack-fw1 / pack-full).
-build-ap: toolchain manifests $(AP_OBJS)
-	@echo "AP SDK compile passed: $(words $(AP_OBJS)) imported objects"
-
-$(AP_OBJ_DIR)/%.o: firmware/rockchip/%
-	@$(MKDIR_P) $(dir $@)
-	$(CC) $(AP_CFLAGS) -c $< -o $@
-
-# ---- checks and packaging ------------------------------------------------
 compile-check: toolchain
 	$(PYTHON) tools/compile_check.py
-
-# Identity-test the stock section_3 splice operation.
-pack-img:
-	$(PYTHON) tools/pack_img.py --identity-test
-
-# Produce a test IMG containing the custom BB while preserving the stock AP.
-# --keep-stock-tail: the stock fw1 memory-map table XIP-copies data from
-# inside the section_3 flash region, so zero-padding it corrupts the AP.
-pack-bb-img: $(BB_BIN)
-	$(PYTHON) tools/pack_img.py --pack $(BB_BIN) --keep-stock-tail -o $(BUILD_DIR)/ReChord_BB.IMG
-
-# Emit the fw1 (AP) RKnanoFW scatter image from the AP ELF.
-FW1_IMG := $(AP_BUILD_DIR)/fw1_custom.img
-pack-fw1: $(AP_ELF)
-	$(PYTHON) tools/pack_fw1.py $(AP_ELF) -o $(FW1_IMG)
-
-# Pack BOTH halves (fw1 + section_3) into one IMG. EXPERIMENTAL — KNOWN TO
-# BRICK on hardware (2026-08-25): the custom fw1 memory-map table does not
-# reproduce the stock 91-entry system RAM layout. Not part of `release`.
-pack-full: $(FW1_IMG) $(BB_BIN)
-	$(PYTHON) tools/pack_img.py --pack-full --fw1 $(FW1_IMG) --bb $(BB_BIN) -o $(BUILD_DIR)/ReChord_APBB.IMG
-
-# Explicit, loud alias for the bricking combination (research only).
-apbb-experimental: bb ap pack-full
-	@echo ""
-	@echo "==================================================================="
-	@echo " WARNING: ReChord_APBB.IMG replaces fw1 (AP) with a custom image."
-	@echo " The fw1 memory-map table is NOT validated — THIS BRICKED A DEVICE"
-	@echo " on 2026-08-25. Flash only with maskrom recovery ready."
-	@echo " Safe default: make release -> build/ReChord_BB.IMG"
-	@echo "==================================================================="
-
-extract-section3:
-	$(PYTHON) tools/pack_img.py --extract -o $(BUILD_DIR)/section3_stock.bin
 
 clean:
 	@$(RMDIR_R) build

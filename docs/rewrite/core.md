@@ -159,9 +159,9 @@ Sanity link of the vector table confirmed the linked words at `0x03050000`:
 SP `0x03004000`, Reset odd (`rechord_startup_entry` | 1), handlers odd.
 `startup.c` also compiles under the legacy `make` rule's exact BB flags.
 
-Legacy `make bb` note: the build is currently red in untouched vendor SDK
-sources (`firmware/rockchip/.../AudioControl.c`, implicit declarations) —
-pre-existing and out of this workstream's scope.
+Legacy `make bb` note: that SDK target was removed in BRNOMT-82 (it linked
+proprietary `community/sdks` archives). The clean-room product builds with
+`make` (standalone AP5M) from tracked sources only.
 
 ## 7. Open items
 
