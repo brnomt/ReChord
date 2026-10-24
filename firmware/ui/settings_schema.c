@@ -157,7 +157,7 @@ void settings_view_defaults(rechord_settings_t *s)
     s->play_mode = 0;      /* repeat_track */
     s->brightness = 8;
     s->screen_off_s = 30;
-    s->auto_off_min = 15;
+    s->auto_off_min = 5;    /* standby auto-off (ReChord default) */
     s->usb_mode = 0;       /* ask */
     s->resume_mode = 1;    /* folder */
     s->strip = 0;          /* off */

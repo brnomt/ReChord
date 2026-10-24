@@ -39,6 +39,11 @@ void theme_ui_fill_state(theme_skin_state_t *st, const char *heading);
 /* Draw the active screen skin. */
 void theme_ui_draw(const theme_skin_state_t *st, int sel, int top);
 
+/* Re-render only the package's `dyn=1` primitives (no clear, no static
+ * sections) and flush the rects it declares. Returns 0 when the skin has no
+ * dynamic rects, so the caller falls back to a band invalidation. */
+int theme_ui_draw_dynamic(const theme_skin_state_t *st, int sel, int top);
+
 /* Dynamic list source for the current screen (NULL clears it). */
 void theme_ui_list(const theme_skin_list_source_t *src);
 

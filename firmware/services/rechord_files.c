@@ -73,6 +73,28 @@ static int ensure_file(const char *path, uint32_t bytes, const char *template_te
     return FS_OK;
 }
 
+/* Preallocated EQ file size: enough for 10 bands + the comment header. */
+#define EQ_FILE_BYTES 1024u
+
+/* Written into a freshly created eq.cfg so the on-device file documents the
+ * format the PC may edit (the boot loader falls back to Flat if it is gone). */
+static const char k_eq_default[] =
+    "# ReChord EQ (BRNOMT-76)\n"
+    "# bandN=freq_hz,Q*100,gain_tenths_db\n"
+    "format=1\n"
+    "enabled=0\n"
+    "name=Flat\n"
+    "band0=31,70,0\n"
+    "band1=62,70,0\n"
+    "band2=125,70,0\n"
+    "band3=250,70,0\n"
+    "band4=500,70,0\n"
+    "band5=1000,70,0\n"
+    "band6=2000,70,0\n"
+    "band7=4000,70,0\n"
+    "band8=8000,70,0\n"
+    "band9=16000,70,0\n";
+
 int rechord_files_init(void)
 {
     settings_t defaults;
@@ -124,5 +146,17 @@ int rechord_files_init(void)
      * fail the boot. */
     (void)fs_target_mkdir(RECHORD_THEMES_DIR);
     (void)ensure_file(RECHORD_ACTIVE_THEME, 64u, "mono\n");
+
+    /* EQ (BRNOMT-76): active curve + five writable custom slots. All are
+     * preallocated so the in-place rewrite path never has to grow a cluster.
+     * Users may add custom6.cfg..custom8.cfg from a PC; the picker shows
+     * every slot file it finds. */
+    (void)fs_target_mkdir(RECHORD_EQ_DIR);
+    (void)ensure_file(RECHORD_EQ_CFG, EQ_FILE_BYTES, k_eq_default);
+    (void)ensure_file(RECHORD_EQ_DIR "/custom1.cfg", EQ_FILE_BYTES, 0);
+    (void)ensure_file(RECHORD_EQ_DIR "/custom2.cfg", EQ_FILE_BYTES, 0);
+    (void)ensure_file(RECHORD_EQ_DIR "/custom3.cfg", EQ_FILE_BYTES, 0);
+    (void)ensure_file(RECHORD_EQ_DIR "/custom4.cfg", EQ_FILE_BYTES, 0);
+    (void)ensure_file(RECHORD_EQ_DIR "/custom5.cfg", EQ_FILE_BYTES, 0);
     return FS_OK;
 }

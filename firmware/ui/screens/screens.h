@@ -56,6 +56,13 @@ typedef struct menu_view {
 
 extern const ui_screen_t menu_screen;
 
+/* ======================================================================
+ * eq_screen / eq_profile_screen — Equalizer + profile picker (BRNOMT-76)
+ * ====================================================================== */
+
+extern const ui_screen_t eq_screen;
+extern const ui_screen_t eq_profile_screen;
+
 void menu_screen_bind(const menu_model_t *model); /* model must outlive use */
 const menu_model_t *menu_screen_model(void);
 const menu_view_t  *menu_screen_view(void);
@@ -132,6 +139,9 @@ void player_screen_sync_state(void);
 void player_screen_set_status(const char *msg);
 /* Re-sync title/position/state from the player module (app loop). */
 void player_screen_refresh(void);
+
+/* Repaint just the package's dynamic primitives (0 = no dyn rects). */
+int  player_screen_animate(void);
 
 /* Pure geometry helper (host-tested): filled width in px of a bar `width`
  * px wide at position/duration.  dur==0 or overflow-safe: returns 0. */

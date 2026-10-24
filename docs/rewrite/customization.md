@@ -56,6 +56,11 @@ metrics) and is used by tests and (later) the settings UI.
 
 ## 2. DSP effect-module system (`firmware/dsp/`)
 
+> **Product path vs. this layer.** The int16 `dsp_module_t` chain below is the
+> host/experiment layer. The shipped EQ is `eq_bank` (int32, Core B) plus the
+> profile service; its contract is `docs/rewrite/eq.md`. The chain is not
+> linked into the AP image.
+
 | File | Role |
 |---|---|
 | `dsp_module.h` | effect interface (`dsp_module_t`), param enums, `DSP_STATE_STORAGE` |
@@ -63,6 +68,7 @@ metrics) and is used by tests and (later) the settings UI.
 | `mod_eq.c` | 3-band EQ (low shelf 60 Hz / mid peaking 1 kHz / high shelf 8 kHz) |
 | `mod_bass.c` | bass boost (low shelf at the core's 80 Hz, default +10 dB) |
 | `mod_volume.c` | gain with soft ramp (no clicks), int16 saturation |
+| `eq_bank.c/.h` | **product EQ**: runtime 5–10 band int32 bank (Core B) |
 | `dsp_sat.h` | internal int16 saturation / 24-bit conversion helpers |
 | `dsp.mk` | build fragment (`DSP_SRCS`, `DSP_TEST_SRCS`, `DSP_HOST_LIBS`) |
 

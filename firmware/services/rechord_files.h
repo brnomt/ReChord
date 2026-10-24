@@ -19,6 +19,10 @@
 /* Precomputed album art (tools/artpack). Built on the PC; the firmware only
  * ever reads it (services/art_pack.c). */
 #define ARTPACK_PATH "/Internal/.rechord/ARTPACK.BIN"
+/* EQ (BRNOMT-76): the active curve plus the custom profile slots. Slot files
+ * are named customN.cfg (N = 1..8); extra user files appear in the picker. */
+#define RECHORD_EQ_DIR "/Internal/.rechord/eq"
+#define RECHORD_EQ_CFG "/Internal/.rechord/eq.cfg"
 
 /* First-boot layout: create /.rechord, rechord.cfg (with the default
  * configuration written), state and LOG (each with a short text header, so

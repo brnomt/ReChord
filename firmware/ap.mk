@@ -63,6 +63,14 @@ AP_MEM_OVERLAY ?= 0
 # 0x0304AE64. Off by default; the CDC image is built separately.
 AP_CDC_OVERLAY ?= 0
 
+# Local decode fallback in the AP. Core B owns decoding on the target, so the
+# AP only needs the codecs' metadata paths (open/format/duration/tags/prescan);
+# the decoder libraries (minimp3 ~20 KB, dr_flac ~35 KB of the AP's code span)
+# are linked only when this is 1. Off by default because the AP code span is
+# at the loader gate (DFIU 51cc212d): the fallback costs more than the whole
+# remaining budget. Build with AP_LOCAL_DECODE=1 for a diagnostic image.
+AP_LOCAL_DECODE ?= 0
+
 # ---- link inputs (the clean-room tree) ---------------------------------
 # startup: vector table + reset recipe (ap_startup.c) and the minimal AP
 # main + weak link stubs (ap_main.c).
@@ -87,6 +95,7 @@ AP_UI_SRCS := \
   firmware/ui/screens/library_cat_screen.c \
   firmware/ui/screens/skin_screen.c \
   firmware/ui/screens/quick_screen.c \
+  firmware/ui/screens/eq_screen.c \
   firmware/ui/screens/theme_ui.c
 
 # Drivers: the TARGET panel backend + the panel init sequence tables
@@ -120,6 +129,7 @@ AP_SERVICE_SRCS := \
   firmware/services/settings.c \
   firmware/services/settings_store.c \
   firmware/services/resume.c \
+  firmware/services/eq_profile.c \
   firmware/services/log.c \
   firmware/services/input.c \
   firmware/services/scratch.c \

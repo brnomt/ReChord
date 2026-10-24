@@ -101,8 +101,13 @@ plays audio on hardware:
 - **Battery**: an approximation from the stock SDK constants — SARADC channel 0,
   `((adc<<1)*2500)>>10` mV, 5-step ladder (3350/3500/3600/3800/4000 mV) → 25 %
   steps, polled every 15 s and shown in the root menu's title row.
+- **Equalizer (BRNOMT-76)**: 5–10 band EQ applied on Core B
+  (`firmware/dsp/eq_bank.c`) to the decoded int32 block, with profiles loaded
+  at runtime from `/Internal/.rechord/eq*` (no recompilation). The AP publishes
+  the curve over the shared block; Settings → Interface → Equalizer edits it.
+  Contract, format and budgets: `docs/rewrite/eq.md`.
 - **Open**: 96k margins (above), 192 kHz / FLAC block 16384 (~143 KB window),
-  384 kHz, and DSP in the playback path (sources exist, not linked).
+  384 kHz, and EQ skin support (the EQ screens use the compiled layout).
 - **History**: everything below is dated notes from the reverse-engineering and
   bring-up phases; kept for provenance (some statements are superseded).
 

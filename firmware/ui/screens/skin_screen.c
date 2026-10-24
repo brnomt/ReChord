@@ -35,6 +35,16 @@ void skin_home_tick(unsigned now_ms)
     s_now_ms = now_ms;
 }
 
+/* Cheap repaint: only the package's dynamic primitives, flushed to their own
+ * rects. The gradient/art/labels keep the pixels from the last full draw. */
+int skin_home_animate(void)
+{
+    theme_skin_state_t st;
+
+    theme_ui_fill_state(&st, "");
+    return theme_ui_draw_dynamic(&st, s_sel, 0);
+}
+
 static void skin_on_enter(void)
 {
     /* A child screen may have loaded its own skin; the home always renders
@@ -71,12 +81,13 @@ static void skin_handle_event(const input_event_t *ev)
     switch (r) {
     case THEME_SKIN_REDRAW: {
         int y, h;
-        int band = theme_skin_refresh_h();
 
-        /* The eyes shift and the selected bar changes; the background and
-         * rule are static. Redraw only those two bands. */
-        ui_invalidate(0, 0, DISPLAY_W - 1,
-                      band > 0 ? band - 1 : DISPLAY_H - 1);
+        /* Selection changes only touch the bar; repaint the dynamic layer
+         * (the package marks the bar sections) instead of re-rendering the
+         * whole skin. Themes without dynamic rects fall back to the bar
+         * band; their animated parts refresh on the next tick anyway. */
+        if (skin_home_animate())
+            break;
         if (theme_skin_list_bounds(&y, &h) == 0 && h > 0)
             ui_invalidate(0, y, DISPLAY_W - 1, y + h - 1);
         break;

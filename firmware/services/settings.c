@@ -28,11 +28,12 @@ void settings_defaults(settings_t *s)
         return;
     }
     memset(s, 0, sizeof(*s));
-    /* Defaults = the documented sample configuration (drop-in familiar). */
+    /* Defaults = the documented sample configuration, except auto_off: the
+     * standby timer defaults to 5 min instead of the sample's 15. */
     memcpy(s->play, "repeat_track", 12);
     s->brightness = 8;
     s->screen_off_min = 30;
-    s->auto_off_min = 15;
+    s->auto_off_min = 5;    /* standby auto-off (ReChord default) */
     memcpy(s->usb, "ask", 3);
     memcpy(s->resume, "folder", 6);
     memcpy(s->strip, "off", 3);

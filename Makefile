@@ -64,7 +64,7 @@ BB_CORE_BLOB := $(BB_CORE_DIR)/bb_core_blob.o
 # Phase 3c: Core B decodes. It links our codecs + registry-free descriptors +
 # tags + the shared workbuf (decode pool) + codec_io over the A file ring.
 BB_INC := -Ifirmware -Ifirmware/libc -Ifirmware/services -Ifirmware/player \
-          -Ifirmware/drivers
+          -Ifirmware/drivers -Ifirmware/dsp
 
 BB_CORE_SRCS := \
   firmware/bb/bb_main.c \
@@ -75,9 +75,11 @@ BB_CORE_SRCS := \
   firmware/player/codecs/wav.c \
   firmware/player/tags.c \
   firmware/player/rg_math.c \
+  firmware/dsp/eq_bank.c \
   firmware/services/workbuf.c \
   firmware/libc/mem.c \
-  firmware/libc/str.c
+  firmware/libc/str.c \
+  firmware/libc/math_min.c
 
 $(BB_CORE_ELF): $(BB_CORE_SRCS) firmware/player/ipc_shared.h firmware/bb/bb.ld
 	@$(MKDIR_P) $(BB_CORE_DIR)
@@ -283,7 +285,7 @@ BB_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_BB_BUILD -D_RK_EQ_ -Ifirmware $(addpre
 # LOG_BUFFER_LINES: 12 lines dropped boundary lines during a track change
 # (BRNOMT-73 field logs), so the ring holds 48 lines of the latest activity —
 # the assembly buffer still fits under the AP .bss ceiling (0x0304A000).
-AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DAP_MEM_OVERLAY=$(AP_MEM_OVERLAY) -DAP_CDC_OVERLAY=$(AP_CDC_OVERLAY) -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
+AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DAP_MEM_OVERLAY=$(AP_MEM_OVERLAY) -DAP_CDC_OVERLAY=$(AP_CDC_OVERLAY) $(if $(filter 0,$(AP_LOCAL_DECODE)),-DRECHORD_AP_METADATA_ONLY=1) -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
 
 BB_OBJS := $(foreach src,$(BB_SRCS),\
              $(BB_OBJ_DIR)/$(patsubst firmware/rockchip/%,%,$(src)).o)
@@ -354,6 +356,7 @@ HOSTCC ?= cc
 test-dsp: firmware/rechord_dsp_core.c firmware/rechord_dsp_core.h firmware/test_dsp_core.c
 	$(HOSTCC) -O2 -o $(BUILD_DIR)/test_dsp_core firmware/test_dsp_core.c firmware/rechord_dsp_core.c -lm
 	$(BUILD_DIR)/test_dsp_core
+	sh firmware/dsp/tests/run_tests.sh
 
 # Single-command SAFE product build: custom BB (audio/DSP) + STOCK AP (UI),
 # packed into one flashable IMG. This combination is hardware-verified to

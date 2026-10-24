@@ -266,3 +266,16 @@ See `docs/THEMING.md` §4/§5.
   for the selected item; a future screen can binary-search once per visible
   track and draw small covers. No format change needed.
 * On-device JPEG/PNG decoding: deliberately excluded.
+
+
+## Operational check after generating
+
+`artpack.py` writes atomically (temp + rename) and prints the byte count.
+Still verify the file on the mounted volume afterwards:
+
+    ls -l <root>/.rechord/ARTPACK.BIN
+
+It must be non-zero (a full library is a few MB). One field unit came back
+from the device with the directory entry at size 0 while the data clusters
+stayed allocated, which makes every lookup miss; regenerating fixed it. If
+the size is 0, delete the file and re-run the tool.

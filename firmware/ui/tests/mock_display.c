@@ -148,6 +148,13 @@ void display_bitmap1(int x, int y, int w, int h, int stride,
     }
 }
 
+void display_flush_rect(int x0, int y0, int x1, int y1)
+{
+    (void)x0;
+    (void)x1;
+    display_flush_rows(y0, y1);
+}
+
 void display_flush_rows(int y0, int y1)
 {
     if (s_flush_count < MOCK_DISPLAY_MAX_FLUSH) {

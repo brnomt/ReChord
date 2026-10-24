@@ -131,6 +131,24 @@ void theme_ui_draw(const theme_skin_state_t *st, int sel, int top)
     theme_skin_render(s_now_ms, s_now_ms - s_last_input_ms, sel, top, st);
 }
 
+int theme_ui_draw_dynamic(const theme_skin_state_t *st, int sel, int top)
+{
+    int i, any = 0;
+
+    theme_skin_set_dynamic_only(1);
+    theme_skin_render(s_now_ms, s_now_ms - s_last_input_ms, sel, top, st);
+    theme_skin_set_dynamic_only(0);
+    for (i = 0; i < 3; i++) {
+        int x0, y0, x1, y1;
+
+        if (theme_skin_dyn_rect(i, &x0, &y0, &x1, &y1) == 0) {
+            display_flush_rect(x0, y0, x1, y1);
+            any = 1;
+        }
+    }
+    return any;
+}
+
 void theme_ui_list(const theme_skin_list_source_t *src)
 {
     theme_skin_set_list(src);

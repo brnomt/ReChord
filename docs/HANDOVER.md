@@ -4554,3 +4554,45 @@ PASS.
 
 **Screenshots.** `docs/themes/cassette/` (mockup + 8 side-by-side sheets at 2x,
 the mockup HTML and a README with the limitations). Not flashed; PR only.
+
+## BZ. Session 2026-10-24 — EQ 5–10 bandas con perfiles (BRNOMT-76)
+
+**Dónde corre.** `firmware/dsp/eq_bank.c` en Core B, sobre el bloque int32
+decodificado, después de ReplayGain y antes de `ring_write()` (`bb_main.c`).
+No va en el AP: su único consumidor de PCM es el ISR de TX (8 bytes por vez) y
+el `.bss` está al límite. El AP solo parsea el perfil y publica la curva por
+el bloque compartido.
+
+**Motor.** Biquads Q2.30 del core (incluido privado, igual que `mod_eq.c`),
+topología posicional (low shelf / peaking / high shelf), 5–10 bandas con
+freq/Q por banda, bandas a ganancia 0 no se instancian (curva plana =
+pass-through bit-exacto), bandas sobre Nyquist se ignoran. Headroom
+`0.9/max_gain` solo cuando hay boost. Retune conserva la historia; OPEN y SEEK
+la limpian, NEXT (gapless) no.
+
+**IPC.** Seqlock `IPC_C_EQ_GEN` + `EN/N` + 10 palabras empaquetadas
+(freq 15b | Q*100 9b | gain int8). `ipc_b_set_eq()` cachea la curva y la
+republica en cada start/handoff.
+
+**Perfiles.** `key=value` (mismo dialecto que theme.cfg), parseo estricto y
+atómico; 5 presets compilados (Flat/Rock/Jazz/EDM/Vocal, 10 bandas ISO) y
+slots `custom1..8.cfg` en `/Internal/.rechord/eq/`, activo en `eq.cfg`.
+Un archivo custom6/7 aparece en la UI sin recompilar.
+
+**UI.** Settings → Interface → Equalizer. Enabled / Profile (picker con
+built-ins, slots y "Save current...") / Band N (SELECT entra en edición;
+UP/DOWN ±0.5 dB con la escalera de repetición; SELECT/BACK salen). BACK guarda.
+
+**Presupuesto (sobre esta línea de master).** AP `.bss` queda en 108 B bajo el
+techo `0x0304A000`; Core B usa ~800 B de `.bss` y ~2.6 KB de código. Medir de
+nuevo tras el merge con `arm-none-eabi-nm build/cfw/rechord_ap.elf | grep _bss_end`;
+`make cfw-ap` y `make standalone-ap5m` deben terminar PASS.
+
+**Tests.** DSP (eq_bank: flat/bypass bit-exacto, ±6 dB medidos, headroom,
+Nyquist, rechazo atómico, continuidad de retune), services (parser + slots +
+round-trip), player (packing + seqlock), UI (navegación/edición/picker).
+`make test-dsp` ahora también corre `firmware/dsp/`.
+
+**No hecho.** Sin skin para las pantallas de EQ (el motor de skin solo expone
+strings), sin crossfade al habilitar/cambiar topología, y el fallback AP
+(`AP_LOCAL_DECODE=1`) no aplica EQ.

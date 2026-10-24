@@ -6,7 +6,7 @@
  * the live Theme picker under Interface). The on-disk 15-key format is
  * unchanged; the categories only decide what the user sees and in what order.
  *
- * Playing:   Volume, Shuffle, Repeat, Resume, Fade (BRNOMT-67)
+ * Playing:   Volume, Shuffle, Repeat, Resume, Fade, Auto-off
  * Interface: Theme
  *
  * The System diagnostics menu stays in the root menu (it is a debug view, not
@@ -21,6 +21,7 @@
 #include "../theme.h"
 #include "../../theme/theme_runtime.h"
 #include "../../services/rechord_files.h"
+#include "../../services/eq_profile.h"
 #include "../../player/player.h"
 #include "../internal/hal.h"
 
@@ -49,6 +50,14 @@ static const char *value_text_14(void) { return s_value_buf[14]; }
 
 /* The active theme's name (from theme.c, no scratch buffer needed). */
 static const char *value_text_theme(void) { return theme_get()->name; }
+
+/* Active EQ profile label (BRNOMT-76; the curve itself lives in eq_profile). */
+static const char *value_text_eq(void) { return eq_profile_name(); }
+
+static void on_select_eq(void)
+{
+    ui_push_screen(&eq_screen);
+}
 
 static const char *(*const s_value_text_fn[SETTING_KEY_COUNT])(void) = {
     value_text_0,  value_text_1,  value_text_2,  value_text_3,
@@ -182,26 +191,35 @@ static void on_select_theme(void)
 
 /* ---- categories --------------------------------------------------------- */
 
+typedef enum {
+    GROUP_KEY = 0,     /* schema key in `key`                                */
+    GROUP_THEME,       /* live theme picker                                  */
+    GROUP_EQ           /* Equalizer screen (BRNOMT-76)                       */
+} setting_group_kind_t;
+
 typedef struct {
     const char *label;
-    const char *key;   /* NULL = the special Theme picker */
+    const char *key;   /* schema key; NULL for the special rows */
+    setting_group_kind_t kind;
 } setting_group_item_t;
 
 /* Playing keeps the playback controls together; Fade is the new row. */
 static const setting_group_item_t s_playing_items[] = {
-    { "Volume",  "volume" },
-    { "Shuffle", "shuffle" },
-    { "Repeat",  "repeat_mode" },
-    { "Resume",  "resume" },
-    { "Fade",    "fade" },
-    { 0, 0 },
+    { "Volume",  "volume", GROUP_KEY },
+    { "Shuffle", "shuffle", GROUP_KEY },
+    { "Repeat",  "repeat_mode", GROUP_KEY },
+    { "Resume",  "resume", GROUP_KEY },
+    { "Fade",    "fade", GROUP_KEY },
+    { "Auto-off", "auto_off", GROUP_KEY },
+    { 0, 0, GROUP_KEY },
 };
 
 /* Interface currently has the live theme picker (brightness/screen_off are
  * still hidden until they actually control something). */
 static const setting_group_item_t s_interface_items[] = {
-    { "Theme", 0 },
-    { 0, 0 },
+    { "Theme", 0, GROUP_THEME },
+    { "Equalizer", 0, GROUP_EQ },
+    { 0, 0, GROUP_KEY },
 };
 
 static const setting_group_item_t *const s_group_items_spec[] = {
@@ -243,9 +261,12 @@ static void build_group_items(void)
         menu_item_t *it = &s_group_items[n];
 
         it->label = spec[n].label;
-        if (spec[n].key == 0) {
+        if (spec[n].kind == GROUP_THEME) {
             it->value_text = value_text_theme;
             it->on_select = on_select_theme;
+        } else if (spec[n].kind == GROUP_EQ) {
+            it->value_text = value_text_eq;
+            it->on_select = on_select_eq;
         } else {
             const setting_schema_t *sch = settings_schema_find(spec[n].key);
             int k = (sch != 0) ? (int)(sch - setting_schema) : -1;

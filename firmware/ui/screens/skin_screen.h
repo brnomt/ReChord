@@ -20,4 +20,7 @@ void skin_home_set_actions(void (*library)(void),
  * pass; cheap. */
 void skin_home_tick(unsigned now_ms);
 
+/* Repaint just the package's dynamic primitives (0 = no dyn rects). */
+int  skin_home_animate(void);
+
 #endif /* RECHORD_UI_SKIN_SCREEN_H */

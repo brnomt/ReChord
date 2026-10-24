@@ -65,14 +65,27 @@ static void put_tag(FILE *f, const char *s)
 
 static void put_fmt_chunk(FILE *f, const wav_spec_t *s)
 {
+    int ext = (s->audio_format == 0xFFFE);
+
     put_tag(f, "fmt ");
-    put_u32(f, 16);
+    put_u32(f, ext ? 40 : 16);
     put_u16(f, (uint16_t)s->audio_format);
     put_u16(f, (uint16_t)s->ch);
     put_u32(f, (uint32_t)s->rate);
     put_u32(f, (uint32_t)(s->rate * s->ch * (s->bits / 8)));
     put_u16(f, (uint16_t)(s->ch * (s->bits / 8)));
     put_u16(f, (uint16_t)s->bits);
+    if (ext) {
+        static const uint8_t k_pcm_guid[16] = {
+            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00,
+            0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71
+        };
+
+        put_u16(f, 22);              /* cbSize                            */
+        put_u16(f, (uint16_t)s->bits);  /* wValidBitsPerSample            */
+        put_u32(f, s->ch == 2 ? 3u : 4u); /* channel mask                  */
+        fwrite(k_pcm_guid, 1, 16, f);
+    }
 }
 
 static void put_data_chunk(FILE *f, const wav_spec_t *s)
@@ -90,7 +103,7 @@ static void write_wav(const char *path, const wav_spec_t *s)
 {
     FILE *f = fopen(path, "wb");
     long junk_bytes = s->junk_chunk ? 12 : 0;   /* hdr+3 bytes+1 pad */
-    long fmt_bytes = 8 + 16;
+    long fmt_bytes = 8 + ((s->audio_format == 0xFFFE) ? 40 : 16);
     long data_bytes = 8 + s->data_bytes + (s->data_bytes & 1);
     long riff_size;
 
@@ -325,18 +338,106 @@ int main(void)
           "samples exact with reordered chunks");
     cc->close(state);
 
+    TEST("8/24/32-bit PCM and WAVE_FORMAT_EXTENSIBLE");
+    {
+        /* 4 stereo frames per depth, known raw bytes. */
+        static const uint8_t d8[8] = { 128, 127, 129, 0, 255, 1, 192, 64 };
+        static const int32_t e8[8] = {
+            0, -1 << 24, 1 << 24, -128 << 24, 127 << 24, -127 << 24,
+            64 << 24, -64 << 24
+        };
+        static const uint8_t d24[24] = {
+            0x00, 0x00, 0x80,  0xFF, 0xFF, 0xFF,   /* -8388608, -1        */
+            0x00, 0x00, 0x00,  0x01, 0x00, 0x00,   /* 0, 1                */
+            0x56, 0x34, 0x12,  0xAA, 0xCB, 0xED,   /* 0x123456, -0x123456 */
+            0xFF, 0xFF, 0x7F,  0x00, 0x00, 0x80    /* 8388607, -8388608   */
+        };
+        static const int32_t e24[8] = {
+            -8388608 << 8, -1 << 8, 0, 1 << 8,
+            0x123456 << 8, -0x123456 << 8, 8388607 << 8, -8388608 << 8
+        };
+        static const uint8_t d32[32] = {
+            0x00, 0x00, 0x00, 0x80,  0xFF, 0xFF, 0xFF, 0xFF,
+            0x00, 0x00, 0x00, 0x00,  0x01, 0x00, 0x00, 0x00,
+            0x78, 0x56, 0x34, 0x12,  0x87, 0xA9, 0xCB, 0xED,
+            0xFF, 0xFF, 0xFF, 0x7F,  0x00, 0x00, 0x00, 0x80
+        };
+        static const int32_t e32[8] = {
+            (int32_t)0x80000000u, -1, 0, 1, 0x12345678, (int32_t)0xEDCBA987u,
+            (int32_t)0x7FFFFFFFu, (int32_t)0x80000000u
+        };
+        int k;
+
+        write_wav(".work/pcm8.wav", &(wav_spec_t){
+            GOLD_RATE, 2, 8, 1, d8, sizeof d8, -1, 0, 0, 0
+        });
+        CHECK_EQI(cc->open(state, ".work/pcm8.wav"), CODEC_OK, "8-bit opens");
+        CHECK_EQI(cc->format(state, &fmt), CODEC_OK, "8-bit format()");
+        CHECK_EQI(fmt.bits, 8, "8-bit reported");
+        CHECK_EQI(cc->decode(state, pcm, 8), 4, "8-bit decodes 4 frames");
+        for (k = 0; k < 8; k++)
+            CHECK_EQI(pcm[k], e8[k], "8-bit sample left-justified");
+        cc->close(state);
+
+        write_wav(".work/pcm24.wav", &(wav_spec_t){
+            GOLD_RATE, 2, 24, 1, d24, sizeof d24, -1, 0, 0, 0
+        });
+        CHECK_EQI(cc->open(state, ".work/pcm24.wav"), CODEC_OK, "24-bit opens");
+        CHECK_EQI(cc->format(state, &fmt), CODEC_OK, "24-bit format()");
+        CHECK_EQI(fmt.bits, 24, "24-bit reported");
+        CHECK_EQI(cc->decode(state, pcm, 8), 4, "24-bit decodes 4 frames");
+        for (k = 0; k < 8; k++)
+            CHECK_EQI(pcm[k], e24[k], "24-bit sample sign-extended << 8");
+        cc->close(state);
+
+        write_wav(".work/pcm32.wav", &(wav_spec_t){
+            GOLD_RATE, 2, 32, 1, d32, sizeof d32, -1, 0, 0, 0
+        });
+        CHECK_EQI(cc->open(state, ".work/pcm32.wav"), CODEC_OK, "32-bit opens");
+        CHECK_EQI(cc->format(state, &fmt), CODEC_OK, "32-bit format()");
+        CHECK_EQI(fmt.bits, 32, "32-bit reported");
+        CHECK_EQI(cc->decode(state, pcm, 8), 4, "32-bit decodes 4 frames");
+        for (k = 0; k < 8; k++)
+            CHECK_EQI(pcm[k], e32[k], "32-bit sample passthrough");
+        cc->close(state);
+
+        write_wav(".work/ext24.wav", &(wav_spec_t){
+            GOLD_RATE, 2, 24, 0xFFFE, d24, sizeof d24, -1, 0, 0, 0
+        });
+        CHECK_EQI(cc->open(state, ".work/ext24.wav"), CODEC_OK,
+                  "WAVE_FORMAT_EXTENSIBLE (PCM 24) opens");
+        CHECK_EQI(cc->format(state, &fmt), CODEC_OK, "extensible format()");
+        CHECK_EQI(fmt.bits, 24, "extensible container depth");
+        CHECK_EQI(cc->decode(state, pcm, 8), 4, "extensible decodes 4 frames");
+        for (k = 0; k < 8; k++)
+            CHECK_EQI(pcm[k], e24[k], "extensible sample matches PCM 24");
+        cc->close(state);
+
+        /* Extensible with a non-PCM sub-format still gets a clean reject. */
+        write_wav(".work/extfloat.wav", &(wav_spec_t){
+            GOLD_RATE, 2, 32, 0xFFFE, d32, sizeof d32, -1, 0, 0, 0
+        });
+        {
+            /* Patch the GUID's first two bytes to 3 (IEEE float). */
+            FILE *f = fopen(".work/extfloat.wav", "r+b");
+            if (f != 0) {
+                long off = 12 + 8 + 24;
+                fseek(f, off, SEEK_SET);
+                fputc(3, f);
+                fputc(0, f);
+                fclose(f);
+            }
+        }
+        CHECK_EQI(cc->open(state, ".work/extfloat.wav"),
+                  CODEC_ERR_UNSUPPORTED,
+                  "extensible float sub-format rejected");
+    }
+
     TEST("strict subset rejection");
     {
         uint8_t junk8[400];
         for (i = 0; i < 400; i++)
             junk8[i] = (uint8_t)(i & 0xFF);
-
-        write_wav(".work/8bit.wav", &(wav_spec_t){
-            GOLD_RATE, GOLD_CH, 8, 1,
-            junk8, 400, -1, 0, 0, 0
-        });
-        CHECK_EQI(cc->open(state, ".work/8bit.wav"), CODEC_ERR_UNSUPPORTED,
-                  "8-bit PCM rejected as UNSUPPORTED");
 
         write_wav(".work/float.wav", &(wav_spec_t){
             GOLD_RATE, GOLD_CH, 32, 3,
