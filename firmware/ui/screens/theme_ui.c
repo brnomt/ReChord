@@ -8,11 +8,35 @@
 #include "../internal/hal.h"
 #include "../../theme/theme_pkg.h"
 #include "../../theme/theme_runtime.h"
+#include "../../services/art_pack.h"
 #include "../../services/rechord_files.h"
 
 static unsigned s_now_ms;
 static unsigned s_last_input_ms;
 static int      s_active;
+
+/* Album-art bridge: the engine reads this palette and calls draw(); the
+ * service owns the pack and the streaming. Refreshed on every fill_state
+ * (plain getters, no I/O). */
+static theme_skin_art_t s_art_src;
+
+static int art_draw(int x, int y, int large)
+{
+    return art_pack_draw(x, y, large);
+}
+
+static void art_source_sync(void)
+{
+    s_art_src.ok = art_pack_ok();
+    s_art_src.c1 = art_pack_color(ART_C_DOMINANT);
+    s_art_src.c2 = art_pack_color(ART_C_SECONDARY);
+    s_art_src.mean = art_pack_color(ART_C_MEAN);
+    s_art_src.accent = art_pack_color(ART_C_ACCENT);
+    s_art_src.large_px = art_pack_dim(ART_SIZE_LARGE);
+    s_art_src.small_px = art_pack_dim(ART_SIZE_SMALL);
+    s_art_src.draw = art_draw;
+    theme_skin_set_art(&s_art_src);
+}
 
 /* The state holds pointers into this track; it must outlive fill_state() and
  * the draw that follows. One screen draws at a time. */
@@ -66,6 +90,7 @@ void theme_ui_fill_state(theme_skin_state_t *st, const char *heading)
     if (st == 0)
         return;
     memset(st, 0, sizeof *st);
+    art_source_sync();
     st->playing = player_get_state() == PLAYER_PLAYING;
     st->paused = player_get_state() == PLAYER_PAUSED;
     st->stopped = player_get_state() == PLAYER_STOPPED;

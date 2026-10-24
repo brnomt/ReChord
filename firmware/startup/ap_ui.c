@@ -30,6 +30,7 @@
 #include "services/rechord_files.h"
 #include "services/resume.h"
 #include "services/input.h"
+#include "services/art_pack.h"
 #include "player.h"
 #include "ui/ui.h"
 #include "ui/screens/screens.h"
@@ -67,6 +68,7 @@ static uint32_t s_user;              /* user volume start, 0 = unknown */
 static char s_emmc[32], s_usb[32] = "plug in", s_sd[32];
 static int s_sd_in = -1;
 static int s_volume_seen;            /* last volume persisted (see loop) */
+static int s_art_dirty;              /* new track: look up its cover      */
 static unsigned s_log_ms;            /* last periodic log flush (see loop) */
 static unsigned s_batt_ms;           /* last battery poll (see loop) */
 static int      s_resume_done;       /* boot resume restore ran (BRNOMT-87) */
@@ -1339,6 +1341,8 @@ static void resume_boot_restore(void)
 static void player_state_changed(int ev, void *user)
 {
     (void)user;
+    if (ev == PLAYER_EV_TRACK)
+        s_art_dirty = 1;              /* cover lookup, deferred to the loop */
     if (ev == PLAYER_EV_STATE || ev == PLAYER_EV_TRACK)
         player_screen_sync_state();
 }
@@ -1648,6 +1652,22 @@ void ap_ui_loop(void)
                 (void)player_process();
         } else {
             (void)player_process();
+        }
+
+        /* Album art for the new track. Deliberately AFTER the pump: a gapless
+         * boundary has ~85 ms of ring cover, and this reads the pack header,
+         * the key-table CRC and a binary search (a handful of sectors). It
+         * never runs with the panel off; the current track is looked up once
+         * on wake. */
+        if (s_art_dirty && !s_screen_off) {
+            track_info_t ti;
+
+            s_art_dirty = 0;
+            if (player_get_track(&ti) == PLAYER_OK)
+                (void)art_pack_set_track(ti.path);
+            else
+                art_pack_clear();
+            ui_invalidate_all();      /* cover + art_* palette changed */
         }
 
         /* Only the visible screen needs a UI refresh; a dark panel skips all

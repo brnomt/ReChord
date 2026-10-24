@@ -57,6 +57,13 @@ plays audio on hardware:
   boot, so next/prev keep working. The folder/row are restored as browser
   state (Files opens there), but boot stays on the active theme's home
   (BRNOMT-102).
+- **Album art (read-only, no decoding)**: `tools/artpack` (PC, Pillow+mutagen)
+  precomputes a 120x120 and a 48x48 RGB565 cover plus a palette per track and
+  writes `/Internal/.rechord/ARTPACK.BIN`; the firmware only reads it
+  (`firmware/services/art_pack.c`). Themes get the `art` meter (streamed
+  through one sector buffer, clipped) and the `art_ok`/`art_c1`/`art_c2`/
+  `art_mean`/`art_accent` variables; missing art falls back to a placeholder.
+  Format and costs: `docs/ART_PACK.md`.
 - **Quick settings**: MENU opens an overlay with Shuffle, Repeat and Playlist
   (BRNOMT-105). The playlist view is the live queue, marks the current track
   and SELECT jumps to/plays the chosen entry. MENU or BACK closes it; MENU

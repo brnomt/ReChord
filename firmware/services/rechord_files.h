@@ -16,6 +16,9 @@
 /* Active package id (directory name under RECHORD_THEMES_DIR). Rewritten in
  * place when the user picks a theme in Settings. */
 #define RECHORD_ACTIVE_THEME "/Internal/.rechord/active_theme"
+/* Precomputed album art (tools/artpack). Built on the PC; the firmware only
+ * ever reads it (services/art_pack.c). */
+#define ARTPACK_PATH "/Internal/.rechord/ARTPACK.BIN"
 
 /* First-boot layout: create /.rechord, rechord.cfg (with the default
  * configuration written), state and LOG (each with a short text header, so

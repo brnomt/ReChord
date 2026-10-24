@@ -147,3 +147,24 @@ void display_clear(uint16_t rgb565)
 {
     display_fill_rect(0, 0, DISPLAY_W - 1, DISPLAY_H - 1, rgb565);
 }
+
+void display_blit_span(int x, int y, int w, const uint16_t *src)
+{
+    int x0, x1, skip, i;
+
+    if (src == 0 || w <= 0 || y < 0 || y >= DISPLAY_H)
+        return;
+    x0 = x;
+    x1 = x + w - 1;
+    skip = 0;
+    if (x0 < 0) {
+        skip = -x0;
+        x0 = 0;
+    }
+    if (x1 > DISPLAY_W - 1)
+        x1 = DISPLAY_W - 1;
+    if (x0 > x1)
+        return;
+    for (i = x0; i <= x1; i++)
+        display_fb[y][i] = src[skip++];
+}
