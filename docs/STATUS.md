@@ -79,7 +79,11 @@ plays audio on hardware:
   (`art_bg_a/bg_b/glow/panel/label/ink/ink_dim`); without a cover it falls back
   to the theme.cfg warm grey/cream/amber palette and draws a cassette glyph.
   Engine additions: `gradient` meter, `sqrt`, text `maxc`/`align=right`, and
-  the section cap raised 32 -> 52 (parsed, 0 B RAM).
+  the section cap raised 32 -> 52 (parsed, 0 B RAM). Cost: the diagonal
+  gradient is the hot spot, so its channel accumulators step by 16.16 deltas
+  instead of multiplying per pixel, the home animates at 66 ms (15 Hz), and a
+  nav key now invalidates only the bar (the selection does not change anything
+  above it) instead of the whole cassette.
 - **Quick settings**: MENU opens an overlay with Shuffle, Repeat and Playlist
   (BRNOMT-105). The playlist view is the live queue, marks the current track
   and SELECT jumps to/plays the chosen entry. MENU or BACK closes it; MENU

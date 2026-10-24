@@ -1281,7 +1281,7 @@ static void resume_boot_restore(void)
     s_res.boot = st.boot;
     if (have_state) {
         if (resume_save(&st) != 0)
-            log_printf("resume: boot counter save failed");
+            log_printf("resume: save failed");
     } else {
         log_printf("resume: no state file");
     }

@@ -2,7 +2,7 @@
 # from ARTPACK.BIN (theme.cfg palette when there is no cover).
 
 [skin]
-refresh_ms=50
+refresh_ms=66
 refresh_h=140
 
 [vars]

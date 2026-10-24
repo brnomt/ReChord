@@ -71,12 +71,12 @@ static void skin_handle_event(const input_event_t *ev)
     switch (r) {
     case THEME_SKIN_REDRAW: {
         int y, h;
-        int band = theme_skin_refresh_h();
 
-        /* The eyes shift and the selected bar changes; the background and
-         * rule are static. Redraw only those two bands. */
-        ui_invalidate(0, 0, DISPLAY_W - 1,
-                      band > 0 ? band - 1 : DISPLAY_H - 1);
+        /* The selected bar is the only static thing a key changes; anything
+         * else that reacts to the selection (Companion's eyes) lives in the
+         * animated band and repaints on the next tick anyway. Invalidating
+         * that whole band here made every nav press redraw the cassette
+         * (gradient included) for no visible gain. */
         if (theme_skin_list_bounds(&y, &h) == 0 && h > 0)
             ui_invalidate(0, y, DISPLAY_W - 1, y + h - 1);
         break;

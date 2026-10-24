@@ -1279,6 +1279,7 @@ static void skin_gradient(int x, int y, int w, int h, uint16_t from,
     int tr = ((to >> 11) & 0x1F), tg = ((to >> 5) & 0x3F);
     int tb = (to & 0x1F);
     int den, yy, xx;
+    int32_t ar, ag, ab, dr, dg, db;
 
     if (w <= 0 || h <= 0)
         return;
@@ -1298,46 +1299,58 @@ static void skin_gradient(int x, int y, int w, int h, uint16_t from,
         return;
     }
 
-    {
-        uint32_t step = ((uint32_t)255 << 16) / (uint32_t)den;
+    /* 16.16 channel accumulators: the multiply per pixel was the hot spot, so
+     * step them instead (per row when vertical, per pixel when diagonal). */
+    /* Round the step so the far end lands on the requested colour (the
+     * original per-pixel multiply did: t ran slightly past 255<<16). */
+    dr = (int32_t)((((int32_t)(tr - fr) << 16) + (tr >= fr ? den - 1 : -(den - 1))) / den);
+    dg = (int32_t)((((int32_t)(tg - fg) << 16) + (tg >= fg ? den - 1 : -(den - 1))) / den);
+    db = (int32_t)((((int32_t)(tb - fb) << 16) + (tb >= fb ? den - 1 : -(den - 1))) / den);
+    ar = (int32_t)fr << 16;
+    ag = (int32_t)fg << 16;
+    ab = (int32_t)fb << 16;
 
-        for (yy = 0; yy < h; yy++) {
-            uint32_t t = (uint32_t)yy * step;
-            int py = y + yy;
+    for (yy = 0; yy < h; yy++) {
+        int32_t rr = ar, gg = ag, bb = ab;
+        int py = y + yy;
 
-            if (py < 0 || py >= DISPLAY_H)
-                continue;
-            for (xx = 0; xx < w; xx += SKIN_GRAD_CHUNK) {
-                int n = w - xx;
-                int i;
+        if (py < 0 || py >= DISPLAY_H)
+            continue;
+        for (xx = 0; xx < w; xx += SKIN_GRAD_CHUNK) {
+            int n = w - xx;
+            int i;
 
-                if (n > SKIN_GRAD_CHUNK)
-                    n = SKIN_GRAD_CHUNK;
-                for (i = 0; i < n; i++) {
-                    int tt = (int)(t >> 16);
-                    int px = x + xx + i;
-                    int r8 = fr + (((tr - fr) * tt) >> 8);
-                    int g8 = fg + (((tg - fg) * tt) >> 8);
-                    int b8 = fb + (((tb - fb) * tt) >> 8);
-                    int d = (int)k_bayer[py & 3][px & 3] - 8;
-                    int r5, g6, b5;
+            if (n > SKIN_GRAD_CHUNK)
+                n = SKIN_GRAD_CHUNK;
+            for (i = 0; i < n; i++) {
+                int px = x + xx + i;
+                int r8 = (int)(rr >> 16);
+                int g8 = (int)(gg >> 16);
+                int b8 = (int)(bb >> 16);
+                int d = (int)k_bayer[py & 3][px & 3] - 8;
+                int r5, g6, b5;
 
-                    if (diagonal)
-                        t += step;
-                    r8 += d;
-                    g8 += d;
-                    b8 += d;
-                    if (r8 < 0) r8 = 0; else if (r8 > 255) r8 = 255;
-                    if (g8 < 0) g8 = 0; else if (g8 > 255) g8 = 255;
-                    if (b8 < 0) b8 = 0; else if (b8 > 255) b8 = 255;
-                    r5 = (r8 * 249) >> 11;          /* 31/255 */
-                    g6 = (g8 * 253) >> 10;          /* 63/255 */
-                    b5 = (b8 * 249) >> 11;
-                    pix[i] = (uint16_t)((r5 << 11) | (g6 << 5) | b5);
+                r8 += d;
+                g8 += d;
+                b8 += d;
+                if (r8 < 0) r8 = 0; else if (r8 > 255) r8 = 255;
+                if (g8 < 0) g8 = 0; else if (g8 > 255) g8 = 255;
+                if (b8 < 0) b8 = 0; else if (b8 > 255) b8 = 255;
+                r5 = (r8 * 249) >> 11;          /* 31/255 */
+                g6 = (g8 * 253) >> 10;          /* 63/255 */
+                b5 = (b8 * 249) >> 11;
+                pix[i] = (uint16_t)((r5 << 11) | (g6 << 5) | b5);
+                if (diagonal) {
+                    rr += dr;
+                    gg += dg;
+                    bb += db;
                 }
-                display_blit_span(x + xx, py, n, pix);
             }
+            display_blit_span(x + xx, py, n, pix);
         }
+        ar += dr;
+        ag += dg;
+        ab += db;
     }
 }
 

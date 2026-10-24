@@ -4592,3 +4592,44 @@ Build: AP5M CRC **0x4A7D804B**, fw1 payload 228,200 B, segment end
 0x03087494 (loader-base check PASS), `_bss_end` 0x03049E5C (420 B under the
 0x0304A000 assert). Branched as `feat/standby-off` on top of `feat/cassette`
 (PR base: feat/cassette) so the theme PR stays about the theme.
+
+## Cassette animation cost, and the 0-byte ARTPACK (2026-10-24)
+
+**"Cassette makes the UI slower than Companion."** Measured, not guessed: the
+home skin's background is a full-screen diagonal `gradient` (54,400 px), and
+Companion's home has no gradient at all (solid fills). The renderer's per-pixel
+loop multiplied each channel by the 8.16 progress, so the gradient alone was
+~1.6M instructions per frame (~8 ms at 200 MHz), on top of a 140-row panel
+flush (~7 ms over the bit-banged parallel bus). At the requested 50 ms that is
+~32 % of the core and up to 16 ms of input latency.
+
+Fixes that fit the flash gate (226,456 B: row 0 copies the block up by the
+reference's 0xB68 and must stay under LOADER_CODE_BASE 0x03088000):
+
+- gradient: 16.16 accumulators stepped per row (vertical) / per pixel
+  (diagonal) instead of three multiplies per pixel; the step is rounded away
+  from zero so the far end still lands on the requested colour (visual diff vs
+  the previous renderer is <=1 LSB in RGB565 on ~2 % of the background).
+- a nav key redraws only the list/bar bounds; the old code invalidated the
+  whole `refresh_h` band for "the eyes shift", which the cassette does not
+  have (Companion's eyes repaint on the next animation tick anyway).
+- cassette home `refresh_ms` 50 -> 66 (15 Hz; the hub hand still moves ~3.7 deg
+  per frame and freezes on pause via `pos_ms`).
+
+Tried and dropped: a `dyn=1` per-section layer plus `display_flush_rect()` so
+the 15 Hz tick would repaint only the reels and flush two small rects. It
+worked in the simulator (home render 8 ms -> ~2 ms, flush 7.8 ms -> ~3.6 ms)
+but needs ~500 B more than the image has; the packer refused the image. If the
+AP ever frees room (e.g. dropping the unused local codec path), that patch is
+the next step.
+
+**"Artworks still don't work."** `/.rechord/ARTPACK.BIN` was **0 bytes** on the
+device: the directory entry said size 0 while the 8 MB of clusters were still
+allocated, so every `art_pack_set_track()` missed (no log, no palette, art_ok
+0). Regenerated the pack (710 tracks -> 697 with art, 238 covers, 7.97 MB) and
+validated all five CRCs plus 697/697 key lookups against the real paths. The
+tool is unchanged; see ART_PACK.md's operational check. No firmware change was
+needed for the art itself.
+
+Image: CRC 0xAAE0762F, fw1 228,176 B, row-0 end 0x03087FE4 (28 B margin).
+Screenshots regenerated with the new renderer.
