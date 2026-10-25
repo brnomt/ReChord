@@ -185,6 +185,22 @@ class PackTests(unittest.TestCase):
         self.assertEqual(h["img_bytes"], (h["image_slots"] * 32 + 511) & ~511)
         self.assertEqual(len(pack), h["large_off"] + h["large_bytes"])
 
+    def test_sidecar_cover_per_track(self):
+        music = os.path.join(self.root, "Music", "Album")
+        make_track(os.path.join(music, "01.wav"))
+        make_track(os.path.join(music, "02.wav"))
+        with open(os.path.join(music, "01.PNG"), "wb") as f:
+            f.write(png((200, 20, 20)))
+        with open(os.path.join(music, "cover.png"), "wb") as f:
+            f.write(png((0, 0, 255)))
+        stats, pack = self._build()
+        h = parse_header(pack)
+        self.assertEqual(stats["sidecar"], 1)
+        self.assertEqual(stats["file"], 1)
+        self.assertEqual(stats["missing"], 0)
+        self.assertEqual(h["track_count"], 2)
+        self.assertEqual(h["image_count"], 2)
+
     def test_extra_root_keys_use_sd_volume(self):
         make_track(os.path.join(self.root, "Music", "a.wav"))
         sd = os.path.join(self.tmp.name, "SD")

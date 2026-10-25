@@ -48,7 +48,9 @@ A full rebuild is done every run (deterministic; no incremental state).
 1. Embedded **FLAC PICTURE** (type 3 front cover preferred, else the first).
 2. **ID3v2 APIC** (type 3 / `desc` containing "front", else the first).
 3. **MP4 `covr`** (first image).
-4. A folder file named `cover`, `folder` or `front` with `.jpg`, `.jpeg` or
+4. A **sidecar** image named exactly like the track (`01. Song.flac` →
+   `01. Song.jpg`/`.jpeg`/`.png`, case-insensitive).
+5. A folder file named `cover`, `folder` or `front` with `.jpg`, `.jpeg` or
    `.png` (case-insensitive) next to the track.
 
 Any format Pillow can open (progressive JPEG, PNG, …) is accepted. Tracks

@@ -149,6 +149,31 @@ def folder_art(directory: str):
     return None
 
 
+def sidecar_art(path: str):
+    """A cover file named after the track: `01. Song.flac` -> `01. Song.jpg`.
+
+    Some libraries (especially FLAC rips) carry one image per track instead of
+    a folder cover; the firmware's key is per track, so the sidecar is the
+    natural source. Case-insensitive stem and extension, same COVER_EXT list.
+    """
+    stem = os.path.splitext(os.path.basename(path))[0]
+    directory = os.path.dirname(path)
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return None
+    lower = {n.lower(): n for n in names}
+    for ext in COVER_EXT:
+        name = lower.get((stem + ext).lower())
+        if name:
+            try:
+                with open(os.path.join(directory, name), "rb") as f:
+                    return f.read()
+            except OSError:
+                return None
+    return None
+
+
 # --------------------------------------------------------------------------
 # Image processing
 # --------------------------------------------------------------------------
@@ -443,13 +468,16 @@ def build(root: str, extra_root: str | None, large: int, small: int,
     tracks = []            # (key, image index)
     seen_keys = set()
     stats = {"tracks": 0, "missing": 0, "flac-picture": 0, "id3-apic": 0,
-             "mp4-covr": 0, "file": 0}
+             "mp4-covr": 0, "file": 0, "sidecar": 0}
     missing = []
 
     for root_dir, volume in roots:
         for full, norm, size in _walk_tracks(root_dir, volume):
             stats["tracks"] += 1
             found = embedded_art(full)
+            if found is None:
+                data = sidecar_art(full)
+                found = (data, "sidecar") if data else None
             if found is None:
                 data = folder_art(os.path.dirname(full))
                 found = (data, "file") if data else None
@@ -503,7 +531,7 @@ def build(root: str, extra_root: str | None, large: int, small: int,
           f"{stats['missing']} missing art")
     print(f"artpack: sources flac-picture={stats['flac-picture']} "
           f"id3-apic={stats['id3-apic']} mp4-covr={stats['mp4-covr']} "
-          f"file={stats['file']}")
+          f"sidecar={stats['sidecar']} file={stats['file']}")
     print(f"artpack: wrote {output} ({len(pack)} bytes, "
           f"{large}x{large} + {small}x{small}, "
           f"dither={'on' if dither else 'off'})")
