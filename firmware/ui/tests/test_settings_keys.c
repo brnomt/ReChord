@@ -48,15 +48,16 @@ static void test_schema_table(void)
 
     /* The menu exposes only the wired settings: the playback-mode duplicates
      * (play) and the stale browse/cursor pair stay out. */
-    CHECK_EQ_INT(settings_visible_count(), 6);
-    CHECK_STR_EQ(settings_visible_at(0)->name, "resume");
-    CHECK_STR_EQ(settings_visible_at(1)->name, "volume");
-    CHECK_STR_EQ(settings_visible_at(2)->name, "shuffle");
-    CHECK_STR_EQ(settings_visible_at(3)->name, "repeat_mode");
-    CHECK_STR_EQ(settings_visible_at(4)->name, "fade");
-    CHECK_STR_EQ(settings_visible_at(5)->name, "replaygain");
+    CHECK_EQ_INT(settings_visible_count(), 7);
+    CHECK_STR_EQ(settings_visible_at(0)->name, "brightness");
+    CHECK_STR_EQ(settings_visible_at(1)->name, "resume");
+    CHECK_STR_EQ(settings_visible_at(2)->name, "volume");
+    CHECK_STR_EQ(settings_visible_at(3)->name, "shuffle");
+    CHECK_STR_EQ(settings_visible_at(4)->name, "repeat_mode");
+    CHECK_STR_EQ(settings_visible_at(5)->name, "fade");
+    CHECK_STR_EQ(settings_visible_at(6)->name, "replaygain");
     CHECK(settings_visible_at(-1) == NULL);
-    CHECK(settings_visible_at(6) == NULL);
+    CHECK(settings_visible_at(7) == NULL);
 }
 
 static void test_defaults_and_format(void)
@@ -182,7 +183,7 @@ static void test_key_field_mapping(void)
     settings_view_defaults(&s);
     s.brightness = 10;
     settings_cycle(&setting_schema[1], &s, +1);
-    CHECK_EQ_INT(s.brightness, 0);
+    CHECK_EQ_INT(s.brightness, 1);
     settings_cycle(&setting_schema[1], &s, -1);
     CHECK_EQ_INT(s.brightness, 10);
 
@@ -297,8 +298,15 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(ui_stack_depth(), 2);
     group = settings_group_model();
     CHECK_STR_EQ(group->title, "Interface");
-    CHECK_EQ_INT(group->item_count, 1);
-    CHECK_STR_EQ(group->items[0].label, "Theme");
+    CHECK_EQ_INT(group->item_count, 2);
+    CHECK_STR_EQ(group->items[0].label, "Brightness");
+    CHECK_STR_EQ(group->items[1].label, "Theme");
+
+    /* Brightness applies to the backlight immediately (8 -> 9). */
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_screen_get()->brightness, 9);
+    CHECK_EQ_INT(mock_display_brightness(), 9);
+
     e = ev(KEY_BACK); ui_handle_event(&e);
     CHECK_EQ_INT(ui_stack_depth(), 1);
 

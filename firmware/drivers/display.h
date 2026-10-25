@@ -63,6 +63,10 @@
  */
 void display_init(void);
 
+/* Backlight brightness, 1..10 (1 = dim, 10 = full). Takes effect immediately
+ * while the screen is on; the level is remembered across screen off/on. */
+void display_set_brightness(int level);
+
 /*
  * Fill the inclusive rectangle (x0,y0)..(x1,y1) with 'rgb565'.
  * Coordinates are clipped to the screen; an empty (or fully off-screen)

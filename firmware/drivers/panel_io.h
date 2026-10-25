@@ -35,8 +35,11 @@ void panel_io_send_pixel(uint16_t rgb565);
  * The sim backend counts but never sleeps. */
 void panel_io_delay_ms(uint16_t ms);
 
+/* Backlight: on/off plus the 1..10 brightness level. The level is remembered
+ * while the backlight is off and applied by the next backlight_on(). */
 void backlight_on(void);
 void backlight_off(void);
+void backlight_set_level(int level);
 
 /* Keys: blocking sample of the ADC ladder (0..1023, median of three fresh
  * conversions) and the power key level (1 = pressed). Used by the sampler's

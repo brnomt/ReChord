@@ -186,7 +186,9 @@ stock/                        # official firmware backups (not distributed)
 - [ ] **96 kHz margins** — 96k halves the ring cover and the TX-FIFO refill
       margin; occasional crackles there are still being chased
 - [ ] **192 kHz** (bigger decode window) and **384 kHz**
-- [ ] **DSP effects** in the playback path (sources exist; not linked)
+- [x] **EQ** 5–10 bands with runtime profiles on Core B (`docs/rewrite/eq.md`)
+- [x] **ReplayGain** track/album/auto normalization (`docs/rewrite/audio.md`)
+- [x] **Backlight brightness** 1–10 (PWM on GPIO2.4)
 - [ ] **RMF1 modules** (loader host-tested; later milestone)
 
 ## Documentation
@@ -230,3 +232,7 @@ firmware from FiiO.
   **berettavexee** — reference implementation and technical insights for
   fixed-point LibOpus porting and memory-constrained audio decoding on the
   Rockchip RKnano platform.
+- [EchoPod](https://github.com/BasilSkyWalk/echopod) by **BasilSkyWalk**
+  (GPL-3.0) — the 1–10 backlight brightness mapping and the 10 kHz GPIO2.4
+  PWM approach; ReChord's `panel_io_rknanoc.c` backlight implementation is
+  adapted from it.

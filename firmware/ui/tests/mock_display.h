@@ -39,6 +39,9 @@ typedef struct mock_bitmap {
 
 void mock_display_reset(void);
 
+/* Last level passed to display_set_brightness() (-1 before the first call). */
+int mock_display_brightness(void);
+
 int mock_display_rect_count(void);
 const mock_rect_t *mock_display_rect(int i);
 

@@ -45,6 +45,7 @@
 #include <stdint.h>
 
 #include "panel_io.h"
+#include "rknano_i2s.h"     /* cru_gate / cru_rst / grf_iomux */
 
 /* GPIO port register block (see file header). */
 typedef struct {
@@ -97,24 +98,120 @@ static void iomux_gpio(unsigned port, unsigned pin)
         0x30000u << ((pin & 7u) * 2u);
 }
 
-/* Backlight full on: GPIO2.4 as GPIO output high (reference 0x030514c0;
- * its PWM dimming at 0x400F0000 is 0x03051dd8, not ported). */
-void backlight_on(void)
+/*
+ * Backlight brightness: GPIO2.4, 10 kHz PWM on the stock PWM block.
+ *
+ * The 1..10 level -> duty mapping and the 10 kHz PWM approach are adapted
+ * from EchoPod (https://github.com/BasilSkyWalk/echopod, GPL-3.0), which in
+ * turn follows the stock backlight routine (0x03051DD8): gate 0x90, reset
+ * 0x17, PWM at 0x400F0000, period = pclk/10000, control 0x10003.
+ *
+ * The AP runs at 200 MHz with pclk = 50 MHz after ap_clock_set_200mhz()
+ * (APLL/4), so the period is a constant 5000 here.
+ */
+#define PWM_BASE        0x400F0000u
+#define PWM_REG(i)      (*(volatile uint32_t *)(PWM_BASE + 4u * (i)))
+#define PWM_GATE_ID     0x90u
+#define PWM_RESET_ID    0x17u
+#define PWM_CTRL_RUN    0x00010003u
+#define BACKLIGHT_HZ    10000u
+#define BACKLIGHT_PCLK  50000000u
+#define BACKLIGHT_PIN   (1u << 4)
+
+/* EchoPod/stock duty table for levels 1..10. */
+static const uint8_t s_bl_percent[10] = {
+    8, 12, 17, 23, 30, 39, 50, 63, 80, 100
+};
+
+static uint8_t s_bl_level = 10;
+static uint8_t s_bl_on;
+static uint8_t s_bl_pwm;
+
+static void bl_gpio(int high)
 {
     iomux_gpio(2, 4);
-    GPIO2->dr |= 1u << 4;
-    GPIO2->ddr |= 1u << 4;
+    GPIO2->ddr |= BACKLIGHT_PIN;
+    if (high)
+        GPIO2->dr |= BACKLIGHT_PIN;
+    else
+        GPIO2->dr &= ~BACKLIGHT_PIN;
 }
 
-/* Backlight off: drive the same pin low. power_off() only clears the
- * framebuffer, so without this the panel keeps GLOWING over a black screen
- * (field report: "el backlight sigue encendido" after turning off while
- * plugged into USB). */
+static void bl_pwm_stop(void)
+{
+    if (!s_bl_pwm)
+        return;
+    PWM_REG(3) = 0;
+    cru_gate((int)PWM_GATE_ID, 0);
+    s_bl_pwm = 0;
+}
+
+static void bl_pwm_start(unsigned percent)
+{
+    uint32_t period = BACKLIGHT_PCLK / BACKLIGHT_HZ;
+    uint32_t duty = period * percent / 100u;
+
+    if (!s_bl_pwm) {
+        cru_gate((int)PWM_GATE_ID, 1);
+        cru_rst((int)PWM_RESET_ID, 1);
+        cru_rst((int)PWM_RESET_ID, 0);
+        s_bl_pwm = 1;
+    }
+    PWM_REG(3) = 0;
+    PWM_REG(0) = 0;
+    PWM_REG(1) = period;
+    PWM_REG(2) = duty;
+    PWM_REG(3) = PWM_CTRL_RUN;
+    /* Drive the pad high before handing it to the PWM alternate function. */
+    GPIO2->ddr |= BACKLIGHT_PIN;
+    GPIO2->dr |= BACKLIGHT_PIN;
+    grf_iomux(2, 4, 1);
+}
+
+static void bl_apply(void)
+{
+    unsigned percent;
+
+    if (!s_bl_on || s_bl_level <= 0) {
+        bl_pwm_stop();
+        bl_gpio(0);
+        return;
+    }
+    if (s_bl_level > 10)
+        s_bl_level = 10;
+    percent = s_bl_percent[s_bl_level - 1];
+    if (percent >= 100u) {
+        bl_pwm_stop();
+        bl_gpio(1);
+    } else {
+        bl_pwm_start(percent);
+    }
+}
+
+void backlight_set_level(int level)
+{
+    if (level < 1)
+        level = 1;
+    if (level > 10)
+        level = 10;
+    s_bl_level = level;
+    if (s_bl_on)
+        bl_apply();
+}
+
+void backlight_on(void)
+{
+    s_bl_on = 1;
+    bl_apply();
+}
+
+/* Backlight off: PWM off and GPIO low. power_off() only clears the framebuffer,
+ * so without this the panel keeps GLOWING over a black screen. */
 void backlight_off(void)
 {
-    iomux_gpio(2, 4);
-    GPIO2->ddr |= 1u << 4;
-    GPIO2->dr &= ~(1u << 4);
+    s_bl_on = 0;
+    bl_pwm_stop();
+    bl_gpio(0);
 }
 
 /* Keys (reference key scan 0x03057eb0 + TRM SARADC chapter): SAR-ADC at

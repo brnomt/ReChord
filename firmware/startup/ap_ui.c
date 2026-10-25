@@ -1407,6 +1407,7 @@ void ap_ui_loop(void)
     player_set_repeat(settings_screen_get()->repeat_mode);
     player_set_fade_ms(settings_screen_get()->fade_ms);           /* BRNOMT-67 */
     player_set_replaygain_mode(settings_screen_get()->replaygain_mode); /* BRNOMT-106 */
+    display_set_brightness(settings_screen_get()->brightness);
     player_screen_set_volume(player_get_volume());
     s_volume_seen = player_get_volume();
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */

@@ -16,9 +16,11 @@ static mock_bitmap_t s_bitmaps[MOCK_DISPLAY_MAX_BITMAP];
 static int          s_bitmap_count;
 static int          s_clear_count;
 static uint16_t     s_clear_color;
+static int          s_brightness = -1;
 
 void mock_display_reset(void)
 {
+    s_brightness = -1;
     s_rect_count = 0;
     s_text_count = 0;
     s_flush_count = 0;
@@ -35,6 +37,16 @@ int mock_display_rect_count(void)
 const mock_rect_t *mock_display_rect(int i)
 {
     return (i >= 0 && i < s_rect_count) ? &s_rects[i] : NULL;
+}
+
+void display_set_brightness(int level)
+{
+    s_brightness = level;
+}
+
+int mock_display_brightness(void)
+{
+    return s_brightness;
 }
 
 int mock_display_text_count(void)
