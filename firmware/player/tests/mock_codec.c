@@ -26,6 +26,7 @@ void mock_codec_configure(const mock_codec_cfg_t *cfg)
     g_cfg.rg_album_gain_tenth_db = 0;
     g_cfg.rg_track_peak_q15 = 0;
     g_cfg.rg_album_peak_q15 = 0;
+    g_cfg.fail_open_match[0] = '\0';
     g_cfg.meta_title[0] = '\0';
     g_cfg.meta_artist[0] = '\0';
     g_cfg.meta_album[0] = '\0';
@@ -61,6 +62,9 @@ static int mock_open(void *vst, const char *path)
         return CODEC_ERR_STATE;
     if (g_cfg.fail_open)
         return CODEC_ERR_IO;
+    if (g_cfg.fail_open_match[0] != '\0' &&
+        strstr(path, g_cfg.fail_open_match) != 0)
+        return CODEC_ERR_UNSUPPORTED;
 
     st->frame = 0;
     st->cfg = g_cfg;

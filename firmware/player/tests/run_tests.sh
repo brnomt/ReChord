@@ -57,6 +57,12 @@ $CC $CFLAGS -I.. -o .work/test_player_gapless \
     test_player_gapless.c mock_codec.c $PLAYER_SRCS ../ringbuf.c \
     ../codec_io_stdio.c ../codec_io.c ../rg_math.c $WORKBUF -lm
 
+# Unplayable file in a playlist: pre-open must be non-fatal and the boundary
+# must skip to the next entry (BRNOMT-106 field report).
+$CC $CFLAGS -I.. -o .work/test_player_skip \
+    test_player_skip.c mock_codec.c $PLAYER_SRCS ../ringbuf.c \
+    ../codec_io_stdio.c ../codec_io.c ../rg_math.c $WORKBUF -lm
+
 # ReplayGain fixed-point helpers.
 $CC $CFLAGS -I.. -o .work/test_rg_math \
     test_rg_math.c ../rg_math.c -lm
@@ -101,6 +107,7 @@ $CC $CFLAGS -I.. -I../.. -o .work/test_ao_slots \
 .work/test_ipc_mock
 .work/test_codec_io_fs
 .work/test_player_gapless
+.work/test_player_skip
 .work/test_rg_math
 .work/test_player_replaygain
 .work/test_tags

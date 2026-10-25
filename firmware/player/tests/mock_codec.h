@@ -24,6 +24,10 @@ typedef struct
     int  rg_album_gain_tenth_db;   /* ReplayGain album gain (dB*10)     */
     int  rg_track_peak_q15;        /* track peak (Q1.15)                */
     int  rg_album_peak_q15;        /* album peak (Q1.15)                */
+    /* Fail open() only for paths containing this substring (empty = never).
+     * The player's skip-on-unplayable path is tested with a single bad file
+     * in the middle of a playlist. */
+    char fail_open_match[32];
     /* Text tags the mock reports through codec_t.meta (empty = no tags). */
     char meta_title[64];
     char meta_artist[64];

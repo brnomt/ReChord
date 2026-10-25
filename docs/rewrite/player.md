@@ -341,6 +341,18 @@ API summary (other workstreams code against `player.h`):
 - The queue source must be set **before** `player_load_list()`/`_play_list()`
   so AUTO resolves the first track of an album correctly.
 
+### FS handles and unplayable files
+
+- The target has four read handles (`fs_target` / `codec_io_fs`). Playback
+  normally uses three (A→B file ring, pre-open ring, AP codec), so libraries
+  must release the media-index handle before starting a queue
+  (`mq_done()`), and every codec close must call `cio_close()` — `flac_close`
+  leaked one handle per track, which showed up as "format not supported"
+  after 1-2 shuffled tracks.
+- A pre-open failure is non-fatal: the current track keeps playing. At the
+  boundary `advance_playlist()` skips up to 8 unplayable entries before it
+  stops with an error, so one bad file does not kill a shuffled queue.
+
 IPC summary (`ipc_b.h`): `ipc_b_start(track)`, `ipc_b_stop()`,
 `ipc_b_set_volume(db)`, `ipc_b_poll_state(status*)`,
 `ipc_b_ring_fill(pcm, frames)` + extensions `ipc_b_init()`,
