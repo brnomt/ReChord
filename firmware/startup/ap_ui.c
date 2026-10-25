@@ -1392,27 +1392,24 @@ static void player_state_changed(int ev, void *user)
 }
 
 /* BRNOMT-107: navigation-only VOL orientation. Now Playing is excluded so
- * VOL+ always raises volume; a theme with `input=theme` wins only on screens
- * whose keys go through its skin map. */
-static int vol_nav_should_swap(void)
+ * VOL+ always raises volume. Theme-key screens normalize the desired
+ * prev/next ACTION (so home skins with prev=down/next=up agree with vertical
+ * lists); a package with `input=theme` keeps its own map. */
+static void vol_nav_apply(input_event_t *ev)
 {
     const ui_screen_t *top = ui_top_screen();
+    int swapped = settings_screen_get()->vol_orient == VOL_ORIENT_SWAPPED;
 
-    if (settings_screen_get()->vol_orient != VOL_ORIENT_SWAPPED)
-        return 0;
+    if (ev->type != KEY_UP && ev->type != KEY_DOWN)
+        return;
     if (top == 0 || top == &player_screen)
-        return 0;
-    if (top->theme_keys && theme_ui_active() && theme_input_owns_keys())
-        return 0;
-    return 1;
-}
-
-static void vol_nav_swap(input_event_t *ev)
-{
-    if (ev->type == KEY_UP)
-        ev->type = KEY_DOWN;
-    else if (ev->type == KEY_DOWN)
-        ev->type = KEY_UP;
+        return;
+    if (top->theme_keys && theme_ui_active()) {
+        ev->type = theme_ui_vol_key(ev->type, swapped);
+        return;
+    }
+    if (swapped)
+        ev->type = (ev->type == KEY_UP) ? KEY_DOWN : KEY_UP;
 }
 
 void ap_ui_loop(void)
@@ -1616,8 +1613,7 @@ void ap_ui_loop(void)
                 else
                     (void)ui_push_screen(&quick_screen);
             } else {
-                if (vol_nav_should_swap())
-                    vol_nav_swap(&ev);
+                vol_nav_apply(&ev);
                 theme_ui_note_input();
                 ui_handle_event(&ev);
             }

@@ -246,9 +246,10 @@ Settings → Interface → Controls stores `hold_vol=skip|seek` and
   EOF and redraws the bar/time. RELEASE after a long press never changes the
   volume.
 - **Orientation** (`vol_orient=swapped`) swaps KEY_UP/KEY_DOWN only for menu
-  navigation, never on Now Playing (VOL+ always raises the volume). A theme
-  can own the mapping only when its `theme.cfg` declares `input=theme`; the
-  app loop then skips the global swap on screens that use the theme key map.
+  navigation, never on Now Playing (VOL+ always raises the volume). On a
+  theme-backed screen the UI normalizes the key so the global prev/next
+  **action** wins even for a `prev=down/next=up` home skin; the skin map is
+  authoritative only when its `theme.cfg` declares `input=theme`.
 
 ## 4. Codec vendoring plan (architecture.md §4: prefer open-source C)
 

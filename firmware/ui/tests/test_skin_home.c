@@ -14,8 +14,10 @@
 #include "mock_display.h"
 #include "mock_services.h"
 #include "screens/skin_screen.h"
+#include "screens/theme_ui.h"
 #include "theme.h"
 #include "../../theme/theme_skin.h"
+#include "../../theme/theme_pkg.h"
 #include "../../theme/theme_assets.h"
 
 static int s_lib, s_player, s_settings;
@@ -98,6 +100,28 @@ void test_skin_home(void)
     CHECK_EQ_INT(sel, 1);
     CHECK_EQ_INT(theme_skin_key(THEME_SKIN_KEY_SELECT, &sel),
                  THEME_SKIN_PLAYER);
+
+    /* BRNOMT-107: the global orientation decides the ACTION even when the
+     * home skin maps prev=down/next=up. Normal VOL+ = PREV (key DOWN here),
+     * swapped VOL+ = NEXT (key UP here). */
+    CHECK_EQ_INT(theme_ui_vol_key(THEME_SKIN_KEY_UP, 0), THEME_SKIN_KEY_DOWN);
+    CHECK_EQ_INT(theme_ui_vol_key(THEME_SKIN_KEY_DOWN, 0), THEME_SKIN_KEY_UP);
+    CHECK_EQ_INT(theme_ui_vol_key(THEME_SKIN_KEY_UP, 1), THEME_SKIN_KEY_UP);
+    CHECK_EQ_INT(theme_ui_vol_key(THEME_SKIN_KEY_DOWN, 1), THEME_SKIN_KEY_DOWN);
+
+    /* `input=theme` opts out: the skin map is authoritative. */
+    {
+        theme_layout_t l;
+
+        theme_layout_defaults(&l);
+        l.input = THEME_INPUT_THEME;
+        theme_layout_set(&l);
+        CHECK_EQ_INT(theme_ui_vol_key(THEME_SKIN_KEY_UP, 1),
+                     THEME_SKIN_KEY_UP);
+        CHECK_EQ_INT(theme_ui_vol_key(THEME_SKIN_KEY_DOWN, 0),
+                     THEME_SKIN_KEY_DOWN);
+    }
+    theme_layout_reset();
 
     /* Draw the data-driven scene. */
     memset(&st, 0, sizeof st);

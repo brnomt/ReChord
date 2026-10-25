@@ -159,6 +159,36 @@ int theme_ui_nav(int key)
     return theme_skin_nav(key);
 }
 
+int theme_ui_vol_key(int key, int swapped)
+{
+    int want, up, down;
+
+    if (key != THEME_SKIN_KEY_UP && key != THEME_SKIN_KEY_DOWN)
+        return key;
+    /* Explicit package opt-in: the skin map is authoritative. */
+    if (theme_input_owns_keys())
+        return key;
+
+    /* Global orientation decides the ACTION; the skin's prev/next map only
+     * tells us which logical key produces that action. This keeps the home
+     * skin (prev=down/next=up) consistent with vertical lists. */
+    want = (key == THEME_SKIN_KEY_UP)
+               ? (swapped ? THEME_SKIN_NEXT : THEME_SKIN_PREV)
+               : (swapped ? THEME_SKIN_PREV : THEME_SKIN_NEXT);
+    up = theme_skin_nav(THEME_SKIN_KEY_UP);
+    down = theme_skin_nav(THEME_SKIN_KEY_DOWN);
+    if (up == want && down != want)
+        return THEME_SKIN_KEY_UP;
+    if (down == want && up != want)
+        return THEME_SKIN_KEY_DOWN;
+
+    /* No list / ambiguous map: fall back to a plain orientation swap. */
+    if (swapped)
+        return (key == THEME_SKIN_KEY_UP) ? THEME_SKIN_KEY_DOWN
+                                          : THEME_SKIN_KEY_UP;
+    return key;
+}
+
 int theme_ui_rows(void)
 {
     return theme_skin_list_rows();

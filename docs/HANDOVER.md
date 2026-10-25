@@ -4783,12 +4783,15 @@ Los valores se guardan en `rechord.cfg` como `vol_orient=normal|swapped` y
 buffers por-key. `settings_screen_set_vol_orient()/set_hold_vol()` guardan
 inmediatamente.
 
-**Swap.** `ap_ui.c` invierte `KEY_UP`/`KEY_DOWN` solo si el top no es
-`player_screen`; Now Playing conserva VOL+ = subir volumen. Un tema puede
-ganar solo si declara `input=theme` en `theme.cfg` (nuevo campo validado en
-`theme_pkg`), y solo en pantallas cuyo `ui_screen_t.theme_keys` es 1
-(home skin, settings/group, browser, library, library_cat) con skin cargado;
-las pantallas compiladas siguen el ajuste global.
+**Swap.** `ap_ui.c` solo toca `KEY_UP/DOWN` y nunca en `player_screen`; Now
+Playing conserva VOL+ = subir volumen. En pantallas con skin, `theme_ui_vol_key`
+normaliza la **acción** deseada (normal = VOL+ prev, swapped = VOL+ next): usa
+el `prev/next` del skin solo para traducir esa acción al key correcto, así el
+home cassette/companion (`prev=down/next=up`) queda consistente con las listas
+verticales. Un tema conserva su mapping propio solo si declara `input=theme`
+en `theme.cfg` (campo validado en `theme_pkg`), y solo en pantallas cuyo
+`ui_screen_t.theme_keys` es 1 (home skin, settings/group, browser, library,
+library_cat) con skin cargado; las pantallas compiladas siguen el ajuste global.
 
 **Hold Seek.** `input_event_t` gana `now_ms` (lo estampa `input_push_kind`).
 En `player_screen.c`, Seek hace un salto de 5 s al LONG y otro cada 200 ms en
@@ -4800,9 +4803,9 @@ comportamiento previo: VOL+ siguiente; VOL− >3 s vuelve a 0:00, si no previa.
 reemplazó `s_value_buf[SETTING_KEY_COUNT][32]` (512 B) por un único buffer
 de 32 B (`value_text_for(k)` formatea on demand; `menu_draw`/`set_value`
 consumen por fila), y se eliminó `refresh_values()`. Nuevo `.bss_end
-0x03049E48` (440 B libres), AP5M CRC `0xDA4331FF`.
+0x03049E48` (440 B libres), AP5M CRC `0x94309721`.
 
-Tests: services 188 checks (settings + input), ui 624 checks (Controls,
-hold-seek rate limit), theme 71+47, player/drivers/dsp verdes. Device:
-verificar Controls tras power-cycle, swap solo en menús, skip/seek y
-`input=theme` con un paquete que lo declare.
+Tests: services 188 checks (settings + input), ui 630 checks (Controls,
+hold-seek rate limit + home orientation), theme 71+47, player/drivers/dsp
+verdes. Device: verificar Controls tras power-cycle, swap solo en menús,
+skip/seek y `input=theme` con un paquete que lo declare.

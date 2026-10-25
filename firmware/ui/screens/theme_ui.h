@@ -50,6 +50,13 @@ void theme_ui_list(const theme_skin_list_source_t *src);
 /* Map a key through the skin's prev/next bindings. */
 int theme_ui_nav(int key);
 
+/* BRNOMT-107: map a physical VOL key to the key this skin needs so the
+ * GLOBAL prev/next orientation wins (`swapped` = 1 -> VOL+ goes next/down).
+ * The skin's prev/next mapping is honored only when the package declares
+ * `input=theme`; otherwise it is used here only to translate the desired
+ * action back into a key. Non-VOL keys pass through unchanged. */
+int theme_ui_vol_key(int key, int swapped);
+
 /* Visible rows and item count of the active screen skin. */
 int theme_ui_rows(void);
 int theme_ui_rows_hint(void);

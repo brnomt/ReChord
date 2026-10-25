@@ -265,10 +265,11 @@ cannot steal those keys.
 The **global** setting is Settings → Interface → Controls → VOL keys
 (`normal`/`swapped`, menus only). A package that wants its own `prev`/`next`
 mapping to outrank it must declare `input=theme` in `theme.cfg`; without that
-flag the app loop applies the global orientation first and the skin map then
-sees the swapped logical key. The flag has no effect on compiled screens
-without a skin (they always follow the global setting), and Now Playing always
-keeps VOL+ = louder.
+flag the app normalizes the key so the global prev/next **action** wins (the
+skin's `prev`/`next` is used only to translate that action back into a key, so
+`prev=down/next=up` homes and `prev=up/next=down` lists behave consistently).
+The flag has no effect on compiled screens without a skin (they always follow
+the global setting), and Now Playing always keeps VOL+ = louder.
 
 ---
 
