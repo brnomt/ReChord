@@ -442,6 +442,10 @@ static void hold_set(int on)
     if (s_hold == on)
         return;
     s_hold = on;
+    /* Entering/leaving Hold is user activity: start the standby window now.
+     * Otherwise a Hold toggled 4 minutes into a 5-minute window powers off
+     * one minute later. Keys while Hold stay ignored, so they do not reset. */
+    s_idle_ms = ap_ms();
     if (s_hold) {
         screen_sleep();
     } else {

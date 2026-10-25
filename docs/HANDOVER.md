@@ -4832,3 +4832,20 @@ El firmware no cambia (`themes/` es dato de usuario): copiar
 `themes/companion-bot/home.skin` y `now_playing.skin` a
 `/.rechord/themes/companion-bot/` y reseleccionar el tema o reiniciar. Tests
 UI/theme verdes (630 + 71 + 47 checks).
+
+## CI. Session 2026-10-25 — standby: Hold cuenta como uso
+
+`auto_off` (Settings > Playback, off/5/15/30/60 min) es un timer de standby,
+no un sleep timer: **solo** dispara con el player en pausa/stop. Mientras
+`PLAYING`, `ap_ui_loop` refresca `s_idle_ms` en cada pasada, así que escuchar
+un álbum sin tocar nada no apaga el equipo.
+
+- **Pantalla apagada:** el timer sigue; las teclas de transporte y Power corto
+  siguen procesándose y reinician `s_idle_ms`.
+- **Hold:** el timer sigue y puede apagar. Las teclas se descartan antes de
+  actualizar `s_idle_ms` (no cuentan), pero `hold_set()` ahora reinicia
+  `s_idle_ms` al entrar y al salir de Hold, para que la ventana arranque en la
+  última interacción real y no en una anterior.
+- `power_off()` en VBUS estaciona en vez de cortar la alimentación.
+
+AP5M CRC `0xF9854BA9`; `.bss_end 0x03049E48` (sin cambios).
