@@ -181,6 +181,8 @@ void settings_view_defaults(rechord_settings_t *s)
     s->fade_ms = 300;      /* BRNOMT-67: 300 ms play/pause fade */
     s->theme[0] = '\0';    /* no explicit choice: boot uses active_theme  */
     s->replaygain_mode = 3; /* BRNOMT-106: auto (shuffle->track, album->album) */
+    s->vol_orient = VOL_ORIENT_NORMAL;
+    s->hold_vol = HOLD_VOL_SKIP;
 }
 
 static void cycle_enum(const setting_schema_t *sch, rechord_settings_t *s,
@@ -291,6 +293,10 @@ void settings_view_from_store(const settings_t *in, rechord_settings_t *out)
 {
     settings_view_defaults(out);
     snprintf(out->theme, sizeof out->theme, "%s", in->theme);
+    out->vol_orient = (strcmp(in->vol_orient, "swapped") == 0)
+                          ? VOL_ORIENT_SWAPPED : VOL_ORIENT_NORMAL;
+    out->hold_vol = (strcmp(in->hold_vol, "seek") == 0)
+                        ? HOLD_VOL_SEEK : HOLD_VOL_SKIP;
     /* ENUM-typed view fields decode the stored text through the schema's
      * option tables; screen_off / auto_off are the exception (the store keeps
      * them as plain integers, same unit) and validate by value instead. */
@@ -344,6 +350,10 @@ void settings_view_to_store(const rechord_settings_t *in, settings_t *out)
 {
     settings_defaults(out);
     snprintf(out->theme, sizeof out->theme, "%s", in->theme);
+    snprintf(out->vol_orient, sizeof out->vol_orient, "%s",
+             in->vol_orient == VOL_ORIENT_SWAPPED ? "swapped" : "normal");
+    snprintf(out->hold_vol, sizeof out->hold_vol, "%s",
+             in->hold_vol == HOLD_VOL_SEEK ? "seek" : "skip");
     for (int si = 0; si < SETTING_KEY_COUNT; si++) {
         const setting_schema_t *sc = &setting_schema[si];
         const int *src = (const int *)((const char *)in + sc->offset);

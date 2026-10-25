@@ -85,6 +85,7 @@ void theme_layout_defaults(theme_layout_t *l)
     l->format = 1;
     l->home = THEME_HOME_MENU;
     l->home_nav = THEME_NAV_VERTICAL;
+    l->input = THEME_INPUT_ENGINE;
     l->pad = 4;
     l->title_h = 16;
     l->item_h = 12;
@@ -324,6 +325,16 @@ int theme_layout_parse(const char *text, theme_layout_t *l)
                 p = (*eol != '\0') ? eol + 1 : eol;
                 continue;
             }
+            if (key_is(p, klen, "input")) {
+                if (word_is(v, vlen, "engine"))
+                    tmp.input = THEME_INPUT_ENGINE;
+                else if (word_is(v, vlen, "theme"))
+                    tmp.input = THEME_INPUT_THEME;
+                else
+                    return -1;
+                p = (*eol != '\0') ? eol + 1 : eol;
+                continue;
+            }
             if (key_is(p, klen, "skin") ||
                 key_is(p, klen, "skin_main")) {
                 if (parse_path_value(v, vlen, tmp.skin) != 0)
@@ -450,6 +461,11 @@ const theme_layout_t *theme_layout(void)
         s_ready = 1;
     }
     return &s_layout;
+}
+
+int theme_input_owns_keys(void)
+{
+    return theme_layout()->input == THEME_INPUT_THEME;
 }
 
 void theme_layout_set(const theme_layout_t *l)

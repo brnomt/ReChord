@@ -3,11 +3,13 @@
  *
  * Top level: one row per category (Playing, Interface). Selecting a category
  * pushes settings_group_screen, which lists that category's schema keys (and
- * the live Theme picker under Interface). The on-disk 15-key format is
- * unchanged; the categories only decide what the user sees and in what order.
+ * the live Theme picker/Equalizer/Controls under Interface/Playback). The
+ * on-disk 19-key format is unchanged; the categories only decide what the
+ * user sees and in what order.
  *
- * Playing:   Volume, Shuffle, Repeat, Resume, Fade, Auto-off
- * Interface: Theme
+ * Playing:   Volume, Shuffle, Repeat, Resume, Fade, Auto-off, ReplayGain,
+ *            Equalizer
+ * Interface: Brightness, Theme, Controls (BRNOMT-107)
  *
  * The System diagnostics menu stays in the root menu (it is a debug view, not
  * a configuration group). BACK on a group returns to the category list; BACK
@@ -29,25 +31,36 @@ static rechord_settings_t s_settings;
 
 /* ---- per-key callbacks (indexed by the schema table) -------------------- */
 
-/* value_text callbacks must return stable storage: one scratch slot per key. */
-static char s_value_buf[SETTING_KEY_COUNT][32];
+/* value_text callbacks must return stable storage. One shared slot is enough:
+ * menu_draw() consumes it immediately per row, and set_value() copies it. */
+static char s_value_buf[32];
 
-static const char *value_text_0(void)  { return s_value_buf[0]; }
-static const char *value_text_1(void)  { return s_value_buf[1]; }
-static const char *value_text_2(void)  { return s_value_buf[2]; }
-static const char *value_text_3(void)  { return s_value_buf[3]; }
-static const char *value_text_4(void)  { return s_value_buf[4]; }
-static const char *value_text_5(void)  { return s_value_buf[5]; }
-static const char *value_text_6(void)  { return s_value_buf[6]; }
-static const char *value_text_7(void)  { return s_value_buf[7]; }
-static const char *value_text_8(void)  { return s_value_buf[8]; }
-static const char *value_text_9(void)  { return s_value_buf[9]; }
-static const char *value_text_10(void) { return s_value_buf[10]; }
-static const char *value_text_11(void) { return s_value_buf[11]; }
-static const char *value_text_12(void) { return s_value_buf[12]; }
-static const char *value_text_13(void) { return s_value_buf[13]; }
-static const char *value_text_14(void) { return s_value_buf[14]; }
-static const char *value_text_15(void) { return s_value_buf[15]; }
+static const char *value_text_for(int k)
+{
+    settings_format(&setting_schema[k], &s_settings,
+                    s_value_buf, (int)sizeof s_value_buf);
+    return s_value_buf;
+}
+
+#define VALUE_TEXT(n) \
+    static const char *value_text_##n(void) { return value_text_for(n); }
+VALUE_TEXT(0)
+VALUE_TEXT(1)
+VALUE_TEXT(2)
+VALUE_TEXT(3)
+VALUE_TEXT(4)
+VALUE_TEXT(5)
+VALUE_TEXT(6)
+VALUE_TEXT(7)
+VALUE_TEXT(8)
+VALUE_TEXT(9)
+VALUE_TEXT(10)
+VALUE_TEXT(11)
+VALUE_TEXT(12)
+VALUE_TEXT(13)
+VALUE_TEXT(14)
+VALUE_TEXT(15)
+#undef VALUE_TEXT
 
 /* The active theme's name (from theme.c, no scratch buffer needed). */
 static const char *value_text_theme(void) { return theme_get()->name; }
@@ -58,6 +71,11 @@ static const char *value_text_eq(void) { return eq_profile_name(); }
 static void on_select_eq(void)
 {
     ui_push_screen(&eq_screen);
+}
+
+static void on_select_controls(void)
+{
+    ui_push_screen(&controls_screen);
 }
 
 static const char *(*const s_value_text_fn[SETTING_KEY_COUNT])(void) = {
@@ -202,7 +220,8 @@ static void on_select_theme(void)
 typedef enum {
     GROUP_KEY = 0,     /* schema key in `key`                                */
     GROUP_THEME,       /* live theme picker                                  */
-    GROUP_EQ           /* Equalizer screen (BRNOMT-76)                       */
+    GROUP_EQ,          /* Equalizer screen (BRNOMT-76)                       */
+    GROUP_CONTROLS     /* volume-key mapping (BRNOMT-107)                    */
 } setting_group_kind_t;
 
 typedef struct {
@@ -224,11 +243,12 @@ static const setting_group_item_t s_playback_items[] = {
     { 0, 0, GROUP_KEY },
 };
 
-/* Interface: live backlight brightness + the theme picker (screen_off is
- * still hidden until it actually controls something). */
+/* Interface: live backlight brightness, the theme picker and the volume-key
+ * mapping (screen_off is still hidden until it actually controls something). */
 static const setting_group_item_t s_interface_items[] = {
     { "Brightness", "brightness", GROUP_KEY },
     { "Theme", 0, GROUP_THEME },
+    { "Controls", 0, GROUP_CONTROLS },
     { 0, 0, GROUP_KEY },
 };
 
@@ -277,6 +297,9 @@ static void build_group_items(void)
         } else if (spec[n].kind == GROUP_EQ) {
             it->value_text = value_text_eq;
             it->on_select = on_select_eq;
+        } else if (spec[n].kind == GROUP_CONTROLS) {
+            it->value_text = 0;
+            it->on_select = on_select_controls;
         } else {
             const setting_schema_t *sch = settings_schema_find(spec[n].key);
             int k = (sch != 0) ? (int)(sch - setting_schema) : -1;
@@ -292,15 +315,6 @@ static void build_group_items(void)
 
 /* ---- persistence ------------------------------------------------------- */
 
-static void refresh_values(void)
-{
-    int i;
-
-    for (i = 0; i < SETTING_KEY_COUNT; i++)
-        settings_format(&setting_schema[i], &s_settings,
-                        s_value_buf[i], (int)sizeof(s_value_buf[i]));
-}
-
 void settings_screen_reload(void)
 {
     settings_view_defaults(&s_settings);
@@ -308,7 +322,6 @@ void settings_screen_reload(void)
         log_printf("settings: load failed, using defaults");
         settings_view_defaults(&s_settings);
     }
-    refresh_values();
     menu_view_init(&s_view);          /* a fresh visit starts at the top */
 }
 
@@ -320,6 +333,21 @@ void settings_screen_store(void)
     s_flush_at_ms = 0;
     if (settings_view_save(&s_settings) != 0)
         log_printf("settings: save failed");
+}
+
+/* BRNOMT-107: Controls values are persisted like the theme (outside the
+ * schema table). The Controls screen calls these and they save immediately,
+ * so leaving via power-off cannot lose the choice. */
+void settings_screen_set_vol_orient(int swapped)
+{
+    s_settings.vol_orient = swapped ? VOL_ORIENT_SWAPPED : VOL_ORIENT_NORMAL;
+    settings_screen_store();
+}
+
+void settings_screen_set_hold_vol(int seek)
+{
+    s_settings.hold_vol = seek ? HOLD_VOL_SEEK : HOLD_VOL_SKIP;
+    settings_screen_store();
 }
 
 /* Quick settings applies these immediately and persists them (the Settings
@@ -389,7 +417,6 @@ static void settings_screen_on_exit(void)
 
 static void settings_screen_draw(void)
 {
-    refresh_values();
     s_list_items = s_cat_items;
     s_list_count = s_model.item_count;
     if (s_use_skin) {
@@ -464,6 +491,7 @@ const ui_screen_t settings_screen = {
     settings_screen_on_exit,
     settings_screen_draw,
     settings_screen_handle_event,
+    1,
 };
 
 /* ---- group screen ------------------------------------------------------ */
@@ -482,7 +510,6 @@ static void settings_group_on_enter(void)
 
 static void settings_group_draw(void)
 {
-    refresh_values();
     s_list_items = s_group_items;
     s_list_count = s_group_model.item_count;
     if (s_use_skin) {
@@ -561,6 +588,7 @@ static const ui_screen_t settings_group_screen = {
     NULL,
     settings_group_draw,
     settings_group_handle_event,
+    1,
 };
 
 static void open_group(int group)

@@ -26,8 +26,9 @@
   theme-specific code. `home=menu|skin` still selects the classic list or the
   interpreted home.
 - Layout DSL (`firmware/theme/theme_pkg.{h,c}`): shared list metrics, Now
-  Playing origins, home selector, per-screen skin paths and asset declarations.
-  All-or-nothing, bounded, no heap.
+  Playing origins, home selector, per-screen skin paths, asset declarations and
+  `input=engine|theme` (BRNOMT-107: the package owns the VOL navigation
+  orientation where its skin map is active). All-or-nothing, bounded, no heap.
 - The firmware seeds **no theme content**. `/.rechord/themes/<id>/` is created
   empty; packages (theme.cfg + skins + assets) are installed from storage.
 - 1-bit assets: `display_bitmap1()` + a 1 KiB bounded cache

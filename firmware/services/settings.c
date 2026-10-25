@@ -47,6 +47,8 @@ void settings_defaults(settings_t *s)
     memcpy(s->fade, "300", 3);   /* BRNOMT-67: 150/300/500 ms, off=0 */
     s->theme[0] = '\0';          /* empty: boot falls back to active_theme */
     memcpy(s->replaygain, "auto", 5);   /* BRNOMT-106: off/track/album/auto */
+    memcpy(s->vol_orient, "normal", 7); /* BRNOMT-107: normal/swapped */
+    memcpy(s->hold_vol, "skip", 5);     /* BRNOMT-107: skip/seek */
 }
 
 /* Copy src into dst (capacity cap), truncating safely. */
@@ -170,6 +172,10 @@ static int parse_line(char *line, settings_t *s)
         copy_value(s->theme, sizeof(s->theme), val);
     } else if (strcmp(key, "replaygain") == 0) {
         copy_value(s->replaygain, sizeof(s->replaygain), val);
+    } else if (strcmp(key, "vol_orient") == 0) {
+        copy_value(s->vol_orient, sizeof(s->vol_orient), val);
+    } else if (strcmp(key, "hold_vol") == 0) {
+        copy_value(s->hold_vol, sizeof(s->hold_vol), val);
     } else {
         return 0;               /* unknown key: ignored by design */
     }
@@ -306,6 +312,10 @@ int settings_serialize_text(const settings_t *s, char *buf, unsigned long cap)
         emit(buf, cap, &pos, s->theme) != 0 ||
         emit(buf, cap, &pos, "\nreplaygain=") != 0 ||
         emit(buf, cap, &pos, s->replaygain) != 0 ||
+        emit(buf, cap, &pos, "\nvol_orient=") != 0 ||
+        emit(buf, cap, &pos, s->vol_orient) != 0 ||
+        emit(buf, cap, &pos, "\nhold_vol=") != 0 ||
+        emit(buf, cap, &pos, s->hold_vol) != 0 ||
         emit(buf, cap, &pos, "\n") != 0) {
         return SETTINGS_ERR_FULL;
     }

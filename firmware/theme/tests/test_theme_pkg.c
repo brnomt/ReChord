@@ -35,6 +35,7 @@ int main(void)
     theme_layout_defaults(&l);
     CHECK(l.format == 1);
     CHECK(l.home == THEME_HOME_MENU && l.home_nav == THEME_NAV_VERTICAL);
+    CHECK(l.input == THEME_INPUT_ENGINE);
     CHECK(l.pad == 4 && l.title_h == 16 && l.item_h == 12);
     CHECK(l.home_bar_y == 152 && l.home_bar_h == 14);
     CHECK(l.np_title_y == 24 && l.np_artist_y == 36 && l.np_state_y == 48);
@@ -105,6 +106,17 @@ int main(void)
     CHECK(theme_layout_parse("home=menu\nhome_nav=vertical\n", &l) == 0);
     CHECK(l.home == THEME_HOME_MENU && l.home_nav == THEME_NAV_VERTICAL);
 
+    /* BRNOMT-107: input ownership is opt-in and validated atomically. */
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("input=theme\n", &l) == 0);
+    CHECK(l.input == THEME_INPUT_THEME);
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("input=engine\n", &l) == 0);
+    CHECK(l.input == THEME_INPUT_ENGINE);
+    theme_layout_defaults(&l);
+    CHECK(theme_layout_parse("input=junk\n", &l) != 0);
+    CHECK(l.input == THEME_INPUT_ENGINE);
+
     /* 8. an unknown renderer/value rejects the whole layout. */
     theme_layout_defaults(&l);
     CHECK(theme_layout_parse("home=coverflow\n", &l) != 0);
@@ -170,6 +182,13 @@ int main(void)
     /* 13. theme_layout_set commits a validated struct atomically. */
     theme_layout_set(&l);
     CHECK(theme_layout()->format == 1);
+    theme_layout_defaults(&l);
+    l.input = THEME_INPUT_THEME;
+    theme_layout_set(&l);
+    CHECK(theme_input_owns_keys() == 1);
+    theme_layout_defaults(&l);
+    theme_layout_set(&l);
+    CHECK(theme_input_owns_keys() == 0);
 
     printf("%d checks, %d failures\n", checks, fails);
     return fails == 0 ? 0 : 1;

@@ -246,6 +246,8 @@ void settings_defaults(settings_t *s)
     s->screen_off_min = 30;
     s->auto_off_min = 5;
     s->volume = -23;
+    snprintf(s->vol_orient, sizeof s->vol_orient, "normal");
+    snprintf(s->hold_vol, sizeof s->hold_vol, "skip");
 }
 
 /* ---- mock player (firmware/player API seam for browser/player_screen) ---- */
@@ -260,6 +262,10 @@ static int  s_pl_state = PLAYER_STOPPED;
 static long s_pl_pos_ms;
 static int  s_pl_present;               /* player_get_track() has a track?  */
 static char s_pl_path[160];
+static int  s_pl_next_count;
+static int  s_pl_prev_count;
+static int  s_pl_seek_count;
+static long s_pl_last_seek_ms;
 
 void mock_player_reset(void)
 {
@@ -273,6 +279,10 @@ void mock_player_reset(void)
     s_pl_pos_ms = 0;
     s_pl_present = 0;
     s_pl_path[0] = '\0';
+    s_pl_next_count = 0;
+    s_pl_prev_count = 0;
+    s_pl_seek_count = 0;
+    s_pl_last_seek_ms = 0;
 }
 
 void mock_player_set_open_rc(int rc)
@@ -298,6 +308,26 @@ int mock_player_play_count(void)
 int mock_player_pause_count(void)
 {
     return s_pl_pause_count;
+}
+
+int mock_player_next_count(void)
+{
+    return s_pl_next_count;
+}
+
+int mock_player_prev_count(void)
+{
+    return s_pl_prev_count;
+}
+
+int mock_player_seek_count(void)
+{
+    return s_pl_seek_count;
+}
+
+long mock_player_last_seek_ms(void)
+{
+    return s_pl_last_seek_ms;
 }
 
 int mock_player_volume_db(void)
@@ -365,6 +395,7 @@ int player_next(void)
 {
     if (!s_pl_present)
         return PLAYER_ERR_EMPTY;
+    s_pl_next_count++;
     s_pl_state = PLAYER_PLAYING;
     return PLAYER_OK;
 }
@@ -373,6 +404,7 @@ int player_prev(void)
 {
     if (!s_pl_present)
         return PLAYER_ERR_EMPTY;
+    s_pl_prev_count++;
     s_pl_state = PLAYER_PLAYING;
     return PLAYER_OK;
 }
@@ -383,6 +415,8 @@ int player_seek(long ms)
         return PLAYER_ERR_EMPTY;
     if (ms < 0)
         ms = 0;
+    s_pl_seek_count++;
+    s_pl_last_seek_ms = ms;
     s_pl_pos_ms = ms;
     return PLAYER_OK;
 }

@@ -233,6 +233,23 @@ early-exit, so only the first Play (or a rate/channel change) pays the bring-up.
 The software volume ramp at unmute is replaced by writing the level while the
 hardware mute is asserted (`-DAO_UNMUTE_DIRECT=0` restores the ramp).
 
+### Now Playing keys (BRNOMT-107)
+
+Settings → Interface → Controls stores `hold_vol=skip|seek` and
+`vol_orient=normal|swapped` in `rechord.cfg`.
+
+- **Short VOL**: ±1 dB on RELEASE (unchanged).
+- **Hold VOL, skip**: VOL+ = next track; VOL− rewinds to 0:00 when past 3 s,
+  otherwise previous track.
+- **Hold VOL, seek**: VOL+/VOL− seek ±5 s, at most one seek every 200 ms; the
+  input repeat ladder supplies the accelerating REPEATs. The seek clamps below
+  EOF and redraws the bar/time. RELEASE after a long press never changes the
+  volume.
+- **Orientation** (`vol_orient=swapped`) swaps KEY_UP/KEY_DOWN only for menu
+  navigation, never on Now Playing (VOL+ always raises the volume). A theme
+  can own the mapping only when its `theme.cfg` declares `input=theme`; the
+  app loop then skips the global swap on screens that use the theme key map.
+
 ## 4. Codec vendoring plan (architecture.md §4: prefer open-source C)
 
 Stubs live now; the vendored trees will live under

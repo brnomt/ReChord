@@ -32,6 +32,11 @@
 #define RECHORD_THEME_ID_MAX    32
 #define SETTING_KEY_COUNT       16
 
+/* Controls (BRNOMT-107). These are persisted like `theme` (outside the schema
+ * table), so the per-key value scratch arrays do not grow. */
+enum { VOL_ORIENT_NORMAL = 0, VOL_ORIENT_SWAPPED = 1 };
+enum { HOLD_VOL_SKIP = 0, HOLD_VOL_SEEK = 1 };
+
 /* In-memory settings.  Field order is our own; persistence must go through
  * the schema table (or the key names), never through raw offsets on disk. */
 typedef struct rechord_settings {
@@ -52,6 +57,8 @@ typedef struct rechord_settings {
     int  fade_ms;                     /* key "fade"       (0/150/300/500 ms) */
     char theme[RECHORD_THEME_ID_MAX]; /* key "theme"      (package id)      */
     int  replaygain_mode;             /* key "replaygain" (0=off..3=auto)   */
+    int  vol_orient;                  /* key "vol_orient" (VOL_ORIENT_*)    */
+    int  hold_vol;                    /* key "hold_vol"   (HOLD_VOL_*)      */
 } rechord_settings_t;
 
 typedef enum setting_kind {

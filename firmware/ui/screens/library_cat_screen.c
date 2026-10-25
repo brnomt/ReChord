@@ -314,4 +314,5 @@ const ui_screen_t library_cat_screen = {
     cat_on_exit,
     cat_draw,
     cat_handle_event,
+    1,
 };

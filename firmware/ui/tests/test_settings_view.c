@@ -91,6 +91,8 @@ int main(void)
     CHECK(v.volume_db == -23);
     CHECK(v.fade_ms == 300);             /* BRNOMT-67 default */
     CHECK(v.replaygain_mode == 3);       /* BRNOMT-106: auto */
+    CHECK(v.vol_orient == VOL_ORIENT_NORMAL);
+    CHECK(v.hold_vol == HOLD_VOL_SKIP);
     CHECK(v.cursor == 3);
     CHECK(v.play_mode == opt_value("play", "repeat_track"));
     CHECK_STR_EQ(v.theme, "companion-bot");
@@ -102,6 +104,8 @@ int main(void)
     v.play_mode = opt_value("play", "shuffle");
     CHECK(v.play_mode != -999);
     snprintf(v.theme, sizeof v.theme, "night");
+    v.vol_orient = VOL_ORIENT_SWAPPED;
+    v.hold_vol = HOLD_VOL_SEEK;
     CHECK(settings_view_save(&v) == 0);
     CHECK(s_save_count == 1);
     CHECK(s_store.screen_off_min == 60);
@@ -110,6 +114,8 @@ int main(void)
     CHECK(strcmp(s_store.fade, "300") == 0);   /* unchanged default */
     CHECK(strcmp(s_store.replaygain, "auto") == 0);
     CHECK_STR_EQ(s_store.theme, "night");
+    CHECK(strcmp(s_store.vol_orient, "swapped") == 0);
+    CHECK(strcmp(s_store.hold_vol, "seek") == 0);
 
     /* 3. round-trip through load again */
     memset(&v, 0, sizeof v);
@@ -118,6 +124,8 @@ int main(void)
     CHECK(v.brightness == 4);
     CHECK(v.play_mode == opt_value("play", "shuffle"));
     CHECK_STR_EQ(v.theme, "night");
+    CHECK(v.vol_orient == VOL_ORIENT_SWAPPED);
+    CHECK(v.hold_vol == HOLD_VOL_SEEK);
 
     /* 4. a timer value outside the option list keeps the default */
     s_store.screen_off_min = 45;         /* not an option */

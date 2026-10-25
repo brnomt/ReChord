@@ -20,7 +20,7 @@
 #ifndef RECHORD_SERVICES_SETTINGS_H
 #define RECHORD_SERVICES_SETTINGS_H
 
-typedef struct { char play[16]; int brightness; int screen_off_min; int auto_off_min; char usb[8]; char resume[8]; char strip[8]; char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor; char shuffle[8]; char repeat_mode[8]; char fade[8]; char theme[32]; char replaygain[8]; } settings_t;
+typedef struct { char play[16]; int brightness; int screen_off_min; int auto_off_min; char usb[8]; char resume[8]; char strip[8]; char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor; char shuffle[8]; char repeat_mode[8]; char fade[8]; char theme[32]; char replaygain[8]; char vol_orient[8]; char hold_vol[8]; } settings_t;
 
 /* Config file location: the internal eMMC volume, in the user-visible
  * .rechord folder (BRNOMT-71). Plain text, so it can be edited/copied from a
@@ -43,8 +43,9 @@ typedef struct { char play[16]; int brightness; int screen_off_min; int auto_off
 int settings_load(settings_t *s);
 
 /* Write *s to SETTINGS_PATH (create/truncate), all keys in schema order with a
- * short comment header. Note: keys not in the schema are not preserved (the
- * struct cannot hold them). Returns SETTINGS_OK or an error code. */
+ * short comment header. The schema table covers 16 keys; theme and the two
+ * controls keys are stored in this struct as well and serialized alongside it.
+ * Returns SETTINGS_OK or an error code. */
 int settings_save(const settings_t *s);
 
 /* Fill *s with default values (the documented sample configuration). */

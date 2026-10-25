@@ -217,7 +217,9 @@ static void test_scan_hold(void)
     CHECK(input_pending() == 5);                     /* P,L,R,R,R        */
     CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_PRESS);
     CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_LONG && ev.long_press == 1);
+    CHECK(ev.now_ms > 0);                            /* stamped event clock */
     CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_REPEAT);
+    CHECK(ev.now_ms > 0);
     CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_REPEAT);
     CHECK(input_poll(&ev) == 1 && ev.kind == INPUT_RELEASE && ev.long_press == 1);
 

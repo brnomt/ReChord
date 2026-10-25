@@ -136,4 +136,5 @@ const ui_screen_t library_screen = {
     NULL,
     lib_draw,
     lib_handle_event,
+    1,
 };

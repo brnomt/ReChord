@@ -69,6 +69,7 @@ are allowed (the flat parser ignores section headers). Keys:
 | `skin_browser` | file browser skin (optional) |
 | `skin_settings` | Settings screen skin (optional) |
 | `home_nav` | default list axis: `vertical` / `horizontal` |
+| `input` | `engine` (default) or `theme` — who owns the VOL up/down navigation orientation |
 | palette | `background surface text text_dim accent danger success spacing radius` |
 | list geometry | `pad title_h item_h` |
 | Now Playing origins | `np_title_y np_artist_y np_state_y np_info_y np_bar_y np_bar_h np_time_y np_mode_y np_vol_y np_vol_h` |
@@ -260,6 +261,14 @@ left. The compiled fallback uses the same vertical convention.
 PLAY is always SELECT, BACK is always BACK, and power is handled globally
 (short = backlight off/on, Power+MENU = Hold, hold ~2 s = power off). A theme
 cannot steal those keys.
+
+The **global** setting is Settings → Interface → Controls → VOL keys
+(`normal`/`swapped`, menus only). A package that wants its own `prev`/`next`
+mapping to outrank it must declare `input=theme` in `theme.cfg`; without that
+flag the app loop applies the global orientation first and the skin map then
+sees the swapped logical key. The flag has no effect on compiled screens
+without a skin (they always follow the global setting), and Now Playing always
+keeps VOL+ = louder.
 
 ---
 

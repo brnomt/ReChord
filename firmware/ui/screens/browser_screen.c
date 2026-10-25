@@ -467,6 +467,7 @@ const ui_screen_t browser_screen = {
     NULL,
     browser_screen_draw,
     browser_screen_handle_event,
+    1,
 };
 
 /* Set only the BACK clamp and leave the current folder alone. Used when the

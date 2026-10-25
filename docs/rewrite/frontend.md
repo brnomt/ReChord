@@ -52,10 +52,10 @@ RKNanoC's dual Cortex-M3 environment and host-testable with mock backends.
 |           v                                                              |
 |  +---------------------+    +---------------------+                      |
 |  | settings_schema.c/h |    | tests/              |   HOST ONLY          |
-|  | 15-key schema table |    | mock_display (log)  |                      |
-|  | names/values/offsets|    | mock_services       |                      |
-|  +---------------------+    | 5 test suites       |                      |
-|                             +---------------------+                      |
+|  | 16-key schema table |    | mock_display (log)  |                      |
+|  | + theme/controls    |    | mock_services       |                      |
+|  | names/values/offsets|    | 5 test suites       |                      |
+|  +---------------------+    +---------------------+                      |
 +--------------------------------------------------------------------------+
 ```
 
@@ -70,13 +70,13 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
 |---|---|
 | `ui.h` / `ui.c` | UI core: event loop skeleton (`ui_run/ui_quit`), screen stack (`ui_push_screen/ui_pop_screen`, depth 6, enter/exit/re-enter hooks), redraw model (`ui_invalidate*`, sorted+merged dirty row bands, coalesced flushes) |
 | `theme.h` | Colors (RGB565), font metrics (6x11 class: 6 px advance, 11 px glyph, 12 px line pitch, +1 px text offset), spacing/layout constants |
-| `settings_schema.h` / `settings_schema.c` | The 15-key config schema: `rechord_settings_t`, per-key table (name, kind, field offset, options/range), defaults (seeded from observed device values), cycle/format helpers |
+| `settings_schema.h` / `settings_schema.c` | The 16-key config schema: `rechord_settings_t`, per-key table (name, kind, field offset, options/range), defaults (seeded from observed device values), cycle/format helpers. `theme`, `vol_orient` and `hold_vol` are stored alongside it (19 cfg keys total) |
 | `screens/screens.h` | Public API of all screens (control functions + state introspection) |
 | `screens/boot_screen.c` | ReChord branding (own wordmark rendering, 1 px weight pass), version, divider, printf-style status lines at 12 px pitch (id × 12 px contract) |
 | `screens/menu_screen.c` | Generic list menu (title + scrollable items + selection + right-aligned values) AND the shared navigation/rendering helpers (`menu_view_move`, `menu_draw`, `menu_draw_item`) reused by the other lists |
 | `screens/browser_screen.c` | File browser over `fs_list_dir()` (names + counts only): window = one visible page fetched at the view top, cursor wrap-around, enter-dir/back path handling clamped at a configured root with the parent cursor restored on BACK, footer counts |
-| `screens/player_screen.c` | Now-playing skeleton: track title, progress bar, times, volume bar (-60..0 dB), play/pause toggle |
-| `screens/settings_screen.c` | Categorized settings: the top level lists **Playing** (Volume, Shuffle, Repeat, Resume, Fade) and **Interface** (Theme); SELECT pushes `settings_group_screen`, which cycles the wired schema values and returns on BACK. The System diagnostics menu stays in the root. Also owns runtime-state writes: `settings_screen_volume_changed()` adopts the player's volume into the view and arms a deferred save; `settings_screen_flush_pending()` writes it once the value has been quiet for `SETTINGS_FLUSH_QUIET_MS`; `settings_screen_store()` covers any pending flush (BACK, power-off) |
+| `screens/player_screen.c` | Now-playing skeleton: title, progress bar, times, volume bar (-60..0 dB), play/pause. Long-press VOL follows Controls: skip track or seek 5 s every 200 ms |
+| `screens/settings_screen.c` | Categorized settings: top level **Playing** (Volume, Shuffle, Repeat, Resume, Fade, Auto-off, ReplayGain, Equalizer) and **Interface** (Brightness, Theme, Controls); SELECT pushes `settings_group_screen`/`controls_screen`, which cycle values and return on BACK. Also owns runtime-state writes: `settings_screen_volume_changed()` adopts the player's volume and arms a deferred save; `settings_screen_flush_pending()` writes it after `SETTINGS_FLUSH_QUIET_MS`; `settings_screen_store()` covers pending flush and saves immediately for Controls |
 | `screens/quick_screen.c` | MENU overlay (BRNOMT-105): Shuffle, Repeat and Playlist. The modes are applied and persisted immediately; Playlist lists the live queue with the current track marked and SELECT jumps to/plays the chosen entry |
 | `internal/hal.h` | The single include door to display + services |
 | `internal/shims/*.h` | **TEMPORARY** forward headers (`display.h`, `input.h`, `settings.h`, `log.h`, `fs.h`) — declarations only, delete when the real headers land |
@@ -144,7 +144,7 @@ pushes only the dirty row bands to the panel via `display_flush_rows()`.
 |---|---|
 | everything under `firmware/ui/` — the UI logic is platform-free C99 | same sources, compiled with `-mcpu=cortex-m3 -mthumb -Os` |
 | `tests/`: mock display (records draw calls), mock input/settings/log/fs | real `firmware/drivers/display.h` + `firmware/services/*.h` implementations |
-| verifies: menu navigation state machine, screen stack push/pop, dirty-region model, 12-key settings mapping, browser pagination | `ui_run()` binds the loop to real `input_poll()`; app layer (`firmware/app/`) pushes screens |
+| verifies: menu navigation state machine, screen stack push/pop, dirty-region model, 16-key settings mapping + Controls, browser pagination | `ui_run()` binds the loop to real `input_poll()`; app layer (`firmware/app/`) pushes screens |
 
 Verified this change: `cc -std=c99 -Wall -Werror` (all sources incl. tests)
 and `arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb -Os -c` (all 7 non-test

@@ -55,6 +55,7 @@ typedef struct {
     int adc_value;
     int kind;
     int long_press;
+    unsigned now_ms;   /* input clock when the event was produced (ms) */
 } input_event_t;
 
 /* Pop the oldest queued event into *ev.

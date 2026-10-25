@@ -4769,3 +4769,40 @@ precargada; el primer play desde el browser conserva el coste normal.
 
 Tests de host: player, drivers, services, ui y dsp verdes. AP5M CRC
 `0xCFC927F5`; `.bss_end 0x03049FCC` (52 B libres).
+
+## CG. Session 2026-10-25 — BRNOMT-107: mapeo de teclas de volumen
+
+**Settings.** Interface suma una fila **Controls** (Brightness, Theme,
+Controls) que abre `controls_screen.c`:
+- `VOL keys`: `Normal` / `Swapped` — solo navegación de menús/listas.
+- `Hold VOL`: `Skip track` / `Seek`.
+
+Los valores se guardan en `rechord.cfg` como `vol_orient=normal|swapped` y
+`hold_vol=skip|seek`. Se tratan como `theme`: viven en `settings_t` /
+`rechord_settings_t` pero **fuera** de `setting_schema`, así no crecen los
+buffers por-key. `settings_screen_set_vol_orient()/set_hold_vol()` guardan
+inmediatamente.
+
+**Swap.** `ap_ui.c` invierte `KEY_UP`/`KEY_DOWN` solo si el top no es
+`player_screen`; Now Playing conserva VOL+ = subir volumen. Un tema puede
+ganar solo si declara `input=theme` en `theme.cfg` (nuevo campo validado en
+`theme_pkg`), y solo en pantallas cuyo `ui_screen_t.theme_keys` es 1
+(home skin, settings/group, browser, library, library_cat) con skin cargado;
+las pantallas compiladas siguen el ajuste global.
+
+**Hold Seek.** `input_event_t` gana `now_ms` (lo estampa `input_push_kind`).
+En `player_screen.c`, Seek hace un salto de 5 s al LONG y otro cada 200 ms en
+REPEAT (el ladder de input ya acelera); clamp a `[0, duration-1 s]` y redibuja
+barra/tiempo. RELEASE{long_press=1} no toca volumen. Skip conserva el
+comportamiento previo: VOL+ siguiente; VOL− >3 s vuelve a 0:00, si no previa.
+
+**Memoria.** El plan inicial sumaba ~92 B de `.bss` y rompía el techo. Se
+reemplazó `s_value_buf[SETTING_KEY_COUNT][32]` (512 B) por un único buffer
+de 32 B (`value_text_for(k)` formatea on demand; `menu_draw`/`set_value`
+consumen por fila), y se eliminó `refresh_values()`. Nuevo `.bss_end
+0x03049E48` (440 B libres), AP5M CRC `0xDA4331FF`.
+
+Tests: services 188 checks (settings + input), ui 624 checks (Controls,
+hold-seek rate limit), theme 71+47, player/drivers/dsp verdes. Device:
+verificar Controls tras power-cycle, swap solo en menús, skip/seek y
+`input=theme` con un paquete que lo declare.

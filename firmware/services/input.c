@@ -162,6 +162,7 @@ static int input_push_kind(int type, int adc_value, int kind, int long_press)
     slot->adc_value = adc_value;
     slot->kind = kind;
     slot->long_press = long_press;
+    slot->now_ms = input_now();
     s_count++;
     return INPUT_OK;
 }

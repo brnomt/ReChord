@@ -44,11 +44,14 @@ plays audio on hardware:
   UTF-8 text, dual `INDEX.A`/`INDEX.B` slots) — an index built by an older
   firmware is ignored, so **rebuild it once from the menu** after flashing.
 - **Playback lists**: album/genre/folder queue with Rockbox-style shuffle and
-  repeat off/all/one (config keys `shuffle`, `repeat_mode`; 15-key schema),
-  applied to the player immediately and preserved when a new list starts.
-  Settings is grouped into **Playing** (Volume, Shuffle, Repeat, Resume,
-  Fade) and **Interface** (Theme); `fade` is off/150/300/500 ms and applies
-  to play/pause/resume.
+  repeat off/all/one (config keys `shuffle`, `repeat_mode`; 16-key schema +
+  theme/controls, 19 cfg keys), applied to the player immediately and preserved
+  when a new list starts. Settings is grouped into **Playing** (Volume,
+  Shuffle, Repeat, Resume, Fade, Auto-off, ReplayGain, Equalizer) and
+  **Interface** (Brightness, Theme, Controls); `fade` is off/150/300/500 ms
+  and applies to play/pause/resume. Controls (BRNOMT-107) selects the
+  navigation VOL orientation (normal/swapped, menus only) and long-press VOL
+  behaviour (skip track or seek ±5 s).
 - **Resume**: the last track + position and the browser folder/row live in
   `/.rechord/state` (separate from the config, rewritten in place); the
   `resume` setting (off/folder/track) decides what is restored at boot. It

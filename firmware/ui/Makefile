@@ -20,7 +20,8 @@ UI_SRCS := ui.c \
            screens/browser_screen.c \
            screens/player_screen.c \
            screens/settings_screen.c \
-           screens/eq_screen.c
+           screens/eq_screen.c \
+           screens/controls_screen.c
 
 TEST_SRCS := tests/main.c \
              tests/mock_display.c \
@@ -31,6 +32,7 @@ TEST_SRCS := tests/main.c \
              tests/test_settings_keys.c \
              tests/test_browser_pagination.c \
              tests/test_eq_screen.c \
+             tests/test_player_keys.c \
              tests/mock_eq.c \
              ../theme/theme.c \
              ../theme/themes_builtin.c
