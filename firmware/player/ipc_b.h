@@ -148,7 +148,7 @@ void ipc_b_set_prescan(const codec_prescan_t *p);
 /* Diagnostic: the player's own codec open failed for `path`. No command ever
  * reaches Core B in that case, so without this the field log shows nothing at
  * the boundary. The target logs the file name; the host mock is a no-op. */
-void ipc_b_note_open_failed(const char *path);
+void ipc_b_note_open_failed(const char *path, int rc);
 
 /* Stop the B core ("B off") and reset streaming state. Returns 0. */
 int ipc_b_stop(void);

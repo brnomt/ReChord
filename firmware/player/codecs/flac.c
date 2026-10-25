@@ -275,6 +275,41 @@ static unsigned be24(const unsigned char *p)
     return ((unsigned)p[0] << 16) | ((unsigned)p[1] << 8) | (unsigned)p[2];
 }
 
+/* Some FLAC files carry a non-standard ID3v2 tag before "fLaC" (dr_flac
+ * skips it at open). The prescan must skip the same tags, otherwise the AP
+ * rejects a file Core B could decode ("format not supported" after a couple
+ * of shuffled tracks). Up to four tags; a bogus size is rejected. */
+static int skip_id3v2(codec_io_t *io)
+{
+    int n;
+
+    for (n = 0; n < 4; n++) {
+        unsigned char h[10];
+        long pos = cio_tell(io);
+        unsigned size, skip;
+
+        if (pos < 0)
+            return -1;
+        if (cio_read(io, h, 10) != 10)
+            return -1;
+        if (h[0] != 'I' || h[1] != 'D' || h[2] != '3') {
+            if (cio_seek(io, pos) != pos)
+                return -1;
+            return 0;
+        }
+        size = ((unsigned)(h[6] & 0x7Fu) << 21) |
+               ((unsigned)(h[7] & 0x7Fu) << 14) |
+               ((unsigned)(h[8] & 0x7Fu) << 7) |
+               (unsigned)(h[9] & 0x7Fu);
+        if (size > (1u << 20))          /* runaway/invalid tag */
+            return -1;
+        skip = 10u + size + ((h[5] & 0x10u) ? 10u : 0u);  /* v2.4 footer */
+        if (cio_seek(io, pos + (long)skip) != pos + (long)skip)
+            return -1;
+    }
+    return -1;                          /* absurd chain */
+}
+
 /* Walk the metadata chain: RG comments -> out; SEEKTABLE bytes summed;
  * STREAMINFO yields max-block and channels for the budget check. Returns 0
  * on success, <0 if the stream is not a parseable FLAC. */
@@ -287,7 +322,7 @@ static int flac_prescan(codec_io_t *io, codec_meta_t *meta,
     unsigned char hdr[4], si[34];
     unsigned type, len;
 
-    if (cio_read(io, hdr, 4) != 4 ||
+    if (skip_id3v2(io) != 0 || cio_read(io, hdr, 4) != 4 ||
         hdr[0] != 'f' || hdr[1] != 'L' || hdr[2] != 'a' || hdr[3] != 'C')
         return -1;
     /* First block must be STREAMINFO (type 0, 34 bytes). */
@@ -580,6 +615,13 @@ static void flac_close(void *vst)
 
     if (st == 0)
         return;
+    /* Release the codec_io handle on BOTH builds. Missing this leaked one of
+     * fs_target's four read handles per track; after 1-2 shuffled tracks the
+     * gapless pre-open could no longer open the next file. */
+    if (st->io != 0) {
+        cio_close(st->io);
+        st->io = 0;
+    }
 #ifndef RECHORD_AP_METADATA_ONLY
     if (st->f != 0)
         drflac_close(st->f);            /* returns memory to the pool     */

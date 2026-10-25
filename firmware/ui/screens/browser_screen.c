@@ -408,6 +408,10 @@ static void browser_screen_handle_event(const input_event_t *ev)
                     if (rc == PLAYER_OK)
                         rc = player_play();
                 }
+                /* The player copied the indices. Release the media-index
+                 * handle before playback so the gapless pre-open (ring + AP
+                 * codec) is not starved of FS handles. */
+                mq_done();
             }
             if (rc == PLAYER_OK) {
                 track_info_t ti;

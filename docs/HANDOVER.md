@@ -4660,3 +4660,36 @@ Playback y aplicación inmediata al player. Suites verdes; `make cfw-ap` PASS,
 
 **No hecho.** Cachear RG en el índice, APEv2/Opus y TXXX con descripción
 UTF-16; quedan documentados en `docs/rewrite/audio.md`.
+
+## CC. Session 2026-10-25 — playback inestable: handle leak de FLAC
+
+**Síntoma de campo.** Con shuffle sobre All Songs, tras 1-2 temas el player
+mostraba "format not supported" y se detenía. El LOG mostraba
+`preopen rc 0` seguido de `open failed (AP codec)`; los archivos exactos
+(`04 Rumble.flac`, `8. Hotel California.flac`, `M83 - Midnight City.flac`)
+abren bien con el prescan en el host.
+
+**Causa raíz.** `flac_close()` no llamaba `cio_close()`: cada cierre de un
+FLAC (cada pre-open/OPEN/cierre) filtraba uno de los cuatro handles de
+`fs_target`. Tras 1-2 temas no quedaba ninguno y el pre-open del siguiente
+fallaba. El `do_error()` dentro de `open_codec_only()` convertía ese fallo
+del *siguiente* tema en un stop del tema actual.
+
+**Fixes.**
+- `flac_close()` libera `st->io` en ambos builds (metadata-only y full).
+- `open_codec_only()` ya no llama `do_error()`: el caller decide (open de
+  usuario sí; pre-open no). Un fallo de pre-open es no fatal.
+- `advance_playlist()` salta hasta 8 entradas no reproducibles antes de
+  parar; un archivo malo no mata la cola.
+- `mq_done()` después de `player_play_list()` en Library/Browser: el handle
+  del índice no queda abierto durante el playback.
+- `flac_prescan()` salta tags ID3v2 al inicio (dr_flac ya lo hacía); algunos
+  FLAC no estándar los llevan.
+- Diagnóstico: `ipc_b_note_open_failed(path, rc)` loguea path completo, rc
+  y el motivo; el browser sigue mostrando el código real.
+- Tests: `test_player_skip` (pre-open no fatal + skip al siguiente) y
+  reopen×10 de FLAC con conteo open/close balanceado.
+
+**Build.** `make` PASS; AP5M sha256
+`c5f67d4bef497b6debd9448f69392620bbc26daa7d058fe6651508f712a4d4ee`;
+`.bss` sin cambios (68 B libres).

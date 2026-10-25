@@ -20,6 +20,14 @@ typedef struct
     FILE *f;
 } stdio_ctx_t;
 
+/* Host-test instrumentation: a codec that forgets cio_close() leaks an entry
+ * here. test_codec_flac asserts the open/close counts stay balanced. */
+static unsigned s_open_count;
+static unsigned s_close_count;
+
+unsigned cio_stdio_open_count(void) { return s_open_count; }
+unsigned cio_stdio_close_count(void) { return s_close_count; }
+
 static long s_read(void *ctx, void *buf, long len)
 {
     stdio_ctx_t *c = (stdio_ctx_t *)ctx;
@@ -80,6 +88,7 @@ static void s_close(void *ctx)
     if (c->f != NULL)
         fclose(c->f);
     free(c);
+    s_close_count++;
 }
 
 codec_io_t *cio_open(const char *path)
@@ -111,6 +120,7 @@ codec_io_t *cio_open(const char *path)
     io->tell = s_tell;
     io->size = s_size;
     io->close = s_close;
+    s_open_count++;
     return io;
 }
 

@@ -178,7 +178,19 @@ static void cat_play(int idx)
      * shows "i/N" and auto-advances through the rest. The source is set first
      * so ReplayGain AUTO can resolve the first track as album playback. */
     player_set_queue_source(PLAYER_QUEUE_CAT, s_cat.value, s_cat.cat);
-    if (player_play_list(list, (int)n, idx) == PLAYER_OK) {
+    {
+        int rc = player_play_list(list, (int)n, idx);
+
+        /* The player copied the indices. Release the media-index handle NOW:
+         * keeping it open during playback leaves only one free FS handle, and
+         * the gapless pre-open needs two (ring + AP codec) -> "open failed". */
+        mq_done();
+        if (rc != PLAYER_OK) {
+            player_screen_set_status("cannot open track");
+            return;
+        }
+    }
+    {
         track_info_t ti;
 
         player_screen_set_status(NULL);
@@ -187,8 +199,6 @@ static void cat_play(int idx)
                                     ti.duration_ms > 0
                                         ? (uint32_t)(ti.duration_ms / 1000) : 0);
         ui_push_screen(&player_screen);
-    } else {
-        player_screen_set_status("cannot open track");
     }
 }
 

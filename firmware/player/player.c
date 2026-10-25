@@ -407,20 +407,19 @@ static int open_codec_only(const char *path)
 
     c = codec_registry_find(path);
     if (c == 0) {
-        ipc_b_note_open_failed(path);
+        ipc_b_note_open_failed(path, PLAYER_ERR_UNSUPPORTED);
         return PLAYER_ERR_UNSUPPORTED;
     }
     if (c->state_size <= 0 || c->state_size > PLAYER_CODEC_STATE_MAX) {
-        ipc_b_note_open_failed(path);
+        ipc_b_note_open_failed(path, PLAYER_ERR);
         return PLAYER_ERR;
     }
 
     mem_zero(codec_state(), (unsigned)c->state_size);
     rc = c->open(codec_state(), path);
     if (rc < 0) {
-        ipc_b_note_open_failed(path);
-        do_error();
-        return rc;
+        ipc_b_note_open_failed(path, rc);
+        return rc;      /* caller decides: user open = error, pre-open = skip */
     }
 
     g.codec = c;
@@ -431,15 +430,13 @@ static int open_codec_only(const char *path)
     fmt.bits = 16;
     if (c->format != 0 && c->format(codec_state(), &fmt) < 0) {
         close_codec_only();
-        ipc_b_note_open_failed(path);
-        do_error();
+        ipc_b_note_open_failed(path, PLAYER_ERR);
         return PLAYER_ERR;
     }
     if (fmt.channels < 1 || fmt.channels > 2 || fmt.sample_rate <= 0) {
         close_codec_only();
-        ipc_b_note_open_failed(path);
-        do_error();
-        return PLAYER_ERR;
+        ipc_b_note_open_failed(path, PLAYER_ERR_UNSUPPORTED);
+        return PLAYER_ERR_UNSUPPORTED;
     }
     g.fmt = fmt;
 
@@ -555,8 +552,10 @@ static int open_track(const char *path)
     close_track();
 
     rc = open_codec_only(path);
-    if (rc != PLAYER_OK)
+    if (rc != PLAYER_OK) {
+        do_error();         /* user-initiated open: surface the failure */
         return rc;
+    }
 
     g.base_ms = 0;
     g.frames_consumed = 0;
@@ -759,10 +758,8 @@ static int advance_to(const char *path, int hard)
         /* No (matching) pending codec: the first thing open_codec_only() does
          * is close the current one, which also drops a stale pending. */
         rc = open_codec_only(path);
-        if (rc != PLAYER_OK) {
-            emit(PLAYER_EV_ERROR);
-            return rc;
-        }
+        if (rc != PLAYER_OK)
+            return rc;      /* advance_playlist() skips an unplayable file */
     }
     same_fmt = prev_valid &&
                prev.sample_rate == g.fmt.sample_rate &&
@@ -815,31 +812,47 @@ static int advance_queue(int hard)
 /* Advance to the next playlist track (BRNOMT-90): resolve the record index to
  * a path and open it (gapless when the format matches). Returns < 0 when the
  * list is done — stop + END_OF_TRACK are already emitted. `hard` forces a hard
- * boundary (a user-driven next()). */
+ * boundary (a user-driven next()).
+ *
+ * A single unplayable file must NOT kill playback: skip it and try the next
+ * entry (bounded). This is what keeps a shuffled all-songs queue alive when it
+ * lands on a FLAC/MP3 the codec rejects (BRNOMT-106 field report). */
+#define PLAYER_ADVANCE_SKIPS 8
+
 static int advance_playlist(int hard)
 {
-    char path[PLAYER_PATH_MAX];
-    uint16_t ridx;
+    int tries;
 
-    if (playlist_advance(&g.list) < 0) {
-        player_stop();
-        emit(PLAYER_EV_END_OF_TRACK);
-        return PLAYER_ERR_EMPTY;
-    }
-    ridx = playlist_current(&g.list);
-    if (g.peek_valid && g.peek_ridx == ridx) {
-        /* Resolved during the pre-open window: skip the media-DB lookup, which
-         * would otherwise run inside the ring's cover (BRNOMT-73). */
-        str_copy(path, (unsigned)sizeof path, g.peek_path);
-    } else if (s_resolve == 0 || ridx == PLAYLIST_IDX_NONE ||
-               s_resolve(ridx, path, (int)sizeof path) != 0) {
+    for (tries = 0; tries < PLAYER_ADVANCE_SKIPS; tries++) {
+        char path[PLAYER_PATH_MAX];
+        uint16_t ridx;
+        int rc;
+
+        if (playlist_advance(&g.list) < 0) {
+            player_stop();
+            emit(PLAYER_EV_END_OF_TRACK);
+            return PLAYER_ERR_EMPTY;
+        }
+        ridx = playlist_current(&g.list);
+        if (g.peek_valid && g.peek_ridx == ridx) {
+            /* Resolved during the pre-open window: skip the media-DB lookup,
+             * which would otherwise run inside the ring's cover (BRNOMT-73). */
+            str_copy(path, (unsigned)sizeof path, g.peek_path);
+        } else if (s_resolve == 0 || ridx == PLAYLIST_IDX_NONE ||
+                   s_resolve(ridx, path, (int)sizeof path) != 0) {
+            g.peek_valid = 0;
+            continue;                   /* missing record: skip */
+        }
         g.peek_valid = 0;
-        player_stop();
-        emit(PLAYER_EV_ERROR);
-        return PLAYER_ERR;
+        rc = advance_to(path, hard);
+        if (rc == PLAYER_OK)
+            return PLAYER_OK;
+        /* open_codec_only() logged the path + reason; try the next entry. */
     }
-    g.peek_valid = 0;
-    return advance_to(path, hard);
+
+    player_stop();
+    emit(PLAYER_EV_ERROR);
+    return PLAYER_ERR;
 }
 
 /* ---- public API ---- */
@@ -1036,7 +1049,13 @@ int player_prev(void)
         emit(PLAYER_EV_ERROR);
         return PLAYER_ERR;
     }
-    return advance_to(path, 1);    /* user-driven: hard boundary */
+    {
+        int rc = advance_to(path, 1);   /* user-driven: hard boundary */
+
+        if (rc != PLAYER_OK)
+            emit(PLAYER_EV_ERROR);
+        return rc;
+    }
 }
 
 /* ---- playlist (BRNOMT-90) ---- */

@@ -85,11 +85,13 @@ static void log_track(const char *path)
 
 /* The AP's own codec open failed for `path` (no B command is ever sent in that
  * case, so without this the log would show nothing at the boundary). */
-void ipc_b_note_open_failed(const char *path)
+void ipc_b_note_open_failed(const char *path, int rc)
 {
-    if (path != 0 && path[0] != '\0')
+    if (path != 0 && path[0] != '\0') {
         log_track(path);
-    log_printf("ipc: open failed (AP codec)");
+        log_printf("ipc: path %s", path);
+    }
+    log_printf("ipc: open failed (AP codec) rc %d", rc);
 }
 
 /* Copy n bytes into the ring at byte offset `off` (wrap-aware). Frames are

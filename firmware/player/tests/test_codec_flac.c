@@ -23,6 +23,11 @@
 
 extern const codec_t codec_flac;
 
+/* Host backend instrumentation (codec_io_stdio.c): catches a codec close
+ * that forgets to release its cio handle (the FLAC handle leak). */
+unsigned cio_stdio_open_count(void);
+unsigned cio_stdio_close_count(void);
+
 #define RATE       44100
 #define BLOCKSIZE  4096
 #define TOTAL      BLOCKSIZE          /* one frame                          */
@@ -317,6 +322,28 @@ static void test_flac_golden(void)
 
     codec_flac.close(st);
     free(st);
+
+    /* Reopen/close cycles must balance the backend handles: the AP has only
+     * four fs read handles and leaked one per FLAC close (field regression:
+     * "format not supported" after 1-2 shuffled tracks). */
+    {
+        unsigned o0 = cio_stdio_open_count();
+        unsigned c0 = cio_stdio_close_count();
+        void *rs = calloc(1, PLAYER_CODEC_STATE_MAX);
+        int k, ok = (rs != 0);
+
+        for (k = 0; k < 10 && ok; k++) {
+            if (codec_flac.open(rs, path) != 0)
+                ok = 0;
+            codec_flac.close(rs);
+        }
+        free(rs);
+        CHECK(ok, "reopen: 10 FLAC open/close cycles");
+        CHECK_EQI(cio_stdio_open_count() - o0, 10, "reopen: 10 cio opens");
+        CHECK_EQI(cio_stdio_close_count() - c0, 10,
+                  "reopen: every cio handle closed");
+    }
+
     remove(path);
 }
 
