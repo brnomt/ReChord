@@ -4693,3 +4693,28 @@ del *siguiente* tema en un stop del tema actual.
 **Build.** `make` PASS; AP5M sha256
 `c5f67d4bef497b6debd9448f69392620bbc26daa7d058fe6651508f712a4d4ee`;
 `.bss` sin cambios (68 B libres).
+
+## CD. Session 2026-10-25 — brillo de pantalla 1–10 (PWM backlight)
+
+**Fuente.** La lógica de brillo se adaptó de **EchoPod** (BasilSkyWalk,
+GPL-3.0, `device/backlight` + `board/display.c`), que sigue la rutina stock
+0x03051DD8. Crédito agregado al final del README. ReChord ya era GPL-3.0.
+
+**Hardware.** GPIO2.4; PWM @ `0x400F0000`; gate CRU `0x90`, reset `0x17`;
+`period = pclk/10000`, `duty = period*percent/100`, control `0x10003`.
+El AP corre a 200 MHz con pclk 50 MHz (`ap_clock_set_200mhz`), así que el
+periodo es 5000.
+
+**Niveles.** 1..10 → duty 8, 12, 17, 23, 30, 39, 50, 63, 80, 100 %.
+Nivel 10 (100 %) usa GPIO alto sin PWM; apagar lleva el pin a 0. El nivel se
+recuerda mientras la pantalla está apagada y se reaplica en `backlight_on()`.
+
+**UI/config.** `brightness` (ya existía en `rechord.cfg`) pasó a visible en
+Settings > Interface, rango 1..10. Se aplica al boot y al ciclar la fila
+(`display_set_brightness`). Host tests: mock display registra el nivel.
+
+**API.** `display_set_brightness(level)` → `backlight_set_level()` en
+`panel_io`; el backend target implementa PWM y el sim es no-op.
+
+**Nota.** No se implementó el fade-in de 200 ms de EchoPod; el encendido sigue
+siendo inmediato como antes.

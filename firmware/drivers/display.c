@@ -54,6 +54,11 @@ void display_init(void)
     display_flush_rows(0, DISPLAY_H - 1);
 }
 
+void display_set_brightness(int level)
+{
+    backlight_set_level(level);
+}
+
 void display_fill_rect(int x0, int y0, int x1, int y1, uint16_t rgb565)
 {
     int x, y;

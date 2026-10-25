@@ -87,7 +87,8 @@ typedef struct setting_schema {
  * replaygain (16 keys).
  *
  * `visible` marks the functional subset the Settings groups offer. Today:
- * resume, volume, shuffle, repeat_mode, fade. `theme` is a live picker
+ * brightness, resume, volume, shuffle, repeat_mode, fade, replaygain.
+ * `theme` is a live picker
  * outside this table (persisted in the same file under its own key). */
 extern const setting_schema_t setting_schema[SETTING_KEY_COUNT];
 

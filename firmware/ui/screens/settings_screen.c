@@ -68,7 +68,10 @@ static const char *(*const s_value_text_fn[SETTING_KEY_COUNT])(void) = {
 };
 
 static void on_select_0(void)  { settings_cycle(&setting_schema[0],  &s_settings, +1); }
-static void on_select_1(void)  { settings_cycle(&setting_schema[1],  &s_settings, +1); }
+static void on_select_1(void) {
+    settings_cycle(&setting_schema[1], &s_settings, +1);
+    display_set_brightness(s_settings.brightness);   /* live backlight PWM */
+}
 static void on_select_2(void)  { settings_cycle(&setting_schema[2],  &s_settings, +1); }
 static void on_select_3(void)  { settings_cycle(&setting_schema[3],  &s_settings, +1); }
 static void on_select_4(void)  { settings_cycle(&setting_schema[4],  &s_settings, +1); }
@@ -221,9 +224,10 @@ static const setting_group_item_t s_playback_items[] = {
     { 0, 0, GROUP_KEY },
 };
 
-/* Interface currently has the live theme picker (brightness/screen_off are
- * still hidden until they actually control something). */
+/* Interface: live backlight brightness + the theme picker (screen_off is
+ * still hidden until it actually controls something). */
 static const setting_group_item_t s_interface_items[] = {
+    { "Brightness", "brightness", GROUP_KEY },
     { "Theme", 0, GROUP_THEME },
     { 0, 0, GROUP_KEY },
 };
