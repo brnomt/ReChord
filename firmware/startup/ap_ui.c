@@ -404,10 +404,33 @@ static void screen_wake(void)
     log_printf("power: screen on");
 }
 
+/* BRNOMT-75 thread: a plain screen-off must leave the transport controls live
+ * regardless of the visible menu. Bring Now Playing to the front (moving an
+ * existing instance instead of stacking duplicates) BEFORE the panel goes
+ * dark, so volume / play-pause / next-prev already target the player while
+ * the screen is off. Hold deliberately does not do this. */
+static void now_playing_bring_to_front(void)
+{
+    int i, depth = ui_stack_depth();
+
+    for (i = depth - 1; i >= 0; i--) {
+        if (ui_stack_at(i) != &player_screen)
+            continue;
+        if (i == depth - 1)
+            return;                 /* already the top screen */
+        if (i > 0)
+            ui_remove_screen(i);
+        break;
+    }
+    (void)ui_push_screen(&player_screen);
+}
+
 static void screen_sleep(void)
 {
     if (s_screen_off)
         return;
+    if (!s_hold)
+        now_playing_bring_to_front();
     s_screen_off = 1;
     backlight_off();
     log_printf("power: screen off");
@@ -1535,6 +1558,11 @@ void ap_ui_loop(void)
             s_idle_ms = now;           /* any key is user activity */
             if (ev.type == KEY_POWER)
                 continue;              /* global power handling below */
+            /* Screen off is display-only: transport keys keep working. BACK
+             * would pop Now Playing invisibly and leave the next keys on a
+             * menu, so ignore it until the panel is woken (Power/MENU). */
+            if (s_screen_off && ev.type == KEY_BACK)
+                continue;
             /* Screen-off is display-only: keys keep working, but they must
              * not light the panel. Only a short Power press (or unlocking
              * Hold / USB insertion) wakes it. */
