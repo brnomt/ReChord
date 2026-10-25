@@ -1391,6 +1391,30 @@ static void player_state_changed(int ev, void *user)
         player_screen_sync_state();
 }
 
+/* BRNOMT-107: navigation-only VOL orientation. Now Playing is excluded so
+ * VOL+ always raises volume; a theme with `input=theme` wins only on screens
+ * whose keys go through its skin map. */
+static int vol_nav_should_swap(void)
+{
+    const ui_screen_t *top = ui_top_screen();
+
+    if (settings_screen_get()->vol_orient != VOL_ORIENT_SWAPPED)
+        return 0;
+    if (top == 0 || top == &player_screen)
+        return 0;
+    if (top->theme_keys && theme_ui_active() && theme_input_owns_keys())
+        return 0;
+    return 1;
+}
+
+static void vol_nav_swap(input_event_t *ev)
+{
+    if (ev->type == KEY_UP)
+        ev->type = KEY_DOWN;
+    else if (ev->type == KEY_DOWN)
+        ev->type = KEY_UP;
+}
+
 void ap_ui_loop(void)
 {
     input_event_t ev;
@@ -1592,6 +1616,8 @@ void ap_ui_loop(void)
                 else
                     (void)ui_push_screen(&quick_screen);
             } else {
+                if (vol_nav_should_swap())
+                    vol_nav_swap(&ev);
                 theme_ui_note_input();
                 ui_handle_event(&ev);
             }

@@ -50,6 +50,11 @@ static int      s_no_track;    /* s_status is the transient "nothing playing" */
 static int      s_use_skin;    /* active theme declares skin_now_playing */
 static int      s_skin_checked;/* skin availability resolved for this screen */
 static int      s_active;      /* player screen is the top screen */
+static int      s_seek_dir;    /* BRNOMT-107 hold-to-seek: 0/+1/-1 */
+static unsigned s_seek_last_ms;
+
+#define PLAYER_SEEK_STEP_MS 5000
+#define PLAYER_SEEK_RATE_MS 200
 
 static void set_no_track(int on);
 
@@ -186,42 +191,86 @@ static void player_screen_draw(void)
     draw_bar(PLAYER_VOL_Y, PLAYER_VOL_H, vol_w);
 }
 
-/* Now Playing keys (BRNOMT-93):
+/* BRNOMT-107: one fast-forward/rewind step. Clamp below EOF so a held VOL+
+ * does not cross the track boundary, and redraw the bar/time immediately. */
+static void player_seek_step(int dir)
+{
+    track_info_t ti;
+    long pos = player_get_position_ms() + (long)dir * PLAYER_SEEK_STEP_MS;
+
+    if (player_get_track(&ti) == PLAYER_OK && ti.duration_ms > 1000) {
+        if (pos > ti.duration_ms - 1000)
+            pos = ti.duration_ms - 1000;
+    }
+    if (pos < 0)
+        pos = 0;
+    (void)player_seek(pos);
+    player_screen_set_position((uint32_t)(player_get_position_ms() / 1000));
+}
+
+/* Now Playing keys (BRNOMT-93/107):
  *   VOL+/VOL- short  -> one volume step each. The step happens on RELEASE so a
  *                       hold does not also bump the volume before the long
  *                       action.
- *   VOL+ long        -> next track in the current playlist/queue.
- *   VOL- long        -> seek back to 0:00; if still inside the first 3 s,
- *                       previous track instead.
- *   SELECT           -> play/pause.  BACK -> leave (playback continues).
- * A held key also sends REPEATs; on this screen they are not a volume sweep. */
+ *   Hold VOL         -> mode from Settings > Interface > Controls:
+ *                       SKIP: VOL+ next; VOL- >3 s rewinds to 0:00, otherwise
+ *                             previous track.
+ *                       SEEK: VOL+ / VOL- seek +/-5 s, at most every 200 ms
+ *                             while the key repeats (the input ladder already
+ *                             accelerates the repeats).
+ *   SELECT           -> play/pause.  BACK -> leave (playback continues). */
 static void player_screen_handle_event(const input_event_t *ev)
 {
-    if (ev->kind == INPUT_REPEAT)
+    int hold = settings_screen_get()->hold_vol;
+
+    if (ev->kind == INPUT_REPEAT) {
+        if (hold == HOLD_VOL_SEEK && s_seek_dir != 0 &&
+            (unsigned)(ev->now_ms - s_seek_last_ms) >= PLAYER_SEEK_RATE_MS) {
+            s_seek_last_ms = ev->now_ms;
+            player_seek_step(s_seek_dir);
+        }
         return;
+    }
 
     switch (ev->type) {
     case KEY_UP:
         if (s_status[0])
             break;
         if (ev->kind == INPUT_LONG) {
-            (void)player_next();
-        } else if (ev->kind == INPUT_RELEASE && !ev->long_press) {
-            player_set_volume(player_get_volume() + 1);
-            player_screen_set_volume(player_get_volume());
+            if (hold == HOLD_VOL_SEEK) {
+                s_seek_dir = +1;
+                s_seek_last_ms = ev->now_ms;
+                player_seek_step(s_seek_dir);
+            } else {
+                (void)player_next();
+            }
+        } else if (ev->kind == INPUT_RELEASE) {
+            s_seek_dir = 0;
+            if (!ev->long_press) {
+                player_set_volume(player_get_volume() + 1);
+                player_screen_set_volume(player_get_volume());
+            }
         }
         break;
     case KEY_DOWN:
         if (s_status[0])
             break;
         if (ev->kind == INPUT_LONG) {
-            if (player_get_position_ms() > 3000)
+            if (hold == HOLD_VOL_SEEK) {
+                s_seek_dir = -1;
+                s_seek_last_ms = ev->now_ms;
+                player_seek_step(s_seek_dir);
+            } else if (player_get_position_ms() > 3000) {
                 (void)player_seek(0);
-            else
+            } else {
                 (void)player_prev();
-        } else if (ev->kind == INPUT_RELEASE && !ev->long_press) {
-            player_set_volume(player_get_volume() - 1);
-            player_screen_set_volume(player_get_volume());
+            }
+        } else if (ev->kind == INPUT_RELEASE) {
+            s_seek_dir = 0;
+            if (!ev->long_press) {
+                player_set_volume(player_get_volume() - 1);
+                player_screen_set_volume(player_get_volume());
+            }
         }
         break;
     case KEY_SELECT:
@@ -253,6 +302,7 @@ static void player_screen_on_enter(void)
 
     s_active = 1;
     s_skin_checked = 0;
+    s_seek_dir = 0;
     /* Keep a real error view (unsupported file, no renderer), but a stale
      * "nothing playing" must be re-evaluated: the resume restore can load a
      * track after the first refresh already ran. */
@@ -303,6 +353,7 @@ void player_screen_set_track(const char *title, uint32_t duration_s)
     snprintf(s_title, sizeof(s_title), "%s", title ? title : "");
     s_duration_s = duration_s;
     s_position_s = 0;
+    s_seek_dir = 0;
     ui_invalidate_all();
 }
 

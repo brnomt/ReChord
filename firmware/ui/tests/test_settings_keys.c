@@ -298,22 +298,42 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(ui_stack_depth(), 2);
     group = settings_group_model();
     CHECK_STR_EQ(group->title, "Interface");
-    CHECK_EQ_INT(group->item_count, 2);
+    CHECK_EQ_INT(group->item_count, 3);
     CHECK_STR_EQ(group->items[0].label, "Brightness");
     CHECK_STR_EQ(group->items[1].label, "Theme");
+    CHECK_STR_EQ(group->items[2].label, "Controls");
 
     /* Brightness applies to the backlight immediately (8 -> 9). */
     e = ev(KEY_SELECT); ui_handle_event(&e);
     CHECK_EQ_INT(settings_screen_get()->brightness, 9);
     CHECK_EQ_INT(mock_display_brightness(), 9);
 
+    /* BRNOMT-107: Controls submenu + immediate persistence. */
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_group_view()->cursor, 2);
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(ui_stack_depth(), 3);
+    CHECK(ui_top_screen() == &controls_screen);
+
+    e = ev(KEY_SELECT); ui_handle_event(&e);          /* Normal -> Swapped */
+    CHECK_EQ_INT(settings_screen_get()->vol_orient, VOL_ORIENT_SWAPPED);
+    CHECK_EQ_INT(mock_settings_save_count(), 1);
+
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    e = ev(KEY_SELECT); ui_handle_event(&e);          /* Skip -> Seek */
+    CHECK_EQ_INT(settings_screen_get()->hold_vol, HOLD_VOL_SEEK);
+    CHECK_EQ_INT(mock_settings_save_count(), 2);
+
+    e = ev(KEY_BACK); ui_handle_event(&e);            /* Controls -> Interface */
+    CHECK_EQ_INT(ui_stack_depth(), 2);
     e = ev(KEY_BACK); ui_handle_event(&e);
     CHECK_EQ_INT(ui_stack_depth(), 1);
 
     /* BACK saves through the settings service and pops. */
     e = ev(KEY_BACK); ui_handle_event(&e);
     CHECK_EQ_INT(ui_stack_depth(), 0);
-    CHECK_EQ_INT(mock_settings_save_count(), 1);
+    CHECK_EQ_INT(mock_settings_save_count(), 3);
 }
 
 /* Volume is runtime state owned by the player module: a sweep must end up as

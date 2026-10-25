@@ -33,6 +33,8 @@ format=1
 name=My Theme
 home=menu              # menu | skin
 home_nav=vertical      # default list axis: vertical | horizontal
+# input=engine         # engine (default) | theme: theme prev/next wins over
+                       # Settings > Interface > Controls VOL orientation
 
 background=0x0000      # RGB565 palette
 surface=0x0000
@@ -83,9 +85,9 @@ home skin is still validated atomically at apply time.
 
 Limits: `format` must be 1; `home=skin` requires a readable `skin=` file;
 asset paths are relative and may not contain `..`; max 8 assets, 64x64 px,
-stride <= 8 bytes, cache <= 1 KiB; `home`/`home_nav` values are validated and an
-unknown value rejects the whole package. `companion` is accepted as a legacy
-alias for `home=skin`.
+stride <= 8 bytes, cache <= 1 KiB; `home`/`home_nav`/`input` values are
+validated and an unknown value rejects the whole package. `companion` is
+accepted as a legacy alias for `home=skin`.
 
 ## Screen skins
 

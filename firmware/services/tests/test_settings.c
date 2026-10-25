@@ -64,6 +64,8 @@ static void check_sample_values(const settings_t *s, int auto_off)
     CHECK(strcmp(s->repeat_mode, "off") == 0);
     CHECK(strcmp(s->fade, "300") == 0);          /* BRNOMT-67 */
     CHECK(strcmp(s->replaygain, "auto") == 0);   /* BRNOMT-106 */
+    CHECK(strcmp(s->vol_orient, "normal") == 0); /* BRNOMT-107 */
+    CHECK(strcmp(s->hold_vol, "skip") == 0);
 }
 
 static void check_same(const settings_t *a, const settings_t *b)
@@ -84,6 +86,8 @@ static void check_same(const settings_t *a, const settings_t *b)
     CHECK(strcmp(a->repeat_mode, b->repeat_mode) == 0);
     CHECK(strcmp(a->fade, b->fade) == 0);
     CHECK(strcmp(a->replaygain, b->replaygain) == 0);
+    CHECK(strcmp(a->vol_orient, b->vol_orient) == 0);
+    CHECK(strcmp(a->hold_vol, b->hold_vol) == 0);
 }
 
 static void write_cfg(const char *content)
@@ -175,6 +179,8 @@ static void test_sample_round_trip(void)
     CHECK(strstr(text, "repeat_mode=off\n") != NULL);
     CHECK(strstr(text, "fade=300\n") != NULL);         /* BRNOMT-67 */
     CHECK(strstr(text, "replaygain=auto\n") != NULL);  /* BRNOMT-106 */
+    CHECK(strstr(text, "vol_orient=normal\n") != NULL); /* BRNOMT-107 */
+    CHECK(strstr(text, "hold_vol=skip\n") != NULL);
     CHECK(strstr(text, "\nplay=") < strstr(text, "\nbrightness="));
     CHECK(strstr(text, "\nbrightness=") < strstr(text, "\nscreen_off="));
     CHECK(strstr(text, "\nscreen_off=") < strstr(text, "\nauto_off="));
@@ -190,6 +196,8 @@ static void test_sample_round_trip(void)
     CHECK(strstr(text, "\nshuffle=") < strstr(text, "\nrepeat_mode="));
     CHECK(strstr(text, "\nrepeat_mode=") < strstr(text, "\nfade="));
     CHECK(strstr(text, "\ntheme=") < strstr(text, "\nreplaygain="));
+    CHECK(strstr(text, "\nreplaygain=") < strstr(text, "\nvol_orient="));
+    CHECK(strstr(text, "\nvol_orient=") < strstr(text, "\nhold_vol="));
 }
 
 static void test_tolerance(void)
@@ -229,6 +237,21 @@ static void test_tolerance(void)
     CHECK(settings_parse_text("play=0123456789ABCDEFGHIJKLMNOP\n", &s)
           == SETTINGS_OK);
     CHECK(strcmp(s.play, "0123456789ABCDE") == 0);
+}
+
+static void test_controls_keys(void)
+{
+    settings_t s;
+    char text[768];
+
+    settings_defaults(&s);
+    CHECK(settings_parse_text("vol_orient=swapped\nhold_vol=seek\n", &s)
+          == SETTINGS_OK);
+    CHECK(strcmp(s.vol_orient, "swapped") == 0);
+    CHECK(strcmp(s.hold_vol, "seek") == 0);
+    CHECK(settings_serialize_text(&s, text, sizeof(text)) > 0);
+    CHECK(strstr(text, "vol_orient=swapped\n") != NULL);
+    CHECK(strstr(text, "hold_vol=seek\n") != NULL);
 }
 
 static void test_missing_file_and_args(void)
@@ -273,6 +296,7 @@ int main(void)
     test_defaults();
     test_sample_round_trip();
     test_tolerance();
+    test_controls_keys();
     test_missing_file_and_args();
 
     /* buffer-too-small serialization */

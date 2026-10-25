@@ -32,6 +32,10 @@ typedef struct ui_screen {
     void (*on_exit)(void);                             /* popped off stack   */
     void (*draw)(void);                                /* repaint + own dirty*/
     void (*handle_event)(const input_event_t *ev);     /* key event          */
+    /* 1 when the screen consumes keys through the active theme skin (its
+     * handle_event calls theme_ui_nav/theme_skin_key). Used by the app loop
+     * to let an `input=theme` package own the VOL orientation. */
+    int theme_keys;
 } ui_screen_t;
 
 /* ---- lifecycle / event loop ------------------------------------------ */

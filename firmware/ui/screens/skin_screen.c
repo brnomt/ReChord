@@ -118,4 +118,5 @@ const ui_screen_t skin_home_screen = {
     NULL,
     skin_draw,
     skin_handle_event,
+    1,
 };

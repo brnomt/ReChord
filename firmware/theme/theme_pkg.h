@@ -33,6 +33,14 @@ enum {
     THEME_NAV_HORIZONTAL = 1
 };
 
+/* Who owns the VOL up/down navigation mapping. `engine` = the global
+ * Settings > Interface > Controls choice; `theme` = the package's skin
+ * prev/next map wins on screens that use it. */
+enum {
+    THEME_INPUT_ENGINE = 0,
+    THEME_INPUT_THEME = 1
+};
+
 typedef struct theme_asset_decl {
     char name[THEME_ASSET_NAME_MAX];
     char path[THEME_ASSET_PATH_MAX];   /* relative to the theme directory */
@@ -44,6 +52,7 @@ typedef struct
     int format;       /* manifest version (only 1 is accepted)  */
     int home;         /* THEME_HOME_* renderer                  */
     int home_nav;     /* THEME_NAV_* axis for the home items    */
+    int input;        /* THEME_INPUT_*: who maps VOL up/down     */
 
     /* Shared list metrics (menu/library/categories/settings/browser). */
     int pad;          /* left/right margin                      */
@@ -95,6 +104,10 @@ int theme_layout_load(const char *path);
 
 /* Active layout — never NULL; defaults when no package is loaded. */
 const theme_layout_t *theme_layout(void);
+
+/* 1 when the active package declared `input=theme`: its skin prev/next map
+ * owns VOL navigation on screens that use the theme key map. */
+int theme_input_owns_keys(void);
 
 /* Commit a fully parsed layout (used by the package runtime after it has
  * validated palette + layout together; nothing is ever half-applied). */

@@ -153,6 +153,11 @@ int player_bar_width(int width, uint32_t pos, uint32_t dur);
 
 extern const ui_screen_t settings_screen;
 
+/* BRNOMT-107: volume-key mapping (Settings > Interface > Controls). */
+extern const ui_screen_t controls_screen;
+void settings_screen_set_vol_orient(int swapped);  /* saves immediately */
+void settings_screen_set_hold_vol(int seek);       /* saves immediately */
+
 /* Quick settings (MENU button): Shuffle, Repeat, Playlist. The playlist view
  * lists the current queue and SELECT jumps to the chosen track. */
 extern const ui_screen_t quick_screen;

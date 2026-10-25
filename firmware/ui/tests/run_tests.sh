@@ -23,6 +23,7 @@ $CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
     test_skin_engine.c \
     test_theme_cassette.c \
     test_player_resume.c \
+    test_player_keys.c \
     ../ui.c ../screens/*.c ../settings_schema.c \
     ../../services/media_query.c ../../services/scratch.c \
     ../../theme/theme.c ../../theme/themes_builtin.c ../../theme/theme_pkg.c \

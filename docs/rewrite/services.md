@@ -17,7 +17,7 @@ data-format description.
 
 ```
 firmware/services/
-├── settings.h / settings.c   15-key key=value settings service (default path
+├── settings.h / settings.c   19-key key=value settings service (default path
 │                             /Internal/.rechord/rechord.cfg)
 ├── log.h / log.c             ring-buffered timestamped logger (self-flushing:
 │                             30 s / 32 lines, append + rotate at 32 KiB)
@@ -50,7 +50,8 @@ firmware/services/
 typedef struct { char play[16]; int brightness; int screen_off_min;
     int auto_off_min; char usb[8]; char resume[8]; char strip[8];
     char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor;
-    char shuffle[8]; char repeat_mode[8]; char theme[32]; } settings_t;
+    char shuffle[8]; char repeat_mode[8]; char fade[8]; char theme[32];
+    char replaygain[8]; char vol_orient[8]; char hold_vol[8]; } settings_t;
 
 int  settings_load(settings_t *s);       /* parse the config file  */
 int  settings_save(const settings_t *s); /* serialize it back      */
@@ -80,8 +81,10 @@ Return codes: `SETTINGS_OK 0`, `SETTINGS_ERR_ARG -1`, `SETTINGS_ERR_OPEN -2`
 `SETTINGS_ERR_FULL -4` (serialize buffer too small).
 
 Config path: `SETTINGS_PATH` = `"/Internal/.rechord/rechord.cfg"` (default in
-`settings.h`; compile-time overridable). The 15-key schema is in
-`firmware/ui/settings_schema.c`; the `\RECHORD.CFG` root name is legacy.
+`settings.h`; compile-time overridable). The 16-key schema table lives in
+`firmware/ui/settings_schema.c`; `theme`, `vol_orient` and `hold_vol` are
+handled alongside it, for **19 stored keys** total. The `\RECHORD.CFG` root
+name is legacy.
 
 ### 3.2 log.h
 
@@ -254,16 +257,20 @@ small records (a flash-size win, not RAM; it would turn one record read into
 
 ## 4. Format compatibility notes (drop-in facts)
 
-### 4.1 `\RECHORD.CFG` — 12-key schema
+### 4.1 `\RECHORD.CFG` — 19-key stored schema
 
 - Plain text, one `key=value` per line; `#` starts a comment; blank lines
   ignored; LF and CRLF both accepted.
 - Unknown keys are ignored on load (forward compatibility). Keys without
   `=` and lines longer than 127 chars are ignored.
-- The 12 keys, fixed schema order on save:
+- The 19 stored keys, fixed order on save:
   `play, brightness, screen_off, auto_off, usb, resume, strip, tags, cpu,
-  volume, browse, cursor`
+  volume, browse, cursor, shuffle, repeat_mode, fade, theme, replaygain,
+  vol_orient, hold_vol`
   (key `screen_off` → field `screen_off_min`, `auto_off` → `auto_off_min`).
+- `vol_orient` is `normal`/`swapped` (BRNOMT-107 menu navigation only);
+  `hold_vol` is `skip`/`seek` (long-press VOL on Now Playing). Both default
+  to the pre-BRNOMT-107 behaviour (`normal`, `skip`).
 - Verified round-trip of the exact on-device sample values:
   `play=repeat_track brightness=8 screen_off=30 auto_off=15 usb=ask
   resume=folder strip=off tags=on cpu=auto volume=-23 browse= cursor=0`.
@@ -272,9 +279,9 @@ small records (a flash-size win, not RAM; it would turn one record read into
 - Whitespace around keys/values is trimmed; values longer than their field
   are truncated to fit; invalid integers keep the previous (default) value;
   duplicate keys: last one wins.
-- Difference from the reference file: keys outside the 12-key schema are
-  **not preserved on save** (the struct has no room for them) — a user-added
-  key survives until the next `settings_save()`.
+- Difference from the reference file: keys outside the 19-key stored schema
+  are **not preserved on save** (the struct has no room for them) — a
+  user-added key survives until the next `settings_save()`.
 
 ### 4.2 `\ECHOLOG.TXT` — log format
 

@@ -50,6 +50,10 @@ int         mock_player_open_count(void);
 const char *mock_player_open_path(void);   /* last player_open() path       */
 int         mock_player_play_count(void);
 int         mock_player_pause_count(void);
+int         mock_player_next_count(void);
+int         mock_player_prev_count(void);
+int         mock_player_seek_count(void);
+long        mock_player_last_seek_ms(void);
 int         mock_player_volume_db(void);   /* last player_set_volume() dB   */
 int         mock_player_replaygain_mode(void); /* last RG mode applied      */
 /* scripted view of the player state */
