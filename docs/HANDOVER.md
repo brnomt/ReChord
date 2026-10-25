@@ -4817,6 +4817,11 @@ skip/seek y `input=theme` con un paquete que lo declare.
 a la esquina superior derecha (x 288..299, y 10..28) y conserva el bob de
 1.5 s cada 4 s.
 
+**Gotcha del intérprete.** En pausa/idle los ojos saltaban a y=0. El término
+`(playing && !blink_on) * sin(...)` no consumía bien el resto de la expresión
+en `ly`/`ry`; se reemplazó por `(playing * !blink_on) * sin(...)`. Las dos
+líneas quedan así y el estado pausado mantiene los ojos centrados.
+
 **Now Playing.** Rediseño completo de `now_playing.skin`, sin cambios de
 firmware: portada grande 120x120 con marco blanco de 2 px, cara vectorial como
 fallback si `art_ok == 0`, tarjeta oscura a la derecha (título/artista/álbum,

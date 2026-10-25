@@ -31,9 +31,9 @@ h_l=(blink_on ? blink_h : idle_h)
 w_l=(blink_on ? blink_w : eye_w)
 r_l=(blink_on ? (blink_h / 2 < eye_r ? blink_h / 2 : eye_r) : (idle_h / 2 < eye_r ? idle_h / 2 : eye_r))
 lx=clamp(116 - w_l / 2 + gaze + sin(t, 2400, 11), 4, 154 - w_l)
-ly=clamp(76 - h_l / 2 + sin(t + 700, 3100, 6) + (playing && !blink_on) * sin(t, 480, 3), 2, 121 - h_l)
+ly=clamp(76 - h_l / 2 + sin(t + 700, 3100, 6) + (playing * !blink_on) * sin(t, 480, 3), 2, 121 - h_l)
 rx=clamp(204 - w_l / 2 + gaze + sin(t + 900, 2200, 11), 166, 316 - w_l)
-ry=clamp(76 - h_l / 2 + sin(t + 300, 2700, 6) + (playing && !blink_on) * sin(t + 240, 480, 3), 2, 121 - h_l)
+ry=clamp(76 - h_l / 2 + sin(t + 300, 2700, 6) + (playing * !blink_on) * sin(t + 240, 480, 3), 2, 121 - h_l)
 happy_on=(playing && !blink_on)
 happy_off=(h_l / 2) - (clamp(mod(t, 3000) / 150, 0, 9) * h_l) / 20
 
