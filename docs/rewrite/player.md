@@ -124,6 +124,18 @@ it only reopens. A pre-open that does not match the boundary track is rejected
 (hard path), and `b_cmd_wait` now allows 1500 ms so a slow reopen does not trip
 the old 200 ms fallback into a DAC relock.
 
+**Boot preload (first play).** The first PLAY after boot also pays B's codec
+OPEN (`ipc: cmd 1 ack ~1 s` with large embedded covers; the historical clean
+start was ~106 ms). `player_preload()` (called by `resume_boot_restore()` while
+the player is STOPPED) invokes `ipc_b_preload()`: it opens the file ring and
+B's codec **without** setting `IPC_SH_STATE=RUN`, so no audio starts. The later
+`ipc_b_start()` for the same path reuses that open codec (`ipc: preloaded`) and
+only publishes the format, applies the resume seek, and starts the stream.
+A different path, a stop/init, or `ipc_b_b_decodes()==0` discards the preload
+and falls back to the normal handoff. `ipc_b_seek()` is a no-op while
+preloaded: the start descriptor's `start_ms` is what repositions B, so a
+stopped seek can never set RUN before PLAY.
+
 ## 2. Codec interface (`codec.h`)
 
 ```c

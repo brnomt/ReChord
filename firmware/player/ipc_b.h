@@ -214,6 +214,13 @@ int ipc_b_next(const ipc_b_track_t *track);
  * opened (the boundary then falls back to the hard path). */
 int ipc_b_preopen(const char *path);
 
+/* Pre-load the CURRENT track on Core B without starting the stream: opens the
+ * file ring and the B-side codec, so a later ipc_b_start() for the same path
+ * skips the OPEN handshake (the ~1 s first-play cost). Used at boot for the
+ * resumed track while the player is still STOPPED. Returns 0, or < 0 if B
+ * cannot open it (the start then falls back to the normal handoff). */
+int ipc_b_preload(const ipc_b_track_t *track);
+
 /* ---- phase 3c: decode on Core B ---- */
 
 /* 1 when Core B is decoding (it is the PCM-ring producer; the AP must not

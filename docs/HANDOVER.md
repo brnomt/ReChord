@@ -4701,13 +4701,16 @@ GPL-3.0, `device/backlight` + `board/display.c`), que sigue la rutina stock
 0x03051DD8. Crédito agregado al final del README. ReChord ya era GPL-3.0.
 
 **Hardware.** GPIO2.4; PWM @ `0x400F0000`; gate CRU `0x90`, reset `0x17`;
-`period = pclk/10000`, `duty = period*percent/100`, control `0x10003`.
+`period = pclk/10000`, `duty = period - period*percent/100`, control `0x10003`.
 El AP corre a 200 MHz con pclk 50 MHz (`ap_clock_set_200mhz`), así que el
 periodo es 5000.
 
-**Niveles.** 1..10 → duty 8, 12, 17, 23, 30, 39, 50, 63, 80, 100 %.
-Nivel 10 (100 %) usa GPIO alto sin PWM; apagar lleva el pin a 0. El nivel se
-recuerda mientras la pantalla está apagada y se reaplica en `backlight_on()`.
+**Niveles.** 1..10 → brillo visible 8, 12, 17, 23, 30, 39, 50, 63, 80, 100 %.
+El switch del backlight es active-low: el PWM debe escribir el complemento
+(`period - duty`), porque escribiendo la tabla directa el nivel 9 (80 %) quedaba
+como el más tenue y el 1 como el más brillante (reporte de hardware). Nivel 10
+(100 %) usa GPIO alto sin PWM; apagar lleva el pin a 0. El nivel se recuerda
+mientras la pantalla está apagada y se reaplica en `backlight_on()`.
 
 **UI/config.** `brightness` (ya existía en `rechord.cfg`) pasó a visible en
 Settings > Interface, rango 1..10. Se aplica al boot y al ciclar la fila
@@ -4736,3 +4739,33 @@ Implementación en `ap_ui.c`:
 
 Así, con la pantalla apagada, VOL±, PLAY y los long-press de next/prev ya
 llegan al player desde cualquier menú. `make cfw-ap` PASS, `.bss` sin cambios.
+
+## CF. Session 2026-10-25 — primer play: precarga de Core B en boot
+
+**Síntoma.** El primer PLAY desde boot tarda ~1 s: el log muestra
+`ipc: cmd 1 ack 1043-1244 ms`. En la sesión BD (misma ruta de handoff) el
+`ack` de un arranque limpio era 106 ms, así que el usuario lo notó como
+regresión.
+
+**Diagnóstico.** `git diff bab4831..HEAD` sobre `ipc_b_target.c`, `bfs.c` y
+`bcio.c` no cambia el OPEN: lo único nuevo es `eq_publish_cached()`. El coste
+está en abrir el códec de B sobre el file ring mientras el AP sirve seeks; los
+FLAC actuales llevan covers PICTURE de 20–160 KB. En host el open de FLAC tarda
+6–12 ms de CPU, así que el ~1 s es I/O/IPC, no decodificación. La medición de
+la SD desde la PC (1 MB/s) era del lector en un puerto USB 1.1, no de la SD.
+
+**Fix.** `player_preload()` se llama al final de `resume_boot_restore()`, con
+el player en STOPPED. `ipc_b_preload()` abre el file ring y el códec de B pero
+**no** pone `IPC_SH_STATE=RUN` (no suena nada). El primer `ipc_b_start()` de la
+misma pista consume la precarga (`ipc: preloaded`) y solo publica formato,
+aplica el seek de resume y arranca. La precarga se descarta en `stop()`/`init`,
+si cambia el path, o si B ya no tiene el códec abierto (fallback al handoff
+normal). `ipc_b_seek()` no hace nada mientras hay precarga: el `start_ms` del
+descriptor es el que posiciona a B, así un seek en STOPPED no arranca audio.
+
+**Trade-off.** El coste del open se paga en boot/resume (una vez, con la
+pantalla de arranque) en vez de en el primer PLAY. Sin `resume` no hay pista
+precargada; el primer play desde el browser conserva el coste normal.
+
+Tests de host: player, drivers, services, ui y dsp verdes. AP5M CRC
+`0xCFC927F5`; `.bss_end 0x03049FCC` (52 B libres).

@@ -142,6 +142,10 @@ int main(void)
     CHECK_EQI(player_get_position_ms(), 0, "position 0 after open");
     CHECK(ev_count(PLAYER_EV_TRACK) == 1, "TRACK event emitted");
 
+    TEST("preload is only legal while STOPPED");
+    CHECK_EQI(player_preload(), PLAYER_OK, "preload open track");
+    CHECK_EQI(player_get_state(), PLAYER_STOPPED, "preload does not play");
+
     TEST("play / pause / resume");
     ev_clear();
     CHECK_EQI(player_play(), PLAYER_OK, "play");

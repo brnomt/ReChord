@@ -118,6 +118,9 @@ typedef void (*player_event_fn)(int event, void *user);
 
 int   player_init(void);
 int   player_open(const char *path);
+/* Pre-load the open track on Core B while STOPPED (boot resume): the codec
+ * open is paid now instead of on the first PLAY. No-op if not STOPPED. */
+int   player_preload(void);
 int   player_play(void);
 int   player_pause(void);
 int   player_stop(void);

@@ -889,6 +889,16 @@ int player_open(const char *path)
     return rc;
 }
 
+int player_preload(void)
+{
+    ipc_b_track_t t;
+
+    if (!g.codec_active || !g.track_valid || g.state != PLAYER_STOPPED)
+        return PLAYER_ERR_STATE;
+    build_ipc_track(&t);
+    return (ipc_b_preload(&t) == 0) ? PLAYER_OK : PLAYER_ERR;
+}
+
 int player_play(void)
 {
     ipc_b_track_t t;

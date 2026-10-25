@@ -311,6 +311,13 @@ int ipc_b_preopen_count(void)
     return g_preopen_count;
 }
 
+/* Host mock: preload is a no-op; ipc_b_start() below still starts the stream. */
+int ipc_b_preload(const ipc_b_track_t *track)
+{
+    (void)track;
+    return 0;
+}
+
 int ipc_b_seek(long ms)
 {
     (void)ms;

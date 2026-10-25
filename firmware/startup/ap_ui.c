@@ -1349,6 +1349,13 @@ static void resume_boot_restore(void)
         } else {
             log_printf("resume: open failed '%s'", st.track);
         }
+        /* Pay Core B's codec open now, while the player is STOPPED, so the
+         * first PLAY does not wait ~1 s for the OPEN handshake. */
+        {
+            int prc = player_preload();
+
+            log_printf("resume: B preload %s", prc == PLAYER_OK ? "ok" : "no");
+        }
     }
     (void)log_flush("resume-b");       /* breadcrumb: restore finished      */
 

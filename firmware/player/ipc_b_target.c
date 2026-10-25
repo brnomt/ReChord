@@ -37,6 +37,10 @@ static int  s_eof_logged;           /* BEOF boundary already logged      */
  * Core B so its re-open can skip the header walk (BRNOMT-73). */
 static codec_prescan_t s_prescan;
 static int  s_prescan_valid;
+/* Boot preload: B has this track's file ring + codec open but has not been
+ * told to RUN. ipc_b_start() consumes it when the path matches. */
+static int      s_preload_valid;
+static uint32_t s_preload_hash;
 /* BRNOMT-76: the EQ curve is cached so a curve chosen before playback is
  * re-published on every start/gapless handoff (B only reads it while it is
  * the decoder). */
@@ -319,8 +323,45 @@ int ipc_b_init(void)
     g_volume_db = 0;
     s_b_decodes = 0;
     s_prescan_valid = 0;
+    s_preload_valid = 0;
+    s_preload_hash = 0;
     g_eq_valid = 0;
     audio_output_clear_played();
+    return 0;
+}
+
+/* FNV-1a: the preload only needs to recognize the same path, not store it. */
+static uint32_t path_hash32(const char *p)
+{
+    uint32_t h = 2166136261u;
+
+    while (p != 0 && *p != '\0') {
+        h ^= (uint8_t)*p++;
+        h *= 16777619u;
+    }
+    return h;
+}
+
+int ipc_b_preload(const ipc_b_track_t *track)
+{
+    if (track == NULL || track->path == NULL || track->path[0] == '\0')
+        return -1;
+    if (s_preload_valid && s_preload_hash == path_hash32(track->path))
+        return 0;
+    /* Only while B is idle: never steal the stream from a running track. */
+    if (g_state == IPC_B_RUNNING || g_state == IPC_B_STARTING)
+        return -1;
+
+    s_preload_valid = 0;
+    s_b_decodes = 0;
+    if (b_handoff(track->path) != 0) {
+        log_printf("ipc: preload failed");
+        return -1;
+    }
+    s_b_decodes = 1;                    /* B owns the codec, but not RUN yet */
+    s_preload_hash = path_hash32(track->path);
+    s_preload_valid = 1;
+    log_printf("ipc: preload ok");
     return 0;
 }
 
@@ -342,13 +383,21 @@ static int b_seek_now(long ms)
 int ipc_b_start(const ipc_b_track_t *track)
 {
     audio_format_t fmt;
+    int preloaded;
 
     if (track == NULL || track->channels < 1 || track->channels > 2 ||
         track->sample_rate <= 0)
         return -1;
 
+    /* Consume the boot preload only if it describes this exact track and B
+     * still has its codec open. */
+    preloaded = (s_preload_valid && track->path != NULL &&
+                 s_preload_hash == path_hash32(track->path) &&
+                 CTRL[IPC_C_BSTATE] == IPC_BS_OPEN);
+    s_preload_valid = 0;
+
     g_paused = 0;
-    s_b_decodes = 0;
+    s_b_decodes = preloaded ? 1 : 0;
     s_eof_logged = 0;
 
     /* One line per track start: the format is what decides gapless vs hard at
@@ -373,9 +422,13 @@ int ipc_b_start(const ipc_b_track_t *track)
     sh_set(IPC_C_GAP_TOTAL, (uint32_t)track->total_samples);
     eq_publish_cached();
 
-    /* Offload decode to Core B; on any failure the AP decodes (phase 2). */
-    if (b_handoff(track->path) == 0) {
+    if (preloaded) {
+        log_printf("ipc: preloaded");
+    } else if (b_handoff(track->path) == 0) {
         s_b_decodes = 1;
+    }
+
+    if (s_b_decodes) {
         /* Resume: position B before its first decode round so the first PCM
          * is already at start_ms. Doing this after RUN raced the producer and
          * left "Playing" with an empty ring on hardware. */
@@ -445,6 +498,7 @@ int ipc_b_stop(void)
     g_paused = 0;
     s_eof_logged = 0;
     s_prescan_valid = 0;
+    s_preload_valid = 0;
     g_state = IPC_B_OFF;
     return 0;
 }
@@ -664,6 +718,10 @@ int ipc_b_set_eq(int enabled, const eq_curve_t *curve)
 int ipc_b_seek(long ms)
 {
     if (!s_b_decodes)
+        return 0;
+    /* Preloaded but not RUN: ipc_b_start() carries start_ms to B. Repositioning
+     * here would set RUN and start audio before PLAY. */
+    if (s_preload_valid)
         return 0;
 
     sh_set(IPC_SH_STATE, IPC_SH_IDLE);   /* stop B's production */

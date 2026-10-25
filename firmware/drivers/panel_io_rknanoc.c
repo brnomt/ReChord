@@ -118,7 +118,7 @@ static void iomux_gpio(unsigned port, unsigned pin)
 #define BACKLIGHT_PCLK  50000000u
 #define BACKLIGHT_PIN   (1u << 4)
 
-/* EchoPod/stock duty table for levels 1..10. */
+/* EchoPod/stock duty table for levels 1..10 (visible brightness). */
 static const uint8_t s_bl_percent[10] = {
     8, 12, 17, 23, 30, 39, 50, 63, 80, 100
 };
@@ -149,7 +149,11 @@ static void bl_pwm_stop(void)
 static void bl_pwm_start(unsigned percent)
 {
     uint32_t period = BACKLIGHT_PCLK / BACKLIGHT_HZ;
-    uint32_t duty = period * percent / 100u;
+    /* The panel's backlight switch is active-low: the visible on-time is
+     * (period - duty). Writing the table directly made level 9 (80%) the
+     * dimmest setting and level 1 the brightest (field report). Invert the
+     * duty so the table stays "1 = dim .. 9 = bright"; level 10 bypasses PWM. */
+    uint32_t duty = period - period * percent / 100u;
 
     if (!s_bl_pwm) {
         cru_gate((int)PWM_GATE_ID, 1);
