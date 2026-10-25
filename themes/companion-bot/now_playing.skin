@@ -1,9 +1,10 @@
 # Companion Bot — Now Playing skin.
 #
-# Declarative layout for the track screen. The compiled player still owns the
-# keys and the audio; this file only decides what is drawn. No [skin]
-# refresh_ms: the screen repaints when the player reports a new position or
-# state, so a paused track costs nothing.
+# Art-led layout: a large cover with a crisp frame on the left, a compact
+# monochrome info card on the right, and the progress/volume strips along the
+# bottom. The compiled player still owns the keys and the audio; this file
+# only decides what is drawn. No [skin] refresh_ms: the screen repaints when
+# the player reports a new position or state, so a paused track costs nothing.
 
 [background]
 type=fill
@@ -13,121 +14,208 @@ w=W
 h=H
 color=background
 
-[titlebar]
+[topbar]
 type=fill
 x=0
 y=0
 w=W
-h=14
+h=18
 color=surface
 
 [heading]
 type=text
-x=6
-y=3
+x=8
+y=4
 text=heading
 color=accent
 bg=surface
 
+[top_rule]
+type=fill
+x=0
+y=18
+w=W
+h=1
+color=text_dim
+
+# --- cover -----------------------------------------------------------------
+[art_frame]
+type=fill
+x=6
+y=20
+w=124
+h=124
+color=text
+
+[art]
+type=art
+x=8
+y=22
+size=large
+color=surface
+
+# No cover: keep the companion identity with a small vector face.
+[face_l]
+type=roundrect
+x=34
+y=66
+w=30
+h=30
+r=13
+visible=(art_ok == 0)
+color=text
+
+[face_r]
+type=roundrect
+x=72
+y=66
+w=30
+h=30
+r=13
+visible=(art_ok == 0)
+color=text
+
+# --- info card -------------------------------------------------------------
+[card]
+type=roundrect
+x=134
+y=20
+w=180
+h=124
+r=6
+color=2113
+
+[accent]
+type=fill
+x=140
+y=26
+w=2
+h=22
+color=accent
+
 [title]
 type=text
-x=6
-y=22
+x=148
+y=24
 text=title
+maxc=18
 color=text
+bg=2113
 
 [artist]
 type=text
-x=6
-y=36
+x=148
+y=38
 text=artist
+maxc=18
 color=text_dim
+bg=2113
 
 [album]
 type=text
-x=6
-y=50
+x=148
+y=52
 text=album
+maxc=18
+color=text_dim
+bg=2113
+
+[rule]
+type=fill
+x=140
+y=66
+w=168
+h=1
 color=text_dim
 
 [state]
 type=text
-x=6
-y=66
+x=148
+y=72
 text=state
 color=accent
-
-[bar]
-type=bar
-x=6
-y=84
-w=308
-h=4
-value=pos_ms
-max=dur_ms
-color=accent
-bg=surface
-
-[time]
-type=text
-x=6
-y=92
-text=pos_fmt + " / " + dur_fmt
-color=text_dim
+bg=2113
 
 [format]
 type=text
-x=6
-y=108
+x=148
+y=86
 text=bits + "/" + (rate / 1000) + "kHz"
 color=text_dim
+bg=2113
 
-[listpos]
-type=text
-x=252
-y=108
-text=pl_i + "/" + pl_n
-color=text_dim
-
-# --- mode indicators -----------------------------------------------------
 [shuf]
 type=text
-x=6
-y=124
+x=148
+y=100
 text="SHUF"
 color=accent
+bg=2113
 visible=shuffle
 
 [rep1]
 type=text
-x=54
-y=124
+x=188
+y=100
 text="REP1"
 color=accent
+bg=2113
 visible=repeat == 2
 
 [repall]
 type=text
-x=54
-y=124
+x=188
+y=100
 text="REP"
 color=accent
+bg=2113
 visible=repeat == 1
 
 [vol_text]
 type=text
-x=250
-y=124
+x=306
+y=100
 text=volume + " dB"
+align=right
 color=text_dim
+bg=2113
+
+[queue]
+type=text
+x=306
+y=112
+text=pl_i + "/" + pl_n
+align=right
+color=text_dim
+bg=2113
+
+# --- bottom strips ---------------------------------------------------------
+[progress]
+type=bar
+x=8
+y=148
+w=304
+h=3
+value=pos_ms
+max=dur_ms
+color=accent
+bg=2113
+
+[time]
+type=text
+x=8
+y=154
+text=pos_fmt + " / " + dur_fmt
+color=text_dim
+bg=background
 
 [vol_bar]
 type=bar
-x=6
-y=160
-w=308
-h=4
+x=8
+y=165
+w=304
+h=2
 value=volume + 60
 max=80
-color=accent
-bg=surface
+color=text
+bg=2113

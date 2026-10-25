@@ -4809,3 +4809,21 @@ Tests: services 188 checks (settings + input), ui 630 checks (Controls,
 hold-seek rate limit + home orientation), theme 71+47, player/drivers/dsp
 verdes. Device: verificar Controls tras power-cycle, swap solo en menús,
 skip/seek y `input=theme` con un paquete que lo declare.
+
+## CH. Session 2026-10-25 — companion-bot: home y Now Playing
+
+**Home.** La cara queda centrada en el área sobre la barra (base y=76 en
+`ly`/`ry`; antes 85). La nota de "playing" ya no aparece entre los ojos: pasa
+a la esquina superior derecha (x 288..299, y 10..28) y conserva el bob de
+1.5 s cada 4 s.
+
+**Now Playing.** Rediseño completo de `now_playing.skin`, sin cambios de
+firmware: portada grande 120x120 con marco blanco de 2 px, cara vectorial como
+fallback si `art_ok == 0`, tarjeta oscura a la derecha (título/artista/álbum,
+estado, formato, SHUF/REP, volumen y posición de cola), y abajo progreso +
+tiempo + barra de volumen. Se mantiene el estilo monocromo del tema.
+
+El firmware no cambia (`themes/` es dato de usuario): copiar
+`themes/companion-bot/home.skin` y `now_playing.skin` a
+`/.rechord/themes/companion-bot/` y reseleccionar el tema o reiniciar. Tests
+UI/theme verdes (630 + 71 + 47 checks).
