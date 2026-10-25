@@ -4718,3 +4718,21 @@ Settings > Interface, rango 1..10. Se aplica al boot y al ciclar la fila
 
 **Nota.** No se implementó el fade-in de 200 ms de EchoPod; el encendido sigue
 siendo inmediato como antes.
+
+## CE. Session 2026-10-25 — BRNOMT-75: screen-off lleva a Now Playing
+
+El hilo del issue: en el menú principal, un toque corto de Power apagaba la
+pantalla pero las teclas seguían actuando sobre ese menú; volumen/play no
+respondían. Solución pedida: al apagar (sin Hold), ir a Now Playing por
+detrás.
+
+Implementación en `ap_ui.c`:
+- `screen_sleep()` (solo si `!s_hold`) llama `now_playing_bring_to_front()`:
+  mueve una instancia existente de `player_screen` al tope (sin duplicar) o
+  la apila si no estaba.
+- Mientras la pantalla está apagada, BACK se ignora para que no deshaga el
+  Now Playing de forma invisible; Power/MENU siguen despertando.
+- Hold no cambia: no mueve pantallas y bloquea todas las teclas.
+
+Así, con la pantalla apagada, VOL±, PLAY y los long-press de next/prev ya
+llegan al player desde cualquier menú. `make cfw-ap` PASS, `.bss` sin cambios.
