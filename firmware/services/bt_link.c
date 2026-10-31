@@ -39,6 +39,7 @@ static uint8_t s_init;
 static uint8_t s_on;
 static uint8_t s_user_disconnected;
 static uint8_t s_screen_open;
+static uint8_t s_display_on = 1;
 static uint8_t s_dirty;
 static uint8_t s_stream_wanted;
 static uint8_t s_idle_off;   /* module asleep until the screen wakes it */
@@ -275,8 +276,9 @@ void bt_link_service(unsigned long now)
         }
     }
 
-    /* Idle off while nothing is connected and the screen is closed. */
-    if (s_bt.state != BT_STATE_CONNECTED && !s_screen_open &&
+    /* Idle off while nothing is connected and the Bluetooth screen is not
+     * actually in front of the user (closed, or the panel is dark). */
+    if (s_bt.state != BT_STATE_CONNECTED && (!s_screen_open || !s_display_on) &&
         now - s_idle_since >= BT_IDLE_OFF_MS) {
         module_off();
         s_idle_off = 1;
@@ -345,6 +347,15 @@ void bt_link_screen_closed(unsigned long now)
 {
     s_screen_open = 0;
     s_idle_since = now;
+}
+
+void bt_link_set_display(int on, unsigned long now)
+{
+    on = on ? 1 : 0;
+    if (on == s_display_on)
+        return;
+    s_display_on = (uint8_t)on;
+    s_idle_since = now;            /* start a fresh idle window */
 }
 
 void bt_link_scan(unsigned long now)

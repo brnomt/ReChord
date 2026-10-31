@@ -276,6 +276,35 @@ static void test_scan_results_are_not_saved(void)
     (void)addr;
 }
 
+static void test_idle_off_with_display(void)
+{
+    unsigned long t;
+
+    TEST("bt_link: idle-off ignores a Bluetooth screen behind a dark display");
+
+    fresh();
+    remove(".work/bt/Internal/.rechord/BT");
+    bt_link_init(0);
+    bt_link_set_enabled(1, 1000);
+    feed("CV1", 1002);
+    CHECK_EQI(bt_link_state()->state, BT_STATE_READY, "ready");
+
+    bt_link_screen_opened(2000);
+    t = 2000 + BT_IDLE_OFF_MS + 1;
+    bt_link_service(t);
+    CHECK_EQI(s_hw_on, 1, "screen open + display on: module stays on");
+
+    bt_link_set_display(0, t);
+    t += BT_IDLE_OFF_MS + 1;
+    bt_link_service(t);
+    CHECK_EQI(s_hw_on, 0, "display off + 5 min: module off");
+    CHECK_EQI(bt_link_enabled(), 1, "the on/off choice is kept");
+
+    bt_link_set_display(1, t + 1000);
+    bt_link_screen_opened(t + 1000);
+    CHECK_EQI(s_hw_on, 1, "opening the screen wakes the module");
+}
+
 int main(void)
 {
     mkdir(".work", 0777);
@@ -293,6 +322,7 @@ int main(void)
     test_link_lost_pauses();
     TEST("bt_link: scan results are not auto-connected");
     test_scan_results_are_not_saved();
+    test_idle_off_with_display();
 
     if (s_failures == 0) {
         printf("test_bt_link: OK\n");

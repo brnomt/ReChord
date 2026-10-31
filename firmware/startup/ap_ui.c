@@ -404,6 +404,7 @@ static void screen_wake(void)
         return;
     s_screen_off = 0;
     s_player_ms = 0;             /* force a Now Playing sync on wake */
+    bt_link_set_display(1, (unsigned long)ap_ms());
     backlight_on();
     ui_invalidate_all();
     log_printf("power: screen on");
@@ -437,6 +438,7 @@ static void screen_sleep(void)
     if (!s_hold)
         now_playing_bring_to_front();
     s_screen_off = 1;
+    bt_link_set_display(0, (unsigned long)ap_ms());
     backlight_off();
     log_printf("power: screen off");
 }

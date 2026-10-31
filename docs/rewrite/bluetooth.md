@@ -127,8 +127,8 @@ Rules:
   GPIO2.14 low, with the DAC unmute overridden while routed.
 - Headphone pause/play/next/previous drive the player, guarded for 3 s after
   a link/stream/local change; a dropped link pauses playback.
-- With no link and the Bluetooth screen closed for 5 minutes the module
-  powers down (the choice stays on); opening the screen or pressing scan
-  wakes it. A USB park/wake restores it too.
+- With no link and the Bluetooth screen closed — or behind a dark display —
+  for 5 minutes the module powers down (the choice stays on); opening the
+  screen or pressing scan wakes it. A USB park/wake restores it too.
 - `power_off()` unroutes and drives the module pins low first (a powered
   module blocks a real switch-off).

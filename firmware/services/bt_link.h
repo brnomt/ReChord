@@ -27,6 +27,11 @@ const bt_proto_t *bt_link_state(void);
 void bt_link_screen_opened(unsigned long now);
 void bt_link_screen_closed(unsigned long now);
 
+/* Display power: an off display cannot show the Bluetooth screen, so it must
+ * not keep the module awake (the 5-minute idle-off applies with the panel
+ * dark even while that screen is the top of the stack). */
+void bt_link_set_display(int on, unsigned long now);
+
 void bt_link_scan(unsigned long now);
 void bt_link_connect(int device, unsigned long now);
 void bt_link_disconnect(unsigned long now);
