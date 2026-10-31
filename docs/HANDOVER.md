@@ -4898,9 +4898,20 @@ ring.
   pre-abierto.
 - `bfs_read_pos()` expone el cursor RD para el chequeo de progreso.
 
+**Contrato del pre-open en los tests.** `ipc_b_mock.c` ahora modela el
+contrato real: `ipc_b_next()` solo acepta el path que `ipc_b_preopen()` dejó
+pendiente (`bfs_preopen_ready`). Esto destapó dos expectativas falsas:
+`test_player_gapless` saltaba la ventana de pre-open antes del BEOF, y
+`test_player_skip` esperaba hand-off a C cuando el ring tenía B (archivo
+ilegible, C nunca pre-abierto). En el equipo eso es exactamente el
+`ipc: next rejected (no matching preopen)` correcto, seguido del camino duro.
+Ambos tests ahora fijan la secuencia real (pre-open → BEOF) y el fallback.
+
 **Build.** `make` PASS; AP5M CRC `0x9CA2267B`; `.bss_end 0x03049E48`
-(440 B libres bajo `0x0304A000`). `firmware/player/tests/run_tests.sh`:
-ALL PLAYER TESTS PASSED (incluye los dos `test_flac_prescan`).
+(440 B libres bajo `0x0304A000`). Suites host verdes:
+`firmware/player/tests` (ALL PLAYER TESTS PASSED, incluye los dos
+`test_flac_prescan`), `firmware/ui/tests`, `firmware/services/tests`,
+`firmware/theme/tests`.
 
 **Pendiente de hardware.** Falta reflashear y confirmar en el LOG que los
 opens duros bajan y que no reaparece `cmd 1 no ack`. El resto del diagnóstico

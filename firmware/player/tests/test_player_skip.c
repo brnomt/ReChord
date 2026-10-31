@@ -93,11 +93,17 @@ static void test_preopen_failure_is_not_fatal(void)
               "preopen: bad next track does not stop playback");
     CHECK_EQI(player_get_track(&ti), PLAYER_OK, "preopen: still has A");
     CHECK(strcmp(ti.path, "a.mock") == 0, "preopen: A still current");
+    CHECK(ipc_b_mock_preopen_path() != 0 &&
+          strcmp(ipc_b_mock_preopen_path(), "b.mock") == 0,
+          "preopen: ring pre-open still names B");
 
-    /* B drains: the hand-off skips B and hands C to the live stream. */
+    /* B drains. The ring holds the unplayable B, and C was never pre-opened,
+     * so the live hand-off MUST be refused (bfs_preopen_ready) and the player
+     * falls back to the hard path — which still lands on C. */
     ipc_b_mock_set_b_eof(1);
     CHECK_EQI(player_process(), PLAYER_OK, "preopen: B EOF process");
-    CHECK_EQI(ipc_b_next_count(), 1, "preopen: hand-off to C");
+    CHECK_EQI(ipc_b_next_count(), 0,
+              "preopen: hand-off refused without a matching pre-open");
     CHECK_EQI(player_get_track(&ti), PLAYER_OK, "preopen: track query");
     CHECK(strcmp(ti.path, "c.mock") == 0, "preopen: skipped to C");
 }

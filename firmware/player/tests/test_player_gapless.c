@@ -190,6 +190,13 @@ static void test_gapless_core_b(void)
     CHECK_EQI(player_play(), PLAYER_OK, "core-b: play A");
     start0 = ipc_b_start_count();
 
+    /* Real order: the pre-open window runs ~3 s before the end, then B's EOF
+     * arrives. The hand-off is only valid for the pre-opened track
+     * (bfs_preopen_ready), so skip the pre-open pass and the boundary must
+     * (correctly) fall back to a restart — that is not what this test is
+     * about. */
+    CHECK_EQI(player_process(), PLAYER_OK, "core-b: pre-open window pass");
+
     ipc_b_mock_set_b_eof(1);           /* "B's decoder drained" */
     CHECK_EQI(player_process(), PLAYER_OK, "core-b: process at B EOF");
     CHECK_EQI(ipc_b_next_count(), 1, "core-b: ipc_b_next called once");
@@ -366,6 +373,9 @@ static void test_playlist_resolve_cache(void)
 
     CHECK_EQI(player_process(), PLAYER_OK, "plcache: pre-open pass");
     CHECK_EQI(g_resolve_calls, 1, "plcache: resolved once for the pre-open");
+    CHECK(ipc_b_mock_preopen_path() != 0 &&
+          strcmp(ipc_b_mock_preopen_path(), "t1.mock") == 0,
+          "plcache: pre-opened exactly the next track");
 
     ipc_b_mock_set_b_eof(1);
     CHECK_EQI(player_process(), PLAYER_OK, "plcache: boundary");

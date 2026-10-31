@@ -47,6 +47,11 @@ static int g_b_decodes = 0;
 static int g_b_eof = 0;
 static int g_next_count = 0;
 static int g_preopen_count = 0;
+/* Model the real file service: NEXT is only accepted for the track that was
+ * pre-opened (bfs_preopen_ready). Without this the mock silently accepted a
+ * hand-off for a path the player never pre-opened, hiding a mismatch. */
+static char g_preopen_path[208];
+static int  g_preopen_valid = 0;
 static int g_rg_gain = 32768;    /* last published IPC_C_RG (host hook)   */
 static int g_rg_calls = 0;
 
@@ -100,6 +105,8 @@ int ipc_b_init(void)
     g_b_eof = 0;
     g_next_count = 0;
     g_preopen_count = 0;
+    g_preopen_path[0] = '\0';
+    g_preopen_valid = 0;
     g_rg_gain = 32768;
     g_rg_calls = 0;
     return 0;
@@ -282,13 +289,27 @@ int ipc_b_b_eof(void)
     return g_b_decodes ? g_b_eof : 0;
 }
 
+static int path_eq(const char *a, const char *b)
+{
+    while (*a != '\0' && *a == *b) {
+        a++;
+        b++;
+    }
+    return *a == *b;
+}
+
 /* Gapless track change on the mock: keep the ring and the consumed counter
- * intact (PCM flows continuously), and clear the scripted EOF (B reopened). */
+ * intact (PCM flows continuously), and clear the scripted EOF (B reopened).
+ * Mirrors bfs_preopen_ready(): a hand-off is only accepted for the track the
+ * player actually pre-opened. */
 int ipc_b_next(const ipc_b_track_t *track)
 {
-    (void)track;
     if (!g_b_decodes)
         return -1;
+    if (track == 0 || track->path == 0 || !g_preopen_valid ||
+        !path_eq(g_preopen_path, track->path))
+        return -1;
+    g_preopen_valid = 0;
     g_next_count++;
     g_b_eof = 0;
     if (g_state == IPC_B_DRAINED || g_state == IPC_B_OFF ||
@@ -297,13 +318,28 @@ int ipc_b_next(const ipc_b_track_t *track)
     return 0;
 }
 
-/* Pre-open: the mock only records it — what the tests assert is that the
- * PLAYER asked early enough (once per track, ~3 s before the end). */
+/* Pre-open: the mock records the path and the count. The tests assert that the
+ * PLAYER asked early enough (once per track, ~3 s before the end) and that the
+ * boundary hands off exactly that path. */
 int ipc_b_preopen(const char *path)
 {
-    (void)path;
+    unsigned i = 0;
+
+    if (path == 0)
+        return -1;
+    while (path[i] != '\0' && i + 1u < sizeof g_preopen_path) {
+        g_preopen_path[i] = path[i];
+        i++;
+    }
+    g_preopen_path[i] = '\0';
+    g_preopen_valid = 1;
     g_preopen_count++;
     return 0;
+}
+
+const char *ipc_b_mock_preopen_path(void)
+{
+    return g_preopen_valid ? g_preopen_path : 0;
 }
 
 int ipc_b_preopen_count(void)

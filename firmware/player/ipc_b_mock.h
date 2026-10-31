@@ -36,6 +36,11 @@ int  ipc_b_next_count(void);
 /* Host-only: number of ipc_b_preopen() calls (BRNOMT-73 early pre-open). */
 int  ipc_b_preopen_count(void);
 
+/* Host-only: path recorded by the last ipc_b_preopen(), or NULL when there is
+ * no pending pre-open. The mock only accepts ipc_b_next() for this path, the
+ * same contract bfs_preopen_ready() enforces on the target. */
+const char *ipc_b_mock_preopen_path(void);
+
 /* Host-only: number of times ipc_b_start() was called (B-core restarts).
  * Tests use this to assert a gapless transition does NOT restart the core. */
 int  ipc_b_start_count(void);
