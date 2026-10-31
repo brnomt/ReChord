@@ -139,13 +139,15 @@ typedef struct theme_skin_state {
     int  bits; long sample_rate;          /* 0 when unknown                */
     int  playlist_pos, playlist_count;    /* 1-based / 0 when no list      */
     int  shuffle, repeat;                 /* 0/1 and off/all/one           */
+    int  bt, bt_stream;                   /* 0/1/2 and streaming 0/1       */
 } theme_skin_state_t;
 ```
 
 `heading` is the screen title/path (Library, Settings, category, browser
-path). Skin variable names: `playing paused stopped volume battery title artist
-album path heading state pos dur pos_ms dur_ms pos_fmt dur_fmt bits rate pl_i
-pl_n shuffle repeat`, plus engine state `t idle sel n top W H aw ah` and the
+path). Skin variable names: `playing paused stopped volume battery bt bt_stream
+title artist album path heading state pos dur pos_ms dur_ms pos_fmt dur_fmt
+bits rate pl_i pl_n shuffle repeat`, plus engine state `t idle sel n top W H aw
+ah` and the
 palette names. `pos`/`dur` are integer seconds; `pos_fmt`/`dur_fmt` are `M:SS`
 strings. Missing values render as empty strings / 0 (never a placeholder
 glyph). Strings concatenate with `+`; integers are converted in a string

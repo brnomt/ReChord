@@ -78,6 +78,8 @@ typedef struct theme_skin_state {
     int  playlist_count;
     int  shuffle;
     int  repeat;                  /* PLAYLIST_REPEAT_* */
+    int  bt;                      /* 0 off, 1 on, 2 connected */
+    int  bt_stream;               /* 1 while A2DP is streaming */
 } theme_skin_state_t;
 
 /* Dynamic list source for a compiled screen (Library, Settings, Browser,

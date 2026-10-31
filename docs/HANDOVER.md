@@ -5017,7 +5017,13 @@ stops, the DAC path powers down"* + parada de su core 1.
 **Tests.** `test_power_save` (armado, 3 s, preload 60 s, reset al reanudar, sin
 flag de DAC si ya está abajo) + todas las suites host verdes.
 
-**Build.** `make` PASS; AP5M CRC `0xC24CE621`; `.bss_end 0x030495D0` (2,608 B
+**Indicador BT en la UI.** Las skins reciben `bt` (0 off / 1 on / 2
+connected) y `bt_stream` (1 mientras suena por A2DP); el Now Playing del tema
+cassette muestra una marca «BT» (tenue encendido, acento en streaming). El
+loop repinta cuando cambia el estado. Tests de skin actualizados
+(`bt=0` oculta / `bt=2` muestra).
+
+**Build.** `make` PASS; AP5M CRC `0x72F7FCEC`; `.bss_end 0x030495D8` (2,600 B
 libres). Pendiente de hardware: confirmar en el LOG `power: dac off` /
 `power: core B off` tras 3 s parado, que el Play posterior dice
 `power: core B on` y suena, y medir la autonomía.

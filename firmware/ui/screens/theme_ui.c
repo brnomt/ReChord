@@ -9,6 +9,7 @@
 #include "../../theme/theme_pkg.h"
 #include "../../theme/theme_runtime.h"
 #include "../../services/art_pack.h"
+#include "../../services/bt_link.h"
 #include "../../services/rechord_files.h"
 
 static unsigned s_now_ms;
@@ -106,6 +107,14 @@ void theme_ui_fill_state(theme_skin_state_t *st, const char *heading)
     st->position_ms = player_get_position_ms();
     st->shuffle = player_get_shuffle();
     st->repeat = player_get_repeat();
+    {
+        const bt_proto_t *bt = bt_link_state();
+
+        /* 0 off, 1 on (starting/ready/scanning/connecting), 2 connected. */
+        st->bt = !bt_link_enabled() ? 0
+                 : (bt->state == BT_STATE_CONNECTED ? 2 : 1);
+        st->bt_stream = bt->streaming ? 1 : 0;
+    }
     st->state = st->playing ? "Playing" : (st->paused ? "Paused" : "Stopped");
     st->title = "";
     st->artist = "";

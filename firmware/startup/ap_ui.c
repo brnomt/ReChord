@@ -93,6 +93,7 @@ static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 
 static unsigned s_loop_seq;          /* last loop tick (WFI pacing)        */
 static power_save_t s_power_save;
+static uint8_t s_bt_ui;              /* last Bluetooth state seen by the UI */
 static unsigned s_keys_ms;           /* last SARADC key sample             */
 static int      s_key_adc = 1023;    /* last key-ladder sample             */
 static int      s_key_power;         /* last power-key sample              */
@@ -1776,6 +1777,18 @@ void ap_ui_loop(void)
             (void)player_process();
         }
         bt_link_service((unsigned long)now);
+        {
+            const bt_proto_t *bt = bt_link_state();
+            uint8_t v = !bt_link_enabled() ? 0
+                        : (uint8_t)(1 + (bt->state == BT_STATE_CONNECTED) +
+                                    (bt->streaming ? 2 : 0));
+
+            if (v != s_bt_ui) {
+                s_bt_ui = v;
+                if (!s_screen_off)
+                    ui_invalidate_all();      /* repaint the BT mark */
+            }
+        }
 
         /* Idle power-down (EchoPod's device rule): three seconds after the
          * player stops, power the DAC path down and stop Core B. A boot

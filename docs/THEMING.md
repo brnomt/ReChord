@@ -289,6 +289,8 @@ The UI adapter fills a read-only `theme_skin_state_t` before drawing:
 | `playing` / `paused` / `stopped` | 0/1 | `player_get_state()` |
 | `volume` | dB | `player_get_volume()` |
 | `battery` | % | `battery_percent()`, `-1` when unknown |
+| `bt` | 0/1/2 | Bluetooth: off / on / connected (`services/bt_link.c`) |
+| `bt_stream` | 0/1 | 1 while audio is streaming over Bluetooth |
 | `art_ok` | 0/1 | the current track has a cover in `ARTPACK.BIN` |
 | `art_c1` / `art_c2` | RGB565 | cover dominant / secondary colour |
 | `art_mean` / `art_accent` | RGB565 | cover mean / the mockup's accent |

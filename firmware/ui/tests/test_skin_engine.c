@@ -41,7 +41,10 @@ static int write_skin(void)
         "\n"
         "[txt3]\n"
         "type=text\nx=100\ny=30\ntext=\"WXYZ\"\nalign=right\n"
-        "color=65535\nbg=0\n",
+        "color=65535\nbg=0\n"
+        "\n"
+        "[btmark]\n"
+        "type=fill\nx=200\ny=60\nw=1\nh=1\ncolor=63488\nvisible=bt\n",
         f);
     fclose(f);
     return 0;
@@ -73,6 +76,21 @@ void test_skin_engine(void)
 
     mock_display_reset();
     theme_skin_render(1000, 0, 0, 0, &st);
+
+    /* ---- Bluetooth state variable (bt: 0 off, 1 on, 2 connected) -------- */
+    {
+        theme_skin_state_t bst = st;
+
+        bst.bt = 0;
+        mock_display_reset();
+        theme_skin_render(2000, 0, 0, 0, &bst);
+        CHECK(pixel_at(200, 60) < 0);   /* bt=0 hides the indicator */
+
+        bst.bt = 2;
+        mock_display_reset();
+        theme_skin_render(2000, 0, 0, 0, &bst);
+        CHECK_EQ_INT(pixel_at(200, 60), 63488);  /* bt=2 shows it */
+    }
 
     /* ---- sqrt(): sqrt(169)=13, sqrt(81)=9 -> the 2x2 red square --------- */
     {

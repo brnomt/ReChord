@@ -247,6 +247,10 @@ static skin_val_t variable(const char *name)
         return v_int(c != 0 && c->st != 0 ? c->st->volume_db : 0);
     if (strcmp(name, "battery") == 0)
         return v_int(c != 0 && c->st != 0 ? c->st->battery_pct : -1);
+    if (strcmp(name, "bt") == 0)
+        return v_int(c != 0 && c->st != 0 ? c->st->bt : 0);
+    if (strcmp(name, "bt_stream") == 0)
+        return v_int(c != 0 && c->st != 0 ? c->st->bt_stream : 0);
     if (strcmp(name, "art_ok") == 0)
         return v_int(s_art != 0 ? s_art->ok : 0);
     if (strcmp(name, "art_c1") == 0)

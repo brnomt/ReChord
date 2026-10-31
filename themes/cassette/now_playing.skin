@@ -16,6 +16,7 @@ pn=(art_ok ? art_panel : background)
 lb=(art_ok ? art_label : text)
 dim=(art_ok ? art_ink_dim : text_dim)
 acc=(art_ok ? art_accent : accent)
+btc=(bt_stream ? acc : dim)
 rL=sqrt(169 + (731 * (100 - (dur_ms > 0 ? pos_ms * 100 / dur_ms : 0))) / 100)
 rR=sqrt(169 + (731 * (dur_ms > 0 ? pos_ms * 100 / dur_ms : 0)) / 100)
 
@@ -57,6 +58,18 @@ text=pl_i + "/" + pl_n
 align=right
 color=dim
 bg=2113
+
+# Bluetooth output: dim while on, accent while streaming (bt: 0 off/
+# 1 on/2 connected; bt_stream: 1 while A2DP streams).
+[btmark]
+type=text
+x=262
+y=3
+text="BT"
+align=right
+color=btc
+bg=2113
+visible=bt
 
 [art_shadow]
 type=fill

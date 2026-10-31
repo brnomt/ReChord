@@ -107,9 +107,10 @@ Rules:
    `CV5` over UART1 (`bt: module powered`, `bt: on`, `bt: ready v5`).
    Pairing/streaming and the route pins still need a pass with the
    headphones in pairing mode.
-5. 🟡 Polish: power/idle-off/remote keys/park-wake are implemented; a status
-   mark on Now Playing/home and the jack quirk remain (ReChord has no runtime
-   jack detection yet).
+5. 🟡 Polish: power/idle-off/remote keys/park-wake are implemented. Theme
+   skins get `bt` (0 off / 1 on / 2 connected) and `bt_stream`, and the
+   bundled cassette Now Playing shows a small BT mark; the jack quirk remains
+   (ReChord has no runtime jack detection yet).
 
 ## Implemented behaviour
 
