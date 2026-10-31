@@ -4849,3 +4849,59 @@ un álbum sin tocar nada no apaga el equipo.
 - `power_off()` en VBUS estaciona en vez de cortar la alimentación.
 
 AP5M CRC `0xF9854BA9`; `.bss_end 0x03049E48` (sin cambios).
+
+## CJ. Session 2026-10-31 — A-B playback: prescan del AP, tipo SEEKTABLE, diagnósticos
+
+**Síntoma de campo (LOG del equipo).** Arranques duros con `ipc: cmd 1 ack`
+de 780–1140 ms y un tema (`11 Haiku.flac`) que agotaba el presupuesto:
+`cmd 1 no ack after 1506 ms (bstate 0 berr 0 bstall 0)`, en el siguiente
+intento `bstate 3 berr 1` y `prebuffer 0` (silencio). Además, 2 arranques
+silenciosos (`01. 1-800.flac`, `01 1x1.flac`) sin ninguna línea de error, y 7
+de 24 fronteras `next rejected (no matching preopen)`.
+
+**Causa raíz 1 — el AP nunca publicaba la geometría FLAC.** El build del AP es
+metadata-only (`AP_LOCAL_DECODE=0` ⇒ `RECHORD_AP_METADATA_ONLY`), y
+`flac_open()` asignaba `flac_diag_block/channels/seektable` solo dentro del
+`#ifndef RECHORD_AP_METADATA_ONLY`. Por eso `flac_prescan_info()` devolvía 0
+siempre, `ipc_b_set_prescan(0)` borraba `IPC_C_PRE_VALID` y Core B repetía su
+propio `flac_prescan()` en **cada** OPEN: la optimización documentada en
+`docs/rewrite/core-phase3.md` (§9) estaba compilada fuera. El OPEN lento se
+comía el presupuesto de ACK de 1500 ms; al rendirse el AP dejaba de servir el
+file ring, B agotaba su espera de lectura y devolvía error de codec.
+
+**Fix 1.** La geometría se asigna en ambos builds (`flac_diag_need` sigue
+siendo solo del build completo porque usa `sizeof(drflac)`). Nuevo test
+`test_flac_prescan.c`, compilado dos veces (normal y
+`-DRECHORD_AP_METADATA_ONLY`): falla en el código viejo con
+`prescan_info() = 0` y pasa con la geometría publicada.
+
+**Causa raíz 2 — tipo de bloque mal.** `flac_prescan()` contaba como
+SEEKTABLE el bloque tipo 6, que en el spec FLAC es PICTURE (SEEKTABLE es 3).
+Todos los bytes del cover art entraban al presupuesto de `dr_flac`, y la
+geometría publicada a B también era la del PICTURE. Corregido a `type == 3`
+(verificado en el fixture nuevo: máximo bloque, canales y 36 B de SEEKTABLE,
+sin sumar el PICTURE de 48 B).
+
+**Robustez del handshake.** `b_wait_ack()` ahora distingue un comando colgado
+de un open lento pero con progreso: solo para OPEN/NEXT, el presupuesto de
+1500 ms se extiende mientras el cursor RD de B avance (últimos 250 ms), con
+tope duro de 5 s. SEEK/CLOSE mantienen su presupuesto corto. Así un cover
+grande + SD lenta no se convierte en error de codec por dejar de servir el
+ring.
+
+**Diagnósticos (el silencio ya no es mudo).**
+- `ipc: ring open failed <track>` cuando `bfs_open()` falla (antes era silencioso).
+- En el build metadata-only, un `ipc_b_start()` sin decoder falla explícito:
+  `ipc: no decoder (B open failed)` en vez de PLAYING sobre un ring vacío.
+- `ipc: preopen <track>` y `ipc: preopen had <track>` (nuevo
+  `bfs_preopen_path()`) para que un `next rejected` diga **qué** se había
+  pre-abierto.
+- `bfs_read_pos()` expone el cursor RD para el chequeo de progreso.
+
+**Build.** `make` PASS; AP5M CRC `0x9CA2267B`; `.bss_end 0x03049E48`
+(440 B libres bajo `0x0304A000`). `firmware/player/tests/run_tests.sh`:
+ALL PLAYER TESTS PASSED (incluye los dos `test_flac_prescan`).
+
+**Pendiente de hardware.** Falta reflashear y confirmar en el LOG que los
+opens duros bajan y que no reaparece `cmd 1 no ack`. El resto del diagnóstico
+de `next rejected` queda instrumentado para la próxima captura.

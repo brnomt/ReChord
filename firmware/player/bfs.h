@@ -13,6 +13,8 @@
 #ifndef RECHORD_BFS_H
 #define RECHORD_BFS_H
 
+#include <stdint.h>
+
 /* Open `path` for B and publish it (ring 0, discards any pre-open).
  * 0 on success, < 0 on I/O error. */
 int  bfs_open(const char *path);
@@ -39,5 +41,14 @@ int  bfs_preopen_ready(const char *path);
  * Returns the ring index B must read (IPC_C_RING), or -1 if nothing is
  * pre-opened. */
 int  bfs_promote(void);
+
+/* Byte offset of the current ring's read cursor: how far Core B has consumed
+ * the file. A wait for a B command uses it to tell a slow-but-progressing open
+ * (keep serving) from a wedged one (give up). */
+uint32_t bfs_read_pos(void);
+
+/* Device path of the valid pre-open, or NULL. Diagnostics only: the boundary
+ * logs which track it had pre-opened when the path does not match. */
+const char *bfs_preopen_path(void);
 
 #endif /* RECHORD_BFS_H */

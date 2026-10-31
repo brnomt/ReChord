@@ -353,7 +353,11 @@ static int flac_prescan(codec_io_t *io, codec_meta_t *meta,
             return -1;
         if (type == 4) {
             (void)tags_read_vorbis(io, pos, (long)len, meta, rg);
-        } else if (type == 6) {
+        } else if (type == 3) {
+            /* SEEKTABLE is metadata block type 3 (type 6 is PICTURE): only
+             * seekpoint bytes count toward dr_flac's allocation. Counting the
+             * cover art here inflated the budget and made hi-res files with an
+             * embedded picture fail as "unsupported". */
             *seektable_bytes += len;
         }
         if (cio_seek(io, pos + (long)len) != pos + (long)len)
@@ -469,10 +473,16 @@ static int flac_open(void *vst, const char *path)
         rc = CODEC_ERR_FORMAT;
         goto fail;
     }
-#ifndef RECHORD_AP_METADATA_ONLY
+    /* Geometry for the peer core. Set in BOTH builds: the AP is the one that
+     * prescans every track, and its build is metadata-only, so leaving these
+     * out of it silently disabled the prescan hand-off (Core B repeated a
+     * metadata walk on every OPEN, and a slow open could exceed the command
+     * ACK budget). flac_diag_need is only diagnostics and needs sizeof(drflac),
+     * which the metadata-only build does not compile in. */
     flac_diag_block = max_block;
     flac_diag_channels = scan_channels;
     flac_diag_seektable = seektable_bytes;
+#ifndef RECHORD_AP_METADATA_ONLY
     flac_diag_need = (unsigned long)sizeof(drflac) +
                      ((max_block + 15u) / 16u) * 64u * scan_channels + 64u +
                      seektable_bytes;

@@ -92,6 +92,18 @@ $CC $CFLAGS -I.. -o .work/test_codec_flac \
     test_codec_flac.c ../codecs/flac.c ../tags.c \
     ../codec_io_stdio.c $IO_DISPATCH $WORKBUF -lm
 
+# FLAC prescan hand-off: the geometry the AP publishes to Core B must be
+# present in BOTH builds (the AP is metadata-only) and must count only a real
+# SEEKTABLE (type 3), not an embedded PICTURE (type 6). The metadata-only TU
+# leaves dr_flac's decode helpers unreferenced, hence the warning exemptions.
+$CC $CFLAGS -I.. -o .work/test_flac_prescan \
+    test_flac_prescan.c ../codecs/flac.c ../tags.c \
+    ../codec_io_stdio.c $IO_DISPATCH $WORKBUF -lm
+$CC $CFLAGS -Wno-unused-function -Wno-unused-variable -I.. \
+    -DRECHORD_AP_METADATA_ONLY -o .work/test_flac_prescan_ap \
+    test_flac_prescan.c ../codecs/flac.c ../tags.c \
+    ../codec_io_stdio.c $IO_DISPATCH $WORKBUF -lm
+
 # EQ curve transport (BRNOMT-76): band packing + the AP->B seqlock.
 $CC $CFLAGS -o .work/test_eq_ipc test_eq_ipc.c
 
@@ -114,6 +126,8 @@ $CC $CFLAGS -I.. -I../.. -o .work/test_ao_slots \
 .work/test_codec_mp3
 .work/test_codec_mp3_meta
 .work/test_codec_flac
+.work/test_flac_prescan
+.work/test_flac_prescan_ap
 .work/test_eq_ipc
 .work/test_ao_slots
 echo "ALL PLAYER TESTS PASSED"

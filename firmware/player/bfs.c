@@ -281,6 +281,18 @@ int bfs_is_open(void)
     return s_cur.io != 0;
 }
 
+uint32_t bfs_read_pos(void)
+{
+    if (s_cur.io == 0)
+        return 0u;
+    return CTRL[k_w[s_cur.slot][W_RD]];
+}
+
+const char *bfs_preopen_path(void)
+{
+    return (s_pre_valid && s_pre.io != 0) ? s_pre_path : 0;
+}
+
 void bfs_poll(void)
 {
     poll_svc(&s_cur);

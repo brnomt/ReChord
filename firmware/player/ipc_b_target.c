@@ -66,7 +66,7 @@ static void sh_set(unsigned i, uint32_t v)
 
 /* Log the file NAME (not the whole path) so a field log names the track being
  * started or handed off — without it a session cannot be read back. */
-static void log_track(const char *path)
+static void log_name(const char *tag, const char *path)
 {
     char name[72];
     const char *b = path;
@@ -84,7 +84,12 @@ static void log_track(const char *path)
         i++;
     }
     name[i] = '\0';
-    log_printf("ipc: track %s", name);
+    log_printf("%s %s", tag, name);
+}
+
+static void log_track(const char *path)
+{
+    log_name("ipc: track", path);
 }
 
 /* The AP's own codec open failed for `path` (no B command is ever sent in that
@@ -188,12 +193,39 @@ static int b_wait_ack(uint32_t seq, unsigned long budget_ms)
 {
     unsigned long t0 = log_now_ms();
     unsigned long guard = 0;
+    unsigned long last_progress = t0;
+    uint32_t last_rd = bfs_read_pos();
+    /* Only the OPEN/NEXT handshake reads the file ring; SEEK/CLOSE must keep
+     * their tight budget. */
+    uint32_t cmd = CTRL[IPC_C_CMD];
+    int extend = (cmd == IPC_C_OPEN || cmd == IPC_C_NEXT);
 
     for (;;) {
+        unsigned long now;
+
         bfs_poll();
         if (CTRL[IPC_C_ACK] == seq)
             return 0;
-        if (log_now_ms() - t0 >= budget_ms || ++guard > 40000000UL)
+        now = log_now_ms();
+        {
+            uint32_t rd = bfs_read_pos();
+
+            if (rd != last_rd) {        /* B is consuming the file ring */
+                last_rd = rd;
+                last_progress = now;
+            }
+        }
+        /* The budget bounds a STUCK command, not a slow open that is still
+         * making progress: a large embedded cover on a slow SD read used to
+         * hit the deadline mid-open, and giving up stopped the read-ahead Core
+         * B was waiting on — it then timed out inside its ring read and
+         * reported a codec error (field log: "cmd 1 no ack ... bstate 0", then
+         * "bstate 3 berr 1" and silence). Keep serving while B advances, up to
+         * a hard cap so a wedged core still releases the AP. */
+        if (now - t0 >= budget_ms &&
+            (!extend || now - last_progress >= 250UL || now - t0 >= 5000UL))
+            return -1;
+        if (++guard > 40000000UL)
             return -1;
         delay_loops(2000);              /* ~10 us: brief, do not starve bus */
     }
@@ -263,8 +295,14 @@ static int b_handoff(const char *path)
 
     if (path == 0)
         return -1;
-    if (bfs_open(path) != 0)
+    if (bfs_open(path) != 0) {
+        /* Never send an OPEN for a ring with no file behind it: B would wait
+         * on an OPEN flag that never comes. Name the track so a field log
+         * shows WHICH file the AP could not open (the old code failed here
+         * silently, and the player then reported PLAYING over silence). */
+        log_name("ipc: ring open failed", path);
         return -1;
+    }
 
     sh_set(IPC_C_RING, 0);
     publish_prescan();
@@ -303,7 +341,9 @@ int ipc_b_preopen(const char *path)
     if (path == 0 || !s_b_decodes)
         return 0;                       /* AP decodes: nothing to pre-open */
     /* Timestamps come from log_printf: start/end bound the SD open, which
-     * blocks the AP loop (BRNOMT-73 measurement). */
+     * blocks the AP loop (BRNOMT-73 measurement). Name the track too, so the
+     * boundary line can be matched against the pre-open that actually ran. */
+    log_name("ipc: preopen", path);
     log_printf("ipc: preopen start");
     rc = (bfs_preopen(path) == 0) ? 0 : -1;
     log_printf("ipc: preopen rc %d", rc);
@@ -427,6 +467,18 @@ int ipc_b_start(const ipc_b_track_t *track)
     } else if (b_handoff(track->path) == 0) {
         s_b_decodes = 1;
     }
+#ifdef RECHORD_AP_METADATA_ONLY
+    else {
+        /* This build carries no decoder of its own — Core B owns it. Starting
+         * the DAC over an empty ring shows PLAYING with silence (that is what
+         * the two silent starts in the field log were: the ring open failed
+         * and the metadata-only AP "fell back" to decoding it cannot do).
+         * Surface the failure so the player reports an error instead. */
+        log_printf("ipc: no decoder (B open failed)");
+        g_state = IPC_B_FAULT;
+        return -1;
+    }
+#endif
 
     if (s_b_decodes) {
         /* Resume: position B before its first decode round so the first PCM
@@ -658,6 +710,9 @@ int ipc_b_next(const ipc_b_track_t *track)
      * ring cursors, the frames counter and the DAC/serializer stay live. */
     if (!bfs_preopen_ready(track->path)) {
         log_printf("ipc: next rejected (no matching preopen)");
+        /* Name what was pre-opened: "rejected" alone cannot tell a list
+         * change apart from a path/string mismatch on the device. */
+        log_name("ipc: preopen had", bfs_preopen_path());
         return -1;
     }
 
