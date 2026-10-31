@@ -84,6 +84,7 @@ static void test_scan(void)
     /* CS<NN><6 addr><name> */
     poll_text("CS10\xAA\xBB\xCC\xDD\xEE\xFF" "Buds", 30);
     CHECK_EQI(bt_proto_device_count(&bt), 1, "one device found");
+    CHECK_EQI(bt_proto_is_saved(&bt, 0), 0, "scan result is not saved");
     {
         const bt_device_t *d = bt_proto_device(&bt, 0);
 
@@ -207,12 +208,34 @@ static void test_query_periods(void)
               "poll resumes after 50 s");
 }
 
+static void test_saved_mask(void)
+{
+    bt_proto_t b;
+    bt_device_t devices[3];
+
+    TEST("bt_proto: seeded devices are saved, remove shifts the mask");
+
+    memset(devices, 0, sizeof devices);
+    devices[0].addr[0] = 1;
+    devices[1].addr[0] = 2;
+    devices[2].addr[0] = 3;
+    bt_proto_init(&b);
+    bt_proto_seed_devices(&b, devices, 3);
+    CHECK_EQI(bt_proto_is_saved(&b, 0), 1, "seeded device saved");
+    CHECK_EQI(bt_proto_is_saved(&b, 2), 1, "third seeded device saved");
+    bt_proto_remove_device(&b, 0);
+    CHECK_EQI(bt_proto_device_count(&b), 2, "one removed");
+    CHECK_EQI(bt_proto_device(&b, 0)->addr[0], 2, "second moved to front");
+    CHECK_EQI(bt_proto_is_saved(&b, 0), 1, "saved mask shifted");
+}
+
 int main(void)
 {
     test_ready();
     test_scan();
     test_connect_and_stream();
     test_query_periods();
+    test_saved_mask();
     if (s_failures == 0) {
         printf("test_bt_proto: OK\n");
         return 0;

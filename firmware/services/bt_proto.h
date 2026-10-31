@@ -49,7 +49,8 @@ typedef struct {
     uint8_t       play_state;      /* 0 started, 1 paused, 2 playing      */
 
     uint8_t       count;
-    uint8_t       found_mask;
+    uint8_t       found_mask;      /* seen in the current scan             */
+    uint8_t       saved_mask;      /* user-chosen: persisted + auto-connect */
     bt_device_t   devices[BT_DEV_MAX];
     int8_t        connected;       /* index into devices, -1 = none       */
     int8_t        target;          /* index being connected, -1 = none    */
@@ -115,5 +116,10 @@ void bt_proto_seed_devices(bt_proto_t *bt, const bt_device_t *devices,
 /* Remove one device (forget) or move it to the front (most recent). */
 void bt_proto_remove_device(bt_proto_t *bt, int index);
 void bt_proto_promote_device(bt_proto_t *bt, int index);
+
+/* The user chose this device (connect/pair): persist it and let the policy
+ * auto-connect to it later. Scan results are not saved until chosen. */
+void bt_proto_mark_saved(bt_proto_t *bt, int index);
+int  bt_proto_is_saved(const bt_proto_t *bt, int index);
 
 #endif /* RECHORD_SERVICES_BT_PROTO_H */

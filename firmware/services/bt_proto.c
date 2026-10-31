@@ -114,6 +114,7 @@ static int remember_device(bt_proto_t *bt, const uint8_t *payload, uint32_t len)
             bt->devices[i - 1] = bt->devices[i];
         bt->count--;
         bt->found_mask = (uint8_t)(bt->found_mask >> 1);
+        bt->saved_mask = (uint8_t)(bt->saved_mask >> 1);
         if (bt->connected > 0)
             bt->connected--;
         else if (bt->connected == 0)
@@ -596,12 +597,14 @@ void bt_proto_power_on(bt_proto_t *bt, unsigned long now)
     /* Keep the remembered devices across an off/on cycle (the module does not
      * report them again until it answers). */
     uint8_t count = bt->count;
+    uint8_t saved = bt->saved_mask;
     bt_device_t devices[BT_DEV_MAX];
 
     memcpy(devices, bt->devices, sizeof devices);
     memset(bt, 0, sizeof *bt);
     memcpy(bt->devices, devices, sizeof devices);
     bt->count = count;
+    bt->saved_mask = saved;
     bt->connected = -1;
     bt->target = -1;
     bt->state = BT_STATE_STARTING;
@@ -665,6 +668,7 @@ void bt_proto_seed_devices(bt_proto_t *bt, const bt_device_t *devices,
         bt->devices[i] = devices[i];
     bt->count = (uint8_t)count;
     bt->found_mask = 0;
+    bt->saved_mask = (uint8_t)((1u << count) - 1u);
     bt->connected = -1;
     bt->target = -1;
 }
@@ -683,6 +687,9 @@ void bt_proto_remove_device(bt_proto_t *bt, int index)
         uint8_t high = (uint8_t)((bt->found_mask >> (index + 1)) << index);
 
         bt->found_mask = (uint8_t)(low | high);
+        low = (uint8_t)(bt->saved_mask & ((1u << index) - 1u));
+        high = (uint8_t)((bt->saved_mask >> (index + 1)) << index);
+        bt->saved_mask = (uint8_t)(low | high);
     }
     if (bt->connected == index)
         bt->connected = -1;
@@ -692,6 +699,19 @@ void bt_proto_remove_device(bt_proto_t *bt, int index)
         bt->target = -1;
     else if (bt->target > index)
         bt->target--;
+}
+
+void bt_proto_mark_saved(bt_proto_t *bt, int index)
+{
+    if (bt != 0 && index >= 0 && index < bt->count)
+        bt->saved_mask = (uint8_t)(bt->saved_mask | (1u << index));
+}
+
+int bt_proto_is_saved(const bt_proto_t *bt, int index)
+{
+    if (bt == 0 || index < 0 || index >= bt->count)
+        return 0;
+    return (bt->saved_mask >> index) & 1u;
 }
 
 void bt_proto_promote_device(bt_proto_t *bt, int index)
@@ -705,6 +725,16 @@ void bt_proto_promote_device(bt_proto_t *bt, int index)
     for (i = index; i > 0; i--)
         bt->devices[i] = bt->devices[i - 1];
     bt->devices[0] = saved;
+    {
+        /* [index][0..index-1][index+1..] — move the chosen bit to 0, shift
+         * the lower ones up, leave the rest where they are. */
+        uint8_t moved = (uint8_t)((bt->saved_mask >> index) & 1u);
+        uint8_t low = (uint8_t)(bt->saved_mask & ((1u << index) - 1u));
+        uint8_t high = (uint8_t)(bt->saved_mask &
+                                 (uint8_t)~((1u << (index + 1)) - 1u));
+
+        bt->saved_mask = (uint8_t)(high | (low << 1) | moved);
+    }
 
     if (bt->connected == index)
         bt->connected = 0;

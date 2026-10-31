@@ -47,6 +47,7 @@ static uint8_t s_remote_plays;
 static uint8_t s_remote_pauses;
 static uint8_t s_remote_nexts;
 static uint8_t s_remote_prevs;
+static uint8_t s_known_count;
 
 static void send_frame(const bt_frame_t *f)
 {
@@ -57,13 +58,16 @@ static void send_frame(const bt_frame_t *f)
 static void save_devices(void)
 {
     bt_store_t st;
-    int i;
+    int i, n = 0;
 
     memset(&st, 0, sizeof st);
     st.on = s_on;
-    st.count = (uint8_t)s_bt.count;
-    for (i = 0; i < s_bt.count && i < BT_DEV_MAX; i++)
-        st.devices[i] = s_bt.devices[i];
+    /* Only user-chosen devices are remembered; scan results are ephemeral. */
+    for (i = 0; i < s_bt.count && n < BT_DEV_MAX; i++) {
+        if (bt_proto_is_saved(&s_bt, i))
+            st.devices[n++] = s_bt.devices[i];
+    }
+    st.count = (uint8_t)n;
     if (bt_store_save(&st) != 0)
         log_printf("bt: device save failed");
     s_dirty = 0;                       /* never retry every service pass */
@@ -98,8 +102,10 @@ static void module_off(void)
 
 static void on_connected(unsigned long now)
 {
-    if (s_bt.connected >= 0)
+    if (s_bt.connected >= 0) {
+        bt_proto_mark_saved(&s_bt, s_bt.connected);
         bt_proto_promote_device(&s_bt, s_bt.connected);
+    }
     {
         const bt_device_t *d = bt_proto_connected(&s_bt);
     s_dirty = 1;
@@ -219,6 +225,12 @@ void bt_link_service(unsigned long now)
     }
 
     follow_state(now);
+    if (s_bt.count > s_known_count) {
+        const bt_device_t *d = &s_bt.devices[s_bt.count - 1];
+
+        log_printf("bt: found %s", d->name[0] != '\0' ? d->name : "?");
+        s_known_count = s_bt.count;
+    }
 
     /* Stream follows the player while a link is up. */
     {
@@ -253,7 +265,14 @@ void bt_link_service(unsigned long now)
     if (s_bt.state == BT_STATE_READY && s_bt.count > 0 &&
         !s_user_disconnected && s_pending_target < 0 &&
         now - s_last_attempt >= BT_RETRY_MS) {
-        attempt_connect(now, 0);
+        int i;
+
+        for (i = 0; i < s_bt.count; i++) {
+            if (bt_proto_is_saved(&s_bt, i)) {
+                attempt_connect(now, i);
+                break;
+            }
+        }
     }
 
     /* Idle off while nothing is connected and the screen is closed. */
@@ -282,6 +301,7 @@ void bt_link_init(unsigned long now)
     s_last_state = BT_STATE_OFF;
     s_idle_since = now;
     s_pending_target = -1;
+    s_known_count = (uint8_t)s_bt.count;
     if (s_on)
         module_on(now);
 }
@@ -336,8 +356,10 @@ void bt_link_scan(unsigned long now)
     s_idle_off = 0;
     if (!bt_hw_powered())
         module_on(now);
-    if (bt_proto_scan(&s_bt, now, &f))
+    if (bt_proto_scan(&s_bt, now, &f)) {
         send_frame(&f);
+        log_printf("bt: scan");
+    }
 }
 
 void bt_link_connect(int device, unsigned long now)
@@ -345,6 +367,8 @@ void bt_link_connect(int device, unsigned long now)
     if (!s_on || device < 0 || device >= s_bt.count)
         return;
     s_user_disconnected = 0;
+    bt_proto_mark_saved(&s_bt, device);
+    s_dirty = 1;
     if (s_bt.state == BT_STATE_CONNECTED) {
         bt_frame_t f;
 

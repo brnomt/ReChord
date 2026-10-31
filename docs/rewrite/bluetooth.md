@@ -103,8 +103,10 @@ Rules:
 2. ✅ `bt_store` + `bt_link` + host tests (round-trip, reconnect policy).
 3. ✅ Settings → Interface → Bluetooth screen + live status value; UI host
    tests (the row and the screen contract).
-4. ⬜ Hardware pass: enable in Settings, pair, stream; log `CV`, scan, `CLOK`,
-   `CHOK`, `CY0`, and the route pins.
+4. 🟡 Hardware pass 1 (2026-10-31): the module powers up and answers
+   `CV5` over UART1 (`bt: module powered`, `bt: on`, `bt: ready v5`).
+   Pairing/streaming and the route pins still need a pass with the
+   headphones in pairing mode.
 5. 🟡 Polish: power/idle-off/remote keys/park-wake are implemented; a status
    mark on Now Playing/home and the jack quirk remain (ReChord has no runtime
    jack detection yet).
@@ -112,7 +114,11 @@ Rules:
 ## Implemented behaviour
 
 - Off by default; the choice and up to six devices persist in
-  `/.rechord/BT`. Enabling powers the module; disabling drives its pins low.
+  `/.rechord/BT` (created at first boot like the other device files, so the
+  in-place rewrite always has clusters). Enabling powers the module;
+  disabling drives its pins low.
+- Only **user-chosen** devices are saved and auto-connected; devices found by
+  a scan are listed but stay ephemeral until the user connects to one.
 - Auto-connect to the most recent device at boot and after a drop, one
   attempt every 5 s; a failed pair retries the same way.
 - Stream on/off follows the player (PLAYING and a live link), with the

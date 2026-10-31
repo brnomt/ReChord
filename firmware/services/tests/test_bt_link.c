@@ -236,6 +236,46 @@ static void test_link_lost_pauses(void)
     CHECK_EQI(s_routed, 0, "audio unrouted");
 }
 
+static void test_scan_results_are_not_saved(void)
+{
+    static const char addr[] = "\x11\x22\x33\x44\x55\x66";
+
+    fresh();
+    remove(".work/bt/Internal/.rechord/BT");   /* start with no store */
+    bt_link_init(0);
+    bt_link_set_enabled(1, 1000);
+    feed("CV1", 1002);
+    CHECK_EQI(bt_link_state()->state, BT_STATE_READY, "ready");
+
+    /* A device found by a scan is listed, but is not remembered yet. */
+    feed("CS10" "\x11\x22\x33\x44\x55\x66" "Buds", 2000);
+    CHECK_EQI(bt_link_state()->count, 1, "scan result listed");
+    CHECK_EQI(bt_proto_is_saved(bt_link_state(), 0), 0,
+              "scan result not saved");
+
+    reset_io();
+    bt_link_service(8000);             /* retry window, no saved device */
+    CHECK(!sent_has("CL06", 4), "no auto-connect to an unknown device");
+
+    /* Choosing it saves it and connects. */
+    reset_io();
+    bt_link_connect(0, 9000);
+    CHECK(sent_has("CL06", 4), "user choice connects");
+    CHECK_EQI(bt_proto_is_saved(bt_link_state(), 0), 1, "user choice saved");
+
+    feed("CLOK", 9010);
+    feed("CHOK", 9020);
+    bt_link_service(9100);
+    /* The persisted file now holds the device. */
+    {
+        bt_store_t st;
+
+        CHECK_EQI(bt_store_load(&st), 0, "store saved");
+        CHECK_EQI(st.count, 1, "chosen device persisted");
+    }
+    (void)addr;
+}
+
 int main(void)
 {
     mkdir(".work", 0777);
@@ -251,6 +291,8 @@ int main(void)
     test_persisted_auto_connect();
     TEST("bt_link: dropped link pauses");
     test_link_lost_pauses();
+    TEST("bt_link: scan results are not auto-connected");
+    test_scan_results_are_not_saved();
 
     if (s_failures == 0) {
         printf("test_bt_link: OK\n");

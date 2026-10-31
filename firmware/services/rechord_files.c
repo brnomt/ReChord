@@ -23,6 +23,7 @@
 
 #include "media_db.h"
 #include "rechord_files.h"
+#include "bt_store.h"
 
 /* The cfg is created with room to grow (the in-place rewrite keeps the file's
  * clusters and only patches the size), so the user editing it later cannot
@@ -31,6 +32,7 @@
 #define CFG_BYTES   (64u * 1024u)
 #define STATE_BYTES (4u * 1024u)
 #define LOG_BYTES   (32u * 1024u)
+#define BT_BYTES    (4u * 1024u)
 
 /* Written into a freshly created file so it reads as text instead of a block
  * of zeros. The device replaces the content on its next write. */
@@ -132,6 +134,11 @@ int rechord_files_init(void)
     if (ensure_file(RECHORD_STATE, STATE_BYTES, k_state_template) != FS_OK)
         return FS_ERR_IO;
     if (ensure_file(RECHORD_LOG, LOG_BYTES, k_log_template) != FS_OK)
+        return FS_ERR_IO;
+    /* Bluetooth choice + devices: preallocated so the in-place rewrite never
+     * has to grow a cluster (a missing file made every save fail). */
+    if (ensure_file(BT_STORE_PATH, BT_BYTES,
+                    "# ReChord Bluetooth\non=0\n") != FS_OK)
         return FS_ERR_IO;
     /* The media index slots: empty until the first scan (they are binary, so
      * no text header), created here so a build always has a file to target. */

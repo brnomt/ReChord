@@ -4964,9 +4964,28 @@ pausa al perder el enlace, fake UART/player) nuevos; `test_bluetooth_screen`
 Requisito de flasheo: `build/ReChord_AP5M.IMG` como `HIFIEC90.IMG`, sin
 micro-SD, power-cycle.
 
-**Pendiente de hardware.** El módulo BT no se probó todavía en el equipo con
-ReChord: falta encenderlo desde Settings, escanear y emparejar (OnePlus Buds 3
-funcionaron con stock/EchoPod) y confirmar en el LOG las líneas `bt: on`,
-`bt: ready v…`, `bt: connecting …`, `bt: connected …` y `bt: audio route
-module`. La marca de estado en Now Playing/home y el quirk del jack quedan para
-después (ReChord aún no hace detección de jack en runtime).
+**Hardware, pasada 1 (2026-10-31).** El build con BT arrancó en el equipo:
+
+```
+1.511 ipc: cmd 1 ack 112 ms      <- antes 1013 ms / 1506 ms + berr 1
+1.511 ipc: preload ok
+11.731 bt: module powered
+11.731 bt: on
+12.247 bt: ready v5
+```
+
+- **El módulo responde**: UART1, power y el parser funcionan (CV5).
+- **El fix de prescan se confirma en hardware**: el preload de
+  `11 Haiku.flac` ACKea en **112 ms** (antes 1013 ms, y con timeout/`berr 1`);
+  sin `cmd 1 no ack` en este arranque.
+- **Bug hallado**: `bt: device save failed` — `/.rechord/BT` no existía y el
+  rewrite in-place no puede crear clusters. Se crea en `rechord_files_init`
+  (4 KiB) como cfg/state.
+- Añadidos `bt: scan` y `bt: found <name>` para la próxima captura; solo los
+  dispositivos **elegidos por el usuario** se guardan y auto-conectan (los de
+  un scan quedan listados pero efímeros), como stock/EchoPod.
+
+**Pendiente de hardware.** Falta la pasada de emparejamiento/streaming (poner
+los auriculares en modo pairing, escanear, elegir, confirmar `CLOK`/`CHOK`,
+`CY0 1E` y `bt: audio route module`), y la marca de estado en Now Playing/home
+(el quirk del jack queda para cuando ReChord haga detección de jack).
