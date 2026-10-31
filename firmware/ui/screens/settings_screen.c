@@ -25,6 +25,7 @@
 #include "../../services/rechord_files.h"
 #include "../../services/eq_profile.h"
 #include "../../player/player.h"
+#include "../../services/bt_link.h"
 #include "../internal/hal.h"
 
 static rechord_settings_t s_settings;
@@ -76,6 +77,11 @@ static void on_select_eq(void)
 static void on_select_controls(void)
 {
     ui_push_screen(&controls_screen);
+}
+
+static void on_select_bt(void)
+{
+    ui_push_screen(&bluetooth_screen);
 }
 
 static const char *(*const s_value_text_fn[SETTING_KEY_COUNT])(void) = {
@@ -221,7 +227,8 @@ typedef enum {
     GROUP_KEY = 0,     /* schema key in `key`                                */
     GROUP_THEME,       /* live theme picker                                  */
     GROUP_EQ,          /* Equalizer screen (BRNOMT-76)                       */
-    GROUP_CONTROLS     /* volume-key mapping (BRNOMT-107)                    */
+    GROUP_CONTROLS,    /* volume-key mapping (BRNOMT-107)                    */
+    GROUP_BT           /* Bluetooth screen (devices + pairing)               */
 } setting_group_kind_t;
 
 typedef struct {
@@ -249,6 +256,7 @@ static const setting_group_item_t s_interface_items[] = {
     { "Brightness", "brightness", GROUP_KEY },
     { "Theme", 0, GROUP_THEME },
     { "Controls", 0, GROUP_CONTROLS },
+    { "Bluetooth", 0, GROUP_BT },
     { 0, 0, GROUP_KEY },
 };
 
@@ -300,6 +308,9 @@ static void build_group_items(void)
         } else if (spec[n].kind == GROUP_CONTROLS) {
             it->value_text = 0;
             it->on_select = on_select_controls;
+        } else if (spec[n].kind == GROUP_BT) {
+            it->value_text = bt_link_status_text;
+            it->on_select = on_select_bt;
         } else {
             const setting_schema_t *sch = settings_schema_find(spec[n].key);
             int k = (sch != 0) ? (int)(sch - setting_schema) : -1;

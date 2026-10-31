@@ -99,6 +99,7 @@ boundary is a `NEXT` command over the live ring. Details:
 | Core B bring-up + audio (B decodes, AP feeds) | ✅ |
 | Hi-res 24-bit @ 44.1/48/88.2/96 kHz | ✅ |
 | Library index + category navigation | ✅ |
+| Bluetooth headphones (external UART module, A2DP source) | 🟡 implemented + host-tested; on-device pass pending (`docs/rewrite/bluetooth.md`) |
 | Playback lists, `i/N`, shuffle, repeat | ✅ |
 | Gapless between **same-format** tracks (Core B, BRNOMT-73) | ✅ verified on device |
 | **Format-change** boundary | hard by design (DAC re-lock, ~200 ms) |

@@ -125,6 +125,10 @@ void dac_gpio_input(int port, int pin)
     g->ddr &= ~bit;
 }
 
+/* Bluetooth routing owns GPIO2.0/2.14 while audio is routed to the module
+ * (drivers/bt_hw.c). Weak so images without Bluetooth keep this HAL as-is. */
+int bt_audio_pin_override(int port, int pin, int level) __attribute__((weak));
+
 /* Ref FUN_03051478(port, pin, level): mux the pin to GPIO (func 0),
  * drive it, and set the direction to output. */
 void dac_gpio_out(int port, int pin, int level)
@@ -132,6 +136,8 @@ void dac_gpio_out(int port, int pin, int level)
     dac_gpio_t *g = (port == 1) ? DAC_GPIO1 : DAC_GPIO2;
     uint32_t bit = 1u << (unsigned)(pin & 31);
 
+    if (bt_audio_pin_override != 0)
+        level = bt_audio_pin_override(port, pin, level);
     grf_iomux(port, pin, 0);
     if (level)
         g->dr |= bit;

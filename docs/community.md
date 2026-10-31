@@ -8,7 +8,7 @@
 >
 > Material crudo descargado en `community/` (fuera de git por tamaño):
 > `community/echo-mini-rse.html`, `community/flame-ocean-website/`,
-> `community/sdks/*`.
+> `community/sdks/*`, `community/echopod/`.
 
 ---
 
@@ -21,6 +21,7 @@
 | `https://gitlab.com/brian0218/RKNanoD_Wireless_Audio_SDK_V1.5/` | SDK leak | RKnanoD Wireless Audio SDK v1.5 |
 | `https://github.com/xinghuaman/RKNanoD_MP3_V1.3_20161102` | SDK leak | RKnanoD MP3 SDK v1.3 (2016-11-02) |
 | `https://github.com/linuxhan/rk3399-table-RKNanoC` | SDK leak | RK3399 VR SDK con **RKnanoC** (sensor/audio MCU) |
+| `https://github.com/BasilSkyWalk/echopod` | Repo (GPL-3.0) | **EchoPod**: CFW comunitaria para el Echo Mini. De su rama `bluetooth-audio` sale el contrato del módulo Bluetooth (UART1 115200, tramas ASCII, ruteo GPIO2.0/2.14, housekeeping de stock) usado en `docs/rewrite/bluetooth.md`; clon local en `community/echopod/` |
 | `https://livetrack.club/debrick` | Guia | **Debrick Echo Mini** via maskrom (guardada en `community/debrick-livetrack.md`) |
 | `https://github.com/rockchip-linux/rkdeveloptool` | Herramienta | Rockchip USB flash/debrick tool (clonado en `community/rkdeveloptool/`) |
 | `https://github.com/rockchip-linux/rkbin` | Repo | Rockchip binary blobs: bootloaders/miniloader (clonado en `community/rkbin/`) |

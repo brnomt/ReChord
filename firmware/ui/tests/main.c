@@ -16,6 +16,7 @@ void test_menu_nav(void);
 void test_settings_keys(void);
 void test_browser_pagination(void);
 void test_eq_screen(void);
+void test_bluetooth_screen(void);
 void test_skin_home(void);
 void test_skin_screens(void);
 void test_skin_art(void);
@@ -43,6 +44,7 @@ int main(void)
     run("settings_keys", test_settings_keys);
     run("browser_pagination", test_browser_pagination);
     run("eq_screen", test_eq_screen);
+    run("bluetooth_screen", test_bluetooth_screen);
     run("skin_home", test_skin_home);
     run("skin_screens", test_skin_screens);
     run("skin_art", test_skin_art);

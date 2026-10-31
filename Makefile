@@ -217,10 +217,11 @@ COMMON_FLAGS := -mcpu=cortex-m3 -mthumb -mfloat-abi=soft -Os -Wall \
                 -Wno-int-conversion -Wno-return-type \
                 -ffunction-sections -fdata-sections -MMD -MP -fcommon \
                 -include firmware/rockchip/include/armcc_compat.h
-# LOG_BUFFER_LINES: 12 lines dropped boundary lines during a track change
-# (BRNOMT-73 field logs), so the ring holds 48 lines of the latest activity —
-# the assembly buffer still fits under the AP .bss ceiling (0x0304A000).
-AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DAP_MEM_OVERLAY=$(AP_MEM_OVERLAY) -DAP_CDC_OVERLAY=$(AP_CDC_OVERLAY) $(if $(filter 0,$(AP_LOCAL_DECODE)),-DRECHORD_AP_METADATA_ONLY=1) -DLOG_BUFFER_LINES=48 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
+# LOG_BUFFER_LINES: the eager flush fires at 32 pending lines, so the ring
+# only has to cover that plus a small burst. 40 lines keeps that margin and
+# leaves RAM headroom for the Bluetooth stack (the ring AND its assembly
+# buffer scale with this constant: ~2.5 KB saved vs 48).
+AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DAP_MEM_OVERLAY=$(AP_MEM_OVERLAY) -DAP_CDC_OVERLAY=$(AP_CDC_OVERLAY) $(if $(filter 0,$(AP_LOCAL_DECODE)),-DRECHORD_AP_METADATA_ONLY=1) -DLOG_BUFFER_LINES=40 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
 
 .PHONY: cfw-ap standalone-ap5m cdc-image verify-standalone clean-clone-check \
         test-dsp toolchain manifests compile-check clean

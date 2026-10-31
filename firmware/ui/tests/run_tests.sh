@@ -17,6 +17,7 @@ $CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
     main.c test_screen_stack.c test_ui_redraw.c test_menu_nav.c \
     test_settings_keys.c test_browser_pagination.c \
     test_eq_screen.c \
+    test_bluetooth_screen.c \
     test_skin_home.c \
     test_skin_screens.c \
     test_skin_art.c \
@@ -26,6 +27,7 @@ $CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
     test_player_keys.c \
     ../ui.c ../screens/*.c ../settings_schema.c \
     ../../services/media_query.c ../../services/scratch.c \
+    ../../services/bt_proto.c \
     ../../theme/theme.c ../../theme/themes_builtin.c ../../theme/theme_pkg.c \
     ../../theme/theme_file.c ../../theme/theme_runtime.c \
     ../../theme/theme_assets.c ../../theme/theme_skin.c \

@@ -163,6 +163,10 @@ void settings_screen_set_hold_vol(int seek);       /* saves immediately */
 extern const ui_screen_t quick_screen;
 extern const ui_screen_t quick_playlist_screen;
 
+/* Bluetooth (Settings > Interface > Bluetooth): on/off, remembered devices,
+ * pairing. The policy lives in services/bt_link.c. */
+extern const ui_screen_t bluetooth_screen;
+
 /* Live theme selection changed: the app syncs the home renderer while this
  * screen remains open (BRNOMT-69). */
 void settings_screen_set_theme_applied(void (*cb)(void));

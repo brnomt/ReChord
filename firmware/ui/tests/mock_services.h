@@ -28,6 +28,14 @@ void mock_settings_get(rechord_settings_t *s);       /* last saved copy    */
 int  mock_settings_save_count(void);
 void mock_settings_set_load_rc(int rc);              /* load() return code */
 
+/* ---- Bluetooth (services/bt_link.c) ------------------------------------ */
+void mock_bt_reset(void);
+void mock_bt_set(int on, int state, int count);
+void mock_bt_set_device(int index, const char *name);
+int  mock_bt_action_count(void);
+int  mock_bt_last_device(void);
+int  mock_bt_screen_opens(void);
+
 /* ---- fs ---------------------------------------------------------------- */
 #define MOCK_FS_MAX_DIRS    8
 #define MOCK_FS_MAX_ENTRIES 64

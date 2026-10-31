@@ -4916,3 +4916,57 @@ Ambos tests ahora fijan la secuencia real (pre-open → BEOF) y el fallback.
 **Pendiente de hardware.** Falta reflashear y confirmar en el LOG que los
 opens duros bajan y que no reaparece `cmd 1 no ack`. El resto del diagnóstico
 de `next rejected` queda instrumentado para la próxima captura.
+
+## CK. Session 2026-10-31 — Bluetooth (módulo externo UART1 + A2DP source)
+
+**Fuente de hardware.** El Echo Mini lleva un **módulo BT externo con su propio
+stack**: se alimenta desde GPIO2.7, se controla por **UART1** (GPIO2.16/2.17,
+func 1 grupo A, 115200 8N1, polled) con tramas ASCII, y recibe el audio por el
+camino normal del DAC. El contrato completo (pines, registro de las tramas,
+temporizadores y el housekeeping de stock) está en
+`docs/rewrite/bluetooth.md` y se tomó del bring-up de EchoPod en el mismo
+equipo (`community/echopod`, rama `bluetooth-audio`, GPL-3.0; acreditado en el
+README). El ruteo es solo **GPIO2.0 alto + GPIO2.14 bajo** más el housekeeping
+(GRF+0xC4, CRU+0x84/0xA0/0xC0, GRF+0x14/0x54, GPIO2.9 bajo): el DAC sigue
+sonando, no hay que tocar I2S ni CS43131.
+
+**Implementado.**
+- `drivers/bt_hw.c`: UART1 (reset 0x08, gates 0x1D/0x89, CLKSEL 0x38), power,
+  byte I/O y ruteo. `dac_gpio_out()` consulta un hook débil
+  (`bt_audio_pin_override`) para que el unmute del DAC no deshaga el ruteo.
+- `services/bt_proto.c`: parser + máquina de estados (CV, CS/CSE*, CQ/CQO,
+  CL/CH/CT, CP/CC/CA/CB), reintentos (scan 4 s/30 s, connect 4 s/30 s),
+  polling 3 s/1 s/0.5 s, pausa de 50 s tras CP/CC, aviso `C 86`/`C 87` y
+  `CY0 1E`/`CY0 00` a 100 ms.
+- `services/bt_store.c`: `/.rechord/BT` (`on=`, `d=<hex>,<name>`, hasta 6).
+- `services/bt_link.c`: on/off, auto-connect, switch con 2 s, stream según el
+  player, ruteo, botones del auricular (guard 3 s), pausa al perder el enlace,
+  idle-off a 5 min, re-encendido tras un park USB y persistencia.
+- `ui/screens/bluetooth_screen.c` + Settings > Interface > Bluetooth (valor
+  en vivo Off/Starting…/Searching…/Connecting…/nombre/Not connected).
+  SELECT alterna/conecta/desconecta/busca; mantener SELECT olvida.
+- `ap_ui`: `bt_link_init` al final del boot, `bt_link_service` en el loop
+  (1 kHz), `bt_link_power_off()` antes de `power_off()`.
+
+**RAM.** El stack BT completo entraba justo: se bajó `LOG_BUFFER_LINES` de 48
+a 40 (el flush eager es a 32; el ring y su buffer de ensamblado escalan con la
+constante, ~2.5 KB liberados). `.bss_end 0x030495C8` → **2.6 KB libres** bajo
+`0x0304A000`; `text 191,908` (bajo el límite del loader).
+
+**Tests.** `test_bt_proto` (14 escenarios: ready/timeout, scan+retries,
+connect+CLOK/CQO, CY0 en link nuevo, avisos, botones, CT, polling) y
+`test_bt_link` (persistencia, auto-connect, stream/ruteo, botones, olvido,
+pausa al perder el enlace, fake UART/player) nuevos; `test_bluetooth_screen`
+(ruteo de teclas + Settings row) y el test de Settings actualizado. Suites:
+**player / services / theme / dsp / ui todas verdes**.
+
+**Build.** `make` PASS; AP5M CRC `0x76CC37E5`, sha256 `6ce81c51…affbc86`.
+Requisito de flasheo: `build/ReChord_AP5M.IMG` como `HIFIEC90.IMG`, sin
+micro-SD, power-cycle.
+
+**Pendiente de hardware.** El módulo BT no se probó todavía en el equipo con
+ReChord: falta encenderlo desde Settings, escanear y emparejar (OnePlus Buds 3
+funcionaron con stock/EchoPod) y confirmar en el LOG las líneas `bt: on`,
+`bt: ready v…`, `bt: connecting …`, `bt: connected …` y `bt: audio route
+module`. La marca de estado en Now Playing/home y el quirk del jack quedan para
+después (ReChord aún no hace detección de jack en runtime).

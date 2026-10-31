@@ -97,6 +97,7 @@ AP_UI_SRCS := \
   firmware/ui/screens/quick_screen.c \
   firmware/ui/screens/eq_screen.c \
   firmware/ui/screens/controls_screen.c \
+  firmware/ui/screens/bluetooth_screen.c \
   firmware/ui/screens/theme_ui.c
 
 # Drivers: the TARGET panel backend + the panel init sequence tables
@@ -113,6 +114,7 @@ AP_DRIVER_SRCS := \
   $(if $(filter 1,$(AP_DEBUG_TOOLS)),firmware/drivers/usb_cdc_rknanoc.c) \
   firmware/drivers/cs43131.c \
   firmware/drivers/core_b.c \
+  firmware/drivers/bt_hw.c \
   firmware/drivers/cru_pll.c \
   firmware/drivers/rknano_i2s.c \
   firmware/drivers/battery.c
@@ -131,6 +133,9 @@ AP_SERVICE_SRCS := \
   firmware/services/settings_store.c \
   firmware/services/resume.c \
   firmware/services/eq_profile.c \
+  firmware/services/bt_proto.c \
+  firmware/services/bt_store.c \
+  firmware/services/bt_link.c \
   firmware/services/log.c \
   firmware/services/input.c \
   firmware/services/scratch.c \

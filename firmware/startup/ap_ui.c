@@ -32,6 +32,7 @@
 #include "services/input.h"
 #include "services/art_pack.h"
 #include "services/eq_profile.h"
+#include "services/bt_link.h"
 #include "player.h"
 #include "player/ipc_b.h"
 #include "ui/ui.h"
@@ -569,6 +570,7 @@ static void power_off(void)
     display_clear(0x0000);
     display_flush_rows(0, DISPLAY_H - 1);
     backlight_off();     /* else the panel keeps glowing over a black screen */
+    bt_link_power_off();         /* a powered module blocks a real switch-off */
     audio_output_power_off();    /* silence the DAC path while we are "off" */
 
     if (usb_cable()) {
@@ -1466,6 +1468,9 @@ void ap_ui_loop(void)
     player_screen_set_volume(player_get_volume());
     s_volume_seen = player_get_volume();
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */
+    /* Bluetooth: restore the user's choice + remembered devices. The module
+     * stays off unless the user enabled it. */
+    bt_link_init((unsigned long)ap_ms());
     s_idle_ms = ap_ms();
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
@@ -1766,6 +1771,7 @@ void ap_ui_loop(void)
         } else {
             (void)player_process();
         }
+        bt_link_service((unsigned long)now);
 
         /* Album art for the new track. Deliberately AFTER the pump: a gapless
          * boundary has ~85 ms of ring cover, and this reads the pack header,
