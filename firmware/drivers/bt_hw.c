@@ -134,6 +134,11 @@ void bt_hw_power_off(void)
     if (s_routed)
         bt_hw_route(0);
     pins_low();
+    /* Park the UART block too: no bytes can arrive from a module whose power
+     * pin is low, and uart_clock_on() re-gates it on the next power-on. */
+    cru_rst(BT_RST_UART1, 1);
+    cru_gate(BT_GATE_UART1, 0);
+    cru_gate(BT_GATE_UART1_BUS, 0);
     s_powered = 0;
 }
 

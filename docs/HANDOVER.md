@@ -5023,7 +5023,14 @@ cassette muestra una marca «BT» (tenue encendido, acento en streaming). El
 loop repinta cuando cambia el estado. Tests de skin actualizados
 (`bt=0` oculta / `bt=2` muestra).
 
-**Build.** `make` PASS; AP5M CRC `0x72F7FCEC`; `.bss_end 0x030495D8` (2,600 B
+**Extra de batería.** `bt_hw_power_off()` también apaga el bloque UART1
+(reset + gates 0x1D/0x89); `uart_clock_on()` lo vuelve a encender. El idle-off
+de BT ahora considera la **pantalla apagada** como "screen closed" (antes,
+dejar abierta la pantalla de Bluetooth y apagar el panel mantenía el módulo
+encendido para siempre): `bt_link_set_display()` se alimenta de
+`screen_sleep`/`screen_wake`.
+
+**Build.** `make` PASS; AP5M CRC `0x22291B49`; `.bss_end 0x030495D8` (2,600 B
 libres). Pendiente de hardware: confirmar en el LOG `power: dac off` /
 `power: core B off` tras 3 s parado, que el Play posterior dice
 `power: core B on` y suena, y medir la autonomía.

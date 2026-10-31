@@ -117,7 +117,7 @@ Rules:
 - Off by default; the choice and up to six devices persist in
   `/.rechord/BT` (created at first boot like the other device files, so the
   in-place rewrite always has clusters). Enabling powers the module;
-  disabling drives its pins low.
+  disabling drives its pins low and gates the UART1 block off.
 - Only **user-chosen** devices are saved and auto-connected; devices found by
   a scan are listed but stay ephemeral until the user connects to one.
 - Auto-connect to the most recent device at boot and after a drop, one
