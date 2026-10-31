@@ -4989,3 +4989,35 @@ micro-SD, power-cycle.
 los auriculares en modo pairing, escanear, elegir, confirmar `CLOK`/`CHOK`,
 `CY0 1E` y `bt: audio route module`), y la marca de estado en Now Playing/home
 (el quirk del jack queda para cuando ReChord haga detección de jack).
+
+## CL. Session 2026-10-31 — batería: DAC y Core B se apagan en reposo
+
+**Hallazgo.** ReChord dejaba todo encendido para siempre al parar: `player_stop`
+cerraba el stream y paraba el serializador I2S, pero los CS43131/amplificadores,
+los clocks de audio y Core B seguían activos. Core B, además, gira en un
+`for(;;)` consultando el mailbox, así que un equipo "apagado" en la práctica
+seguía consumiendo. EchoPod ya lo resuelve así: *"three seconds after playback
+stops, the DAC path powers down"* + parada de su core 1.
+
+**Implementado.**
+- `services/power_save.c` (puro, host-testeado): a los 3 s de estado
+  STOPPED/ERROR decide `POWER_SAVE_DAC` y `POWER_SAVE_CORE_B`; PLAYING/PAUSED
+  desarma el timer. Un **preload de boot** mantiene B vivo 60 s (primer Play
+  rápido) y después se descarta.
+- `ap_ui`: aplica la decisión con líneas `power: dac off` / `power: core B off`.
+- `audio_output_power_off()`: además de `dac_output_off()`, apaga los gates de
+  audio (ACODEC, I2S1 src/frac/out/core, PCLK_I2S1/I2C0/ACODEC). PCLK_GPIO1 se
+  queda (lo usa el panel). `configure()` los vuelve a encender.
+- `core_b.c`: `ap_core_b_stop()` = assert `CAL_CORE_SRST` + gate
+  `HCLK_CAL_CORE` (secuencia del SDK `BcoreDev_ShutOff`) y `ap_core_b_running()`.
+- `ipc_b_target`: `ipc_b_start()`/`ipc_b_preload()` arrancan B si está parado,
+  **ceroan el bloque compartido antes** de liberar el reset (si no, un ACK=0
+  fresco podría re-ejecutar una secuencia vieja) y conservan la curva de EQ.
+
+**Tests.** `test_power_save` (armado, 3 s, preload 60 s, reset al reanudar, sin
+flag de DAC si ya está abajo) + todas las suites host verdes.
+
+**Build.** `make` PASS; AP5M CRC `0xC24CE621`; `.bss_end 0x030495D0` (2,608 B
+libres). Pendiente de hardware: confirmar en el LOG `power: dac off` /
+`power: core B off` tras 3 s parado, que el Play posterior dice
+`power: core B on` y suena, y medir la autonomía.

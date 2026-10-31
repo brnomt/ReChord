@@ -16,4 +16,11 @@ int ap_core_b_start(void);
 /* Last value observed at shared[0] (diagnostics). */
 uint32_t ap_core_b_magic(void);
 
+/* Hold Core B in reset + gate its clock (SDK BcoreDev_ShutOff). The caller
+ * must have stopped its stream first; a later ap_core_b_start() reloads it. */
+void ap_core_b_stop(void);
+
+/* 1 after a successful start, until ap_core_b_stop(). */
+int ap_core_b_running(void);
+
 #endif /* RECHORD_CORE_B_H */

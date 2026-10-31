@@ -22,6 +22,7 @@
 #include "ipc_shared.h"
 #include "audio/audio_output.h"
 #include "rknano_i2s.h"
+#include "drivers/core_b.h"
 #include "log.h"
 
 #define CTRL ((volatile uint32_t *)IPC_SHARED_BASE)
@@ -62,6 +63,43 @@ static void sh_set(unsigned i, uint32_t v)
 {
     CTRL[i] = v;
     dmb();
+}
+
+/* Core B is stopped while the player idles (services/power_save). Reset the
+ * shared block before the next command: a freshly started B has ACK=0, so a
+ * stale SEQUENCE would be replayed. The EQ curve cache survives, and is
+ * republished by the next start. */
+static void b_after_core_start(void)
+{
+    eq_curve_t keep = g_eq;
+    int keep_valid = g_eq_valid;
+    unsigned i;
+
+    for (i = 0; i < IPC_SH_COUNT; i++)
+        CTRL[i] = 0;
+    sh_set(IPC_SH_STATE, IPC_SH_IDLE);
+    g_state = IPC_B_OFF;
+    g_paused = 0;
+    s_b_decodes = 0;
+    s_eof_logged = 0;
+    s_prescan_valid = 0;
+    s_preload_valid = 0;
+    s_preload_hash = 0;
+    g_eq = keep;
+    g_eq_valid = keep_valid;
+}
+
+static int b_ensure_core(void)
+{
+    if (ap_core_b_running())
+        return 0;
+    /* Zero the shared block while B is held in reset, so it cannot replay a
+     * stale command sequence between release and the first real command. */
+    b_after_core_start();
+    if (ap_core_b_start() != 0)
+        return -1;
+    log_printf("power: core B on");
+    return 0;
 }
 
 /* Log the file NAME (not the whole path) so a field log names the track being
@@ -386,6 +424,8 @@ int ipc_b_preload(const ipc_b_track_t *track)
 {
     if (track == NULL || track->path == NULL || track->path[0] == '\0')
         return -1;
+    if (b_ensure_core() != 0)
+        return -1;
     if (s_preload_valid && s_preload_hash == path_hash32(track->path))
         return 0;
     /* Only while B is idle: never steal the stream from a running track. */
@@ -427,6 +467,8 @@ int ipc_b_start(const ipc_b_track_t *track)
 
     if (track == NULL || track->channels < 1 || track->channels > 2 ||
         track->sample_rate <= 0)
+        return -1;
+    if (b_ensure_core() != 0)
         return -1;
 
     /* Consume the boot preload only if it describes this exact track and B
@@ -737,6 +779,11 @@ int ipc_b_next(const ipc_b_track_t *track)
 int ipc_b_b_decodes(void)
 {
     return s_b_decodes;
+}
+
+int ipc_b_preloaded(void)
+{
+    return s_preload_valid && s_b_decodes;
 }
 
 int ipc_b_b_eof(void)

@@ -136,6 +136,7 @@ AP_SERVICE_SRCS := \
   firmware/services/bt_proto.c \
   firmware/services/bt_store.c \
   firmware/services/bt_link.c \
+  firmware/services/power_save.c \
   firmware/services/log.c \
   firmware/services/input.c \
   firmware/services/scratch.c \

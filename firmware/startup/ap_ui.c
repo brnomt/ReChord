@@ -33,6 +33,8 @@
 #include "services/art_pack.h"
 #include "services/eq_profile.h"
 #include "services/bt_link.h"
+#include "services/power_save.h"
+#include "drivers/core_b.h"
 #include "player.h"
 #include "player/ipc_b.h"
 #include "ui/ui.h"
@@ -90,6 +92,7 @@ static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 #define PLAYER_UI_REFRESH_MS  100u
 
 static unsigned s_loop_seq;          /* last loop tick (WFI pacing)        */
+static power_save_t s_power_save;
 static unsigned s_keys_ms;           /* last SARADC key sample             */
 static int      s_key_adc = 1023;    /* last key-ladder sample             */
 static int      s_key_power;         /* last power-key sample              */
@@ -1471,6 +1474,7 @@ void ap_ui_loop(void)
     /* Bluetooth: restore the user's choice + remembered devices. The module
      * stays off unless the user enabled it. */
     bt_link_init((unsigned long)ap_ms());
+    power_save_init(&s_power_save);
     s_idle_ms = ap_ms();
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
@@ -1772,6 +1776,28 @@ void ap_ui_loop(void)
             (void)player_process();
         }
         bt_link_service((unsigned long)now);
+
+        /* Idle power-down (EchoPod's device rule): three seconds after the
+         * player stops, power the DAC path down and stop Core B. A boot
+         * preload keeps B alive for a minute so the first Play stays fast. */
+        {
+            int state = player_get_state();
+            int idle = (state == PLAYER_STOPPED || state == PLAYER_ERROR);
+            unsigned flags = power_save_step(&s_power_save, idle,
+                                             audio_output_is_ready(),
+                                             ipc_b_preloaded(), now);
+
+            if (flags & POWER_SAVE_DAC) {
+                audio_output_power_off();
+                log_printf("power: dac off");
+            }
+            if ((flags & POWER_SAVE_CORE_B) && ap_core_b_running()) {
+                if (ipc_b_preloaded())
+                    ipc_b_stop();      /* drop the warm start first */
+                ap_core_b_stop();
+                log_printf("power: core B off");
+            }
+        }
 
         /* Album art for the new track. Deliberately AFTER the pump: a gapless
          * boundary has ~85 ms of ring cover, and this reads the pack header,

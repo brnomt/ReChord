@@ -353,6 +353,22 @@ void audio_output_power_off(void)
     dac_output_off();
     s_dac_ready = 0;
     s_fmt_valid = 0;
+    /* Audio clocks off while idle. configure() enables every one of these
+     * again before it touches I2C0/I2S1; PCLK_GPIO1 stays on because the
+     * panel and the GPIO writes need it. */
+    cru_gate(G_CLK_ACODEC, 0);
+    cru_gate(G_CLK_I2S1_SRC, 0);
+    cru_gate(G_CLK_I2S1_FRAC, 0);
+    cru_gate(G_CLK_I2S1_OUT, 0);
+    cru_gate(G_CLK_I2S1, 0);
+    cru_gate(G_PCLK_I2S1, 0);
+    cru_gate(G_PCLK_I2C0, 0);
+    cru_gate(G_PCLK_ACODEC, 0);
+}
+
+int audio_output_is_ready(void)
+{
+    return s_dac_ready;
 }
 
 void audio_output_set_fade_ms(int ms)

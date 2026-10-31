@@ -227,6 +227,10 @@ int ipc_b_preload(const ipc_b_track_t *track);
  * call ipc_b_ring_fill()). 0 on the host mock and when the handoff failed. */
 int ipc_b_b_decodes(void);
 
+/* 1 while Core B holds an opened track it was not yet told to RUN (the boot
+ * preload). The idle power-down keeps B alive for this warm start. */
+int ipc_b_preloaded(void);
+
 /* 1 when Core B's decoder has drained the track (end of stream). */
 int ipc_b_b_eof(void);
 

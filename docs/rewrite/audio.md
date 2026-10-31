@@ -323,3 +323,12 @@ audio/audio_output.c    -- audio_output_t controller: format coordination
   identical (machine-checked against c5d571f during the move). Never
   "clean up" these sequences casually — that is exactly how the 2x-speed
   framing bug happened.
+- **Idle power-down (battery)**: `services/power_save.c` decides, three
+  seconds after the player is stopped (or errored), to
+  `audio_output_power_off()` (DAC registers/amps down + the audio clocks
+  gated off; `configure()` re-enables them) and `ap_core_b_stop()`
+  (`CAL_CORE_SRST` + `HCLK_CAL_CORE` gate, the SDK's `BcoreDev_ShutOff`).
+  Playing/paused resets the timer so resume is instant. A boot preload keeps
+  Core B alive for 60 s (the warm first Play) and then is discarded. The
+  next `ipc_b_start`/`ipc_b_preload` restarts B and zeroes the shared block
+  first, so a fresh ACK=0 cannot replay a stale command sequence.

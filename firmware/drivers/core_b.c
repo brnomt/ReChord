@@ -42,6 +42,7 @@ extern const unsigned char _binary_bb_core_bin_start[];
 extern const unsigned char _binary_bb_core_bin_end[];
 
 static uint32_t s_magic;
+static int s_running;
 
 int ap_core_b_start(void)
 {
@@ -53,6 +54,7 @@ int ap_core_b_start(void)
     int tries;
 
     s_magic = 0;
+    s_running = 0;
     if (len == 0 || len > BB_MAX_BYTES || (len & 3u) != 0u)
         return -1;
 
@@ -86,11 +88,30 @@ int ap_core_b_start(void)
     dac_delay_ms(5);
     for (tries = 0; tries < 200; tries++) {       /* ~200 ms */
         s_magic = SHARED[0];
-        if (s_magic == BB_MAGIC)
+        if (s_magic == BB_MAGIC) {
+            s_running = 1;
             return 0;
+        }
         dac_delay_ms(1);
     }
     return -1;
+}
+
+/* Stop Core B the way the vendor SDK does (BcoreDev_ShutOff): hold the core
+ * in reset and gate its clock. Its RAM stays intact, but the AP re-copies the
+ * image and resets the IPC block on the next start, so no state is assumed. */
+void ap_core_b_stop(void)
+{
+    cru_rst(R_CAL_CORE_SRST, 1);
+    cru_gate(G_HCLK_CAL_CORE, 0);
+    SHARED[0] = 0;
+    s_magic = 0;
+    s_running = 0;
+}
+
+int ap_core_b_running(void)
+{
+    return s_running;
 }
 
 uint32_t ap_core_b_magic(void)

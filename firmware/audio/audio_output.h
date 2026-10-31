@@ -63,6 +63,10 @@ void audio_output_clear_played(void);
  * pad Hi-Z) — the verified dac_output_off sequence. */
 void audio_output_power_off(void);
 
+/* 1 while the DAC path is configured and powered (used by the idle
+ * power-down: only then is there anything to turn off). */
+int  audio_output_is_ready(void);
+
 /* Click-free transitions (stock FUN_03055f48 / FUN_03056e54 pattern):
  * fade the PCM volume to mute before tearing the stream down (stop /
  * pause) and back to the user level when it resumes. Ramping is the

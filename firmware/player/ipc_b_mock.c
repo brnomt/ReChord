@@ -284,6 +284,11 @@ int ipc_b_b_decodes(void)
     return g_b_decodes;
 }
 
+int ipc_b_preloaded(void)
+{
+    return 0;
+}
+
 int ipc_b_b_eof(void)
 {
     return g_b_decodes ? g_b_eof : 0;
