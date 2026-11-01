@@ -87,8 +87,12 @@
 The stock changelogs confirm the class expectation: **OGG (1.7.0), M4A/AAC
 sorting (2.6/3.6.0), APE/WMA ID3 (3.8.0), DSD (3.3.0)** and MP3 cover art
 (3.8.0). ReChord decodes FLAC/MP3/WAV only. AAC/ALAC and Opus are the most
-realistic additions (EchoPod already runs FAAD2/libopus on its second core);
-APE/WMA/DSD are large or constrained by the 80 KB decode pool.
+realistic additions, but a measured Core-B budget check (2026-10-31)
+shows they do **not** fit the single 128 KiB B image: EchoPod's core1 AAC is
+62,948 B text with a 48 KiB stack and Opus is 91,632 B text, while ReChord's
+B has ~53 KiB of code and ~33 KiB of stack free. They need EchoPod's
+per-format overlay images (see `docs/rewrite/core-b-codecs.md`). APE/WMA/DSD
+are also constrained by the 80 KB decode pool.
 
 ## 2. What a standard DAP has that ReChord does not
 
@@ -127,7 +131,11 @@ stability/usability/battery goals.
    mute/volume controls map to the CS43131. Entry points: root menu
    **USB DAC**, or `usb=dac` on the cable edge. Stock v2.4.0 had the same
    mode.
-10. **AAC/M4A and OGG/Vorbis/Opus** decode on Core B (the stock supported them).
+10. **AAC/M4A and OGG/Vorbis/Opus** decode on Core B (the stock supported
+    them). **Documented, deferred (2026-10-31):** measured against the Core-B
+    budget they exceed the single 128 KiB image (AAC +10 KiB code / +15 KiB
+    stack; Opus +39 KiB code) and require overlay images; see
+    `docs/rewrite/core-b-codecs.md`.
 
 ### P2 — standard but larger or lower urgency
 

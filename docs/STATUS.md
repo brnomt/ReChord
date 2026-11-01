@@ -115,6 +115,14 @@ plays audio on hardware:
   with no link. Theme skins get `bt`/`bt_stream`. **Verified on device**
   (BLIK-AIR400 streaming + remote keys); contract in
   `docs/rewrite/bluetooth.md`.
+- **Codec budget (AAC/Opus/Vorbis)**: measured, not implemented. The current
+  Core-B image is 74,612 B text in a 128 KiB code region and 97,880 B of
+  data/bss in 128 KiB (80,896 B decode pool), leaving ~53 KiB code and ~33 KiB
+  stack. EchoPod's core1 AAC is 62,948 B text + 48 KiB stack; Opus is
+  91,632 B text + 16 KiB bss. They cannot coexist in one image; supporting
+  them needs EchoPod-style per-format overlay programs and an update/asset
+  path for the images. Measurements, alternatives and the decision are in
+  `docs/rewrite/core-b-codecs.md`.
 - **USB DAC (UAC1)**: `drivers/usb_dac_rknanoc.c` enumerates a driver-free
   48 kHz/16-bit stereo sound card on the existing polled DWC2 stack; EP1
   isochronous OUT packets go through `services/usb_dac_sink.c` into the I2S
