@@ -14,6 +14,7 @@
 #include "playlist.h"      /* PLAYLIST_REPEAT_* (mode indicator) */
 #include "../theme.h"
 #include "../internal/hal.h"
+#include "../../services/library_extras.h"
 
 #define PLAYER_BAR_X0   (theme_layout()->pad)
 #define PLAYER_BAR_X1   (DISPLAY_W - 1 - theme_layout()->pad)
@@ -274,6 +275,19 @@ static void player_screen_handle_event(const input_event_t *ev)
         }
         break;
     case KEY_SELECT:
+        if (ev->kind == INPUT_LONG) {
+            track_info_t ti;
+
+            if (player_get_track(&ti) == PLAYER_OK && ti.path[0] != '\0') {
+                int rc = extras_toggle_favorite(ti.path);
+
+                if (rc >= 0)
+                    log_printf("fav: %s %s", rc ? "added" : "removed",
+                               ti.title);
+                ui_invalidate_all();
+            }
+            break;
+        }
         if (ev->kind != INPUT_PRESS)
             break;
         if (s_status[0])

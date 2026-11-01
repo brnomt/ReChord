@@ -41,7 +41,7 @@
 | Live queue view, jump to entry | ✅ device |
 | Album sort with **disc number** (CD# → track# → filename) | ⬜ (no disc field) |
 | Search (title / artist / album) | ⬜ |
-| Favorites / ratings / play counts / recently played | ⬜ |
+| Favorites / Recently played / play counts | ✅ (rated stars not planned; "Most played" covers the 32-entry recent window) |
 | Named playlists, M3U import/export, "add to queue"/"play next" | ⬜ (`player_enqueue` exists, no UI) |
 | Folder skip (next/prev folder) | ⬜ |
 | File delete/rename/format from the UI | ⬜ (PC via MSC instead) |
@@ -104,9 +104,13 @@ stability/usability/battery goals.
    scope).
 2. **Lyrics (`.lrc`)** — synced and static, full-screen. The files are already
    on the card, the parser is small, and the stock firmware had it.
-3. **Favorites + Recently played + play counts** — long-press to favorite in
-   the browser/Now Playing, dedicated library entries, persisted like the
-   resume state. Stock had Favorites (1.3.0) with resume position (3.5.0).
+3. ✅ **Favorites + Recently played + play counts** (2026-10-31) —
+   `services/library_extras.c` stores 32-bit FNV-1a path hashes (48 favorites,
+   32 recent with counts) in `/.rechord/favorites` and `/.rechord/recent`;
+   Library gains **Favorites**, **Recently played** and **Most played** rows
+   (one index pass each, views in `media_query`), long-SELECT toggles a
+   favorite in the song lists and on Now Playing, and a "Fav"/"Nx" value
+   marks the rows. Stock had Favorites (1.3.0) with resume position (3.5.0).
 4. **Named playlists + M3U import/export + "Add to queue"/"Play next".**
    `player_enqueue` exists but nothing calls it.
 5. **Sleep timer while playing** (off/15/30/60/90 min), distinct from the

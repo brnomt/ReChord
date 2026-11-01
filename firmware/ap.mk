@@ -137,6 +137,7 @@ AP_SERVICE_SRCS := \
   firmware/services/bt_proto.c \
   firmware/services/file_io.c \
   firmware/services/jack_sense.c \
+  firmware/services/library_extras.c \
   firmware/services/bt_store.c \
   firmware/services/bt_link.c \
   firmware/services/power_save.c \

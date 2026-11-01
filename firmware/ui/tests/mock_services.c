@@ -706,3 +706,41 @@ const char *bt_link_status_text(void)
 {
     return s_mock_bt_on ? "On" : "Off";
 }
+
+/* ---- library extras (favorites / recent / counts) ----------------------
+ * The screens only need the calls to exist and to report an empty store. */
+#include "../../services/library_extras.h"
+
+void extras_init(void) { }
+int  extras_loaded(void) { return 1; }
+
+uint32_t extras_path_hash(const char *path)
+{
+    uint32_t h = 2166136261u;
+
+    while (path != 0 && *path != '\0') {
+        h ^= (uint8_t)*path++;
+        h *= 16777619u;
+    }
+    return h;
+}
+
+int      extras_is_favorite(const char *path) { (void)path; return 0; }
+int      extras_is_favorite_hash(uint32_t hash) { (void)hash; return 0; }
+int      extras_favorite_slot(uint32_t hash) { (void)hash; return -1; }
+int      extras_toggle_favorite(const char *path) { (void)path; return 1; }
+unsigned extras_favorite_count(void) { return 0; }
+uint32_t extras_favorite_hash(unsigned slot) { (void)slot; return 0; }
+void     extras_note_play(const char *path) { (void)path; }
+int      extras_recent_slot(uint32_t hash) { (void)hash; return -1; }
+unsigned extras_recent_count(void) { return 0; }
+uint32_t extras_recent_hash(unsigned slot) { (void)slot; return 0; }
+unsigned extras_recent_plays(unsigned slot) { (void)slot; return 0; }
+unsigned extras_plays_for_hash(uint32_t hash) { (void)hash; return 0; }
+
+unsigned extras_most_played_order(unsigned char *order, unsigned cap)
+{
+    (void)order;
+    (void)cap;
+    return 0;
+}

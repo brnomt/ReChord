@@ -32,8 +32,11 @@ static void open_year(void)         { open_cat(MQ_YEAR); }
 static void open_label(void)        { open_cat(MQ_LABEL); }
 static void open_album_artist(void) { open_cat(MQ_ALBUM_ARTIST); }
 static void open_composer(void)     { open_cat(MQ_COMPOSER); }
+static void open_favorites(void)    { open_cat(MQ_FAVORITES); }
+static void open_recent(void)       { open_cat(MQ_RECENT); }
+static void open_most_played(void)  { open_cat(MQ_MOST_PLAYED); }
 
-static const menu_item_t k_items[MQ_COUNT] = {
+static const menu_item_t k_items[MQ_LIBRARY_ITEMS] = {
     { "All Songs",    NULL, open_all },
     { "Album",        NULL, open_album },
     { "Artist",       NULL, open_artist },
@@ -42,20 +45,23 @@ static const menu_item_t k_items[MQ_COUNT] = {
     { "Label",        NULL, open_label },
     { "Album Artist", NULL, open_album_artist },
     { "Composer",     NULL, open_composer },
+    { "Favorites",       NULL, open_favorites },
+    { "Recently played", NULL, open_recent },
+    { "Most played",     NULL, open_most_played },
 };
 
-static const menu_model_t k_model = { "Library", k_items, MQ_COUNT };
+static const menu_model_t k_model = { "Library", k_items, MQ_LIBRARY_ITEMS };
 
 static const char *lib_label(int index, char *buf, int cap)
 {
-    if (index < 0 || index >= MQ_COUNT)
+    if (index < 0 || index >= MQ_LIBRARY_ITEMS)
         return "";
     snprintf(buf, (size_t)cap, "%s", k_items[index].label);
     return buf;
 }
 
 static const theme_skin_list_source_t k_source = {
-    MQ_COUNT, lib_label, 0
+    MQ_LIBRARY_ITEMS, lib_label, 0
 };
 
 static void lib_on_enter(void)
@@ -98,10 +104,10 @@ static void lib_handle_event(const input_event_t *ev)
         nav = theme_ui_nav(ev->type);
         if (nav == THEME_SKIN_PREV || nav == THEME_SKIN_NEXT) {
             menu_view_move(&s_view, nav == THEME_SKIN_PREV ? -1 : +1,
-                           MQ_COUNT, rows);
+                           MQ_LIBRARY_ITEMS, rows);
             ui_invalidate_all();
         } else if (nav == THEME_SKIN_SELECT) {
-            if (s_view.cursor >= 0 && s_view.cursor < MQ_COUNT)
+            if (s_view.cursor >= 0 && s_view.cursor < MQ_LIBRARY_ITEMS)
                 k_items[s_view.cursor].on_select();
         } else if (nav == THEME_SKIN_BACK) {
             ui_pop_screen();
@@ -111,15 +117,15 @@ static void lib_handle_event(const input_event_t *ev)
 
     switch (ev->type) {
     case KEY_UP:
-        menu_view_move(&s_view, -1, MQ_COUNT, menu_page_size());
+        menu_view_move(&s_view, -1, MQ_LIBRARY_ITEMS, menu_page_size());
         ui_invalidate_all();
         break;
     case KEY_DOWN:
-        menu_view_move(&s_view, +1, MQ_COUNT, menu_page_size());
+        menu_view_move(&s_view, +1, MQ_LIBRARY_ITEMS, menu_page_size());
         ui_invalidate_all();
         break;
     case KEY_SELECT:
-        if (s_view.cursor >= 0 && s_view.cursor < MQ_COUNT)
+        if (s_view.cursor >= 0 && s_view.cursor < MQ_LIBRARY_ITEMS)
             k_items[s_view.cursor].on_select();
         break;
     case KEY_BACK:

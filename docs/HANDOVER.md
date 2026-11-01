@@ -5106,3 +5106,37 @@ rebote); todas las suites host verdes.
 
 **Build.** `make` PASS; AP5M CRC `0x5B32F935`; `.bss_end 0x030495E8` (2,584 B
 libres).
+
+## CO. Session 2026-10-31 — Favoritos, recientes y contador de reproducciones
+
+**Almacenamiento.** `services/library_extras.c` guarda **hashes FNV-1a de 32
+bits del path completo** (`/SD/...`), no los paths: 48 favoritos y 32 recientes
+con contador cuestan ~450 B de RAM en vez de ~13 KB, sobreviven a un rebuild
+del índice y el archivo completo queda bajo 1 KB. `/.rechord/favorites` (un
+hash hex por línea) y `/.rechord/recent` (`hash plays`, más reciente primero)
+se crean en `rechord_files_init` y se reescriben con `fs_store_file`; un
+arranque de tema escribe ~500 B una sola vez, nunca por tick. Un hash que ya
+no está en el índice (archivo borrado) se omite.
+
+**Vistas.** `media_query` gana `mq_favorites_init`, `mq_recent_init` y
+`mq_most_played_init`: escanean el índice una vez y colocan cada record en su
+posición del store con un mapa de slots (96 B); reutilizan el scratch y la
+misma API `mq_filter_*`. La Library muestra **Favorites**, **Recently played**
+y **Most played** después de las categorías; no tienen paso de nombres y BACK
+vuelve directo a la Library.
+
+**UI.** SELECT largo sobre una canción (lista de categoría o Now Playing)
+alterna favorito y loguea `fav: added/removed <título>`. La columna derecha
+muestra `Fav` (salvo en la propia vista de favoritos) y `Nx` en Most played.
+El contador se anota al pasar a PLAYING con un `track_no` distinto (el resume
+en pausa del boot no cuenta; replay tras stop sí), diferido al loop para no
+escribir dentro del callback del player.
+
+**Tests.** `test_library_extras` (hash, carga/guardado, MRU, contadores,
+límites, orden de most-played) y las tres vistas en `test_media_query`
+(incluido un favorito que ya no está en el índice); `test_library_extras_ui`
+comprueba las filas nuevas y la navegación. Todas las suites verdes.
+
+**Build.** `make` PASS; AP5M CRC `0x317AABB4`; `.bss_end 0x03049818` (2,024 B
+libres). Pendiente de hardware: confirmar que el long-press y las vistas se
+sienten bien con la biblioteca real.

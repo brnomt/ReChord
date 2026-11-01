@@ -27,6 +27,13 @@ enum {
     MQ_COUNT
 };
 
+/* Extra Library entries (not tag categories). They use the same filter view,
+ * so the category screen, playback list and skin source all work unchanged. */
+#define MQ_FAVORITES   (MQ_COUNT + 0)
+#define MQ_RECENT      (MQ_COUNT + 1)
+#define MQ_MOST_PLAYED (MQ_COUNT + 2)
+#define MQ_LIBRARY_ITEMS (MQ_COUNT + 3)
+
 /* Menu label for a category ("All Songs", "Album", ...). */
 const char *mq_category_name(int cat);
 
@@ -41,6 +48,13 @@ const char *mq_names_get(unsigned i);
  * Songs). The matching record indices are collected once, so paging over them
  * never re-reads the index. */
 int      mq_filter_init(int cat, const char *value);
+
+/* Special views (path hashes from services/library_extras.c mapped to the
+ * current index in one pass). They behave like mq_filter_init() afterwards:
+ * mq_filter_count/get/indices describe the result. */
+int      mq_favorites_init(void);
+int      mq_recent_init(void);
+int      mq_most_played_init(void);
 
 /* Same as mq_filter_init(), and reports the SORTED filter position of the
  * record whose full device path ("/"+rec.path) equals `target`, in

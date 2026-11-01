@@ -28,6 +28,8 @@ firmware/services/
 │                             (fs_seek, fs_patch dirent-size); writes via store.c
 ├── file_io.c                 whole-file helpers (fs_load_file/fs_store_file)
 │                             shared by settings/resume/BT/EQ/log
+├── library_extras.c          favorites + recently played + play counts
+│                             (path hashes, no index dependency)
 ├── store.h / store.c         raw-sector store (in-place file rewrites)
 ├── media_db.h / media_db.c   media index (v3: dual A/B slots + CRC commit)
 ├── media_scan.c              iterative directory walk (depth-capped)

@@ -23,6 +23,10 @@
  * are named customN.cfg (N = 1..8); extra user files appear in the picker. */
 #define RECHORD_EQ_DIR "/Internal/.rechord/eq"
 #define RECHORD_EQ_CFG "/Internal/.rechord/eq.cfg"
+/* Library extras (BRNOMT-70 follow-up): favorite and recently-played path
+ * hashes (32-bit FNV-1a), ~0.5 KB each. */
+#define RECHORD_FAVORITES "/Internal/.rechord/favorites"
+#define RECHORD_RECENT    "/Internal/.rechord/recent"
 
 /* First-boot layout: create /.rechord, rechord.cfg (with the default
  * configuration written), state and LOG (each with a short text header, so

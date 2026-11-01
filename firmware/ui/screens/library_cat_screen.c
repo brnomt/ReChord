@@ -18,6 +18,7 @@
 
 #include "../../services/media_db.h"
 #include "../../services/media_query.h"
+#include "../../services/library_extras.h"
 
 /* Rows that fit between the list top and the footer row; page == window. */
 static int cat_rows(void)
@@ -39,6 +40,41 @@ static cat_state_t s_cat;
 static int s_use_skin;
 
 static unsigned cat_total(void);
+static void cat_ensure_visible(unsigned total);
+static const char *cat_value(int index, char *buf, int cap);
+
+/* Right column: "Fav" for favorites, "Nx" for the play count in Most played.
+ * The Favorites view itself shows no marker (every row is one). */
+static const char *cat_value(int index, char *buf, int cap)
+{
+    media_rec_t rec;
+    char full[MEDIA_PATH_MAX + 1];
+    size_t n;
+    uint32_t hash;
+
+    if (!s_cat.mode || index < 0 || (unsigned)index >= cat_total())
+        return 0;
+    if (mq_filter_get((unsigned)index, &rec) != FS_OK)
+        return 0;
+    n = strlen(rec.path);
+    if (n + 2u > sizeof full)
+        return 0;
+    full[0] = '/';
+    memcpy(full + 1, rec.path, n + 1u);
+    hash = extras_path_hash(full);
+    if (s_cat.cat == MQ_MOST_PLAYED) {
+        unsigned plays = extras_plays_for_hash(hash);
+
+        if (plays > 0) {
+            snprintf(buf, (size_t)cap, "%ux", plays);
+            return buf;
+        }
+        return 0;
+    }
+    if (s_cat.cat != MQ_FAVORITES && extras_is_favorite_hash(hash))
+        return "Fav";
+    return 0;
+}
 
 static const char *cat_label(int index, char *buf, int cap)
 {
@@ -57,7 +93,7 @@ static const char *cat_label(int index, char *buf, int cap)
     return buf;
 }
 
-static theme_skin_list_source_t s_source = { 0, cat_label, 0 };
+static theme_skin_list_source_t s_source = { 0, cat_label, cat_value };
 
 /* Rows the active screen shows: the skin's list window when one is loaded,
  * otherwise the compiled geometry. */
@@ -72,18 +108,34 @@ static int cat_page(void)
     return cat_rows();
 }
 
+static int cat_is_special(int cat)
+{
+    return cat == MQ_FAVORITES || cat == MQ_RECENT || cat == MQ_MOST_PLAYED;
+}
+
+/* (Re)build the current view. Special entries have no names step. */
+static int cat_query_init(void)
+{
+    if (!s_cat.mode)
+        return mq_names_init(s_cat.cat);
+    if (s_cat.cat == MQ_FAVORITES)
+        return mq_favorites_init();
+    if (s_cat.cat == MQ_RECENT)
+        return mq_recent_init();
+    if (s_cat.cat == MQ_MOST_PLAYED)
+        return mq_most_played_init();
+    return mq_filter_init(s_cat.cat, s_cat.value[0] ? s_cat.value : 0);
+}
+
 /* Called by the Library menu before pushing this screen. */
 void library_cat_open(int cat)
 {
     s_cat.cat = cat;
-    s_cat.mode = (cat == MQ_ALL) ? 1 : 0;
+    s_cat.mode = (cat == MQ_ALL || cat_is_special(cat)) ? 1 : 0;
     s_cat.cursor = 0;
     s_cat.top = 0;
     s_cat.value[0] = '\0';
-    if (s_cat.mode)
-        (void)mq_filter_init(s_cat.cat, 0);
-    else
-        (void)mq_names_init(s_cat.cat);
+    (void)cat_query_init();
 }
 
 static unsigned cat_total(void)
@@ -93,10 +145,7 @@ static unsigned cat_total(void)
 
 static void cat_on_enter(void)
 {
-    if (s_cat.mode)
-        (void)mq_filter_init(s_cat.cat, s_cat.value[0] ? s_cat.value : 0);
-    else
-        (void)mq_names_init(s_cat.cat);
+    (void)cat_query_init();
     s_use_skin = theme_ui_load(THEME_UI_LIBRARY_CAT);
     s_source.count = (int)cat_total();
     if (s_use_skin)
@@ -119,7 +168,7 @@ static void cat_draw(void)
     if (s_use_skin) {
         theme_skin_state_t st;
 
-        if (s_cat.mode)
+        if (s_cat.mode && s_cat.value[0] != '\0')
             snprintf(title, sizeof title, "%s / %s",
                      mq_category_name(s_cat.cat), s_cat.value);
         else
@@ -134,7 +183,7 @@ static void cat_draw(void)
     display_clear(THEME_COLOR_BG);
     display_fill_rect(0, 0, DISPLAY_W - 1, THEME_TITLE_H - 1,
                       THEME_COLOR_TITLE_BG);
-    if (s_cat.mode)
+    if (s_cat.mode && s_cat.value[0] != '\0')
         snprintf(title, sizeof title, "%s / %s",
                  mq_category_name(s_cat.cat), s_cat.value);
     else
@@ -159,12 +208,48 @@ static void cat_draw(void)
                            : mq_names_get((unsigned)abs_idx);
         if (label == 0)
             break;
-        menu_draw_item(THEME_MENU_TOP + row * THEME_ITEM_H, label, NULL,
-                       abs_idx == s_cat.cursor);
+        {
+            char vbuf[8];
+            const char *value = cat_value(abs_idx, vbuf, (int)sizeof vbuf);
+
+            menu_draw_item(THEME_MENU_TOP + row * THEME_ITEM_H, label, value,
+                           abs_idx == s_cat.cursor);
+        }
     }
     snprintf(footer, sizeof footer, "%u / %u",
              (unsigned)(s_cat.cursor + 1), total);
     menu_draw_item(DISPLAY_H - THEME_ITEM_H, footer, NULL, false);
+}
+
+/* Long SELECT: toggle the selected track's favorite (all songs views). */
+static void cat_toggle_favorite(void)
+{
+    media_rec_t rec;
+    char full[MEDIA_PATH_MAX + 1];
+    size_t n;
+    int rc;
+
+    if (!s_cat.mode || s_cat.cursor < 0 || (unsigned)s_cat.cursor >= cat_total())
+        return;
+    if (mq_filter_get((unsigned)s_cat.cursor, &rec) != FS_OK)
+        return;
+    n = strlen(rec.path);
+    if (n + 2u > sizeof full)
+        return;
+    full[0] = '/';
+    memcpy(full + 1, rec.path, n + 1u);
+    rc = extras_toggle_favorite(full);
+    if (rc >= 0)
+        log_printf("fav: %s %s", rc ? "added" : "removed", rec.title);
+    if (s_cat.cat == MQ_FAVORITES) {
+        (void)mq_favorites_init();
+        if (s_cat.cursor >= (int)cat_total())
+            s_cat.cursor = (int)cat_total() - 1;
+        if (s_cat.cursor < 0)
+            s_cat.cursor = 0;
+        cat_ensure_visible(cat_total());
+    }
+    ui_invalidate_all();
 }
 
 static void cat_play(int idx)
@@ -177,7 +262,10 @@ static void cat_play(int idx)
     /* BRNOMT-90: play the whole filtered list, starting here — the player
      * shows "i/N" and auto-advances through the rest. The source is set first
      * so ReplayGain AUTO can resolve the first track as album playback. */
-    player_set_queue_source(PLAYER_QUEUE_CAT, s_cat.value, s_cat.cat);
+    if (s_cat.cat < MQ_COUNT)
+        player_set_queue_source(PLAYER_QUEUE_CAT, s_cat.value, s_cat.cat);
+    else
+        player_set_queue_source(PLAYER_QUEUE_NONE, "", -1);
     {
         int rc = player_play_list(list, (int)n, idx);
 
@@ -232,7 +320,12 @@ static void cat_handle_event(const input_event_t *ev)
     unsigned total = cat_total();
     int key = ev->type;
 
-    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
+    if (ev->kind == INPUT_LONG) {
+        if (key == KEY_SELECT)
+            cat_toggle_favorite();
+        return;
+    }
+    if (ev->kind == INPUT_RELEASE)
         return;                       /* listings act on PRESS/REPEAT only */
 
     if (s_use_skin) {
@@ -291,7 +384,7 @@ static void cat_handle_event(const input_event_t *ev)
         }
         break;
     case KEY_BACK:
-        if (s_cat.mode && s_cat.cat != MQ_ALL) {
+        if (s_cat.mode && s_cat.cat != MQ_ALL && s_cat.cat < MQ_COUNT) {
             /* back to the names of this category */
             s_cat.mode = 0;
             s_cat.value[0] = '\0';

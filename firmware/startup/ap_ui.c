@@ -34,6 +34,7 @@
 #include "services/eq_profile.h"
 #include "services/bt_link.h"
 #include "services/power_save.h"
+#include "services/library_extras.h"
 #include "drivers/core_b.h"
 #include "drivers/jack.h"
 #include "drivers/bt_hw.h"
@@ -99,6 +100,8 @@ static uint8_t s_bt_ui;              /* last Bluetooth state seen by the UI */
 static jack_kind_t s_jack_prev = JACK_NONE;
 static unsigned long s_jack_ms;
 static uint8_t s_jack_ready;
+static uint8_t s_note_play_pending;
+static int s_noted_track = -1;
 static unsigned s_keys_ms;           /* last SARADC key sample             */
 static int      s_key_adc = 1023;    /* last key-ladder sample             */
 static int      s_key_power;         /* last power-key sample              */
@@ -1405,8 +1408,25 @@ static void player_state_changed(int ev, void *user)
     (void)user;
     if (ev == PLAYER_EV_TRACK)
         s_art_dirty = 1;              /* cover lookup, deferred to the loop */
-    if (ev == PLAYER_EV_STATE || ev == PLAYER_EV_TRACK)
+    if (ev == PLAYER_EV_STATE || ev == PLAYER_EV_TRACK) {
+        int state = player_get_state();
+
         player_screen_sync_state();
+        /* Recently played / play count: count once per track when playback
+         * actually starts (not on a paused boot resume). The file write is
+         * deferred to the loop so it never runs inside the player event. */
+        if (state == PLAYER_PLAYING) {
+            track_info_t ti;
+
+            if (player_get_track(&ti) == PLAYER_OK &&
+                ti.track_no != s_noted_track) {
+                s_noted_track = ti.track_no;
+                s_note_play_pending = 1;
+            }
+        } else if (state == PLAYER_STOPPED || state == PLAYER_ERROR) {
+            s_noted_track = -1;
+        }
+    }
 }
 
 /* BRNOMT-107: navigation-only VOL orientation. Now Playing is excluded so
@@ -1482,6 +1502,7 @@ void ap_ui_loop(void)
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */
     /* Bluetooth: restore the user's choice + remembered devices. The module
      * stays off unless the user enabled it. */
+    extras_init();
     jack_init();
     bt_link_init((unsigned long)ap_ms());
     power_save_init(&s_power_save);
@@ -1786,6 +1807,14 @@ void ap_ui_loop(void)
             (void)player_process();
         }
         bt_link_service((unsigned long)now);
+
+        if (s_note_play_pending) {
+            track_info_t ti;
+
+            s_note_play_pending = 0;
+            if (player_get_track(&ti) == PLAYER_OK && ti.path[0] != '\0')
+                extras_note_play(ti.path);
+        }
 
         /* Headphone jack (BRNOMT-70): pulling the headphones out pauses.
          * The sense pins read wrong while audio is routed to Bluetooth, so

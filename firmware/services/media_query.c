@@ -14,6 +14,7 @@
 #include "fs.h"
 #include "media_query.h"
 #include "scratch.h"
+#include "library_extras.h"
 
 #define MQ_CELL 24u
 #define MQ_UNDEFINED "Undefined"
@@ -137,6 +138,9 @@ const char *mq_category_name(int cat)
     case MQ_LABEL:        return "Label";
     case MQ_ALBUM_ARTIST: return "Album Artist";
     case MQ_COMPOSER:     return "Composer";
+    case MQ_FAVORITES:    return "Favorites";
+    case MQ_RECENT:       return "Recently played";
+    case MQ_MOST_PLAYED:  return "Most played";
     default:              return "?";
     }
 }
@@ -330,6 +334,99 @@ int mq_filter_init_start(int cat, const char *value, const char *target,
 int mq_filter_init(int cat, const char *value)
 {
     return mq_filter_init_start(cat, value, 0, 0);
+}
+
+/* ---- Favorites / Recently played / Most played -------------------------
+ *
+ * The stores keep 32-bit hashes of the full device path, so these views scan
+ * the index once and place each matching record in its store position. No
+ * path strings are held: a tiny slot map (record index per position) does the
+ * ordering, and the scratch region is used exactly like the normal filter. */
+static uint16_t s_slot[EXTRAS_FAV_MAX];
+
+static int mq_extras_init(int kind)
+{
+    unsigned total, i, pos, slots;
+    unsigned char order[EXTRAS_RECENT_MAX];
+
+    mq_done();
+    mq_setup_lists(&s_cap);
+    if (s_idx == 0)
+        return FS_ERR_IO;
+    if (media_db_open() != FS_OK) {
+        mq_done();
+        return FS_ERR_OPEN;
+    }
+    extras_init();
+    s_count = 0;
+    s_truncated = 0;
+
+    if (kind == 0)
+        slots = extras_favorite_count();
+    else if (kind == 1)
+        slots = extras_recent_count();
+    else
+        slots = extras_most_played_order(order, EXTRAS_RECENT_MAX);
+    if (slots > EXTRAS_FAV_MAX)
+        slots = EXTRAS_FAV_MAX;
+    for (i = 0; i < slots; i++)
+        s_slot[i] = 0xFFFF;
+
+    total = media_db_count();
+    for (i = 0; i < total; i++) {
+        media_rec_t rec;
+        char full[MEDIA_PATH_MAX + 1];
+        size_t n;
+        uint32_t hash;
+        unsigned k;
+        int found = -1;
+
+        if (media_db_get(i, &rec) != FS_OK)
+            break;
+        if (s_pump != 0 && (i & (MQ_PUMP_EVERY - 1u)) == 0u)
+            s_pump();
+        n = strlen(rec.path);
+        if (n + 1u > sizeof full)
+            continue;
+        full[0] = '/';
+        memcpy(full + 1, rec.path, n + 1u);
+        hash = extras_path_hash(full);
+        for (k = 0; k < slots; k++) {
+            uint32_t want;
+
+            if (kind == 2)
+                want = extras_recent_hash(order[k]);
+            else if (kind == 1)
+                want = extras_recent_hash(k);
+            else
+                want = extras_favorite_hash(k);
+            if (want == hash) {
+                found = (int)k;
+                break;
+            }
+        }
+        if (found >= 0 && s_slot[found] == 0xFFFF)
+            s_slot[found] = (uint16_t)i;
+    }
+    for (pos = 0; pos < slots && s_count < s_cap; pos++)
+        if (s_slot[pos] != 0xFFFF)
+            s_idx[s_count++] = s_slot[pos];
+    return 0;
+}
+
+int mq_favorites_init(void)
+{
+    return mq_extras_init(0);
+}
+
+int mq_recent_init(void)
+{
+    return mq_extras_init(1);
+}
+
+int mq_most_played_init(void)
+{
+    return mq_extras_init(2);
 }
 
 unsigned mq_filter_count(void)

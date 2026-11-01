@@ -115,6 +115,13 @@ plays audio on hardware:
   with no link. Theme skins get `bt`/`bt_stream`. **Verified on device**
   (BLIK-AIR400 streaming + remote keys); contract in
   `docs/rewrite/bluetooth.md`.
+- **Favorites / Recently played / Most played**: `services/library_extras.c`
+  keeps 32-bit FNV-1a hashes of full device paths (48 favorites; 32 recent
+  with play counts) in `/.rechord/favorites` and `/.rechord/recent`, so the
+  store is ~450 B of RAM, survives index rebuilds and costs one small write
+  per track start. Library gains the three entries; `media_query` maps the
+  hashes onto the current index in one pass. Long SELECT toggles a favorite
+  in song lists and on Now Playing; rows show `Fav`/`Nx`.
 - **Headphone jack (BRNOMT-70)**: `drivers/jack.c` reads the 3.5 mm
   (GPIO0.13) and 4.4 mm (GPIO2.8) sense pins; a 7-sample debounce in
   `services/jack_sense.c`, polled at 20 ms, pauses playback when the

@@ -18,6 +18,7 @@ $CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
     test_settings_keys.c test_browser_pagination.c \
     test_eq_screen.c \
     test_bluetooth_screen.c \
+    test_library_extras_ui.c \
     test_skin_home.c \
     test_skin_screens.c \
     test_skin_art.c \

@@ -117,6 +117,12 @@ int rechord_files_init(void)
     if (fs_ensure_file(BT_STORE_PATH, BT_BYTES,
                     "# ReChord Bluetooth\non=0\n") != FS_OK)
         return FS_ERR_IO;
+    /* Library extras: favorites + recently played/play counts (path hashes
+     * text, rewritten in place like the config). Best effort. */
+    (void)fs_ensure_file(RECHORD_FAVORITES, 1024u,
+                         "# ReChord favorites (path hash)\n");
+    (void)fs_ensure_file(RECHORD_RECENT, 1024u,
+                         "# ReChord recent (hash plays)\n");
     /* The media index slots: empty until the first scan (they are binary, so
      * no text header), created here so a build always has a file to target. */
     if (fs_ensure_file(MEDIA_DB_A, 0u, 0) != FS_OK)

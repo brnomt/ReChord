@@ -15,6 +15,7 @@
 #include "fs_host.h"
 #include "media_db.h"
 #include "media_query.h"
+#include "library_extras.h"
 #include "scratch.h"
 
 static int s_checks, s_failures;
@@ -124,6 +125,39 @@ int main(void)
 
     mq_done();
     CHECK(mq_names_count() == 0 && mq_filter_count() == 0);
+
+    /* Favorites / Recently played / Most played: the hash stores are mapped
+     * onto the current index in one pass (a favorite that no longer exists is
+     * skipped). */
+    {
+        media_rec_t r;
+
+        extras_init();
+        CHECK(extras_toggle_favorite("/SD/A1.flac") == 1);
+        CHECK(extras_toggle_favorite("/SD/C1.flac") == 1);
+        CHECK(extras_toggle_favorite("/SD/GONE.flac") == 1);
+        CHECK(mq_favorites_init() == 0);
+        CHECK(mq_filter_count() == 2);
+        CHECK(mq_filter_get(0, &r) == FS_OK && strcmp(r.title, "A1") == 0);
+        CHECK(mq_filter_get(1, &r) == FS_OK && strcmp(r.title, "C1") == 0);
+        CHECK(strcmp(mq_category_name(MQ_FAVORITES), "Favorites") == 0);
+
+        extras_note_play("/SD/B1.flac");
+        extras_note_play("/SD/A1.flac");
+        extras_note_play("/SD/A1.flac");
+        extras_note_play("/SD/D1.flac");
+        CHECK(mq_recent_init() == 0);
+        CHECK(mq_filter_count() == 3);
+        CHECK(mq_filter_get(0, &r) == FS_OK && strcmp(r.title, "D1") == 0);
+        CHECK(mq_filter_get(1, &r) == FS_OK && strcmp(r.title, "A1") == 0);
+        CHECK(mq_filter_get(2, &r) == FS_OK && strcmp(r.title, "B1") == 0);
+
+        CHECK(mq_most_played_init() == 0);
+        CHECK(mq_filter_count() == 3);
+        CHECK(mq_filter_get(0, &r) == FS_OK && strcmp(r.title, "A1") == 0);
+        CHECK(mq_filter_get(1, &r) == FS_OK && strcmp(r.title, "D1") == 0);
+        CHECK(mq_filter_get(2, &r) == FS_OK && strcmp(r.title, "B1") == 0);
+    }
 
     /* Case-insensitive grouping (BRNOMT-92): "apple" must sort next to
      * "Banana"/"cherry", not after every uppercase-initial name. Plain strcmp
