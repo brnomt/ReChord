@@ -110,7 +110,13 @@ live, so same-format adjacent tracks join sample-accurately. The hand-off fires
 at B's decoder EOF, while the 64 KiB PCM ring still holds the previous tail
 (~85 ms), not at ring-empty. A format change is a hard boundary; when Core B
 holds the decoder that stop/start is deferred (`restart_pending`) until the ring
-drains so the previous tail is not truncated. The command channel is
+drains so the previous tail is not truncated. The deferred branch must keep
+`g.eof` set: B's EOF flag stays asserted until the restart sends OPEN/CLOSE,
+so clearing it made the next `player_process()` consume the same EOF again and
+advance the playlist a **second** time, silently skipping the pre-opened track
+(field log: `preopen A` then `next B` at every 16<->24-bit boundary). `pos` then
+sat one entry ahead of the audio, and the following "previous" played a track
+that never aired. The command channel is
 **sequence-numbered** (`IPC_C_SEQ`/`IPC_C_ACK`): the old "cmd == ack" test
 silently dropped a repeated command — two gapless `NEXT`s in a row, or two
 `SEEK`s to the same ms. `advance_to()` opens the next codec first so the two

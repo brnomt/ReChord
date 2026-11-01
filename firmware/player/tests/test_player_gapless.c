@@ -444,6 +444,63 @@ static void test_repeat_modes(void)
     player_stop();
 }
 
+/* Field log: every 16<->24-bit boundary showed `ipc: preopen A` followed by
+ * `ipc: next B` (rejected, hard restart). The deferred format-change restart
+ * cleared g.eof; Core B's EOF flag stays asserted until the restart command,
+ * so the next player_process() advanced the playlist a SECOND time and
+ * silently skipped the pre-opened track. That left `pos` one entry ahead of
+ * what was heard, and the following "previous" went to the never-played
+ * track. */
+static void test_format_change_advances_once(void)
+{
+    static const uint16_t idx[3] = { 0, 1, 2 };
+    mock_codec_cfg_t cfg = {0};
+    track_info_t ti;
+
+    cfg.total_frames = 44100 * 2;
+    cfg.sample_rate = 44100;           /* t0 opens at 44.1 kHz */
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+
+    ipc_b_init();
+    player_init();
+    player_register_codec("mock", mock_codec_get());
+    player_set_resolver(test_resolve);
+    ipc_b_mock_set_b_decodes(1);
+    ipc_b_mock_set_b_eof(0);
+
+    CHECK_EQI(player_play_list(idx, 3, 0), PLAYER_OK, "defer: play list");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "defer: t0 info");
+    CHECK(strcmp(ti.path, "t0.mock") == 0, "defer: starts on t0");
+
+    /* t1 has a different rate: its pre-open happens while t0 plays, so the
+     * boundary must defer the hard restart. */
+    cfg.sample_rate = 48000;
+    mock_codec_configure(&cfg);
+
+    CHECK_EQI(player_process(), PLAYER_OK, "defer: pre-open pass");
+    CHECK(ipc_b_mock_preopen_path() != 0 &&
+          strcmp(ipc_b_mock_preopen_path(), "t1.mock") == 0,
+          "defer: t1 pre-opened");
+
+    ipc_b_mock_set_b_eof(1);
+    CHECK_EQI(player_process(), PLAYER_OK, "defer: boundary pass");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "defer: after boundary");
+    CHECK(strcmp(ti.path, "t1.mock") == 0, "defer: adopts the pre-opened t1");
+
+    /* Core B still reports EOF (no OPEN/CLOSE was sent yet). This pass must
+     * drain into the deferred restart of t1, not advance to t2. */
+    CHECK_EQI(player_process(), PLAYER_OK, "defer: drain pass");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "defer: after drain");
+    CHECK(strcmp(ti.path, "t1.mock") == 0,
+          "defer: the pre-opened track is not skipped");
+
+    ipc_b_mock_set_b_decodes(0);
+    ipc_b_mock_set_b_eof(0);
+    player_stop();
+}
+
 /* A user "next" must move on even with repeat-ONE (the key press is not the
  * end-of-stream replay). player_next() used to call playlist_advance() for
  * both, so with repeat-ONE the key only restarted the current track. */
@@ -654,6 +711,7 @@ int main(void)
     test_pending_open_adopt();
     test_playlist_resolve_cache();
     test_repeat_modes();
+    test_format_change_advances_once();
     test_manual_next_ignores_repeat_one();
     test_advance_after_seek_resets_playhead();
     test_b_handoff_after_seek_resets_playhead();

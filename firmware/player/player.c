@@ -798,6 +798,14 @@ static int advance_to(const char *path, int hard)
         emit(PLAYER_EV_TRACK);
         if (ipc_b_b_decodes() && !hard) {
             g.restart_pending = 1;   /* let the tail drain, then stop/start */
+            /* Keep the EOF consumed. The codec adopt above cleared g.eof, but
+             * Core B's EOF flag stays asserted until the deferred restart
+             * sends OPEN/CLOSE. Without this the next player_process() sees
+             * (b_eof && !g.eof) again and advances the playlist a SECOND time,
+             * silently skipping the pre-opened next track (field log: every
+             * 16<->24-bit boundary showed `preopen A` / `next B`), and the
+             * following "previous" then returned to the never-played track. */
+            g.eof = 1;
             return PLAYER_OK;
         }
         return restart_stream();
