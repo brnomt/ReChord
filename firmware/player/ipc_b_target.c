@@ -602,6 +602,12 @@ int ipc_b_pause(int paused)
     if (g_state != IPC_B_RUNNING && g_state != IPC_B_STARTING &&
         g_state != IPC_B_DRAINED)
         return -1;
+    /* A resume needs the DAC path. A USB DAC session powers it down and
+     * detaches the feeder, so report failure here: player_play() then rebuilds
+     * the stream at the paused position (ipc_b_start) instead of "resuming"
+     * into a powered-off DAC (silence). */
+    if (!paused && !audio_output_is_ready())
+        return -1;
 
     g_paused = paused ? 1 : 0;
     if (g_paused) {

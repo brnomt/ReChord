@@ -22,7 +22,11 @@ straight into the I2S ring that feeds the CS43131.
 
 The player is paused before the session and its volume is restored afterwards.
 The session claims the shared 32 KiB scratch region (`SCRATCH_OWNER_USB`), so
-it cannot overlap an index build or an MSC session.
+it cannot overlap an index build or an MSC session. On exit the session
+detaches the I2S feeder before releasing the scratch ring, and powers the DAC
+down; a later resume from PAUSED therefore reports failure from
+`ipc_b_pause(0)` when the DAC is not ready, so `player_play()` rebuilds the
+stream through `ipc_b_start()` instead of resuming into a powered-off DAC.
 
 ## Transport
 
@@ -57,6 +61,20 @@ little-endian samples to the left-justified 32-bit I2S words
   target-guard one frame is repeated. This absorbs the independent USB and
   DAC clocks without audible clicks.
 - No feedback endpoint is advertised; the correction is host-independent.
+
+**The producer must kick the feeder.** The I2S TX ISR masks its source when
+the ring runs dry and stays masked until the producer calls
+`rknano_i2s_kick()` (see `ipc_b_ring_fill`). The USB path re-arms it after the
+prefill and after every packet write it accepts; without those kicks the
+session goes silent as soon as the first 20 ms cushion drains, even though
+the host is streaming (field report: Android enumerates the card, no sound).
+
+**The session must unmute.** `player_pause()` fades the DAC out (PCM volume at
+mute) and `audio_output_configure()` starts silent when a fade is configured,
+expecting the caller to fade in. The session applies the host-visible level
+and calls `audio_output_fade_in()` after `audio_output_start()`; otherwise
+every received packet plays into a muted DAC, and host `SET_CUR` volume
+changes cannot unmute it either (a faded-out level is cached, not applied).
 
 The USB host's 48 kHz clock and the APLL-derived I2S clock are close enough
 that only occasional single-frame corrections are expected (counted in the
@@ -118,3 +136,9 @@ Device checklist:
 3. Play audio; confirm sound on the 3.5 mm/4.4 mm output, not Bluetooth.
 4. Pause/play, change the host volume, and unplug/replug.
 5. Read `/.rechord/LOG`: `usb-dac: exit ... pkts > 0`, small `drop`/`rep`.
+
+Android hosts: the log's `pkts` separates the two failure classes. `pkts 0`
+means the phone never selected the streaming interface — check
+**Developer options → Disable USB audio routing** (must be OFF) and that media
+audio is routed to USB. `pkts > 0` with no sound was the muted-DAC/feeder bug
+described above.

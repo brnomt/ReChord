@@ -72,7 +72,10 @@ uint32_t usb_dac_sink_write(usb_dac_sink_t *sink, const uint8_t *bytes,
 {
     uint32_t frame_bytes;
     uint32_t frames;
-    uint32_t words[WORDS_PER_FRAME * USB_DAC_MAX_FRAMES];
+    /* +1 frame: the drift-repeat path appends one past the packet, and a
+     * MAX-sized packet (USB_DAC_MAX_FRAMES) is accepted. The old array had
+     * exactly MAX frames, so that repeat wrote two words past the end. */
+    uint32_t words[WORDS_PER_FRAME * (USB_DAC_MAX_FRAMES + 1u)];
     uint32_t fill, free_frames;
 
     if (sink == NULL || sink->ring == NULL || bytes == NULL || sink->sample_bytes == 0)

@@ -44,6 +44,7 @@ enum {
 #define EP_STALL    0x00200000u
 #define EP_EPDIS    0x40000000u
 #define EP_ISO      0x00040000u   /* EPTYPE = 01 (isochronous)            */
+#define EP_ACTIVE   0x00008000u   /* USBACTEP: the endpoint is active     */
 #define INT_RXFLVL  0x00000010u
 #define INT_SUSP    0x00000800u
 #define INT_RESET   0x00001000u
@@ -144,7 +145,11 @@ static void arm_iso_out(void)
 {
     DOEPINT(1) = 0xFFu;
     DOEPTSIZ(1) = USB_DAC_MPS | (1u << 19);
-    DOEPCTL(1) = USB_DAC_MPS | EP_ISO | EP_ENA_CNAK;
+    /* Set USBACTEP with every arm: this register is assigned, not OR-ed, and
+     * the MSC/CDC drivers mark their data endpoints the same way
+     * (0x1808_8000). It is the core's "endpoint is active" bit; omitting it
+     * left EP1 armed but not recognized as an active OUT endpoint. */
+    DOEPCTL(1) = USB_DAC_MPS | EP_ISO | EP_ACTIVE | EP_ENA_CNAK;
     OTG(DAINTMSK) |= 0x20000u;
 }
 
@@ -205,8 +210,12 @@ static void rx_drain(void)
                     uint32_t keep = cnt < sizeof s.iso_pkt ? cnt : sizeof s.iso_pkt;
 
                     fifo_read(s.iso_pkt, keep, cnt);
-                    if (s.streaming && keep)
-                        (void)usb_dac_sink_write(&s.sink, s.iso_pkt, keep);
+                    if (s.streaming && keep &&
+                        usb_dac_sink_write(&s.sink, s.iso_pkt, keep) != 0)
+                        /* The I2S ISR masks its source when the ring runs dry;
+                         * the producer must re-arm it after every push (the
+                         * player path does the same in ipc_b_ring_fill). */
+                        audio_output_kick();
                     if (s.streaming)
                         arm_iso_out();
                 } else {
@@ -650,6 +659,17 @@ int usb_dac_run(int (*user_exit)(void), usb_dac_diag_t *diag)
     }
     audio_output_start(&s.ring);
     usb_dac_sink_prefill(&s.sink);
+    /* player_pause() faded the DAC out (PCM volume at mute), and configure()
+     * itself starts silent when a fade is configured — it expects the caller
+     * to fade in, which the player does in ipc_b_start(). Without this the
+     * USB packets land in a muted DAC and the session is silent even though
+     * the host enumerates and streams (field report: Android sees the card,
+     * no sound). Apply the host-visible level, then unmute. */
+    uac_apply_volume();
+    audio_output_fade_in();
+    /* The feeder arm in audio_output_start() can mask itself on the still
+     * empty ring before the prefill lands; re-arm it for the cushion. */
+    audio_output_kick();
     for (int i = 0; !(OTG(GINTSTS) & INT_RESET); i++) {
         if (!usb_cable()) {
             ret = USB_EXIT_UNPLUG;
@@ -670,6 +690,10 @@ int usb_dac_run(int (*user_exit)(void), usb_dac_diag_t *diag)
     ret = s.exit;
 
 out:
+    /* The feeder pulls from the scratch ring: detach it BEFORE the region is
+     * released, or a later TX-empty IRQ would read a freed/reused ring (the
+     * player path does this in ipc_b_stop). */
+    audio_output_detach();
     audio_output_stop();
     audio_output_power_off();
     OTG(DCTL) |= 2u;

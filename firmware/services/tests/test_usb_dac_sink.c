@@ -22,6 +22,7 @@ static int s_failures;
 
 static uint8_t s_ring[32768];
 static uint32_t s_read[2 * 4096];
+static uint8_t s_big[USB_DAC_MAX_FRAMES * 4];   /* MAX frames, 16-bit stereo */
 
 int main(void)
 {
@@ -90,6 +91,26 @@ int main(void)
     CHECK_EQI(rb_read(&rb, s_read, 33 * 8), 33 * 8, "24-bit frames readable");
     CHECK_EQI(s_read[0], 0x12345600u, "24-bit left left-justified");
     CHECK_EQI(s_read[1], 0xFFFFFF00u, "24-bit -1 left-justified");
+
+    TEST("usb_dac_sink: MAX-size packet + drift repeat stays in bounds");
+    /* The repeat appends one frame past the packet, so the staging buffer
+     * must have room for USB_DAC_MAX_FRAMES + 1 frames; writing the extra
+     * frame into a MAX-sized array was a stack overflow. */
+    rb_reset(&rb);
+    usb_dac_sink_start(&sink, 48000, 2);
+    memset(s_big, 0, sizeof s_big);
+    for (int i = 0; i < (int)USB_DAC_MAX_FRAMES; i++) {
+        s_big[i * 4 + 0] = (uint8_t)i;
+        s_big[i * 4 + 1] = 0x11;
+        s_big[i * 4 + 2] = (uint8_t)(i + 1);
+        s_big[i * 4 + 3] = 0x22;
+    }
+    frames = usb_dac_sink_write(&sink, s_big, sizeof s_big);
+    CHECK_EQI(frames, USB_DAC_MAX_FRAMES + 1, "all frames + one repeat");
+    CHECK_EQI(sink.repeated, 1, "repeat counted");
+    CHECK_EQI(rb_read(&rb, s_read, frames * 8), frames * 8, "all frames readable");
+    CHECK_EQI(s_read[2 * USB_DAC_MAX_FRAMES], (uint32_t)0x113Fu << 16,
+              "repeated frame is the packet's last frame (left)");
 
     TEST("usb_dac_sink: malformed length is ignored");
     rb_reset(&rb);
