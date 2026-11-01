@@ -135,8 +135,10 @@ int ipc_b_init(void);
 
 /* Start the B core for `track` (loads/starts the B audio path — the
  * documented "B start 0 at 400 MHz" step, then clock negotiation).
+ * `fade_in` applies the user play/pause fade; 0 unmutes immediately, which is
+ * what a TRACK CHANGE uses so the new song's opening is not attenuated.
  * Returns 0, or < 0 on error. */
-int ipc_b_start(const ipc_b_track_t *track);
+int ipc_b_start(const ipc_b_track_t *track, int fade_in);
 
 /* Publish the stream geometry the AP discovered while opening a track
  * (codec_t.prescan_info) so Core B's re-open can size its decode pool without

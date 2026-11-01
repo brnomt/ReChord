@@ -444,6 +444,49 @@ static void test_repeat_modes(void)
     player_stop();
 }
 
+/* A user "next" must move on even with repeat-ONE (the key press is not the
+ * end-of-stream replay). player_next() used to call playlist_advance() for
+ * both, so with repeat-ONE the key only restarted the current track. */
+static void test_manual_next_ignores_repeat_one(void)
+{
+    static const uint16_t idx[3] = { 0, 1, 2 };
+    mock_codec_cfg_t cfg = {0};
+    track_info_t ti;
+
+    cfg.total_frames = 44100 * 30;
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+
+    ipc_b_init();
+    player_init();
+    player_register_codec("mock", mock_codec_get());
+    player_set_resolver(test_resolve);
+    player_set_repeat(PLAYLIST_REPEAT_ONE);
+
+    CHECK_EQI(player_play_list(idx, 3, 0), PLAYER_OK, "nextone: play list");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "nextone: track");
+    CHECK(strcmp(ti.path, "t0.mock") == 0, "nextone: starts on t0");
+
+    CHECK_EQI(player_next(), PLAYER_OK, "nextone: manual next");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "nextone: track after next");
+    CHECK(strcmp(ti.path, "t1.mock") == 0,
+          "nextone: manual next moves on with repeat-one");
+
+    CHECK_EQI(player_next(), PLAYER_OK, "nextone: second manual next");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "nextone: track after 2nd");
+    CHECK(strcmp(ti.path, "t2.mock") == 0, "nextone: second next moves on");
+
+    CHECK_EQI(player_prev(), PLAYER_OK, "nextone: prev");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "nextone: track after prev");
+    CHECK(strcmp(ti.path, "t1.mock") == 0,
+          "nextone: prev returns to the track just played");
+
+    player_set_repeat(PLAYLIST_REPEAT_OFF);
+    player_stop();
+}
+
 /* Field report: resuming a track ~5 s before its end and letting it
  * auto-advance left the NEW track's timestamp at the old position. The
  * gapless boundary inherited base_ms from the outgoing track's seek, because
@@ -611,6 +654,7 @@ int main(void)
     test_pending_open_adopt();
     test_playlist_resolve_cache();
     test_repeat_modes();
+    test_manual_next_ignores_repeat_one();
     test_advance_after_seek_resets_playhead();
     test_b_handoff_after_seek_resets_playhead();
     test_stopped_seek_then_play();

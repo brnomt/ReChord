@@ -239,6 +239,15 @@ int main(void)
     CHECK_EQI(player_get_state(), PLAYER_PLAYING, "playing q2");
     CHECK_EQI(ev_count(PLAYER_EV_TRACK), 2, "two TRACK events");
 
+    TEST("skip starts without the play/pause fade-in");
+    CHECK_EQI(player_open("fade.mock"), PLAYER_OK, "fade: open");
+    CHECK_EQI(player_play(), PLAYER_OK, "fade: first play");
+    CHECK_EQI(ipc_b_mock_last_start_fade(), 1, "first play fades in");
+    CHECK_EQI(player_enqueue("fade2.mock"), PLAYER_OK, "fade: enqueue next");
+    CHECK_EQI(player_next(), PLAYER_OK, "fade: skip");
+    CHECK_EQI(ipc_b_mock_last_start_fade(), 0,
+              "skip starts at full level (no fade-in)");
+
     TEST("decode error -> PLAYER_ERROR -> recovery");
     cfg.total_frames = 44100;
     cfg.fail_at_frame = 50;

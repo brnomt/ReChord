@@ -97,7 +97,9 @@ End-of-stream auto-advances within the list, `player_next()` follows it, and
 app installs a `media_db_get`-backed resolver; host tests install stubs).
 Rockbox-style shuffle (reorder; current track kept first) and repeat
 off/all/one live in `playlist.c`; `track_info_t.playlist_pos/count` feed the
-UI's "i/N".
+UI's "i/N". The end-of-stream advance honours repeat-ONE (replay the same
+track), while a manual next uses `playlist_next_manual()` and always moves on
+(the key press is not the EOF replay); both still skip unplayable entries.
 
 **Gapless on Core B (BRNOMT-73).** With the decoder on Core B, the phase-2
 "swap the AP codec on the live ring" trick does not apply — B owns the decoder.
@@ -228,8 +230,11 @@ carries the decoders + `rg_math.c` + the shared `workbuf`.
 4. `audio_output_configure()` runs the DAC/I2S bring-up. Its delays are real
    milliseconds from the SysTick clock and pump `bfs_poll()`, so B keeps
    decoding while the AP waits.
-5. `audio_output_start()`, `rknano_i2s_attach()`, `kick()`, `fade_in()`; the
-   feeder starts with data already in the ring (no first-round underrun).
+5. `audio_output_start()`, `rknano_i2s_attach()`, `kick()`, then either
+   `fade_in()` (user play/resume, BRNOMT-67) or `audio_output_unmute()` (a
+   track change: restart_stream() passes `fade_in=0` to `ipc_b_start()` so the
+   new song's first `fade_ms` are not attenuated); the feeder starts with data
+   already in the ring (no first-round underrun).
 
 The log prints `audio: configure <ms>` and `ipc: prebuffer <frames>` around
 steps 4-5. A same-format reopen still takes the `audio_output_configure()`
@@ -244,7 +249,8 @@ Settings → Interface → Controls stores `hold_vol=skip|seek` and
 
 - **Short VOL**: ±1 dB on RELEASE (unchanged).
 - **Hold VOL, skip**: VOL+ = next track; VOL− rewinds to 0:00 when past 3 s,
-  otherwise previous track.
+  otherwise previous track. A next/prev is a track change, so the new track
+  starts at the current level with no fade-in.
 - **Hold VOL, seek**: VOL+/VOL− seek ±5 s, at most one seek every 200 ms; the
   input repeat ladder supplies the accelerating REPEATs. The seek clamps below
   EOF and redraws the bar/time. RELEASE after a long press never changes the

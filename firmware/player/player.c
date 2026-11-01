@@ -108,6 +108,11 @@ typedef struct
 
 static player_t g;
 
+/* restart_stream() starts a NEW track: it must not apply the play/pause
+ * fade-in, which would attenuate the new song's opening. One-shot flag
+ * consumed by player_play(). */
+static int s_start_no_fade;
+
 /* Resolve a playlist record index to a path (installed by the app; the host
  * tests install a mock). Without it a playlist cannot advance. */
 static int (*s_resolve)(uint16_t idx, char *path, int cap);
@@ -713,7 +718,13 @@ static int restart_stream(void)
     g.restart_pending = 0;
 
     set_state(PLAYER_STOPPED);   /* player_play() needs a non-PLAYING state */
-    return player_play();
+    s_start_no_fade = 1;         /* a skip must start at full level */
+    {
+        int rc = player_play();
+
+        s_start_no_fade = 0;
+        return rc;
+    }
 }
 
 /* Advance to the next track (BRNOMT-73: gapless on Core B).
@@ -828,8 +839,9 @@ static int advance_queue(int hard)
 
 /* Advance to the next playlist track (BRNOMT-90): resolve the record index to
  * a path and open it (gapless when the format matches). Returns < 0 when the
- * list is done — stop + END_OF_TRACK are already emitted. `hard` forces a hard
- * boundary (a user-driven next()).
+ * list is done — stop + END_OF_TRACK are already emitted. `hard` marks a
+ * user-driven next(): it moves forward even with repeat-ONE (a key press must
+ * change tracks; repeat-ONE only governs the end-of-stream replay).
  *
  * A single unplayable file must NOT kill playback: skip it and try the next
  * entry (bounded). This is what keeps a shuffled all-songs queue alive when it
@@ -844,8 +856,10 @@ static int advance_playlist(int hard)
         char path[PLAYER_PATH_MAX];
         uint16_t ridx;
         int rc;
+        int adv = hard ? playlist_next_manual(&g.list)
+                       : playlist_advance(&g.list);
 
-        if (playlist_advance(&g.list) < 0) {
+        if (adv < 0) {
             player_stop();
             emit(PLAYER_EV_END_OF_TRACK);
             return PLAYER_ERR_EMPTY;
@@ -935,7 +949,7 @@ int player_play(void)
             g.base_ms = player_get_position_ms();
             g.eof = 0;
             build_ipc_track(&t);
-            if (ipc_b_start(&t) < 0) {
+            if (ipc_b_start(&t, 1) < 0) {
                 do_error();
                 return PLAYER_ERR;
             }
@@ -946,7 +960,7 @@ int player_play(void)
         /* STOPPED: bring the B core up for this track ("B start ... at
          * 400 MHz", then the mock/target negotiates its steady clock). */
         build_ipc_track(&t);
-        if (ipc_b_start(&t) < 0) {
+        if (ipc_b_start(&t, s_start_no_fade ? 0 : 1) < 0) {
             do_error();
             return PLAYER_ERR;
         }

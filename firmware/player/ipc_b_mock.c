@@ -36,6 +36,7 @@ static int  g_started = 0;
 static long g_tick = 0;
 static long g_total_frames = 0;
 static int  g_start_count = 0;   /* ipc_b_start calls (host test hook)     */
+static int  g_last_start_fade = -1; /* fade_in flag of the last start      */
 
 static int  g_frames_per_tick = 256;
 static ipc_b_mock_sink_fn g_sink_fn = 0;
@@ -101,6 +102,7 @@ int ipc_b_init(void)
     g_tick = 0;
     g_total_frames = 0;
     g_start_count = 0;
+    g_last_start_fade = -1;
     g_b_decodes = 0;
     g_b_eof = 0;
     g_next_count = 0;
@@ -112,12 +114,13 @@ int ipc_b_init(void)
     return 0;
 }
 
-int ipc_b_start(const ipc_b_track_t *track)
+int ipc_b_start(const ipc_b_track_t *track, int fade_in)
 {
     if (track == NULL || track->channels < 1 || track->channels > 2 ||
         track->sample_rate <= 0)
         return -1;
 
+    g_last_start_fade = fade_in ? 1 : 0;
     g_track = *track;
     g_frame_bytes = track->channels * 4;
     g_total_frames = (track->duration_ms > 0 && track->sample_rate > 0)
@@ -256,6 +259,11 @@ int ipc_b_flush(void)
 int ipc_b_start_count(void)
 {
     return g_start_count;
+}
+
+int ipc_b_mock_last_start_fade(void)
+{
+    return g_last_start_fade;
 }
 
 int ipc_b_track_change(long duration_ms)

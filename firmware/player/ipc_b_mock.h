@@ -45,6 +45,11 @@ const char *ipc_b_mock_preopen_path(void);
  * Tests use this to assert a gapless transition does NOT restart the core. */
 int  ipc_b_start_count(void);
 
+/* Host-only: the fade_in flag passed to the last ipc_b_start() (-1 before the
+ * first start). A track change must pass 0 so the new song's opening is not
+ * attenuated; a user play passes 1. */
+int  ipc_b_mock_last_start_fade(void);
+
 /* Host-only: last Q16 gain published through ipc_b_set_replaygain() and the
  * number of publishes. The pre-open window must NOT change the live gain. */
 int  ipc_b_mock_last_replaygain(void);

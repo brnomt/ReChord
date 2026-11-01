@@ -405,6 +405,20 @@ void audio_output_fade_in(void)
     s_volume_atten = target;
 }
 
+/* Unmute without the user fade (track changes): write the target level
+ * directly. PCM_SZC (0x090003 = 0xEC) soft-ramps the register step, the same
+ * way the stock's fade-off path unmuted. */
+void audio_output_unmute(void)
+{
+    uint8_t target;
+
+    if (!s_dac_ready)
+        return;
+    target = ao_volume_atten_code(s_volume_db);
+    dac_volume_set(target);
+    s_volume_atten = target;
+}
+
 /* Stop/track-change mute: the stock's fixed 2 ms/step ramp (no user fade),
  * so skipping a track does not wait for the play/pause fade duration. */
 void audio_output_quick_mute(void)

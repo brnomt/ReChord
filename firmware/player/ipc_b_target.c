@@ -460,7 +460,7 @@ static int b_seek_now(long ms)
     return b_wait_ack(seq, 300UL);
 }
 
-int ipc_b_start(const ipc_b_track_t *track)
+int ipc_b_start(const ipc_b_track_t *track, int fade_in)
 {
     audio_format_t fmt;
     int preloaded;
@@ -559,7 +559,12 @@ int ipc_b_start(const ipc_b_track_t *track)
     audio_output_start(0);              /* serializer on (XFER) */
     rknano_i2s_attach(shared_pull, 0);  /* AP ISR drains the ring */
     rknano_i2s_kick();
-    audio_output_fade_in();
+    /* A user play/resume fades in (BRNOMT-67); a track change unmutes
+     * immediately so the first `fade_ms` of the new song is audible. */
+    if (fade_in)
+        audio_output_fade_in();
+    else
+        audio_output_unmute();
     dac_delay_set_pump(0);
 
     sh_set(IPC_SH_STATE, IPC_SH_RUN);   /* idempotent if B pre-buffered */

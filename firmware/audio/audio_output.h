@@ -74,6 +74,11 @@ int  audio_output_is_ready(void);
  * ramp. No-op when the DAC is not up. */
 void audio_output_fade_out(void);
 void audio_output_fade_in(void);
+/* Unmute to the user level without the play/pause fade. A track change must
+ * not attenuate the new song's opening (the fade would eat the first
+ * `fade_ms` of it); the DAC's PCM_SZC soft ramp smooths the step. No-op when
+ * the DAC is not up. */
+void audio_output_unmute(void);
 /* Stop/track-change mute with the stock fixed ramp (not the user fade). */
 void audio_output_quick_mute(void);
 
