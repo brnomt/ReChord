@@ -53,8 +53,8 @@
 |---|---|
 | Theme packages (declarative skins, layout, palette, animated) | ✅ device |
 | Now Playing: title/artist/album, format, i/N, mode, progress, volume | ✅ device |
-| Album art (120×120/48×48 + palette) | 🟡 **precomputed** by `tools/artpack` on a PC (`ARTPACK.BIN`) |
-| Embedded cover art (JPEG/PNG from the file) | ⬜ |
+| Album art (120×120/48×48 + palette) | ✅ `services/art_pack.c` reads the PC-built `ARTPACK.BIN`; themes use the `art` meter and `art_*` palette |
+| Embedded cover art (JPEG/PNG from the file) | ⬜ **intentionally out of scope** (user decision 2026-10-31): tracks without an ARTPACK entry keep the placeholder |
 | Lyrics (.lrc) / full-screen lyrics | ⬜ (stock had it; `.lrc` files exist on the user's card) |
 | Clock / 12–24 h / screensaver clock | ⬜ |
 | Low-battery warning / charging screen | ⬜ (gauge only; VBUS park is dark) |
@@ -117,8 +117,9 @@ stability/usability/battery goals.
    paused/stopped standby auto-off. Stock had it (3.1.0).
 6. **Search** by title/artist/album over the index.
 7. **A-B repeat** and **disc-number sorting** (CD# → track# → filename).
-8. **Embedded cover art** (JPEG/PNG) with a cache, so ARTPACK becomes an
-   optional accelerator instead of a PC prerequisite.
+8. ✅ **Artwork** — already covered by the ARTPACK reader/theme art path;
+   on-device decoding of embedded pictures is explicitly out of scope (kept
+   the PC `tools/artpack` step).
 9. **USB DAC mode (UAC1)** — stock v2.4.0: 48 kHz, driver-free.
 10. **AAC/M4A and OGG/Vorbis/Opus** decode on Core B (the stock supported them).
 
