@@ -82,7 +82,11 @@ Events for the UI (`player_set_callback`): `PLAYER_EV_STATE`,
 Position: `player_get_position_ms()` = seek base + frames the B core
 consumed since (`frames_consumed * 1000 / sample_rate`). It advances only
 while the sink consumes — on the host that is per `player_process()` tick
-(mock B core), which keeps the model deterministic.
+(mock B core), which keeps the model deterministic. The seek base is cleared
+whenever a track is opened, **including the gapless boundary**: without that,
+a seek on the outgoing track (the resume position, or a hold-to-seek) leaked
+into the next track's playhead (field report: resume ~5 s before the end, the
+automatic skip kept the old timestamp).
 
 ### Playback list (BRNOMT-90)
 
@@ -336,7 +340,8 @@ firmware/player/
     ├── test_codec_wav.c WAV golden test (synthesized sine, exact match)
     ├── test_playlist.c playlist / shuffle / repeat
     ├── test_player_state.c state machine transitions + queue + errors
-    ├── test_player_gapless.c trim, continuity, Core-B hand-off, repeat
+    ├── test_player_gapless.c trim, continuity, Core-B hand-off, repeat,
+    │                         playhead reset after a seek + auto-advance
     ├── test_codec_flac.c / test_codec_mp3.c / test_tags.c codec goldens
     └── test_ipc_mock.c end-to-end: play -> B consumes -> position advances
 ```

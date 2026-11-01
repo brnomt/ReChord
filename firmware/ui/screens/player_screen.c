@@ -338,6 +338,9 @@ static void player_screen_on_enter(void)
     player_screen_set_track(ti.title,
                             ti.duration_ms > 0
                                 ? (uint32_t)(ti.duration_ms / 1000) : 0);
+    /* set_track() zeroes the elapsed time; on (re)entry the first frame must
+     * show the live playhead, not 0:00 until the 10 Hz poll catches up. */
+    player_screen_set_position((uint32_t)(player_get_position_ms() / 1000));
     player_screen_set_artist(ti.artist);
     player_screen_set_volume(player_get_volume());
     player_screen_set_format(ti.bits, ti.sample_rate);

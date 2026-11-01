@@ -202,18 +202,27 @@ static void do_error(void)
 
 /* ---- track info ---- */
 
-/* Title heuristic (filename basename; ID3/Vorbis titles are a later item). */
+/* Title heuristic (filename basename; ID3/Vorbis titles take precedence). */
 static void title_from_path(char *dst, unsigned cap, const char *path)
 {
-    unsigned base = 0, i, n;
+    unsigned base = 0, i, n = 0, nul, dot;
 
     for (i = 0; path[i] != '\0'; i++) {
         if (path[i] == '/' || path[i] == '\\')
             base = i + 1;
     }
-    n = 0;
-    while (path[base + n] != '\0' && path[base + n] != '.' &&
-           n < cap - 1) {
+    nul = i;
+    /* Strip only the EXTENSION (the last dot in the basename), matching the
+     * scanner's fallback title: "01. Intro.flac" is "01. Intro", not "01"
+     * (the old first-dot cut also made Now Playing disagree with the index). */
+    dot = nul;
+    for (i = base; i < nul; i++) {
+        if (path[i] == '.')
+            dot = i;
+    }
+    if (dot < nul)
+        nul = dot;
+    while (base + n < nul && n < cap - 1) {
         dst[n] = path[base + n];
         n++;
     }
@@ -761,6 +770,14 @@ static int advance_to(const char *path, int hard)
         if (rc != PLAYER_OK)
             return rc;      /* advance_playlist() skips an unplayable file */
     }
+    /* A new track always starts at 0:00. `base_ms` is the playhead at the last
+     * seek/rewind, and only restart_stream() used to clear it, so a seek made
+     * on the outgoing track (e.g. the resume position) leaked into the gapless
+     * boundary: the next track's timestamp started at the old track's position
+     * (field report: resume ~5 s before the end, the automatic skip kept the
+     * timestamp). The per-track frame baseline is set below. */
+    g.base_ms = 0;
+
     same_fmt = prev_valid &&
                prev.sample_rate == g.fmt.sample_rate &&
                prev.channels    == g.fmt.channels &&

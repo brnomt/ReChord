@@ -340,6 +340,19 @@ int main(void)
     CHECK_EQI(ti.album[0], 0, "no tags -> album empty");
     CHECK_EQI(ti.tag_track_no, 0, "no tags -> tag track number 0");
 
+    TEST("filename title strips only the extension, not the first dot");
+    /* The scanner's fallback title keeps an internal dot ("01. Intro"), so the
+     * player must too; the old first-dot cut showed just "01" on Now Playing. */
+    CHECK_EQI(player_open("01. Intro.mock"), PLAYER_OK, "open dotted name");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "dotted: track info");
+    CHECK(strcmp(ti.title, "01. Intro") == 0,
+          "dotted: \"01. Intro.mock\" -> \"01. Intro\"");
+    CHECK_EQI(player_open("Music.v2/02. Song.Mr.Brightside.mock"),
+              PLAYER_OK, "open dotted dir + name");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "dotted dir: track info");
+    CHECK(strcmp(ti.title, "02. Song.Mr.Brightside") == 0,
+          "dotted dir: only the extension is stripped");
+
     TEST("player_read_meta: header-only read for listings");
     {
         codec_meta_t m;

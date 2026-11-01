@@ -76,4 +76,16 @@ void test_player_resume(void)
     ui_render();
     CHECK(mock_display_text_find("Paused") >= 0);
     CHECK(mock_display_text_find("Playing") < 0);
+
+    /* (Re)entering Now Playing must show the live elapsed time on the first
+     * frame. on_enter used to reset the position to 0 and leave it there until
+     * the 10 Hz poll ran, so a track at 0:42 briefly drew 0:00. */
+    mock_player_set_state(PLAYER_PLAYING);
+    mock_player_set_position(42000);
+    CHECK(ui_pop_screen());
+    CHECK(ui_push_screen(&player_screen));
+    mock_display_reset();
+    ui_render();
+    CHECK(mock_display_text_find("0:42") >= 0);
+    CHECK(mock_display_text_find("0:00") < 0);
 }

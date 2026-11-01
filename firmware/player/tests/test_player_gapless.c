@@ -444,6 +444,95 @@ static void test_repeat_modes(void)
     player_stop();
 }
 
+/* Field report: resuming a track ~5 s before its end and letting it
+ * auto-advance left the NEW track's timestamp at the old position. The
+ * gapless boundary inherited base_ms from the outgoing track's seek, because
+ * only restart_stream() cleared it. */
+static void test_advance_after_seek_resets_playhead(void)
+{
+    mock_codec_cfg_t cfg = {0};
+    track_info_t ti;
+    int i;
+
+    cfg.total_frames = 44100 * 4;      /* 4 s */
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+
+    ipc_b_init();
+    player_init();
+    player_register_codec("mock", mock_codec_get());
+    ipc_b_mock_set_b_decodes(0);
+    ipc_b_mock_set_b_eof(0);
+    ipc_b_mock_set_frames_per_tick(4096);
+
+    CHECK_EQI(player_open("a.mock"), PLAYER_OK, "seekadv: open A");
+    CHECK_EQI(player_enqueue("b.mock"), PLAYER_OK, "seekadv: queue B");
+    CHECK_EQI(player_seek(3500), PLAYER_OK, "seekadv: seek near the end");
+    CHECK_EQI(player_play(), PLAYER_OK, "seekadv: play");
+    CHECK_EQI(player_get_position_ms(), 3500, "seekadv: plays from the seek");
+
+    for (i = 0; i < 1000; i++) {
+        (void)player_process();
+        if (player_get_track(&ti) == PLAYER_OK &&
+            strcmp(ti.path, "b.mock") == 0)
+            break;
+    }
+    CHECK(strcmp(ti.path, "b.mock") == 0, "seekadv: auto-advanced to B");
+    CHECK(player_get_position_ms() < 500,
+          "seekadv: B starts at 0:00, not at A's position");
+    (void)player_process();
+    CHECK(player_get_position_ms() < 1000,
+          "seekadv: B's playhead keeps counting from the start");
+
+    ipc_b_mock_set_frames_per_tick(256);
+    player_stop();
+}
+
+/* Same leak on the Core-B hand-off path: B's frame counter continues across
+ * the gapless boundary, so base_ms is the only origin the new track inherits. */
+static void test_b_handoff_after_seek_resets_playhead(void)
+{
+    mock_codec_cfg_t cfg = {0};
+    track_info_t ti;
+
+    cfg.total_frames = 44100 * 4;      /* 4 s */
+    cfg.sample_rate = 44100;
+    cfg.channels = 2;
+    cfg.fail_at_frame = -1;
+    mock_codec_configure(&cfg);
+
+    ipc_b_init();
+    player_init();
+    player_register_codec("mock", mock_codec_get());
+    ipc_b_mock_set_b_decodes(1);
+    ipc_b_mock_set_b_eof(0);
+
+    CHECK_EQI(player_open("a.mock"), PLAYER_OK, "bseekadv: open A");
+    CHECK_EQI(player_enqueue("b.mock"), PLAYER_OK, "bseekadv: queue B");
+    CHECK_EQI(player_seek(3500), PLAYER_OK, "bseekadv: seek near the end");
+    CHECK_EQI(player_play(), PLAYER_OK, "bseekadv: play");
+    CHECK_EQI(player_get_position_ms(), 3500, "bseekadv: plays from the seek");
+
+    CHECK_EQI(player_process(), PLAYER_OK, "bseekadv: pre-open pass");
+    CHECK(ipc_b_mock_preopen_path() != 0 &&
+          strcmp(ipc_b_mock_preopen_path(), "b.mock") == 0,
+          "bseekadv: B pre-opened");
+
+    ipc_b_mock_set_b_eof(1);
+    CHECK_EQI(player_process(), PLAYER_OK, "bseekadv: boundary");
+    CHECK_EQI(ipc_b_next_count(), 1, "bseekadv: gapless hand-off");
+    CHECK_EQI(player_get_track(&ti), PLAYER_OK, "bseekadv: track query");
+    CHECK(strcmp(ti.path, "b.mock") == 0, "bseekadv: advanced to B");
+    CHECK_EQI(player_get_position_ms(), 0,
+              "bseekadv: B starts at 0:00, not at A's position");
+
+    ipc_b_mock_set_b_decodes(0);
+    ipc_b_mock_set_b_eof(0);
+    player_stop();
+}
+
 /* BRNOMT-87 resume: a seek made while STOPPED must reach the NEW stream — the
  * restored track plays from pos_ms, not from 0. */
 static void test_stopped_seek_then_play(void)
@@ -522,6 +611,8 @@ int main(void)
     test_pending_open_adopt();
     test_playlist_resolve_cache();
     test_repeat_modes();
+    test_advance_after_seek_resets_playhead();
+    test_b_handoff_after_seek_resets_playhead();
     test_stopped_seek_then_play();
     test_load_list_paused();
     if (failures == 0) {
