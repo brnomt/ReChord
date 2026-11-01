@@ -8,11 +8,17 @@ straight into the I2S ring that feeds the CS43131.
 ## Entry points
 
 - Root menu: **USB DAC** (`startup/ap_ui.c`), next to *USB storage*.
-- `Settings → Interface → USB mode = dac`: the cable (VBUS) edge opens the
-  DAC session instead of mass storage. `ask`/`charge`/`msc` keep the old
-  behavior.
-- A short POWER press ends the session; holding POWER for ~2 s ends it and
-  powers off (the same rule as *USB storage*).
+- `Settings → Interface → USB mode`:
+  - `dac` opens the DAC session on the cable (VBUS) edge;
+  - `msc` opens mass storage;
+  - `charge` only charges;
+  - `ask` (default) opens a **chooser** — *USB DAC* / *USB storage* /
+    *Charge only* — instead of silently entering storage.
+- A short POWER press ends any USB session; holding POWER for ~2 s ends it and
+  powers off (the same rule as *USB storage*). The press tracker is reset at
+  the start of every session: a long-hold power-off used to leave the tracker
+  armed, so the next session's first press was measured against the old
+  timestamp and powered off immediately.
 
 The player is paused before the session and its volume is restored afterwards.
 The session claims the shared 32 KiB scratch region (`SCRATCH_OWNER_USB`), so

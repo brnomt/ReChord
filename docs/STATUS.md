@@ -127,8 +127,11 @@ plays audio on hardware:
   48 kHz/16-bit stereo sound card on the existing polled DWC2 stack; EP1
   isochronous OUT packets go through `services/usb_dac_sink.c` into the I2S
   ring (20 ms cushion, drop/repeat clock-drift correction) and the host
-  mute/volume controls map to the CS43131. Root menu **USB DAC**, or
-  `usb=dac` on the cable edge. The MSC bring-up's wired-output mute is undone
+  mute/volume controls map to the CS43131. Root menu **USB DAC**;
+  `usb=dac` starts it on the cable edge, `usb=ask` now opens a
+  DAC/storage/charge chooser, and `usb=charge` only charges. The USB press
+  tracker is reset per session (a stale long-hold flag made the next press
+  power off immediately). The MSC bring-up's wired-output mute is undone
   and any Bluetooth route is dropped before the DAC starts. Host tests:
   `test_usb_dac_sink`. Contract and device checklist:
   `docs/rewrite/usb-dac.md`.

@@ -621,25 +621,39 @@ static void power_off(void)
  * exits the session (as the screen says), a ~2 s hold exits AND powers off.
  * Time-based, because the MSC loop's pass rate is not the UI's. */
 static int s_usb_power_off;
+static int s_usb_power_hold;
+static int s_usb_key_down;
+static unsigned long s_usb_key_t0;
+
+/* Reset the press tracker for every session. These used to be function
+ * statics: after a long-hold power-off the release was never consumed, so
+ * `down` survived and the NEXT session's first press was measured against
+ * the previous t0 and treated as an instant 2 s hold -> immediate power-off
+ * (field report). */
+static void usb_power_reset(void)
+{
+    s_usb_power_off = 0;
+    s_usb_power_hold = 0;
+    s_usb_key_down = 0;
+    s_usb_key_t0 = 0;
+}
 
 static int usb_power_step(void)
 {
-    static unsigned long t0;
-    static int down;
-
     if (keys_power()) {
-        if (!down) {
-            down = 1;
-            t0 = ap_ms();
+        if (!s_usb_key_down) {
+            s_usb_key_down = 1;
+            s_usb_key_t0 = ap_ms();
         }
-        if ((unsigned long)(ap_ms() - t0) >= 2000UL) {
+        if ((unsigned long)(ap_ms() - s_usb_key_t0) >= 2000UL) {
             s_usb_power_off = 1;      /* long hold: leave and turn off */
+            s_usb_power_hold = 1;
             return 1;
         }
         return 0;                     /* keep serving while it is held */
     }
-    if (down) {
-        down = 0;                     /* short press: just exit the session */
+    if (s_usb_key_down) {
+        s_usb_key_down = 0;           /* short press: just exit the session */
         return 1;
     }
     return 0;
@@ -657,6 +671,8 @@ static void usb_session(void)
     uint32_t rd, wr;
     int r;
 
+    usb_power_reset();
+
     screen("USB mass storage");
     line(1, "eject on the PC, hold power to turn off");
     display_flush_rows(0, DISPLAY_H - 1);
@@ -667,8 +683,9 @@ static void usb_session(void)
      * the wire. When a host-side tool misbehaves (Nautilus freezing on
      * connect, say) this is the device's half of the story, and the flush
      * writes it to /.rechord/LOG for the PC to read. */
-    log_printf("usb: exit %d diag %08lx rd %lu wr %lu",
-               r, (unsigned long)usb_msc_diag, (unsigned long)rd,
+    log_printf("usb: exit %d%s diag %08lx rd %lu wr %lu",
+               r, s_usb_power_hold ? " (power hold)" : "",
+               (unsigned long)usb_msc_diag, (unsigned long)rd,
                (unsigned long)wr);
     (void)log_flush("usb-exit");
     {
@@ -708,6 +725,7 @@ static void usb_dac_entry(void)
     usb_dac_diag_t diag;
     int r;
 
+    usb_power_reset();
     (void)log_flush("usb-dac");
     player_pause();
     screen("USB DAC");
@@ -715,8 +733,9 @@ static void usb_dac_entry(void)
     line(2, "hold power to turn off");
     display_flush_rows(0, DISPLAY_H - 1);
     r = usb_dac_run(usb_power_step, &diag);
-    log_printf("usb-dac: exit %d alt %u cfg %u pkts %lu frames %lu drop %lu rep %lu",
-               r, diag.alt, diag.configured, (unsigned long)diag.packets,
+    log_printf("usb-dac: exit %d%s alt %u cfg %u pkts %lu frames %lu drop %lu rep %lu",
+               r, s_usb_power_hold ? " (power hold)" : "",
+               diag.alt, diag.configured, (unsigned long)diag.packets,
                (unsigned long)diag.frames, (unsigned long)diag.dropped,
                (unsigned long)diag.repeated);
     (void)log_flush("usb-dac-exit");
@@ -732,6 +751,85 @@ static void usb_dac_entry(void)
         panel_io_delay_ms(1);
     ui_invalidate_all();
 }
+
+/* ---- USB mode chooser (usb=ask on the VBUS edge) ------------------------ */
+/* Opening storage unconditionally made usb=ask meaningless. The chooser is a
+ * normal menu screen: the session functions block only after the user picks,
+ * so UP/DOWN/SELECT/BACK keep working. */
+static void usb_choice_storage(void)
+{
+    ui_pop_screen();
+    log_printf("usb: mode storage");
+    usb_storage_entry();
+}
+
+static void usb_choice_dac(void)
+{
+    ui_pop_screen();
+    log_printf("usb: mode dac");
+    usb_dac_entry();
+}
+
+static void usb_choice_charge(void)
+{
+    ui_pop_screen();
+    log_printf("usb: mode charge");
+}
+
+static const menu_item_t k_usb_choice_items[] = {
+    { "USB DAC",     NULL, usb_choice_dac },
+    { "USB storage", NULL, usb_choice_storage },
+    { "Charge only", NULL, usb_choice_charge },
+};
+#define USB_CHOICE_COUNT ((int)(sizeof k_usb_choice_items / sizeof k_usb_choice_items[0]))
+
+static menu_view_t s_usb_choice_view;
+static const menu_model_t k_usb_choice = { "USB connected", k_usb_choice_items,
+                                           USB_CHOICE_COUNT, NULL };
+
+static void usb_choice_on_enter(void)
+{
+    menu_view_init(&s_usb_choice_view);
+    theme_ui_disarm();
+}
+
+static void usb_choice_draw(void)
+{
+    menu_draw(&k_usb_choice, &s_usb_choice_view);
+}
+
+static void usb_choice_handle_event(const input_event_t *ev)
+{
+    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
+        return;
+
+    switch (ev->type) {
+    case KEY_UP:
+        menu_view_move(&s_usb_choice_view, -1, USB_CHOICE_COUNT, menu_page_size());
+        ui_invalidate_all();
+        break;
+    case KEY_DOWN:
+        menu_view_move(&s_usb_choice_view, +1, USB_CHOICE_COUNT, menu_page_size());
+        ui_invalidate_all();
+        break;
+    case KEY_SELECT:
+        if (s_usb_choice_view.cursor >= 0 && s_usb_choice_view.cursor < USB_CHOICE_COUNT &&
+            k_usb_choice_items[s_usb_choice_view.cursor].on_select != 0)
+            k_usb_choice_items[s_usb_choice_view.cursor].on_select();
+        ui_invalidate_all();
+        break;
+    case KEY_BACK:
+        ui_pop_screen();
+        break;
+    default:
+        break;
+    }
+}
+
+static const ui_screen_t usb_choice_screen = {
+    "usb-mode", usb_choice_on_enter, NULL, usb_choice_draw,
+    usb_choice_handle_event,
+};
 
 static void open_files(void)
 {
@@ -1139,7 +1237,7 @@ static const menu_item_t k_root_items[] = {
 };
 #define ROOT_ITEM_COUNT ((int)(sizeof k_root_items / sizeof k_root_items[0]))
 
-#define RC_BUILD "m9i"
+#define RC_BUILD "m9j"
 static const menu_model_t k_root = { "ReChord " RC_BUILD, k_root_items,
                                      ROOT_ITEM_COUNT, vol_status };
 
@@ -1623,16 +1721,29 @@ void ap_ui_loop(void)
             }
         }
 
-        /* VBUS edge: plugging the cable opens USB STORAGE right away. While
-         * Hold is engaged the cable only charges; the combo must unlock. */
+        /* VBUS edge: honor the usb setting. ask (the default) opens the
+         * storage/DAC/charge chooser instead of silently entering storage.
+         * While Hold is engaged the cable only charges; the combo must
+         * unlock. */
         if (cable && !s_cable) {
             if (!s_hold) {
+                int mode;
+
                 screen_wake();
-                if (settings_screen_get()->usb_mode == 3)
+                mode = settings_screen_get()->usb_mode;
+                if (mode == 3) {
                     usb_dac_entry();
-                else
+                } else if (mode == 2) {
                     usb_storage_entry();
+                } else if (mode == 1) {
+                    log_printf("usb: mode charge");
+                } else {
+                    /* ask: choose instead of silently opening storage */
+                    ui_push_screen(&usb_choice_screen);
+                }
             }
+        } else if (!cable && s_cable && ui_top_screen() == &usb_choice_screen) {
+            ui_pop_screen();          /* cable pulled while choosing */
         }
         s_cable = cable;
 
