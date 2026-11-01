@@ -104,6 +104,27 @@ plays audio on hardware:
 - **Battery**: an approximation from the stock SDK constants — SARADC channel 0,
   `((adc<<1)*2500)>>10` mV, 5-step ladder (3350/3500/3600/3800/4000 mV) → 25 %
   steps, polled every 15 s and shown in the root menu's title row.
+- **Bluetooth**: headphones through the player's **external module** (its own
+  stack, UART1 at 115200 with short ASCII frames, GPIO2.7 power, GPIO2.0/2.14
+  audio routing). Settings > Interface > Bluetooth turns it on/off, pairs
+  (`Pair new device`), lists up to six remembered devices with live state and
+  forgets on a hold; only user-chosen devices persist (`/.rechord/BT`) and
+  auto-connect. Playback streams while a link is up (play/pause notices,
+  `CY0` stream frames); the headphones' pause/play/next/previous drive the
+  player, a dropped link pauses, and the module idles off after 5 minutes
+  with no link. Theme skins get `bt`/`bt_stream`. **Verified on device**
+  (BLIK-AIR400 streaming + remote keys); contract in
+  `docs/rewrite/bluetooth.md`.
+- **Idle power-down**: 3 s after playback stops, the DAC path (registers,
+  amps, audio clocks) powers down and Core B is stopped; a boot preload keeps
+  Core B warm for 60 s. The next Play restarts B and reconfigures the DAC.
+  See `docs/rewrite/audio.md` and `docs/HANDOVER.md` §CL.
+- **File I/O**: the small text files (settings, resume, Bluetooth, EQ, log)
+  use one whole-file API — `fs_load_file`/`fs_store_file`/`fs_size_file`/
+  `fs_ensure_file` (`firmware/services/file_io.c` + the backends). The log
+  rotates by path size without a read handle, so it works while playback
+  holds all four. Binary paths (media index, art pack, codec reads) keep the
+  low-level handle API and `fs_patch` commit.
 - **ReplayGain (BRNOMT-106)**: reads `REPLAYGAIN_*` from ID3v2/Vorbis and
   normalizes playback with `off/track/album/auto` (Settings > Playback,
   persisted in `rechord.cfg`). AUTO uses track gain under shuffle and album

@@ -1,9 +1,10 @@
 # ReChord — Bluetooth
 
-> Status: **foundation**. The module contract below is taken from EchoPod
-> (BasilSkyWalk, GPL-3.0) hardware bring-up on the same player
-> (`community/echopod`, branch `bluetooth-audio`); the implementation here is
-> ReChord's own and is credited in the README.
+> Status: **implemented and verified on hardware** — pairing, A2DP streaming
+> and the headphone buttons work (first pass with a BLIK-AIR400). The module
+> contract below is taken from EchoPod (BasilSkyWalk, GPL-3.0) hardware
+> bring-up on the same player (`community/echopod`, branch `bluetooth-audio`);
+> the implementation here is ReChord's own and is credited in the README.
 
 ## The module
 
@@ -103,10 +104,14 @@ Rules:
 2. ✅ `bt_store` + `bt_link` + host tests (round-trip, reconnect policy).
 3. ✅ Settings → Interface → Bluetooth screen + live status value; UI host
    tests (the row and the screen contract).
-4. 🟡 Hardware pass 1 (2026-10-31): the module powers up and answers
-   `CV5` over UART1 (`bt: module powered`, `bt: on`, `bt: ready v5`).
-   Pairing/streaming and the route pins still need a pass with the
-   headphones in pairing mode.
+4. ✅ Hardware 2026-10-31, pass 1: the module powers up and answers `CV5`
+   over UART1 (`bt: module powered` / `bt: on` / `bt: ready v5`).
+   **Pass 2 (same day):** paired and streamed to a **BLIK-AIR400**
+   (`bt: found` → `connecting` → `connected`), `bt: audio route module`,
+   and the headphone's pause/play reports drove the player
+   (`bt: remote pause` / `bt: remote play`). The device list/on-off
+   persistence fix (`/.rechord/BT` created at first boot) ships with the
+   next image; the first BT image logged `bt: device save failed`.
 5. 🟡 Polish: power/idle-off/remote keys/park-wake are implemented. Theme
    skins get `bt` (0 off / 1 on / 2 connected) and `bt_stream`, and the
    bundled cassette Now Playing shows a small BT mark; the jack quirk remains

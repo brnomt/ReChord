@@ -99,7 +99,7 @@ boundary is a `NEXT` command over the live ring. Details:
 | Core B bring-up + audio (B decodes, AP feeds) | ✅ |
 | Hi-res 24-bit @ 44.1/48/88.2/96 kHz | ✅ |
 | Library index + category navigation | ✅ |
-| Bluetooth headphones (external UART module, A2DP source) | 🟡 implemented + host-tested; on-device pass pending (`docs/rewrite/bluetooth.md`) |
+| Bluetooth headphones (external UART module, A2DP source) | ✅ verified on device: pairing, streaming and headphone keys (`docs/rewrite/bluetooth.md`) |
 | Playback lists, `i/N`, shuffle, repeat | ✅ |
 | Gapless between **same-format** tracks (Core B, BRNOMT-73) | ✅ verified on device |
 | **Format-change** boundary | hard by design (DAC re-lock, ~200 ms) |
@@ -234,6 +234,14 @@ firmware from FiiO.
   fixed-point LibOpus porting and memory-constrained audio decoding on the
   Rockchip RKnano platform.
 - [EchoPod](https://github.com/BasilSkyWalk/echopod) by **BasilSkyWalk**
-  (GPL-3.0) — the 1–10 backlight brightness mapping and the 10 kHz GPIO2.4
-  PWM approach; ReChord's `panel_io_rknanoc.c` backlight implementation is
-  adapted from it.
+  (GPL-3.0) — two pieces of ReChord are adapted from its hardware work on the
+  same player: the 1–10 backlight brightness mapping / 10 kHz GPIO2.4 PWM
+  (`panel_io_rknanoc.c`), and the **Bluetooth implementation** — the external
+  module's UART1 wiring and ASCII protocol, the GPIO2.0/2.14 audio routing and
+  the stock housekeeping, the connect/scan/retry timings, the
+  play/pause-notice rules and the idle power-down behaviour. ReChord's
+  implementation is its own (`firmware/drivers/bt_hw.c`,
+  `firmware/services/bt_proto.c`, `bt_link.c`, `bt_store.c`,
+  `ui/screens/bluetooth_screen.c`), but the hardware contract and field
+  findings come from EchoPod's `bluetooth-audio` branch. Details:
+  [`docs/rewrite/bluetooth.md`](docs/rewrite/bluetooth.md).
