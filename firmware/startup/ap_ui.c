@@ -10,6 +10,7 @@
 #include "drivers/emmc.h"
 #include "drivers/panel_io.h"
 #include "drivers/usb_msc.h"
+#include "drivers/usb_dac.h"
 #include "drivers/usb_cdc.h"
 #if AP_CDC_OVERLAY
 #include "startup/cdc_overlay.h"
@@ -699,6 +700,39 @@ static void usb_session(void)
     ui_invalidate_all();
 }
 
+/* UAC1 playback device: the PC sees a 48 kHz/16-bit stereo sound card and
+ * every isochronous packet goes straight into the I2S ring. The player is
+ * paused first so nothing else owns the DAC. */
+static void usb_dac_entry(void)
+{
+    usb_dac_diag_t diag;
+    int r;
+
+    (void)log_flush("usb-dac");
+    player_pause();
+    screen("USB DAC");
+    line(1, "choose ReChord on the PC");
+    line(2, "hold power to turn off");
+    display_flush_rows(0, DISPLAY_H - 1);
+    r = usb_dac_run(usb_power_step, &diag);
+    log_printf("usb-dac: exit %d alt %u cfg %u pkts %lu frames %lu drop %lu rep %lu",
+               r, diag.alt, diag.configured, (unsigned long)diag.packets,
+               (unsigned long)diag.frames, (unsigned long)diag.dropped,
+               (unsigned long)diag.repeated);
+    (void)log_flush("usb-dac-exit");
+    player_set_volume(settings_screen_get()->volume_db);
+    if (s_usb_power_off) {
+        s_usb_power_off = 0;
+        resume_poll(ap_ms(), 1);
+        settings_screen_store();
+        (void)log_flush("power");
+        power_off();                  /* may return on VBUS (park) */
+    }
+    while (keys_power())              /* don't leak the exit press */
+        panel_io_delay_ms(1);
+    ui_invalidate_all();
+}
+
 static void open_files(void)
 {
     /* Keep the folder restored by the resume boot (and the navigation memory);
@@ -1099,6 +1133,7 @@ static const menu_item_t k_root_items[] = {
     { "Library",     NULL, open_library },
     { "Files",       NULL, open_files },
     { "USB storage", NULL, usb_storage_entry },
+    { "USB DAC",     NULL, usb_dac_entry },
     { "Settings",    NULL, open_settings },
     { "System",      NULL, open_system },
 };
@@ -1593,7 +1628,10 @@ void ap_ui_loop(void)
         if (cable && !s_cable) {
             if (!s_hold) {
                 screen_wake();
-                usb_storage_entry();
+                if (settings_screen_get()->usb_mode == 3)
+                    usb_dac_entry();
+                else
+                    usb_storage_entry();
             }
         }
         s_cable = cable;

@@ -115,6 +115,15 @@ plays audio on hardware:
   with no link. Theme skins get `bt`/`bt_stream`. **Verified on device**
   (BLIK-AIR400 streaming + remote keys); contract in
   `docs/rewrite/bluetooth.md`.
+- **USB DAC (UAC1)**: `drivers/usb_dac_rknanoc.c` enumerates a driver-free
+  48 kHz/16-bit stereo sound card on the existing polled DWC2 stack; EP1
+  isochronous OUT packets go through `services/usb_dac_sink.c` into the I2S
+  ring (20 ms cushion, drop/repeat clock-drift correction) and the host
+  mute/volume controls map to the CS43131. Root menu **USB DAC**, or
+  `usb=dac` on the cable edge. The MSC bring-up's wired-output mute is undone
+  and any Bluetooth route is dropped before the DAC starts. Host tests:
+  `test_usb_dac_sink`. Contract and device checklist:
+  `docs/rewrite/usb-dac.md`.
 - **Favorites / Recently played / Most played**: `services/library_extras.c`
   keeps 32-bit FNV-1a hashes of full device paths (48 favorites; 32 recent
   with play counts) in `/.rechord/favorites` and `/.rechord/recent`, so the

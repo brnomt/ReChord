@@ -74,8 +74,8 @@
 | Battery gauge (SARADC, 5-step ladder) | ✅ device |
 | Bluetooth headphones (A2DP source, pairing, 6 devices, remote keys, idle-off) | ✅ device (BLIK-A400) |
 | Bluetooth receiver mode / codec selection | ⬜ |
-| USB DAC mode (UAC1/2, driver-free) | ⬜ (stock v2.4.0 had it) |
-| Jack detection: auto-pause on unplug, wired/BT switching | ⬜ |
+| USB DAC mode (UAC1, driver-free 48 kHz/16-bit stereo, host volume) | ✅ device (`drivers/usb_dac_rknanoc.c`, `services/usb_dac_sink.c`) |
+| Jack detection: auto-pause on unplug, wired/BT switching | ✅ auto-pause (BRNOMT-70); auto wired↔BT switching still open |
 | Line-in / microphone recording | ⬜ (hardware has line-in; stock had a recorder) |
 | FM radio | ⬜ (SDK has it; board tuner unconfirmed) |
 | Wi-Fi / DLNA / streaming | ⬜ (no radio) |
@@ -120,7 +120,13 @@ stability/usability/battery goals.
 8. ✅ **Artwork** — already covered by the ARTPACK reader/theme art path;
    on-device decoding of embedded pictures is explicitly out of scope (kept
    the PC `tools/artpack` step).
-9. **USB DAC mode (UAC1)** — stock v2.4.0: 48 kHz, driver-free.
+9. ✅ **USB DAC mode (UAC1)** (2026-10-31) — `drivers/usb_dac_rknanoc.c`
+   enumerates a 48 kHz/16-bit stereo UAC1 function on the existing DWC2
+   stack; `services/usb_dac_sink.c` converts EP1 isochronous OUT packets to
+   the I2S ring (20 ms cushion, drop/repeat drift correction) and the host
+   mute/volume controls map to the CS43131. Entry points: root menu
+   **USB DAC**, or `usb=dac` on the cable edge. Stock v2.4.0 had the same
+   mode.
 10. **AAC/M4A and OGG/Vorbis/Opus** decode on Core B (the stock supported them).
 
 ### P2 — standard but larger or lower urgency

@@ -111,6 +111,7 @@ AP_DRIVER_SRCS := \
   firmware/drivers/panel_io_rknanoc.c \
   firmware/drivers/emmc_rknanoc.c \
   firmware/drivers/usb_msc_rknanoc.c \
+  firmware/drivers/usb_dac_rknanoc.c \
   $(if $(filter 1,$(AP_DEBUG_TOOLS)),firmware/drivers/usb_cdc_rknanoc.c) \
   firmware/drivers/cs43131.c \
   firmware/drivers/core_b.c \
@@ -137,6 +138,7 @@ AP_SERVICE_SRCS := \
   firmware/services/bt_proto.c \
   firmware/services/file_io.c \
   firmware/services/jack_sense.c \
+  firmware/services/usb_dac_sink.c \
   firmware/services/library_extras.c \
   firmware/services/bt_store.c \
   firmware/services/bt_link.c \

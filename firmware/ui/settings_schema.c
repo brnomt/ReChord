@@ -41,6 +41,7 @@ static const setting_opt_t opts_usb[] = {
     { "ask",    0 },   /* observed default */
     { "charge", 1 },
     { "msc",    2 },
+    { "dac",    3 },
 };
 
 static const setting_opt_t opts_resume[] = {
@@ -100,7 +101,7 @@ const setting_schema_t setting_schema[SETTING_KEY_COUNT] = {
     { "auto_off",   SETTING_KIND_ENUM, offsetof(rechord_settings_t, auto_off_min),
       0, { .e = { opts_auto_off, 5 } } },
     { "usb",        SETTING_KIND_ENUM, offsetof(rechord_settings_t, usb_mode),
-      0, { .e = { opts_usb, 3 } } },
+      0, { .e = { opts_usb, 4 } } },
     { "resume",     SETTING_KIND_ENUM, offsetof(rechord_settings_t, resume_mode),
       1, { .e = { opts_resume, 3 } } },
     { "strip",      SETTING_KIND_ENUM, offsetof(rechord_settings_t, strip),
