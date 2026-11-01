@@ -35,6 +35,8 @@
 #include "services/bt_link.h"
 #include "services/power_save.h"
 #include "drivers/core_b.h"
+#include "drivers/jack.h"
+#include "drivers/bt_hw.h"
 #include "player.h"
 #include "player/ipc_b.h"
 #include "ui/ui.h"
@@ -94,6 +96,9 @@ static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 static unsigned s_loop_seq;          /* last loop tick (WFI pacing)        */
 static power_save_t s_power_save;
 static uint8_t s_bt_ui;              /* last Bluetooth state seen by the UI */
+static jack_kind_t s_jack_prev = JACK_NONE;
+static unsigned long s_jack_ms;
+static uint8_t s_jack_ready;
 static unsigned s_keys_ms;           /* last SARADC key sample             */
 static int      s_key_adc = 1023;    /* last key-ladder sample             */
 static int      s_key_power;         /* last power-key sample              */
@@ -1477,6 +1482,7 @@ void ap_ui_loop(void)
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */
     /* Bluetooth: restore the user's choice + remembered devices. The module
      * stays off unless the user enabled it. */
+    jack_init();
     bt_link_init((unsigned long)ap_ms());
     power_save_init(&s_power_save);
     s_idle_ms = ap_ms();
@@ -1780,6 +1786,26 @@ void ap_ui_loop(void)
             (void)player_process();
         }
         bt_link_service((unsigned long)now);
+
+        /* Headphone jack (BRNOMT-70): pulling the headphones out pauses.
+         * The sense pins read wrong while audio is routed to Bluetooth, so
+         * skip the sample then (and for 500 ms after a route change). */
+        if ((unsigned)(now - s_jack_ms) >= 20u) {
+            jack_kind_t k;
+
+            s_jack_ms = now;
+            if (!bt_hw_routed() && !bt_hw_settling() && jack_poll(&k)) {
+                if (s_jack_ready && k == JACK_NONE &&
+                    s_jack_prev != JACK_NONE &&
+                    player_get_state() == PLAYER_PLAYING) {
+                    (void)player_pause();
+                    log_printf("jack: unplugged, paused");
+                }
+                s_jack_prev = k;
+                s_jack_ready = 1;
+            }
+        }
+
         {
             const bt_proto_t *bt = bt_link_state();
             uint8_t v = !bt_link_enabled() ? 0

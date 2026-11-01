@@ -24,6 +24,7 @@
 | Resume last track + position, queue rebuilt by origin | ✅ device |
 | Auto-off (standby) when paused/stopped, screen-off timer | ✅ device |
 | Sleep timer while **playing** | ⬜ |
+| Jack detection: auto-pause on unplug (BRNOMT-70) | ✅ host-tested; device check pending |
 | A-B repeat | ⬜ |
 | Crossfade, skip-silence, playback speed, balance, mono downmix | ⬜ |
 | Volume limit, headphone gain (low/high) | ⬜ |
@@ -96,10 +97,11 @@ stability/usability/battery goals.
 
 ### P1 — high value, fits the current architecture
 
-1. **Jack detection + auto-pause + output switching.** Standard on every DAP,
-   and the one obvious usability hole: pulling the headphones should pause and
-   route back correctly. EchoPod's `board/jack.c` documents the sense pins and
-   the BT routing quirk (ignore the sense while routed and 500 ms after).
+1. ✅ **Jack detection + auto-pause** (BRNOMT-70, 2026-10-31) —
+   `drivers/jack.c` (GPIO0.13/GPIO2.8, EXT_PORTA), `services/jack_sense.c`
+   (7-sample debounce), app pause on unplug, skipped while Bluetooth owns the
+   output. Still open: auto-switch wired↔BT on plug/unplug (out of the issue's
+   scope).
 2. **Lyrics (`.lrc`)** — synced and static, full-screen. The files are already
    on the card, the parser is small, and the stock firmware had it.
 3. **Favorites + Recently played + play counts** — long-press to favorite in

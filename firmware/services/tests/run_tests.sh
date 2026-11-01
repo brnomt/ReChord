@@ -26,6 +26,7 @@ $CC $CFLAGS -I.. -I../.. -o .work/test_media_scan test_media_scan.c ../media_sca
 $CC $CFLAGS -I.. -I../.. -o .work/test_eq_profile test_eq_profile.c ../eq_profile.c ../fs_host.c ../file_io.c
 $CC $CFLAGS -I.. -o .work/test_bt_proto test_bt_proto.c ../bt_proto.c
 $CC $CFLAGS -I.. -o .work/test_power_save test_power_save.c ../power_save.c
+$CC $CFLAGS -I.. -o .work/test_jack_sense test_jack_sense.c ../jack_sense.c
 $CC $CFLAGS -I.. -I../.. -o .work/test_bt_link test_bt_link.c ../bt_link.c \
     ../bt_store.c ../bt_proto.c ../log.c ../fs_host.c ../file_io.c
 $CC $CFLAGS -I.. -I../.. -o .work/test_art_pack test_art_pack.c ../art_pack.c ../fs_host.c \
@@ -46,6 +47,7 @@ $CC $CFLAGS -I.. -I../.. -o .work/test_art_pack test_art_pack.c ../art_pack.c ..
 .work/test_eq_profile
 .work/test_bt_proto
 .work/test_power_save
+.work/test_jack_sense
 .work/test_bt_link
 .work/test_art_pack
 echo "ALL SERVICES TESTS PASSED"

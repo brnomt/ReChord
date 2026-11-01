@@ -332,3 +332,12 @@ audio/audio_output.c    -- audio_output_t controller: format coordination
   Core B alive for 60 s (the warm first Play) and then is discarded. The
   next `ipc_b_start`/`ipc_b_preload` restarts B and zeroes the shared block
   first, so a fresh ACK=0 cannot replay a stale command sequence.
+- **Headphone jack (BRNOMT-70)**: `drivers/jack.c` muxes **GPIO0.13** (3.5 mm
+  single-ended sense) and **GPIO2.8** (4.4 mm balanced sense) as GPIO inputs
+  and reads them through `EXT_PORTA` (the same register the panel uses).
+  `services/jack_sense.c` is the debouncer: the first reading is adopted, a
+  change needs **7 consecutive matching samples**, and a bounce restarts the
+  count. The app samples every 20 ms and pauses playback when a plugged jack
+  goes to none. While audio is routed to Bluetooth (or for 500 ms after a
+  route change) the sense pins read wrong, so the app skips the sample then.
+  Pins and mapping come from EchoPod's hardware map on the same player.

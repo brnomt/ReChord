@@ -5078,3 +5078,31 @@ store ajusta tamaño, load recorta a cap-1 y NUL-termina, missing -> OPEN);
 stubs; `test_eq_profile`, `test_bt_link` y todas las suites verdes.
 
 **Build.** `make` PASS; AP5M CRC `0x92DDE640`; `.bss_end 0x030495D8`.
+
+## CN. Session 2026-10-31 — BRNOMT-70: pausa al desconectar los audífonos
+
+**Fuente de hardware.** Los pines de detección son los mismos del mapa de
+EchoPod: **GPIO0.13** (sense del 3.5 mm single-ended) y **GPIO2.8** (sense del
+4.4 mm balanced); se leen por `EXT_PORTA` (+0x50), el registro que ya usa el
+panel para sus lecturas de GPIO0. Mapeo: balanced low ⇒ 4.4 mm; si no,
+single-ended high ⇒ 3.5 mm; si no, nada.
+
+**Implementado.**
+- `services/jack_sense.c` (puro, host-testeado): primera lectura adoptada al
+  instante y cambios tras **7 lecturas consecutivas**; un rebote reinicia el
+  contador.
+- `drivers/jack.c`: mux a GPIO + DDR entrada de ambos pines, `jack_poll()`.
+- `ap_ui`: `jack_init()` al boot y muestreo cada **20 ms**; si un jack
+  conectado pasa a "ninguno" con el player en PLAYING, `player_pause()` y
+  `jack: unplugged, paused`. Se **omite** la lectura mientras el audio va a
+  Bluetooth (o 500 ms tras el cambio de ruteo): ahí los pines mienten.
+
+**Pendiente.** Confirmar en hardware (el pinout viene de EchoPod, no de una
+medición propia) y, fuera del alcance del issue, el auto-switch wired↔BT al
+poner/sacar el conector.
+
+**Tests.** `test_jack_sense` (mapeo de pines, primera lectura, debounce de 7,
+rebote); todas las suites host verdes.
+
+**Build.** `make` PASS; AP5M CRC `0x5B32F935`; `.bss_end 0x030495E8` (2,584 B
+libres).

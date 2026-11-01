@@ -115,6 +115,7 @@ AP_DRIVER_SRCS := \
   firmware/drivers/cs43131.c \
   firmware/drivers/core_b.c \
   firmware/drivers/bt_hw.c \
+  firmware/drivers/jack.c \
   firmware/drivers/cru_pll.c \
   firmware/drivers/rknano_i2s.c \
   firmware/drivers/battery.c
@@ -135,6 +136,7 @@ AP_SERVICE_SRCS := \
   firmware/services/eq_profile.c \
   firmware/services/bt_proto.c \
   firmware/services/file_io.c \
+  firmware/services/jack_sense.c \
   firmware/services/bt_store.c \
   firmware/services/bt_link.c \
   firmware/services/power_save.c \

@@ -115,6 +115,11 @@ plays audio on hardware:
   with no link. Theme skins get `bt`/`bt_stream`. **Verified on device**
   (BLIK-AIR400 streaming + remote keys); contract in
   `docs/rewrite/bluetooth.md`.
+- **Headphone jack (BRNOMT-70)**: `drivers/jack.c` reads the 3.5 mm
+  (GPIO0.13) and 4.4 mm (GPIO2.8) sense pins; a 7-sample debounce in
+  `services/jack_sense.c`, polled at 20 ms, pauses playback when the
+  headphones are pulled. The sample is skipped while audio is routed to
+  Bluetooth (the routing fakes a plug). Device check pending.
 - **Idle power-down**: 3 s after playback stops, the DAC path (registers,
   amps, audio clocks) powers down and Core B is stopped; a boot preload keeps
   Core B warm for 60 s. The next Play restarts B and reconfigures the DAC.

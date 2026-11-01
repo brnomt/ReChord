@@ -114,8 +114,9 @@ Rules:
    next image; the first BT image logged `bt: device save failed`.
 5. 🟡 Polish: power/idle-off/remote keys/park-wake are implemented. Theme
    skins get `bt` (0 off / 1 on / 2 connected) and `bt_stream`, and the
-   bundled cassette Now Playing shows a small BT mark; the jack quirk remains
-   (ReChord has no runtime jack detection yet).
+   bundled cassette Now Playing shows a small BT mark. Jack detection now
+   exists (`drivers/jack.c` + BRNOMT-70) and the app ignores the sense pins
+   while routed/settling; auto-switching wired↔BT on plug remains open.
 
 ## Implemented behaviour
 
