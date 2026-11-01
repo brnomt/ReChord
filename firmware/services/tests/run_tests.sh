@@ -13,21 +13,21 @@ CFLAGS="${CFLAGS:--Wall -Werror -O1}"
 rm -rf .work && mkdir -p .work
 
 $CC $CFLAGS -I.. -o .work/test_settings test_settings.c ../settings.c ../settings_fs.c ../fs_host.c
-$CC $CFLAGS -I.. -o .work/test_settings_store test_settings_store.c ../settings.c ../settings_store.c
-$CC $CFLAGS -I.. -o .work/test_resume test_resume.c ../resume.c
+$CC $CFLAGS -I.. -o .work/test_settings_store test_settings_store.c ../settings.c ../settings_store.c ../file_io.c
+$CC $CFLAGS -I.. -o .work/test_resume test_resume.c ../resume.c ../file_io.c
 $CC $CFLAGS -I.. -o .work/test_log     test_log.c     ../log.c     ../fs_host.c
 $CC $CFLAGS -I.. -o .work/test_input   test_input.c   ../input.c
-$CC $CFLAGS -I.. -o .work/test_fs      test_fs.c      ../fs_host.c
+$CC $CFLAGS -I.. -o .work/test_fs      test_fs.c      ../fs_host.c ../file_io.c
 $CC $CFLAGS -I.. -o .work/test_store   test_store.c   ../store.c
 $CC $CFLAGS -I.. -o .work/test_scratch test_scratch.c ../scratch.c
 $CC $CFLAGS -I.. -o .work/test_media_db test_media_db.c ../media_db.c ../scratch.c ../fs_host.c
 $CC $CFLAGS -I.. -o .work/test_media_query test_media_query.c ../media_db.c ../media_query.c ../scratch.c ../fs_host.c
 $CC $CFLAGS -I.. -I../.. -o .work/test_media_scan test_media_scan.c ../media_scan.c ../media_db.c ../scratch.c ../fs_host.c ../log.c ../../player/tags.c ../../player/codec_io.c ../../player/codec_io_stdio.c
-$CC $CFLAGS -I.. -I../.. -o .work/test_eq_profile test_eq_profile.c ../eq_profile.c ../fs_host.c
+$CC $CFLAGS -I.. -I../.. -o .work/test_eq_profile test_eq_profile.c ../eq_profile.c ../fs_host.c ../file_io.c
 $CC $CFLAGS -I.. -o .work/test_bt_proto test_bt_proto.c ../bt_proto.c
 $CC $CFLAGS -I.. -o .work/test_power_save test_power_save.c ../power_save.c
 $CC $CFLAGS -I.. -I../.. -o .work/test_bt_link test_bt_link.c ../bt_link.c \
-    ../bt_store.c ../bt_proto.c ../log.c ../fs_host.c
+    ../bt_store.c ../bt_proto.c ../log.c ../fs_host.c ../file_io.c
 $CC $CFLAGS -I.. -I../.. -o .work/test_art_pack test_art_pack.c ../art_pack.c ../fs_host.c \
     ../../drivers/display.c ../../drivers/panel_init_rknanoc.c ../../drivers/font.c \
     ../../drivers/font8x8.c ../../drivers/panel_io_sim.c

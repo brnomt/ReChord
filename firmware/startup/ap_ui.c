@@ -184,14 +184,15 @@ static void ap_clock_init(void)
 
 static int log_write_file(const char *path, const char *text, unsigned len)
 {
-    fs_file_t *f = fs_open_read(path);
-    long size = f ? fs_file_size(f) : 0;
+    unsigned long size = 0;
 
-    if (f != 0)
-        fs_close(f);
-    if (size < 0)
+    /* Size by path, not through a read handle: every one of the four can be
+     * busy with playback (index + AP codec + both file rings) exactly when
+     * the periodic flush runs, and the old probe then reported 0, so the log
+     * never rotated. */
+    if (fs_size_file(path, &size) != FS_OK)
         size = 0;
-    if ((unsigned long)size + len > LOG_FILE_MAX) {
+    if (size + len > LOG_FILE_MAX) {
         /* Rotate: start over rather than growing without bound. */
         if (fs_truncate(path) != FS_OK)
             return -1;

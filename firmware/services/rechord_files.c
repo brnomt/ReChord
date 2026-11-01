@@ -52,29 +52,6 @@ static const char k_log_template[] =
  * assets). The firmware does not embed any theme content: it only creates the
  * directory and the active-id file. Packages are installed from storage. */
 
-static int ensure_file(const char *path, uint32_t bytes, const char *template_text)
-{
-    fs_file_t *f = fs_open_read(path);
-
-    if (f != 0) {
-        fs_close(f);
-        return FS_OK;                    /* exists: never touched again */
-    }
-    if (fs_target_file_create(path, bytes) != FS_OK)
-        return FS_ERR_IO;
-    if (template_text != 0) {
-        unsigned len = (unsigned)strlen(template_text);
-
-        if (len > 0u) {
-            int r = fs_target_file_rewrite(path, template_text, len);
-
-            if (r != FS_OK)
-                return r;
-        }
-    }
-    return FS_OK;
-}
-
 /* Preallocated EQ file size: enough for 10 bands + the comment header. */
 #define EQ_FILE_BYTES 1024u
 
@@ -112,7 +89,7 @@ int rechord_files_init(void)
         return r;
 
     len = 0;
-    r = ensure_file(RECHORD_CFG, CFG_BYTES, 0);
+    r = fs_ensure_file(RECHORD_CFG, CFG_BYTES, 0);
     if (r != FS_OK)
         return r;
 
@@ -122,29 +99,29 @@ int rechord_files_init(void)
     settings_defaults(&defaults);
     len = settings_serialize_text(&defaults, text, sizeof text);
     if (len > 0) {
-        fs_file_t *f = fs_open_read(RECHORD_CFG);
-        long size = f ? fs_file_size(f) : -1;
+        unsigned long size = 0;
 
-        if (f != 0)
-            fs_close(f);
-        if (size == (long)CFG_BYTES)     /* freshly created (all zeros) */
-            (void)fs_target_file_rewrite(RECHORD_CFG, text, (uint32_t)len);
+        /* Size by path: no read handle needed (the log rotation probe and
+         * this one both run while playback may hold slots). */
+        if (fs_size_file(RECHORD_CFG, &size) == FS_OK &&
+            size == (unsigned long)CFG_BYTES)   /* freshly created */
+            (void)fs_store_file(RECHORD_CFG, text, (uint32_t)len);
     }
 
-    if (ensure_file(RECHORD_STATE, STATE_BYTES, k_state_template) != FS_OK)
+    if (fs_ensure_file(RECHORD_STATE, STATE_BYTES, k_state_template) != FS_OK)
         return FS_ERR_IO;
-    if (ensure_file(RECHORD_LOG, LOG_BYTES, k_log_template) != FS_OK)
+    if (fs_ensure_file(RECHORD_LOG, LOG_BYTES, k_log_template) != FS_OK)
         return FS_ERR_IO;
     /* Bluetooth choice + devices: preallocated so the in-place rewrite never
      * has to grow a cluster (a missing file made every save fail). */
-    if (ensure_file(BT_STORE_PATH, BT_BYTES,
+    if (fs_ensure_file(BT_STORE_PATH, BT_BYTES,
                     "# ReChord Bluetooth\non=0\n") != FS_OK)
         return FS_ERR_IO;
     /* The media index slots: empty until the first scan (they are binary, so
      * no text header), created here so a build always has a file to target. */
-    if (ensure_file(MEDIA_DB_A, 0u, 0) != FS_OK)
+    if (fs_ensure_file(MEDIA_DB_A, 0u, 0) != FS_OK)
         return FS_ERR_IO;
-    if (ensure_file(MEDIA_DB_B, 0u, 0) != FS_OK)
+    if (fs_ensure_file(MEDIA_DB_B, 0u, 0) != FS_OK)
         return FS_ERR_IO;
 
     /* Theme storage: create the directory and the active-id file only. Theme
@@ -152,18 +129,18 @@ int rechord_files_init(void)
      * firmware embeds no theme content. Best effort: a full volume must not
      * fail the boot. */
     (void)fs_target_mkdir(RECHORD_THEMES_DIR);
-    (void)ensure_file(RECHORD_ACTIVE_THEME, 64u, "mono\n");
+    (void)fs_ensure_file(RECHORD_ACTIVE_THEME, 64u, "mono\n");
 
     /* EQ (BRNOMT-76): active curve + five writable custom slots. All are
      * preallocated so the in-place rewrite path never has to grow a cluster.
      * Users may add custom6.cfg..custom8.cfg from a PC; the picker shows
      * every slot file it finds. */
     (void)fs_target_mkdir(RECHORD_EQ_DIR);
-    (void)ensure_file(RECHORD_EQ_CFG, EQ_FILE_BYTES, k_eq_default);
-    (void)ensure_file(RECHORD_EQ_DIR "/custom1.cfg", EQ_FILE_BYTES, 0);
-    (void)ensure_file(RECHORD_EQ_DIR "/custom2.cfg", EQ_FILE_BYTES, 0);
-    (void)ensure_file(RECHORD_EQ_DIR "/custom3.cfg", EQ_FILE_BYTES, 0);
-    (void)ensure_file(RECHORD_EQ_DIR "/custom4.cfg", EQ_FILE_BYTES, 0);
-    (void)ensure_file(RECHORD_EQ_DIR "/custom5.cfg", EQ_FILE_BYTES, 0);
+    (void)fs_ensure_file(RECHORD_EQ_CFG, EQ_FILE_BYTES, k_eq_default);
+    (void)fs_ensure_file(RECHORD_EQ_DIR "/custom1.cfg", EQ_FILE_BYTES, 0);
+    (void)fs_ensure_file(RECHORD_EQ_DIR "/custom2.cfg", EQ_FILE_BYTES, 0);
+    (void)fs_ensure_file(RECHORD_EQ_DIR "/custom3.cfg", EQ_FILE_BYTES, 0);
+    (void)fs_ensure_file(RECHORD_EQ_DIR "/custom4.cfg", EQ_FILE_BYTES, 0);
+    (void)fs_ensure_file(RECHORD_EQ_DIR "/custom5.cfg", EQ_FILE_BYTES, 0);
     return FS_OK;
 }

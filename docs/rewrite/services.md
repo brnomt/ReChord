@@ -26,6 +26,8 @@ firmware/services/
 ├── fs_host.c / fs_host.h     HOST backend (POSIX real filesystem; tests/tools)
 ├── fs_target.c               TARGET backend — read-only FAT16/FAT32(LFN)/exFAT
 │                             (fs_seek, fs_patch dirent-size); writes via store.c
+├── file_io.c                 whole-file helpers (fs_load_file/fs_store_file)
+│                             shared by settings/resume/BT/EQ/log
 ├── store.h / store.c         raw-sector store (in-place file rewrites)
 ├── media_db.h / media_db.c   media index (v3: dual A/B slots + CRC commit)
 ├── media_scan.c              iterative directory walk (depth-capped)
@@ -66,7 +68,7 @@ backend files, one per image (same pattern as the fs backend):
 | Backend | Image | Save semantics |
 |---|---|---|
 | `settings_fs.c` | host tools/tests | whole-file `fs_open_write`/`fs_write` (create/truncate) |
-| `settings_store.c` | target (AP) | `fs_target_file_rewrite()`: rewrite the existing file's **data sectors** in place + patch its dirent size — no FAT-table writes, no allocation. Missing file ⇒ load returns `SETTINGS_ERR_OPEN` (defaults stay), save returns IO error. |
+| `settings_store.c` | target (AP) | `fs_store_file()`: rewrite the existing file's **data sectors** in place + patch its dirent size — no FAT-table writes, no allocation. Missing file ⇒ load returns `SETTINGS_ERR_OPEN` (defaults stay), save returns IO error. |
 
 `SETTINGS_PATH` is `/Internal/.rechord/rechord.cfg` — the user-visible
 `.rechord` folder on the internal eMMC volume (BRNOMT-71), plain text so it
@@ -152,7 +154,21 @@ void       fs_close(fs_file_t *f);
 fs_file_t *fs_open_write(const char *path);    /* create/truncate */
 fs_file_t *fs_open_append(const char *path);
 long       fs_write(fs_file_t *f, const void *buf, unsigned long len);
+
+/* whole-file helpers for the small text files (file_io.c + one backend) */
+int  fs_load_file(const char *path, void *buf, unsigned long cap);
+int  fs_store_file(const char *path, const void *data, uint32_t len);
+int  fs_size_file(const char *path, unsigned long *out);
+int  fs_ensure_file(const char *path, uint32_t bytes, const char *template_text);
 ```
+
+`fs_load_file`/`fs_store_file` are shared (open/read/close and the in-place
+rewrite); `fs_size_file`/`fs_ensure_file` are backend calls because they need
+the path size without a handle and the create path. Every small text file
+(settings, resume, Bluetooth, EQ profiles, the log writer) goes through these,
+so no module repeats the open/read/truncate/append dance. `fs_size_file()` is
+also what makes the log rotate reliably: all four read handles can be busy
+with playback exactly when the periodic flush runs.
 
 Exactly one backend is linked per image: `fs_host.c` (host) or
 `fs_target.c` (device). Paths are device-style volume-rooted

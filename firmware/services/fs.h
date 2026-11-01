@@ -117,4 +117,39 @@ int fs_append(const char *path, const void *buf, uint32_t len);
  * FS_ERR_*. */
 int fs_truncate(const char *path);
 
+/* ---- whole-file helpers for the small text files -----------------------
+ *
+ * Every module that persists a small text file (settings, resume state,
+ * Bluetooth, EQ, log rotation, themes) used to repeat the same open/read or
+ * truncate/append/rewrite dance. These four calls are that dance, once:
+ *
+ *   fs_load_file   read a whole file into a caller buffer (NUL-terminated)
+ *   fs_store_file  rewrite an existing file in place with new contents
+ *   fs_size_file   size by path, WITHOUT holding one of the 4 read handles
+ *   fs_ensure_file create a missing file with its template (first boot)
+ *
+ * The in-place store never allocates a cluster and never touches the FAT
+ * directory entry: the file must already own enough sectors (the first-boot
+ * init preallocates every device file). Buffers stay with the caller.
+ */
+
+/* Read up to cap-1 bytes, NUL-terminate. Returns the byte count, or
+ * FS_ERR_OPEN / FS_ERR_IO / FS_ERR_ARG. */
+int fs_load_file(const char *path, void *buf, unsigned long cap);
+
+/* Rewrite an existing file in place with <len> bytes (data sectors + the
+ * dirent size; no allocation, no FAT change). Returns FS_OK or FS_ERR_*. */
+int fs_store_file(const char *path, const void *data, uint32_t len);
+
+/* Size of an existing file by path, without using a read handle (the log
+ * rotation probe runs while all four may be busy with playback). Returns
+ * FS_OK and *out, or FS_ERR_OPEN / FS_ERR_ARG. */
+int fs_size_file(const char *path, unsigned long *out);
+
+/* Create <path> with <bytes> allocated when it is missing, then write a short
+ * template into it; an existing file is never touched. The host backend does
+ * not model preallocation (it just creates the file). Returns FS_OK or
+ * FS_ERR_*. */
+int fs_ensure_file(const char *path, uint32_t bytes, const char *template_text);
+
 #endif /* RECHORD_SERVICES_FS_H */

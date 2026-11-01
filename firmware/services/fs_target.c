@@ -1411,3 +1411,41 @@ int fs_truncate(const char *path)
         return r;
     return FS_OK;
 }
+
+/* ---- whole-file helpers (fs.h): size by path + first-boot creation ------ */
+
+int fs_size_file(const char *path, unsigned long *out)
+{
+    const vol_t *v;
+
+    if (path == 0 || out == 0)
+        return FS_ERR_ARG;
+    /* resolve() fills s_ent and needs no read handle, so this works while
+     * all four are held by playback (the log rotation probe). */
+    if (resolve(path, &v) != 0 || s_ent.is_dir)
+        return FS_ERR_OPEN;
+    *out = s_ent.size;
+    return FS_OK;
+}
+
+int fs_ensure_file(const char *path, uint32_t bytes, const char *template_text)
+{
+    fs_file_t *f;
+    unsigned n;
+
+    if (path == 0)
+        return FS_ERR_ARG;
+    f = fs_open_read(path);
+    if (f != 0) {
+        fs_close(f);
+        return FS_OK;                  /* exists: never touched */
+    }
+    if (fs_target_file_create(path, bytes) != FS_OK)
+        return FS_ERR_IO;
+    if (template_text != 0 && template_text[0] != '\0') {
+        n = (unsigned)strlen(template_text);
+        if (fs_target_file_rewrite(path, template_text, n) != FS_OK)
+            return FS_ERR_IO;
+    }
+    return FS_OK;
+}

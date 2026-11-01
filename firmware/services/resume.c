@@ -2,7 +2,7 @@
  * resume.c — the /.rechord/state file (BRNOMT-87).
  *
  * Reads through the read-only fs.h path; saves go through
- * fs_target_file_rewrite() (the same class of write as the config: existing
+ * fs_store_file() (the same class of write as the config: existing
  * clusters + dirent size, never an allocation or a FAT update). Buffers are
  * stack-only so this costs 0 B of the target .bss budget.
  */
@@ -12,7 +12,6 @@
 #include "resume.h"
 #include "rechord_files.h"
 #include "fs.h"
-#include "fs_target.h"
 
 /* Longest state text accepted/emitted: 2 x 208-byte paths + numbers + keys. */
 #define STATE_TEXT_MAX 768
@@ -108,23 +107,17 @@ static void parse_text(const char *text, resume_state_t *s)
 int resume_load(resume_state_t *s)
 {
     char buf[STATE_TEXT_MAX];
-    fs_file_t *f;
-    long got;
+    int got;
 
     if (s == 0)
         return -1;
     resume_default(s);
 
-    f = fs_open_read(RECHORD_STATE);
-    if (f == 0)
-        return -1;
-    got = fs_read(f, buf, (unsigned long)sizeof(buf) - 1u);
-    fs_close(f);
+    got = fs_load_file(RECHORD_STATE, buf, (unsigned long)sizeof buf);
     if (got < 0) {
         resume_default(s);
         return -1;
     }
-    buf[got] = '\0';
     parse_text(buf, s);
     return 0;
 }
@@ -145,7 +138,7 @@ int resume_save(const resume_state_t *s)
                  s->queue_cat, s->queue_value);
     if (n < 0 || (unsigned)n >= sizeof text)
         return -1;                       /* would not round-trip: keep old */
-    if (fs_target_file_rewrite(RECHORD_STATE, text, (uint32_t)n) != FS_OK)
+    if (fs_store_file(RECHORD_STATE, text, (uint32_t)n) != FS_OK)
         return -1;
     return 0;
 }

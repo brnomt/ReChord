@@ -314,3 +314,66 @@ int fs_append(const char *path, const void *buf, uint32_t len)
     fs_close(f);
     return n == (long)len ? FS_OK : FS_ERR_IO;
 }
+
+/* ---- whole-file helpers (fs.h): size by path + first-boot creation ------ */
+
+int fs_size_file(const char *path, unsigned long *out)
+{
+#if defined(FS_HOST_HAVE_DIRENT)
+    char host[FS_HOST_PATH_MAX];
+    struct stat st;
+
+    if (path == 0 || out == 0)
+        return FS_ERR_ARG;
+    if (map_path(path, host, (unsigned long)sizeof(host)) != FS_OK)
+        return FS_ERR_ARG;
+    if (stat(host, &st) != 0 || S_ISDIR(st.st_mode))
+        return FS_ERR_OPEN;
+    *out = (unsigned long)st.st_size;
+    return FS_OK;
+#else
+    (void)path;
+    (void)out;
+    return FS_ERR_UNSUPPORTED;
+#endif
+}
+
+int fs_ensure_file(const char *path, uint32_t bytes, const char *template_text)
+{
+    char host[FS_HOST_PATH_MAX];
+    FILE *f;
+
+    (void)bytes;                       /* the host does not preallocate */
+    if (path == 0)
+        return FS_ERR_ARG;
+    if (map_path(path, host, (unsigned long)sizeof(host)) != FS_OK)
+        return FS_ERR_ARG;
+    f = fopen(host, "rb");
+    if (f != 0) {
+        fclose(f);
+        return FS_OK;                  /* exists: never touched */
+    }
+    f = fopen(host, "wb");
+    if (f == 0)
+        return FS_ERR_OPEN;
+    if (template_text != 0 && template_text[0] != '\0')
+        (void)fwrite(template_text, 1, strlen(template_text), f);
+    fclose(f);
+    return FS_OK;
+}
+
+/* In-place whole-file rewrite, matching the target backend's semantics for
+ * the helpers in file_io.c (the host has no allocation model, so a normal
+ * truncate+write is the faithful equivalent). */
+int fs_target_file_rewrite(const char *path, const void *data, uint32_t len)
+{
+    fs_file_t *f;
+    long n;
+
+    f = open_with_mode(path, "wb");
+    if (f == 0)
+        return FS_ERR_OPEN;
+    n = fs_write(f, data, len);
+    fs_close(f);
+    return n == (long)len ? FS_OK : FS_ERR_IO;
+}

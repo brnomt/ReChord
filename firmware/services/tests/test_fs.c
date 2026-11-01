@@ -38,6 +38,40 @@ static int count_cb(const char *name, int is_dir)
     return 0;                   /* keep iterating */
 }
 
+/* Whole-file helpers (fs.h): ensure/load/store/size, the API every small
+ * text file uses now. */
+static void test_whole_file_helpers(void)
+{
+    char buf[64];
+    unsigned long size = 0;
+    int n;
+
+    (void)remove(".work/WF.TXT");
+
+    CHECK(fs_ensure_file("\\WF.TXT", 512, "hello\n") == FS_OK);
+    n = fs_load_file("\\WF.TXT", buf, sizeof buf);
+    CHECK(n == 6 && strcmp(buf, "hello\n") == 0);
+
+    /* an existing file is never re-created or re-templated */
+    CHECK(fs_ensure_file("\\WF.TXT", 512, "other\n") == FS_OK);
+    n = fs_load_file("\\WF.TXT", buf, sizeof buf);
+    CHECK(n == 6 && strcmp(buf, "hello\n") == 0);
+
+    /* in-place store: contents and size follow the new text */
+    CHECK(fs_store_file("\\WF.TXT", "abcdef", 6) == FS_OK);
+    CHECK(fs_size_file("\\WF.TXT", &size) == FS_OK && size == 6);
+    n = fs_load_file("\\WF.TXT", buf, sizeof buf);
+    CHECK(n == 6 && strcmp(buf, "abcdef") == 0);
+
+    /* load keeps cap-1 bytes and NUL-terminates */
+    n = fs_load_file("\\WF.TXT", buf, 4);
+    CHECK(n == 3 && strcmp(buf, "abc") == 0);
+
+    /* missing file: load/size report OPEN */
+    CHECK(fs_load_file("\\NOPE.TXT", buf, sizeof buf) == FS_ERR_OPEN);
+    CHECK(fs_size_file("\\NOPE.TXT", &size) == FS_ERR_OPEN);
+}
+
 static int stop_early_cb(const char *name, int is_dir)
 {
     (void)name;
@@ -138,6 +172,7 @@ int main(void)
     CHECK(fs_list_dir_each("\\", stop_early_cb) == 1);
 
     test_append_patch();
+    test_whole_file_helpers();
 
     printf("test_fs: %d checks, %d failures\n", s_checks, s_failures);
     return (s_failures == 0) ? 0 : 1;

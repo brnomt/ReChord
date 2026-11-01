@@ -5034,3 +5034,47 @@ encendido para siempre): `bt_link_set_display()` se alimenta de
 libres). Pendiente de hardware: confirmar en el LOG `power: dac off` /
 `power: core B off` tras 3 s parado, que el Play posterior dice
 `power: core B on` y suena, y medir la autonomía.
+
+## CM. Session 2026-10-31 — API de ficheros + BT verificado en hardware
+
+**BT en hardware (build BT).** El equipo emparejó y reprodujo por Bluetooth:
+
+```
+133.594 bt: module powered
+134.111 bt: ready v5
+144.057 bt: scan
+148.818 bt: found BLIK-AIR400
+194.200 bt: connecting BLIK-AIR400
+196.705 bt: connected BLIK-AIR400
+204.885 bt: audio route module
+208.431 bt: remote pause
+208.551 bt: audio route wired
+218.812 bt: audio route module
+221.281 bt: remote play
+```
+
+Es decir: UART1, power, ruteo GPIO2.0/2.14/streaming y los botones del
+auricular funcionan de punta a punta. El build flasheado aún es el primero:
+`bt: device save failed` (el fix de `/.rechord/BT` y el apagado de DAC/Core B
+llegan con la próxima imagen).
+
+**API de ficheros.** Los módulos repetían open/read/close y
+truncate/append/rewrite. Ahora hay cuatro helpers en `fs.h`:
+`fs_load_file`, `fs_store_file` (compartidos en `file_io.c`),
+`fs_size_file` y `fs_ensure_file` (por backend, porque necesitan el tamaño por
+path sin handle y el camino de creación). Refactorizados: `settings_store`,
+`resume`, `bt_store`, `rechord_files` (incluye la creación first-boot), el
+lector de `eq_profile` y el writer del log. `media_db` mantiene append/patch
+(binario) y `fs_patch` sigue siendo el commit de un solo sector.
+
+**Bug de rotación del log.** El writer comprobaba el tamaño abriendo un handle
+de lectura; con playback activo los cuatro slots suelen estar ocupados
+(index + codec AP + dos anillos), el probe devolvía 0 y el LOG no rotaba.
+Ahora usa `fs_size_file()` (resuelve el path, sin handle).
+
+**Tests.** `test_fs` cubre ensure/load/store/size (create no pisa existente,
+store ajusta tamaño, load recorta a cap-1 y NUL-termina, missing -> OPEN);
+`test_settings_store`/`test_resume` siguen ejerciendo el hand-off con sus
+stubs; `test_eq_profile`, `test_bt_link` y todas las suites verdes.
+
+**Build.** `make` PASS; AP5M CRC `0x92DDE640`; `.bss_end 0x030495D8`.

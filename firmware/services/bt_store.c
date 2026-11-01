@@ -3,7 +3,7 @@
  *
  * Parsing is strict per line: an unknown or malformed line is skipped, so a
  * half-written file never loses the whole choice. Saving rewrites the file in
- * place through fs_target_file_rewrite() (same class of write as the config;
+ * place through fs_store_file() (same class of write as the config;
  * never an allocation).
  */
 #include <stdio.h>
@@ -76,23 +76,17 @@ static void parse_text(const char *text, bt_store_t *st)
 int bt_store_load(bt_store_t *st)
 {
     char buf[BT_TEXT_MAX];
-    fs_file_t *f;
-    long got;
+    int got;
 
     if (st == 0)
         return -1;
     bt_store_default(st);
 
-    f = fs_open_read(BT_STORE_PATH);
-    if (f == 0)
-        return -1;
-    got = fs_read(f, buf, (unsigned long)sizeof buf - 1u);
-    fs_close(f);
+    got = fs_load_file(BT_STORE_PATH, buf, (unsigned long)sizeof buf);
     if (got < 0) {
         bt_store_default(st);
         return -1;
     }
-    buf[got] = '\0';
     parse_text(buf, st);
     return 0;
 }
@@ -125,9 +119,7 @@ int bt_store_save(const bt_store_t *st)
         if (n < 0 || (unsigned)n >= sizeof text)
             return -1;
     }
-    if (fs_truncate(BT_STORE_PATH) != FS_OK)
-        return -1;
-    if (fs_append(BT_STORE_PATH, text, (uint32_t)n) != FS_OK)
+    if (fs_store_file(BT_STORE_PATH, text, (uint32_t)n) != FS_OK)
         return -1;
     return 0;
 }

@@ -357,20 +357,9 @@ int eq_profile_format(const eq_curve_t *curve, const char *name,
 
 static int read_text(const char *path, char *buf, unsigned cap)
 {
-    fs_file_t *f;
-    long n;
+    int n = fs_load_file(path, buf, cap);
 
-    if (cap < 2)
-        return -1;
-    f = fs_open_read(path);
-    if (f == 0)
-        return -1;
-    n = fs_read(f, buf, cap - 1);
-    fs_close(f);
-    if (n < 0)
-        return -1;
-    buf[n] = '\0';
-    return (int)n;
+    return n < 0 ? -1 : n;
 }
 
 static int write_file(const char *path, const char *text, int len)
