@@ -14,6 +14,7 @@
 #include "../../player/ipc_b.h"
 #include "../../services/rechord_files.h"
 #include "../../drivers/battery.h"
+#include "../../services/log.h"
 
 static unsigned s_now_ms;
 static unsigned s_last_input_ms;
@@ -174,18 +175,30 @@ void theme_ui_draw(const theme_skin_state_t *st, int sel, int top)
 
 int theme_ui_draw_dynamic(const theme_skin_state_t *st, int sel, int top)
 {
+    static unsigned frame, fps_ms, fps_n;
     int i, any = 0;
+    /* A key this tick (selection moved...) refreshes every rect at once. */
+    int force = (s_last_input_ms == s_now_ms);
 
     theme_skin_set_dynamic_only(1);
     theme_skin_render(s_now_ms, s_now_ms - s_last_input_ms, sel, top, st);
     theme_skin_set_dynamic_only(0);
+    frame++;
     for (i = 0; i < 3; i++) {
         int x0, y0, x1, y1;
 
         if (theme_skin_dyn_rect(i, &x0, &y0, &x1, &y1) == 0) {
-            display_flush_rect(x0, y0, x1, y1);
             any = 1;
+            if (force || frame % (unsigned)theme_skin_dyn_every(i) == 0)
+                display_flush_rect(x0, y0, x1, y1);
         }
+    }
+    /* Effective animation rate, for tuning refresh_ms against the bus. */
+    fps_n++;
+    if (s_now_ms - fps_ms >= 5000u) {
+        log_printf("skin: %u fr/5s", fps_n);
+        fps_n = 0;
+        fps_ms = s_now_ms;
     }
     return any;
 }

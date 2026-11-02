@@ -185,6 +185,7 @@ void test_skin_engine(void)
                   "refresh_ms=50\n"
                   "dyn=2,2,6,6\n"
                   "dyn2=10,10,12,12\n"
+                  "dyn2_every=5\n"
                   "[still]\n"
                   "type=fill\nx=0\ny=0\nw=2\nh=2\ncolor=63488\n"
                   "[moving]\n"
@@ -203,6 +204,8 @@ void test_skin_engine(void)
                 CHECK_EQ_INT(theme_skin_dyn_rect(1, &x0, &y0, &x1, &y1), 0);
                 CHECK_EQ_INT(x1, 12);
                 CHECK_EQ_INT(theme_skin_dyn_rect(2, &x0, &y0, &x1, &y1), -1);
+                CHECK_EQ_INT(theme_skin_dyn_every(0), 1);
+                CHECK_EQ_INT(theme_skin_dyn_every(1), 5);
             }
             mock_display_reset();
             theme_skin_set_dynamic_only(1);

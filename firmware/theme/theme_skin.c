@@ -100,6 +100,7 @@ static int s_refresh_h = -1;
 static int s_dyn_only;
 static int s_dyn_n;
 static int s_dyn_rect[3][4];
+static int s_dyn_every[3] = { 1, 1, 1 };   /* flush rect every Nth frame */
 static int s_animated;
 
 /* ---------------------------------------------------------------- values */
@@ -1115,6 +1116,7 @@ int theme_skin_load(const char *root, const char *id, const char *path)
     s_var_count = 0;
     s_dyn_n = 0;
     s_dyn_only = 0;
+    s_dyn_every[0] = s_dyn_every[1] = s_dyn_every[2] = 1;
 
     p = s_text;
     while ((n = next_section(&p, &sec)) > 0) {
@@ -1138,6 +1140,15 @@ int theme_skin_load(const char *root, const char *id, const char *path)
             v = prop(&sec, "dyn3");
             if (v != 0 && parse_rect(v, s_dyn_rect[2]) == 0)
                 s_dyn_n = 3;
+            v = prop(&sec, "dyn_every");
+            if (v != 0 && as_int(v_str(v)) > 0)
+                s_dyn_every[0] = as_int(v_str(v));
+            v = prop(&sec, "dyn2_every");
+            if (v != 0 && as_int(v_str(v)) > 0)
+                s_dyn_every[1] = as_int(v_str(v));
+            v = prop(&sec, "dyn3_every");
+            if (v != 0 && as_int(v_str(v)) > 0)
+                s_dyn_every[2] = as_int(v_str(v));
         } else if (key_eq(sec.name, "vars") ||
                    key_eq(sec.name, "vars2") ||
                    key_eq(sec.name, "vars3")) {
@@ -1182,6 +1193,11 @@ const char *theme_skin_text(void)
 void theme_skin_set_dynamic_only(int on)
 {
     s_dyn_only = on ? 1 : 0;
+}
+
+int theme_skin_dyn_every(int idx)
+{
+    return idx >= 0 && idx < 3 ? s_dyn_every[idx] : 1;
 }
 
 int theme_skin_dyn_rect(int idx, int *x0, int *y0, int *x1, int *y1)
