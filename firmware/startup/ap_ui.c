@@ -2044,8 +2044,17 @@ void ap_ui_loop(void)
             track_info_t ti;
 
             s_note_play_pending = 0;
-            if (player_get_track(&ti) == PLAYER_OK && ti.path[0] != '\0')
+            if (player_get_track(&ti) == PLAYER_OK && ti.path[0] != '\0') {
+                int g10 = player_get_replaygain_gain_tenth_db();
+
                 extras_note_play(ti.path);
+                /* Evidence that ReplayGain reaches the output: the mode and
+                 * the gain chosen for this track (0.0 = no usable tags). */
+                log_printf("rg: mode %d gain %s%d.%d dB",
+                           player_get_replaygain_mode(),
+                           g10 < 0 ? "-" : "+", (g10 < 0 ? -g10 : g10) / 10,
+                           (g10 < 0 ? -g10 : g10) % 10);
+            }
         }
 
         /* Headphone jack (BRNOMT-70): pulling the headphones out pauses.
