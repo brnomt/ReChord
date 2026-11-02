@@ -17,10 +17,11 @@ static int        s_custom;
 static char       s_custom_name[EQ_PROFILE_SLOTS][EQ_PROFILE_NAME_MAX];
 
 static const uint16_t s_freq[10] = {
-    31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000
+    80, 160, 320, 640, 1250, 2500, 4000, 6300, 10000, 14000
 };
-static const char *const s_builtin[5] = {
-    "Flat", "Rock", "Jazz", "EDM", "Vocal"
+static const char *const s_builtin[EQ_PROFILE_BUILTINS] = {
+    "Flat", "Bass Boost", "Rock", "Pop", "Jazz", "EDM", "Hip-Hop", "Vocal",
+    "Treble", "Loudness"
 };
 
 int mock_eq_save_calls;
@@ -55,20 +56,20 @@ int eq_profile_apply(void) { return 0; }
 int eq_profile_save(void) { mock_eq_save_calls++; return 0; }
 int eq_profile_scan(void) { return eq_profile_count(); }
 
-int eq_profile_count(void) { return 5 + s_custom; }
+int eq_profile_count(void) { return EQ_PROFILE_BUILTINS + s_custom; }
 
 const char *eq_profile_entry_name(int index)
 {
     if (index < 0 || index >= eq_profile_count())
         return "";
-    if (index < 5)
+    if (index < EQ_PROFILE_BUILTINS)
         return s_builtin[index];
-    return s_custom_name[index - 5];
+    return s_custom_name[index - EQ_PROFILE_BUILTINS];
 }
 
 int eq_profile_entry_is_custom(int index)
 {
-    return index >= 5 && index < eq_profile_count();
+    return index >= EQ_PROFILE_BUILTINS && index < eq_profile_count();
 }
 
 int eq_profile_select(int index)

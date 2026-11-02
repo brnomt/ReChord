@@ -87,16 +87,18 @@ static void copy_coeffs(Biquad *dst, const Biquad *src)
 }
 
 /* Largest boost (dB) of the WHOLE cascade over 20 Hz..Nyquist-ish, evaluated
- * from the quantised coefficients that actually run. Overlapping bands add up
+ * from the quantised coefficients that actually run, plus its mean over the
+ * log-frequency grid (music has roughly equal energy per octave, so the mean
+ * tracks how much louder the curve makes a track). Overlapping bands add up
  * (two neighbouring +4 dB bands make ~+7 dB between them), which a per-band
  * maximum misses. 0 when nothing boosts. */
 #define EQ_PEAK_GRID 48
 
-static double curve_peak_db(const eq_bank_impl_t *s)
+static double curve_peak_db(const eq_bank_impl_t *s, double *mean_db)
 {
     double nyq = (double)s->sample_rate * 0.5;
     double top = nyq * 0.9 < 20000.0 ? nyq * 0.9 : 20000.0;
-    double peak = 0.0;
+    double peak = 0.0, sum = 0.0;
     int k, b;
 
     for (k = 0; k < EQ_PEAK_GRID; k++) {
@@ -122,9 +124,11 @@ static double curve_peak_db(const eq_bank_impl_t *s)
             di = a1 * s1 + a2 * s2;
             db += 10.0 * log10((nr * nr + ni * ni) / (dr * dr + di * di));
         }
+        sum += db;
         if (db > peak)
             peak = db;
     }
+    *mean_db = sum / EQ_PEAK_GRID;
     return peak;
 }
 
@@ -230,15 +234,18 @@ int eq_bank_apply(eq_bank_state_t *st, const eq_curve_t *curve)
 
     s->curve = *curve;
 
-    /* Preamp: back off 60 % of the cascade's real peak boost (a +5 dB peak
-     * costs -3 dB overall, not -5.9 like the old per-band 0.9/maxgain rule);
-     * the soft knee absorbs what is left. Cut-only curves stay at unity. */
+    /* Preamp: keep loudness roughly where it was instead of pulling the whole
+     * track down by the biggest boost. Back off the mean boost (what the ear
+     * hears as "louder") but never less than 40 % of the peak, and let the soft
+     * knee absorb the rest. Cut-only curves stay at unity. */
     {
-        double pk = curve_peak_db(s);
+        double mean = 0.0;
+        double pk = curve_peak_db(s, &mean);
+        double back = mean > 0.4 * pk ? mean : 0.4 * pk;
 
         s->boosting = pk > 0.05;
         s->pre_scale = s->boosting
-                           ? f2q30(pow(10.0, -0.6 * pk / 20.0))
+                           ? f2q30(pow(10.0, -back / 20.0))
                            : Q30_ONE;
     }
 

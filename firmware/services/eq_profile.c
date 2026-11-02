@@ -13,26 +13,44 @@
 #include "fs.h"
 #include "rechord_files.h"
 
-#define EQ_BUILTIN_COUNT 5
+#define EQ_BUILTIN_COUNT EQ_PROFILE_BUILTINS
 #define EQ_TEXT_MAX      512
 
-/* ISO 10-band centre frequencies (Hz). */
+/* Default band layout. Band 0 is a LOW SHELF and the last a HIGH SHELF (see
+ * eq_bank.h), and an RBJ shelf only reaches full gain about an octave away
+ * from its corner. The old ISO layout put the corners at 31 Hz and 16 kHz, so
+ * "+4 dB at 31 Hz" was inaudible; these corners sit where headphones and small
+ * drivers actually respond. The middle bands are one-octave peaks. */
 static const uint16_t s_iso_freq[EQ_BANDS_MAX] = {
-    31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000
+    80, 160, 320, 640, 1250, 2500, 4000, 6300, 10000, 14000
 };
 
-/* Built-in curves in tenths of dB. Project data (standard graphic-EQ shapes),
- * not copied code; Q is the default 0.70 for every band. */
+/* Shelves use slope 0.70; the peaking bands use Q 1.40 (one octave wide), so
+ * neighbouring faders add up smoothly instead of two octaves of mush. */
+static unsigned default_q(int band, int count)
+{
+    return (band == 0 || band == count - 1) ? 70u : 140u;
+}
+
+/* Built-in curves in tenths of dB, for the layout above. Project data, tuned by
+ * measuring the real filter chain (tools: sine sweep through eq_bank) so each
+ * shape comes out smooth and loudness-neutral to within the preamp. */
 static const int8_t s_builtin_gain[EQ_BUILTIN_COUNT][EQ_BANDS_MAX] = {
-    /* Flat  */ { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-    /* Rock  */ { 40, 30, 10, -10, -20, -10, 10, 30, 40, 30 },
-    /* Jazz  */ { 30, 20, 10, 20, -10, -10, 0, 10, 20, 20 },
-    /* EDM   */ { 50, 40, 20, 0, -10, -10, 0, 10, 20, 20 },
-    /* Vocal */ { -20, -10, 0, 10, 30, 30, 20, 10, 0, -10 }
+    /* Flat      */ {   0,   0,   0,   0,   0,   0,   0,   0,   0,   0 },
+    /* Bass Boost*/ {  90,  30,  10,   0,   0,   0,   0,   0,   0,   0 },
+    /* Rock      */ {  60,  20,   0, -20, -30, -10,  20,  40,  40,  30 },
+    /* Pop       */ { -20,   0,  20,  30,  30,  10, -10, -10, -20, -20 },
+    /* Jazz      */ {  30,  10,  10,  20, -10, -10,   0,  10,  20,  20 },
+    /* EDM       */ {  90,  30,   0,   0, -10, -10,   0,  20,  40,  40 },
+    /* Hip-Hop   */ {  80,  40,  10,   0, -10,   0,  10,  10,  20,  20 },
+    /* Vocal     */ { -30, -10,   0,  10,  30,  40,  30,  10, -10, -20 },
+    /* Treble    */ {   0,   0,   0,   0,   0,  10,  30,  50,  60,  60 },
+    /* Loudness  */ {  60,  20,   0, -10, -10, -10,   0,  10,  30,  40 }
 };
 
-static const char s_builtin_name[EQ_BUILTIN_COUNT][8] = {
-    "Flat", "Rock", "Jazz", "EDM", "Vocal"
+static const char s_builtin_name[EQ_BUILTIN_COUNT][12] = {
+    "Flat", "Bass Boost", "Rock", "Pop", "Jazz", "EDM", "Hip-Hop", "Vocal",
+    "Treble", "Loudness"
 };
 
 /* ---- AP state (kept small: the AP .bss ceiling is the tight budget) ---- */
@@ -234,7 +252,7 @@ int eq_profile_parse(const char *text, int len, eq_curve_t *out,
     c.enabled = 1;
     for (i = 0; i < EQ_BANDS_MAX; i++) {
         c.band[i].freq_hz = s_iso_freq[i];
-        c.band[i].q_x100 = 70;
+        c.band[i].q_x100 = (uint16_t)default_q(i, EQ_BANDS_MAX);
         c.band[i].gain_tdb = 0;
     }
 
@@ -458,7 +476,7 @@ static void builtin_curve(int idx, eq_curve_t *c)
     c->enabled = 1;
     for (i = 0; i < EQ_BANDS_MAX; i++) {
         c->band[i].freq_hz = s_iso_freq[i];
-        c->band[i].q_x100 = 70;
+        c->band[i].q_x100 = (uint16_t)default_q(i, EQ_BANDS_MAX);
         c->band[i].gain_tdb = s_builtin_gain[idx][i];
     }
 }

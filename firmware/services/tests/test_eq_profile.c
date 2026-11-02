@@ -216,18 +216,33 @@ static void test_service(void)
     pub_calls = 0;
     eq_profile_set_publisher(recorder);
     CHECK(eq_profile_boot() == 0, "boot");
-    CHECK(eq_profile_count() == 7, "5 built-ins + custom1 + custom2");
+    CHECK(eq_profile_count() == EQ_PROFILE_BUILTINS + 2,
+          "built-ins + custom1 + custom2");
     CHECK(eq_profile_enabled() == 0, "boot starts disabled");
     CHECK(strcmp(eq_profile_name(), "Flat") == 0, "default profile name");
     CHECK(pub_calls == 1, "boot publishes the curve");
 
-    CHECK(eq_profile_entry_is_custom(5) == 1, "row 5 is custom");
-    CHECK(strcmp(eq_profile_entry_name(5), "Rock") == 0,
+    CHECK(eq_profile_entry_is_custom(EQ_PROFILE_BUILTINS) == 1,
+          "first row after the built-ins is custom");
+    CHECK(strcmp(eq_profile_entry_name(EQ_PROFILE_BUILTINS), "Rock") == 0,
           "custom slot label comes from name=");
 
-    CHECK(eq_profile_select(1) == 0, "select built-in Rock");
+    {
+        int r;
+
+        for (r = 0; r < EQ_PROFILE_BUILTINS; r++) {
+            CHECK(eq_profile_select(r) == 0, "every built-in selects");
+            CHECK(eq_curve_valid(eq_profile_curve()),
+                  "every built-in is a valid curve");
+        }
+        (void)eq_profile_select(0);
+    }
+    CHECK(strcmp(eq_profile_entry_name(2), "Rock") == 0, "built-in row 2 is Rock");
+    CHECK(eq_profile_select(2) == 0, "select built-in Rock");
     c = eq_profile_curve();
-    CHECK(c->count == 10 && c->band[0].gain_tdb == 40,
+    CHECK(c->count == 10 && c->band[0].gain_tdb == 60 &&
+          c->band[0].freq_hz == 80 && c->band[0].q_x100 == 70 &&
+          c->band[1].q_x100 == 140,
           "Rock curve is active");
     CHECK(strcmp(eq_profile_name(), "Rock") == 0, "active name updated");
     CHECK(pub_calls == 2, "selection is published");
@@ -242,7 +257,7 @@ static void test_service(void)
     eq_profile_cycle_band(2, +1);
     eq_profile_cycle_band(2, +1);
     eq_profile_cycle_band(2, -1);
-    CHECK(eq_profile_curve()->band[2].gain_tdb == 15,
+    CHECK(eq_profile_curve()->band[2].gain_tdb == 5,
           "band cycles by 0.5 dB");
     CHECK(eq_profile_is_dirty() == 1, "edits mark the curve dirty");
     CHECK(eq_profile_save() == 0, "save after edits");
@@ -252,7 +267,7 @@ static void test_service(void)
     CHECK(pub_enabled == 1, "enable is published");
     eq_profile_save();
 
-    CHECK(eq_profile_select(5) == 0, "select custom slot 1");
+    CHECK(eq_profile_select(EQ_PROFILE_BUILTINS) == 0, "select custom slot 1");
     CHECK(eq_profile_curve()->band[8].gain_tdb == 40,
           "custom file loaded");
 
@@ -262,15 +277,15 @@ static void test_service(void)
     {
         eq_curve_t before = *eq_profile_curve();
 
-        CHECK(eq_profile_select(6) < 0, "broken slot is rejected");
+        CHECK(eq_profile_select(EQ_PROFILE_BUILTINS + 1) < 0, "broken slot is rejected");
         CHECK(eq_profile_curve()->band[0].gain_tdb ==
               before.band[0].gain_tdb, "rejection leaves the curve untouched");
     }
 
     /* A sixth file appears without recompiling. */
     write_text(EQDIR "/custom6.cfg", flat_5);
-    CHECK(eq_profile_scan() == 8, "custom6 appears in the picker");
-    CHECK(strcmp(eq_profile_entry_name(7), "Five") == 0,
+    CHECK(eq_profile_scan() == EQ_PROFILE_BUILTINS + 3, "custom6 appears in the picker");
+    CHECK(strcmp(eq_profile_entry_name(EQ_PROFILE_BUILTINS + 2), "Five") == 0,
           "custom6 label parsed");
 }
 

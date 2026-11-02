@@ -187,7 +187,7 @@ static uint8_t     s_store_mode;
 
 static int custom_count(void)
 {
-    int n = eq_profile_count() - 5;
+    int n = eq_profile_count() - EQ_PROFILE_BUILTINS;
 
     return (n > 0) ? n : 0;
 }
@@ -201,7 +201,7 @@ static void prof_on_enter(void)
 
 static void prof_draw(void)
 {
-    menu_item_t items[16];
+    menu_item_t items[EQ_PROFILE_BUILTINS + EQ_PROFILE_SLOTS + 1];
     menu_model_t model;
     int i, n = 0;
 
@@ -209,7 +209,7 @@ static void prof_draw(void)
         int customs = custom_count();
 
         for (i = 0; i < customs; i++) {
-            items[n].label = eq_profile_entry_name(5 + i);
+            items[n].label = eq_profile_entry_name(EQ_PROFILE_BUILTINS + i);
             items[n].value_text = 0;
             items[n].on_select = 0;
             n++;
@@ -270,7 +270,7 @@ static void prof_handle_event(const input_event_t *ev)
     case KEY_SELECT:
         if (s_store_mode) {
             if (s_prof_view.cursor < custom_count() &&
-                eq_profile_save_to_row(5 + s_prof_view.cursor) == 0)
+                eq_profile_save_to_row(EQ_PROFILE_BUILTINS + s_prof_view.cursor) == 0)
                 ui_pop_screen();
         } else if (s_prof_view.cursor == eq_profile_count()) {
             if (custom_count() > 0) {

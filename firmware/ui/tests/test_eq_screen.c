@@ -52,8 +52,8 @@ void test_eq_screen(void)
     CHECK(mock_display_text_find("Enabled") >= 0);
     CHECK(mock_display_text_find("Off") >= 0);
     CHECK(mock_display_text_find("Profile") >= 0);
-    CHECK(mock_display_text_find("31 Hz") >= 0);
-    CHECK(mock_display_text_find("1 kHz") >= 0);
+    CHECK(mock_display_text_find("80 Hz") >= 0);
+    CHECK(mock_display_text_find("1.3 kHz") >= 0);
     CHECK(mock_display_text_find("0.0") >= 0);
 
     /* Enabled row: SELECT toggles the effect. */
@@ -106,7 +106,7 @@ void test_eq_screen(void)
     ui_render();
     CHECK_EQ_INT(ui_stack_depth(), 2);
     CHECK(mock_display_text_find("Rock") >= 0);
-    CHECK(mock_display_text_find("Custom 1") >= 0);
+    CHECK(mock_display_text_find("Bass Boost") >= 0);
 
     press(KEY_SELECT);                 /* Flat (row 0) */
     CHECK_EQ_INT(mock_eq_select_row, 0);
@@ -120,7 +120,7 @@ void test_eq_screen(void)
     ui_render();
     CHECK(mock_display_text_find("Save to slot") >= 0);
     CHECK(mock_display_text_find("Custom 1") >= 0);
-    press(KEY_SELECT);                 /* store into custom 1 (row 5) */
-    CHECK_EQ_INT(mock_eq_store_row, 5);
+    press(KEY_SELECT);                 /* store into custom 1 (first custom row) */
+    CHECK_EQ_INT(mock_eq_store_row, EQ_PROFILE_BUILTINS);
     CHECK_EQ_INT(ui_stack_depth(), 1);
 }

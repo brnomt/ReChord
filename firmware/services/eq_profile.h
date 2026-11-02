@@ -3,7 +3,7 @@
  *
  * The device keeps one ACTIVE curve in /Internal/.rechord/eq.cfg and up to
  * eight user slots in /Internal/.rechord/eq/customN.cfg. Built-in presets
- * (Flat, Rock, Jazz, EDM, Vocal) live in flash. Profiles are plain
+ * (Flat, Bass Boost, Rock, Pop, Jazz, EDM, Hip-Hop, Vocal, Treble, Loudness) live in flash. Profiles are plain
  * key=value text, editable from a PC with no recompilation:
  *
  *     format=1
@@ -27,6 +27,8 @@
 
 #define EQ_PROFILE_NAME_MAX 20
 #define EQ_PROFILE_SLOTS    8     /* customN.cfg, N = 1..8 */
+#define EQ_PROFILE_BUILTINS 10    /* Flat, Bass Boost, Rock, Pop, Jazz, EDM,
+                                   * Hip-Hop, Vocal, Treble, Loudness */
 
 /* Publish callback the app wires to ipc_b_set_eq(); tests record calls. */
 typedef void (*eq_publish_fn)(int enabled, const eq_curve_t *curve);
@@ -46,7 +48,7 @@ int eq_profile_apply(void);
 /* Persist the active curve to /Internal/.rechord/eq.cfg. */
 int eq_profile_save(void);
 
-/* Rows the picker shows: 5 built-ins followed by every present custom slot. */
+/* Rows the picker shows: the built-ins followed by every present custom slot. */
 int eq_profile_count(void);
 const char *eq_profile_entry_name(int index);
 int eq_profile_entry_is_custom(int index);
