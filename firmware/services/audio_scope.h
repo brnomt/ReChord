@@ -18,6 +18,7 @@
 
 #define AUDIO_SCOPE_N       48     /* waveform points per channel            */
 #define AUDIO_SCOPE_FRAMES  1024   /* frames reduced per update (~23 ms)     */
+#define AUDIO_SCOPE_TRIG    512    /* max frames searched for a trigger      */
 
 typedef struct {
     int lvl_l, lvl_r;              /* smoothed level, 0..1000 (fast attack)  */
@@ -28,11 +29,15 @@ typedef struct {
 
 void audio_scope_reset(audio_scope_t *s);
 
-/* Reduce `frames` frames starting at byte offset `rd` of the ring
- * (ring_mask = size-1, power of two). `dt_ms` is the time since the last
- * update, so decay is the same at 20 and 60 fps. */
+/* Reduce the next AUDIO_SCOPE_FRAMES frames at byte offset `rd` of the ring
+ * (ring_mask = size-1, power of two). `avail` is how many frames are readable;
+ * when more than one window is available the start slides (up to
+ * AUDIO_SCOPE_TRIG frames) to the first rising zero crossing of the left
+ * channel, like a scope trigger, so periodic audio holds still on screen.
+ * `dt_ms` is the time since the last update, so decay is the same at 20 and
+ * 60 fps. */
 void audio_scope_feed(audio_scope_t *s, const volatile int32_t *ring,
-                      uint32_t rd, uint32_t ring_mask, int frames, int dt_ms);
+                      uint32_t rd, uint32_t ring_mask, int avail, int dt_ms);
 
 /* No audio (paused, stopped, underrun): decay levels, flatten the trace. */
 void audio_scope_idle(audio_scope_t *s, int dt_ms);

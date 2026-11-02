@@ -47,12 +47,44 @@ void audio_scope_reset(audio_scope_t *s)
         s->wave_l[i] = s->wave_r[i] = 0;
 }
 
+static int32_t left_at(const volatile int32_t *ring, uint32_t rd,
+                       uint32_t mask, int i)
+{
+    return ring[((rd + (uint32_t)i * 8u) & mask) >> 2];
+}
+
+/* First rising zero crossing of L with a real slope (not noise), else 0. */
+static int find_trigger(const volatile int32_t *ring, uint32_t rd,
+                        uint32_t mask, int search)
+{
+    int i;
+
+    for (i = 1; i < search; i++) {
+        int32_t a = left_at(ring, rd, mask, i - 1);
+        int32_t b = left_at(ring, rd, mask, i);
+
+        if (a < 0 && b >= 0 &&
+            left_at(ring, rd, mask, i + 4) > b + (1 << 20))
+            return i;
+    }
+    return 0;
+}
+
 void audio_scope_feed(audio_scope_t *s, const volatile int32_t *ring,
-                      uint32_t rd, uint32_t ring_mask, int frames, int dt_ms)
+                      uint32_t rd, uint32_t ring_mask, int avail, int dt_ms)
 {
     long long sum_l = 0, sum_r = 0, acc_l = 0, acc_r = 0;
-    int per, i, b = 0, in_b = 0;
+    int per, i, b = 0, in_b = 0, frames = avail;
 
+    if (avail > AUDIO_SCOPE_FRAMES + 8) {
+        int room = avail - AUDIO_SCOPE_FRAMES - 8;
+
+        if (room > AUDIO_SCOPE_TRIG)
+            room = AUDIO_SCOPE_TRIG;
+        rd += (uint32_t)find_trigger(ring, rd, ring_mask, room) * 8u;
+    }
+    if (frames > AUDIO_SCOPE_FRAMES)
+        frames = AUDIO_SCOPE_FRAMES;
     if (frames < AUDIO_SCOPE_N) {
         audio_scope_idle(s, dt_ms);
         return;

@@ -50,7 +50,25 @@ int main(void)
         audio_scope_idle(&s, 50);
     CHECK(s.lvl_l == 0 && s.peak_l == 0 && s.wave_l[3] == 0);
 
+    /* trigger: with room to search, the trace starts at a rising crossing */
+    audio_scope_reset(&s);
+    {
+        int k;
+        for (k = 0; k < 2048; k++) {
+            double v = sin(2 * 3.14159265358979 * (k + 77) / 256.0) *
+                       0.6 * 2147483647.0;
+            uint32_t o = ((uint32_t)k * 8u & (RING_BYTES - 1u)) >> 2;
+            ring[o] = (int32_t)v;
+            ring[o + 1] = (int32_t)v;
+        }
+    }
+    audio_scope_feed(&s, ring, 0, RING_BYTES - 1u, 2048, 50);
+    CHECK(s.wave_l[0] > -50 && s.wave_l[0] < 250);   /* starts near zero   */
+    CHECK(s.wave_l[3] > s.wave_l[0]);                /* ... and rising     */
+    CHECK(s.wave_l[3] > 400);                        /* first peak ~ 1/4   */
+
     /* too few frames behaves as idle */
+    audio_scope_reset(&s);
     audio_scope_feed(&s, ring, 0, RING_BYTES - 1u, 3, 50);
     CHECK(s.lvl_l == 0);
 

@@ -112,9 +112,7 @@ static void scope_update(void)
         dt = 500;
     s_scope_ms = s_now_ms;
     if (ipc_b_ring_window(&ring, &rd, &mask, &frames) && frames > 0)
-        audio_scope_feed(&s_scope, ring, rd, mask,
-                         frames > AUDIO_SCOPE_FRAMES ? AUDIO_SCOPE_FRAMES
-                                                     : frames, dt);
+        audio_scope_feed(&s_scope, ring, rd, mask, frames, dt);
     else
         audio_scope_idle(&s_scope, dt);
 }
