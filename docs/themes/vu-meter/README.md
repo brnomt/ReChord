@@ -58,9 +58,9 @@ real one and the needle still lands near 0 VU at normal levels.
 | condition | result |
 |---|---|
 | playing | needles track the simulated programme level |
-| `idle < 700` ms | needles frozen at the last level |
+| `idle < 700` ms | needles kick +250 of deflection, then fall back |
 | paused | needles fall to rest, VFD says PAUSA |
-| asleep (paused >60 s) | faces dim, needles at rest, VFD says STANDBY |
+| asleep (paused >60 s) | faces dim, needles at rest, VFD says PAUSA |
 | battery <15 % | faces dim, VFD says BATERIA BAJA |
 | loud (`volume > -6`) | extra +250 of target deflection |
 
@@ -100,7 +100,7 @@ meter, VFD and bottom bar.
 
 | file | bytes / 4096 | sections / 52 |
 |---|---|---|
-| home.skin | 4083 | 45 |
+| home.skin | 4090 | 45 |
 | now_playing.skin | 3585 | 41 |
 | library.skin | 1144 | 16 |
 | library_cat.skin | 1148 | 16 |
@@ -117,6 +117,8 @@ Assets: `vu_a` 64x40 (320 B), `vu_b` 19x40 (120 B), `vu_red` 41x40 (240 B),
 * the needle angle uses a linear approximation of the VU law (see above);
 * the low-battery mockup also attenuates the needle by 0.7; the skin keeps
   the true deflection and only dims the face;
+* sleep and pause share the `PAUSA` VFD text (the dim face and the needle at
+  rest still separate them);
 * the FM-dial pointer and the list share the selected row, so the pointer
   moves with the list rather than being independent.
 

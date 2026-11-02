@@ -5,11 +5,11 @@ dyn2=162,4,314,116
 dyn3=0,118,319,169
 [vars]
 md=(battery>=0&&battery<15?1:(idle<700?2:(!playing&&idle>60000?3:(!playing?4:(volume>-6?5:0)))))
-tg=(!playing?0:clamp(300+(volume+18)*20+noise(t/90,230)+sin(t,700,120)+(md==5?250:0),0,1060))
+tg=(!playing?0:clamp(300+(volume+18)*20+noise(t/90,230)+sin(t,700,120)+(md==5?250:0)+(md==2?250:0),0,1060))
 vl=(vl*55/100+(tg-ps)*32/100)
 ps=clamp(ps+vl,-30,1060)
 th=(ps*9/10-450)
-tr=(!playing?0:clamp(300+(volume+18)*20+noise(t/90+7,230)+sin(t+300,700,120)+(md==5?250:0),0,1060))
+tr=(!playing?0:clamp(300+(volume+18)*20+noise(t/90+7,230)+sin(t+300,700,120)+(md==5?250:0)+(md==2?250:0),0,1060))
 vr=(vr*55/100+(tr-pr)*32/100)
 pr=clamp(pr+vr,-30,1060)
 thr=(pr*9/10-450)
@@ -333,8 +333,7 @@ dyn=1
 type=text
 x=12
 y=124
-text=(md==1?"BATERIA BAJA":(md==3?"STANDBY":(md==4?"PAUSA":title)))
-maxc=27
+text=(md==1?"BATERIA BAJA":(md>2&&md<5?"PAUSA":title))
 color=(md==1?64459:((md==1||md==3)?text_dim:text))
 bg=65
 dyn=1
