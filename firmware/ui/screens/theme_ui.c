@@ -9,7 +9,9 @@
 #include "../../theme/theme_pkg.h"
 #include "../../theme/theme_runtime.h"
 #include "../../services/art_pack.h"
+#include "../../services/audio_scope.h"
 #include "../../services/bt_link.h"
+#include "../../player/ipc_b.h"
 #include "../../services/rechord_files.h"
 #include "../../drivers/battery.h"
 
@@ -94,6 +96,29 @@ void theme_ui_note_input(void)
     s_last_input_ms = s_now_ms;
 }
 
+/* Audio tap, refreshed at most once per tick however many screens ask. */
+static audio_scope_t s_scope;
+static unsigned      s_scope_ms;
+
+static void scope_update(void)
+{
+    const volatile int32_t *ring;
+    uint32_t rd, mask;
+    int frames, dt = (int)(s_now_ms - s_scope_ms);
+
+    if (dt <= 0)
+        return;
+    if (dt > 500)
+        dt = 500;
+    s_scope_ms = s_now_ms;
+    if (ipc_b_ring_window(&ring, &rd, &mask, &frames) && frames > 0)
+        audio_scope_feed(&s_scope, ring, rd, mask,
+                         frames > AUDIO_SCOPE_FRAMES ? AUDIO_SCOPE_FRAMES
+                                                     : frames, dt);
+    else
+        audio_scope_idle(&s_scope, dt);
+}
+
 void theme_ui_fill_state(theme_skin_state_t *st, const char *heading)
 {
     if (st == 0)
@@ -105,6 +130,14 @@ void theme_ui_fill_state(theme_skin_state_t *st, const char *heading)
     st->stopped = player_get_state() == PLAYER_STOPPED;
     st->volume_db = player_get_volume();
     st->battery_pct = battery_percent();
+    scope_update();
+    st->lvl_l = s_scope.lvl_l;
+    st->lvl_r = s_scope.lvl_r;
+    st->peak_l = s_scope.peak_l;
+    st->peak_r = s_scope.peak_r;
+    st->wave_l = s_scope.wave_l;
+    st->wave_r = s_scope.wave_r;
+    st->wave_n = AUDIO_SCOPE_N;
     st->position_ms = player_get_position_ms();
     st->shuffle = player_get_shuffle();
     st->repeat = player_get_repeat();

@@ -30,6 +30,7 @@ $CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
     ../ui.c ../screens/*.c ../settings_schema.c \
     ../../services/media_query.c ../../services/scratch.c \
     ../../services/bt_proto.c \
+    ../../services/audio_scope.c \
     ../../theme/theme.c ../../theme/themes_builtin.c ../../theme/theme_pkg.c \
     ../../theme/theme_file.c ../../theme/theme_runtime.c \
     ../../theme/theme_assets.c ../../theme/theme_skin.c \

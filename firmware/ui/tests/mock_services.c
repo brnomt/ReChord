@@ -758,3 +758,12 @@ unsigned extras_most_played_order(unsigned char *order, unsigned cap)
     (void)cap;
     return 0;
 }
+
+/* Audio tap: no PCM ring on the host; the scope idles. */
+#include "../../player/ipc_b.h"
+int ipc_b_ring_window(const volatile int32_t **ring, uint32_t *rd,
+                      uint32_t *mask, int *frames)
+{
+    (void)ring; (void)rd; (void)mask; (void)frames;
+    return 0;
+}
