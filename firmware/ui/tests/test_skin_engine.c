@@ -245,7 +245,8 @@ void test_skin_engine(void)
         if (fa != 0) {
             fputs("[a]\ntype=text\nx=0\ny=0\n"
                   "text=lvl_l + \"/\" + peak_r + \"/\" + wl(1) + \"/\" + wr(2)"
-                  " + \"/\" + wl(5) + \"/\" + wl(-1)\ncolor=65535\nbg=0\n", fa);
+                  " + \"/\" + wl(5) + \"/\" + wl(-1)\ncolor=65535\nbg=0\n"
+                  "[m]\ntype=text\nx=0\ny=10\ntext=mix(63488,0,500)\ncolor=65535\nbg=0\n", fa);
             fclose(fa);
         }
         memset(&as, 0, sizeof as);
@@ -258,6 +259,7 @@ void test_skin_engine(void)
         mock_display_reset();
         theme_skin_render(0, 0, 0, 0, &as);
         CHECK(has_text_exact("640/912/-200/9/0/0"));
+        CHECK(has_text_exact("30720"));          /* mix(): half red */
         as.wave_l = 0;                   /* no tap: lookups are 0, no crash */
         mock_display_reset();
         theme_skin_render(0, 0, 0, 0, &as);

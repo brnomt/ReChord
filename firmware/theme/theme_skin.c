@@ -130,6 +130,7 @@ typedef struct {
 
 static skin_val_t eval_expr(skin_expr_t *e, int depth);
 static skin_val_t eval_raw(const char *text);
+static uint16_t mix565(uint16_t a, uint16_t b, int w);
 /* Integer square root (defined with the drawing helpers; used by sqrt()). */
 static int isqrt_i(int v);
 
@@ -524,6 +525,12 @@ static skin_val_t call_function(skin_expr_t *e, const char *name, int depth)
         if (w == 0 || i < 0 || i >= c->st->wave_n)
             return v_int(0);
         return v_int(w[i]);
+    }
+    if (strcmp(name, "mix") == 0 && n >= 3) {
+        int w = as_int(a[2]);
+
+        return v_int(mix565((uint16_t)as_int(a[0]), (uint16_t)as_int(a[1]),
+                            w < 0 ? 0 : (w > 1000 ? 1000 : w)));
     }
     if (strcmp(name, "if") == 0 && n >= 3)
         return truthy(a[0]) ? a[1] : a[2];
@@ -1434,15 +1441,17 @@ static uint16_t mix565(uint16_t a, uint16_t b, int w)
 }
 
 /* `glow` is the halo strength in permille (1000 = default): three widening
- * passes (7, 5 and 3 px wide) fade from the core colour into `bg`, so the line
- * bleeds light into the tube. The caller keeps the box 3 px inside whatever it
- * flushes, because the halo is drawn outside x..x+w / y..y+h. */
+ * passes (up to 11..3 px wide, `halo`=1..5 sets the outer radius) fade from the
+ * core colour into `bg`, so the line bleeds light into the tube. The caller
+ * keeps the box `halo` px inside whatever it flushes, because the halo is drawn
+ * outside x..x+w / y..y+h. */
 __attribute__((noinline)) static void skin_scope(
     int x, int y, int w, int h, const char *ch, int gain,
-    const theme_skin_state_t *st, uint16_t core, uint16_t bg, int glow)
+    const theme_skin_state_t *st, uint16_t core, uint16_t bg, int glow,
+    int halo)
 {
-    static const short k_r[4] = { 3, 2, 1, 0 };
-    static const short k_w[4] = { 150, 330, 600, 1000 };
+    static const short k_r[6] = { 5, 4, 3, 2, 1, 0 };
+    static const short k_w[6] = { 60, 110, 170, 300, 560, 1000 };
     const short *a, *b;
     int n, pass, i;
     int xy = ch != 0 && key_eq(ch, "xy");
@@ -1455,15 +1464,18 @@ __attribute__((noinline)) static void skin_scope(
     if (a == 0 || b == 0)
         return;
 
-    for (pass = 0; pass < 4; pass++) {
-        int wt = pass == 3 ? 1000 : k_w[pass] * glow / 1000;
+    if (halo < 1) halo = 1;
+    if (halo > 5) halo = 5;
+    for (pass = 5 - halo; pass < 6; pass++) {
+        int wt = pass == 5 ? 1000 : k_w[pass] * glow / 1000;
         uint16_t col;
         int r = k_r[pass];
         int px = 0, py = 0;
 
         if (wt > 950)
             wt = 950;
-        col = pass == 3 ? core : mix565(core, bg, wt);
+        /* hot core: phosphor burns whiter at its centre than in its halo */
+        col = pass == 5 ? mix565(core, 0xFFFF, 720) : mix565(core, bg, wt);
         if (xy) {
             for (i = 0; i < n; i++) {
                 int cx = x + w / 2 + (a[i] * gain / 1000) * (w / 2) / 1000;
@@ -1794,7 +1806,8 @@ static void render_section(const skin_section_t *sec, skin_ctx_t *ctx, int sel)
                    ctx->st,
                    color_of(prop(sec, "color"), ctx, theme_get()->text),
                    theme_get()->background,
-                   eval_int(prop(sec, "glow"), ctx, 1000));
+                   eval_int(prop(sec, "glow"), ctx, 1000),
+                   eval_int(prop(sec, "halo"), ctx, 3));
         return;
     }
 
