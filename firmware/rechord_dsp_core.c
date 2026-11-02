@@ -58,7 +58,17 @@ static inline int32_t biquad_run(Biquad *f, int32_t x)
     acc += (int64_t)f->b2 * f->x2;
     acc -= (int64_t)f->a1 * f->y1;
     acc -= (int64_t)f->a2 * f->y2;
-    y = (int32_t)(acc >> 30);
+    {
+        /* Saturate instead of wrapping: a boosted peak that exceeds full scale
+         * must clip, not fold over to the opposite sign. */
+        int64_t t = acc >> 30;
+
+        if (t > 2147483647LL)
+            t = 2147483647LL;
+        else if (t < -2147483647LL)
+            t = -2147483647LL;
+        y = (int32_t)t;
+    }
 
     f->x2 = f->x1; f->x1 = x;
     f->y2 = f->y1; f->y1 = y;

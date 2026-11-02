@@ -34,6 +34,7 @@ typedef struct
     Biquad     bank[EQ_BANK_CHANNELS][EQ_BANDS_MAX];
     eq_curve_t curve;
     int32_t    pre_scale;                    /* headroom, Q2.30           */
+    uint8_t    boosting;                     /* soft knee on the output   */
     int        sample_rate;
     uint8_t    band_active[EQ_BANDS_MAX];    /* 0 = skipped (gain 0/Nyq)  */
 } eq_bank_impl_t;
@@ -85,22 +86,63 @@ static void copy_coeffs(Biquad *dst, const Biquad *src)
     dst->a2 = src->a2;
 }
 
-/* Max linear boost the curve can produce; only positive bands count. */
-static double curve_max_gain(const eq_curve_t *c, int sample_rate)
+/* Largest boost (dB) of the WHOLE cascade over 20 Hz..Nyquist-ish, evaluated
+ * from the quantised coefficients that actually run. Overlapping bands add up
+ * (two neighbouring +4 dB bands make ~+7 dB between them), which a per-band
+ * maximum misses. 0 when nothing boosts. */
+#define EQ_PEAK_GRID 48
+
+static double curve_peak_db(const eq_bank_impl_t *s)
 {
-    double m = 1.0;
-    int i;
+    double nyq = (double)s->sample_rate * 0.5;
+    double top = nyq * 0.9 < 20000.0 ? nyq * 0.9 : 20000.0;
+    double peak = 0.0;
+    int k, b;
 
-    for (i = 0; i < c->count; i++) {
-        double g;
+    for (k = 0; k < EQ_PEAK_GRID; k++) {
+        double f = 20.0 * pow(top / 20.0, (double)k / (EQ_PEAK_GRID - 1));
+        double w = 2.0 * RCH_PI * f / (double)s->sample_rate;
+        double c1 = cos(w), s1 = sin(w), c2 = cos(2.0 * w), s2 = sin(2.0 * w);
+        double db = 0.0;
 
-        if (c->band[i].gain_tdb <= 0 || !band_designable(&c->band[i], sample_rate))
-            continue;
-        g = pow(10.0, (double)c->band[i].gain_tdb / 200.0);
-        if (g > m)
-            m = g;
+        for (b = 0; b < s->curve.count; b++) {
+            const Biquad *q = &s->bank[0][b];
+            double b0, b1, b2, a1, a2, nr, ni, dr, di;
+
+            if (!s->band_active[b])
+                continue;
+            b0 = q->b0 / 1073741824.0;
+            b1 = q->b1 / 1073741824.0;
+            b2 = q->b2 / 1073741824.0;
+            a1 = q->a1 / 1073741824.0;
+            a2 = q->a2 / 1073741824.0;
+            nr = b0 + b1 * c1 + b2 * c2;
+            ni = b1 * s1 + b2 * s2;
+            dr = 1.0 + a1 * c1 + a2 * c2;
+            di = a1 * s1 + a2 * s2;
+            db += 10.0 * log10((nr * nr + ni * ni) / (dr * dr + di * di));
+        }
+        if (db > peak)
+            peak = db;
     }
-    return m;
+    return peak;
+}
+
+/* Output soft knee: linear to 0.8 FS, then a smooth curve that reaches full
+ * scale with zero slope. Keeps a boosted peak from clipping harshly. */
+static int32_t soft_knee(int32_t v)
+{
+    const int64_t T = 1717986918LL;           /* 0.8 FS            */
+    const int64_t F = 2147483647LL;
+    const int64_t R = F - T;
+    int64_t a = v < 0 ? -(int64_t)v : (int64_t)v;
+    int64_t e, y;
+
+    if (a <= T)
+        return v;
+    e = a - T;
+    y = (e >= 2 * R) ? F : T + e - (e * e) / (4 * R);
+    return (int32_t)(v < 0 ? -y : y);
 }
 
 int eq_bank_init(eq_bank_state_t *st, int sample_rate)
@@ -188,11 +230,16 @@ int eq_bank_apply(eq_bank_state_t *st, const eq_curve_t *curve)
 
     s->curve = *curve;
 
-    /* Unity unless a boost needs headroom; a cut-only curve stays 1.0. */
+    /* Preamp: back off 60 % of the cascade's real peak boost (a +5 dB peak
+     * costs -3 dB overall, not -5.9 like the old per-band 0.9/maxgain rule);
+     * the soft knee absorbs what is left. Cut-only curves stay at unity. */
     {
-        double m = curve_max_gain(curve, s->sample_rate);
+        double pk = curve_peak_db(s);
 
-        s->pre_scale = (m > 1.0) ? f2q30(0.9 / m) : Q30_ONE;
+        s->boosting = pk > 0.05;
+        s->pre_scale = s->boosting
+                           ? f2q30(pow(10.0, -0.6 * pk / 20.0))
+                           : Q30_ONE;
     }
 
     if (now_on && !was_on)
@@ -242,7 +289,7 @@ void eq_bank_process(eq_bank_state_t *st, int32_t *pcm, int n)
                 if (s->band_active[b])
                     y = biquad_run(&bands[b], (int32_t)y);
             }
-            pcm[i] = (int32_t)y;
+            pcm[i] = s->boosting ? soft_knee((int32_t)y) : (int32_t)y;
         }
     }
 }

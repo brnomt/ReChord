@@ -163,7 +163,7 @@ static void test_gain(eq_bank_state_t *st)
     ratio = rms32_steady(out, NSAMP) / rms32_steady(in, NSAMP);
     CHECK(fabs(ratio - 0.5012) < 0.02, "-6 dB at 1 kHz measures ~0.50x");
 
-    /* +6 dB at 1 kHz: the 0.9/max-gain headroom makes the net 0.9x. */
+    /* +6 dB at 1 kHz: preamp backs off 60 % of the boost, net ~ +2.4 dB. */
     curve_flat10(&c);
     c.band[5].gain_tdb = 60;
     CHECK(eq_bank_apply(st, &c) == 0, "+6 dB curve applies");
@@ -172,35 +172,78 @@ static void test_gain(eq_bank_state_t *st)
     memcpy(out, in, sizeof in);
     eq_bank_process(st, out, NSAMP);
     ratio = rms32_steady(out, NSAMP) / rms32_steady(in, NSAMP);
-    CHECK(fabs(ratio - 0.9) < 0.03, "+6 dB with headroom measures ~0.9x");
+    CHECK(fabs(ratio - 1.32) < 0.08, "+6 dB with 60 % preamp measures ~+2.4 dB");
 }
 
 static void test_no_clip(eq_bank_state_t *st)
 {
+    /* Core B hands the engine LEFT-justified int32 (24-bit << 8), so true full
+     * scale is 2^31. A boosted peak must clip softly, never wrap to the other
+     * sign (that is a loud digital crack). */
     eq_curve_t c;
-    int32_t in[NSAMP], out[NSAMP];
-    int i, peak = 0, wrapped = 0;
+    static int32_t in[NSAMP], out[NSAMP];
+    int i, wrapped = 0, loud = 0;
+    long long peak = 0;
 
     printf("headroom\n");
     curve_flat10(&c);
-    c.band[5].gain_tdb = 120;         /* +12 dB */
+    c.band[5].gain_tdb = 120;         /* +12 dB at 1 kHz */
     CHECK(eq_bank_apply(st, &c) == 0, "+12 dB curve applies");
     eq_bank_reset(st);
-    gen_sine32(in, NFRAMES, 1000.0, 1.0);   /* full scale */
+    for (i = 0; i < NFRAMES; i++)
+        in[2 * i] = in[2 * i + 1] =
+            (int32_t)(0.999 * 2147483647.0 *
+                      sin(2.0 * PI32 * 1000.0 * (double)i / 48000.0));
     memcpy(out, in, sizeof in);
     eq_bank_process(st, out, NSAMP);
 
-    for (i = 0; i < NSAMP; i++) {
-        int v = out[i] < 0 ? -out[i] : out[i];
+    for (i = 4; i < NSAMP; i++) {
+        long long v = out[i] < 0 ? -(long long)out[i] : out[i];
+        long long step = (long long)out[i] - out[i - 2];
 
         if (v > peak)
             peak = v;
-        if ((in[i] > 0 && out[i] < -FS24 / 2) ||
-            (in[i] < 0 && out[i] > FS24 / 2))
+        if (step < 0)
+            step = -step;
+        if (step > 1500000000LL)        /* a 1 kHz sine never jumps this far */
+            wrapped = 1;
+        if (v > 1717986918LL)
+            loud++;
+    }
+    CHECK(wrapped == 0, "boosted full-scale signal does not wrap");
+    CHECK(peak <= 2147483647LL, "boosted full-scale signal stays in range");
+    CHECK(loud > 0, "the soft knee still lets peaks reach the top");
+}
+
+static void test_overlap_no_wrap(eq_bank_state_t *st)
+{
+    /* Neighbouring boosts add up (here ~+20 dB between them). The old preamp
+     * only looked at one band, so this folded over (digital crack). */
+    eq_curve_t c;
+    static int32_t out[NSAMP];
+    int i, wrapped = 0;
+
+    printf("overlapping boosts\n");
+    curve_flat10(&c);
+    c.band[3].gain_tdb = 100;
+    c.band[4].gain_tdb = 120;
+    c.band[5].gain_tdb = 100;
+    CHECK(eq_bank_apply(st, &c) == 0, "overlapping boosts apply");
+    eq_bank_reset(st);
+    for (i = 0; i < NFRAMES; i++)
+        out[2 * i] = out[2 * i + 1] =
+            (int32_t)(0.9 * 2147483647.0 *
+                      sin(2.0 * PI32 * 500.0 * (double)i / 48000.0));
+    eq_bank_process(st, out, NSAMP);
+    for (i = 4; i < NSAMP; i++) {
+        long long step = (long long)out[i] - out[i - 2];
+
+        if (step < 0)
+            step = -step;
+        if (step > 1500000000LL)
             wrapped = 1;
     }
-    CHECK(peak <= FS24, "boosted full-scale signal stays inside 24-bit range");
-    CHECK(wrapped == 0, "boosted signal does not wrap polarity");
+    CHECK(wrapped == 0, "overlapping boosts do not wrap");
 }
 
 static void test_nyquist_skip(eq_bank_state_t *st)
@@ -291,6 +334,7 @@ int main(void)
     test_flat_and_bypass(&st);
     test_gain(&st);
     test_no_clip(&st);
+    test_overlap_no_wrap(&st);
     test_nyquist_skip(&st);
     test_atomic_reject(&st);
     test_retune_continuity(&st);
