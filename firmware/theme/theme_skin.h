@@ -64,6 +64,14 @@ typedef struct theme_skin_state {
     int stopped;
     int volume_db;
     int battery_pct;              /* -1 when unknown */
+    /* Real-audio tap (0 when idle/unavailable). Levels 0..1000; the PCM is
+     * pre-volume, skins scale by `volume` themselves. wave_*: wave_n points
+     * of -1000..1000, or NULL. */
+    int lvl_l, lvl_r;
+    int peak_l, peak_r;
+    const int *wave_l;
+    const int *wave_r;
+    int wave_n;
     const char *title;
     const char *artist;
     const char *album;

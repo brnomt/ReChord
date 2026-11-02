@@ -251,6 +251,14 @@ static skin_val_t variable(const char *name)
         return v_int(c != 0 && c->st != 0 ? c->st->volume_db : 0);
     if (strcmp(name, "battery") == 0)
         return v_int(c != 0 && c->st != 0 ? c->st->battery_pct : -1);
+    if (strcmp(name, "lvl_l") == 0)
+        return v_int(c != 0 && c->st != 0 ? c->st->lvl_l : 0);
+    if (strcmp(name, "lvl_r") == 0)
+        return v_int(c != 0 && c->st != 0 ? c->st->lvl_r : 0);
+    if (strcmp(name, "peak_l") == 0)
+        return v_int(c != 0 && c->st != 0 ? c->st->peak_l : 0);
+    if (strcmp(name, "peak_r") == 0)
+        return v_int(c != 0 && c->st != 0 ? c->st->peak_r : 0);
     if (strcmp(name, "bt") == 0)
         return v_int(c != 0 && c->st != 0 ? c->st->bt : 0);
     if (strcmp(name, "bt_stream") == 0)
@@ -505,6 +513,17 @@ static skin_val_t call_function(skin_expr_t *e, const char *name, int depth)
     }
     if (strcmp(name, "seq") == 0 && n >= 4)
         return seq_value(as_int(a[0]), as_int(a[1]), as_int(a[2]), a[3]);
+    if ((strcmp(name, "wl") == 0 || strcmp(name, "wr") == 0) && n >= 1) {
+        const skin_ctx_t *c = g_ctx;
+        const int *w = 0;
+        int i = as_int(a[0]);
+
+        if (c != 0 && c->st != 0)
+            w = name[1] == 'l' ? c->st->wave_l : c->st->wave_r;
+        if (w == 0 || i < 0 || i >= c->st->wave_n)
+            return v_int(0);
+        return v_int(w[i]);
+    }
     if (strcmp(name, "if") == 0 && n >= 3)
         return truthy(a[0]) ? a[1] : a[2];
     return v_int(0);

@@ -232,6 +232,37 @@ void test_skin_engine(void)
     }
 
 
+    /* ---- audio tap: lvl_l/peak_r and wl()/wr() waveform lookups ---------- */
+    {
+        FILE *fa = fopen("rechord_audio.skin", "w");
+        static const int wl[3] = { 100, -200, 300 };
+        static const int wr[3] = { -7, 8, 9 };
+        theme_skin_state_t as;
+
+        if (fa != 0) {
+            fputs("[a]\ntype=text\nx=0\ny=0\n"
+                  "text=lvl_l + \"/\" + peak_r + \"/\" + wl(1) + \"/\" + wr(2)"
+                  " + \"/\" + wl(5) + \"/\" + wl(-1)\ncolor=65535\nbg=0\n", fa);
+            fclose(fa);
+        }
+        memset(&as, 0, sizeof as);
+        as.lvl_l = 640;
+        as.peak_r = 912;
+        as.wave_l = wl;
+        as.wave_r = wr;
+        as.wave_n = 3;
+        CHECK_EQ_INT(theme_skin_load(".", "", "rechord_audio.skin"), 0);
+        mock_display_reset();
+        theme_skin_render(0, 0, 0, 0, &as);
+        CHECK(has_text_exact("640/912/-200/9/0/0"));
+        as.wave_l = 0;                   /* no tap: lookups are 0, no crash */
+        mock_display_reset();
+        theme_skin_render(0, 0, 0, 0, &as);
+        CHECK(has_text_exact("640/912/0/9/0/0"));
+        (void)remove("rechord_audio.skin");
+    }
+
+
     (void)remove("rechord_engine.skin");
     (void)remove("rechord_dyn.skin");
 }
