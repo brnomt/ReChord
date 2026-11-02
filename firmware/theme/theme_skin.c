@@ -30,7 +30,11 @@
 #define SKIN_PROP_MAX   144
 #define SKIN_VAL_MAX    64
 #define SKIN_EXPR_STEPS 2048
-#define SKIN_DEPTH      12
+/* Each nesting level (paren or ?: arm) runs the whole eval_expr..eval_primary
+ * chain, ~1.6 KB of AP stack at -Os (-fstack-usage). 12 levels = ~19 KB > the
+ * 16 KB AP main stack, so deep chains overflowed on-device. Unary ! and -
+ * also count here, so 7 is ~11 KB worst case; shipped themes peak at 6. */
+#define SKIN_DEPTH      7
 #define SKIN_ITEMS      4
 #define SKIN_FONT_W     8
 #define SKIN_VARS       20
@@ -715,17 +719,30 @@ static skin_val_t eval_or(skin_expr_t *e, int depth)
 
 static skin_val_t eval_expr(skin_expr_t *e, int depth)
 {
-    skin_val_t c = eval_or(e, depth);
+    skin_val_t res = v_int(0);
+    int decided = 0;
 
-    if (take(e, "?")) {
-        skin_val_t a = eval_expr(e, depth + 1);
-        skin_val_t b;
+    /* `c ? a : b` is right-associative; the else arm is parsed by looping, not
+     * recursing, so a long `c1?a:c2?b:c3?d:e` chain costs one stack level
+     * (each level is ~1.6 KB of the 16 KB AP stack). */
+    for (;;) {
+        skin_val_t c = eval_or(e, depth);
 
-        (void)take(e, ":");
-        b = eval_expr(e, depth + 1);
-        return truthy(c) ? a : b;
+        if (!take(e, "?")) {
+            if (!decided)
+                res = c;
+            return res;
+        }
+        {
+            skin_val_t a = eval_expr(e, depth + 1);
+
+            (void)take(e, ":");
+            if (!decided && truthy(c)) {
+                res = a;
+                decided = 1;
+            }
+        }
     }
-    return c;
 }
 
 static skin_val_t eval_raw(const char *text)

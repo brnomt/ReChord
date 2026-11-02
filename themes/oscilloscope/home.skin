@@ -1,10 +1,11 @@
 [skin]
-refresh_ms=125
+refresh_ms=0
 dyn=13,13,213,136
 dyn2=222,20,319,105
 dyn3=0,146,319,169
 [vars]
-md=(battery>=0&&battery<15?1:(idle<700?2:(!playing&&idle>60000?3:(!playing?4:(volume>-6?5:0)))))
+a1=(!playing?(idle>60000?3:4):(volume>-6?5:0))
+md=(battery<15?1:(idle<700?2:a1))
 w0=((md==2||md==5)?(noise(t/110,2)>-2?"w3":"w2"):(noise(t/110,1)>0?"w2":"w1"))
 w1=((md==2||md==5)?(noise(t/110+5,2)>-2?"w3":"w2"):(noise(t/110+7,1)>0?"w2":"w1"))
 w2=((md==2||md==5)?(noise(t/110+10,2)>-2?"w3":"w2"):(noise(t/110+14,1)>0?"w2":"w1"))
@@ -15,8 +16,8 @@ tc=(md==1?danger:text)
 kvA=sin(av*10,3600,13)
 kvB=sin(av*10+900,3600,13)
 kvC=sin(av*10+900,3600,3)
-kvD=sin(av*10,3600,3)
 [vars2]
+kvD=sin(av*10,3600,3)
 ktA=sin(at*10,3600,13)
 ktB=sin(at*10+900,3600,13)
 ktC=sin(at*10+900,3600,3)

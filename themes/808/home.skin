@@ -1,10 +1,11 @@
 [skin]
-refresh_ms=50
+refresh_ms=0
 dyn=0,88,319,133
 dyn2=250,4,314,18
 dyn3=136,33,169,76
 [vars]
-md=(battery>=0&&battery<15?1:(idle<700?2:(!playing&&idle>60000?3:(!playing?4:(volume>-6?5:0)))))
+a1=(!playing?(idle>60000?3:4):(volume>-6?5:0))
+md=(battery<15?1:(idle<700?2:a1))
 st=mod(t/125,16)
 bk=(mod(t,1000)<500)
 av=(-135+270*(volume+60)/60)
@@ -199,7 +200,7 @@ y=92
 w=6
 h=3
 color=(playing||bk||md==2?63940:18594)
-visible=!(md==3||md==1)
+visible=(md==1?0:(md==3?0:1))
 dyn=1
 [k0]
 type=roundrect
@@ -336,7 +337,7 @@ y=97
 w=16
 h=34
 color=63421
-visible=(playing||bk)&&md!=3
+visible=(md==3?0:(playing?1:bk))
 dyn=1
 [low]
 type=roundrect
@@ -345,7 +346,7 @@ y=97
 w=16
 h=34
 color=62803
-visible=md==1&&bk
+visible=(md==1?bk:0)
 dyn=1
 [grp]
 type=text

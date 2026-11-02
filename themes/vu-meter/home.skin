@@ -1,10 +1,11 @@
 [skin]
-refresh_ms=125
+refresh_ms=0
 dyn=6,4,158,116
 dyn2=162,4,314,116
 dyn3=0,118,319,169
 [vars]
-md=(battery>=0&&battery<15?1:(idle<700?2:(!playing&&idle>60000?3:(!playing?4:(volume>-6?5:0)))))
+a1=(!playing?(idle>60000?3:4):(volume>-6?5:0))
+md=(battery<15?1:(idle<700?2:a1))
 tg=(!playing?0:clamp(300+(volume+18)*20+noise(t/90,230)+sin(t,700,120)+(md==5?250:0)+(md==2?250:0),0,1060))
 vl=(vl*55/100+(tg-ps)*32/100)
 ps=clamp(ps+vl,-30,1060)
@@ -16,7 +17,6 @@ thr=(pr*9/10-450)
 [vars2]
 fc=((md==1||md==3)?48431:63287)
 f2=((md==1||md==3)?44139:63088)
-gl=((md==1||md==3)?31461:62826)
 lA=sin(th,3600,78)
 lB=sin(th+900,3600,78)
 lC=sin(th+900,3600,2)
@@ -87,7 +87,7 @@ y=95
 w=140
 h=21
 from=f2
-to=gl
+to=(md==1||md==3?31461:62826)
 dir=vertical
 dyn=1
 [ma1]
@@ -230,7 +230,7 @@ y=95
 w=140
 h=21
 from=f2
-to=gl
+to=(md==1||md==3?31461:62826)
 dir=vertical
 dyn=1
 [ma2]
@@ -333,7 +333,7 @@ dyn=1
 type=text
 x=12
 y=124
-text=(md==1?"BATERIA BAJA":(md>2&&md<5?"PAUSA":title))
+text=(md==1?"BATERIA BAJA":(md==3||md==4?"PAUSA":title))
 maxc=27
 color=(md==1?64459:(md==3?text_dim:text))
 bg=65
