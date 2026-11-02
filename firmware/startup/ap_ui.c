@@ -86,6 +86,7 @@ static int      s_resume_started;    /* first probe seen; settle timer     */
 static unsigned s_resume_ms;         /* when the settle wait began         */
 static unsigned s_face_ms;           /* skin animation refresh tick        */
 static unsigned s_theme_ms;          /* per-screen skin animation tick     */
+static unsigned s_anim_n, s_anim_busy_ms, s_anim_log_ms;  /* animation cost */
 static uint32_t s_index_cache = 0xFFFFFFFFu;  /* index track count, cached */
 
 /* BRNOMT-84: the UI loop is paced by the SysTick 1 ms tick and sleeps in WFI
@@ -405,6 +406,38 @@ static int ask(int any_key)
 }
 
 static void power_off(void);
+
+
+
+/* Skin animation interval: the package's refresh_ms while playing, and the
+ * (slower) idle_refresh_ms once paused/stopped, when there is little to move. */
+static unsigned skin_refresh_ms_now(unsigned now)
+{
+    unsigned ms = (unsigned)theme_skin_refresh_ms();
+    unsigned idle = (unsigned)theme_skin_idle_refresh_ms();
+
+    /* Not while the user is touching it: a volume knob or needle should answer
+     * right away, so the slow rate only starts 1.5 s after the last key. */
+    if (player_get_state() != PLAYER_PLAYING && idle > ms &&
+        (unsigned)(now - s_idle_ms) >= 1500u)
+        ms = idle;
+    return ms;
+}
+
+/* Cost of the animated skin layer, for tuning: frames drawn and the ms spent in
+ * them (render + flush) per 5 s. ms resolution, so it is an average. */
+static void anim_account(unsigned now, unsigned t0)
+{
+    s_anim_n++;
+    s_anim_busy_ms += ap_ms() - t0;
+    if ((unsigned)(now - s_anim_log_ms) >= 5000u) {
+        log_printf("skin: %u fr/5s, %u ms busy (%u%%)", s_anim_n,
+                   s_anim_busy_ms, s_anim_busy_ms / 50u);
+        s_anim_n = 0;
+        s_anim_busy_ms = 0;
+        s_anim_log_ms = now;
+    }
+}
 
 /* ---- BRNOMT-75: display off / Hold ------------------------------------ */
 
@@ -1916,9 +1949,15 @@ void ap_ui_loop(void)
                 ui_top_screen() == &skin_home_screen &&
                 theme_skin_animated() &&
                 (unsigned)(now - s_face_ms) >=
-                    (unsigned)theme_skin_refresh_ms()) {
+                    skin_refresh_ms_now(now)) {
+                unsigned t0 = ap_ms();
+                int drew;
+
                 s_face_ms = now;
-                if (!skin_home_animate()) {
+                drew = skin_home_animate();
+                if (drew)
+                    anim_account(now, t0);
+                if (!drew) {
                     int h = theme_skin_refresh_h();
 
                     if (h <= 0)
@@ -1934,13 +1973,15 @@ void ap_ui_loop(void)
             if (theme_ui_active() && ui_top_screen() != &skin_home_screen &&
                 theme_skin_animated() &&
                 (unsigned)(now - s_theme_ms) >=
-                    (unsigned)theme_skin_refresh_ms()) {
+                    skin_refresh_ms_now(now)) {
                 s_theme_ms = now;
                 /* Now Playing animates its mini cassette/progress: same
                  * static/dynamic split (no art re-stream, small flush). */
+                unsigned t0 = ap_ms();
+
                 if (ui_top_screen() == &player_screen &&
                     player_screen_animate()) {
-                    /* dynamic layer drawn */
+                    anim_account(now, t0);   /* dynamic layer drawn */
                 } else {
                     int h = theme_skin_refresh_h();
 

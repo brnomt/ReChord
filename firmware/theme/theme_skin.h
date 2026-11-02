@@ -126,6 +126,10 @@ int  theme_skin_dyn_rect(int idx, int *x0, int *y0, int *x1, int *y1);
 /* Flush rect `idx` only every Nth animate frame (dyn_every/dyn2_every/...);
  * 1 when unset. Slow-changing areas stop costing bus time every frame. */
 int  theme_skin_dyn_every(int idx);
+/* [skin] idle_refresh_ms: the animation interval while nothing is playing
+ * (paused/stopped redraws a flat scope or a resting needle, so it can be far
+ * slower). 0 = same as refresh_ms. */
+int  theme_skin_idle_refresh_ms(void);
 
 /* Navigation results for a compiled screen using the skin's prev/next map.
  * Only vol up/down are mapped; SELECT and BACK are fixed. */

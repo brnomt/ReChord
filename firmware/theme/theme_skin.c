@@ -94,6 +94,7 @@ void theme_skin_set_list(const theme_skin_list_source_t *src)
 
 static int s_refresh_ms = 125;
 static int s_refresh_h = -1;
+static int s_idle_refresh_ms;      /* slower refresh while not playing (0 = same) */
 /* Static/dynamic split: the app re-renders only the sections marked `dyn=1`
  * and flushes the declared rects, leaving the background, art and labels
  * untouched from the last full draw. */
@@ -218,88 +219,93 @@ static int ident_char(char c)
 
 /* -------------------------------------------------------------- variables */
 
+/* Name test with a cheap first-character reject: variable() and
+ * call_function() run for every identifier of every expression every frame, and
+ * the plain strcmp chain made each lookup ~50 library calls. */
+#define IS(lit) (name[0] == (lit)[0] && strcmp(name, (lit)) == 0)
+
 static skin_val_t variable(const char *name)
 {
     const theme_t *t = theme_get();
     skin_ctx_t *c = g_ctx;
     int i;
 
-    if (strcmp(name, "t") == 0)
+    if (IS("t"))
         return v_int(c != 0 ? (int)c->now : 0);
-    if (strcmp(name, "idle") == 0)
+    if (IS("idle"))
         return v_int(c != 0 ? (int)c->idle : 0);
-    if (strcmp(name, "sel") == 0)
+    if (IS("sel"))
         return v_int(c != 0 ? c->sel : 0);
-    if (strcmp(name, "top") == 0)
+    if (IS("top"))
         return v_int(c != 0 ? c->top : 0);
-    if (strcmp(name, "n") == 0)
+    if (IS("n"))
         return v_int(s_list.dynamic && s_list_src != 0
                          ? s_list_src->count : s_list.count);
-    if (strcmp(name, "aw") == 0)
+    if (IS("aw"))
         return v_int(c != 0 ? c->aw : 0);
-    if (strcmp(name, "ah") == 0)
+    if (IS("ah"))
         return v_int(c != 0 ? c->ah : 0);
-    if (strcmp(name, "W") == 0)
+    if (IS("W"))
         return v_int(THEME_LAYOUT_MAX_W);
-    if (strcmp(name, "H") == 0)
+    if (IS("H"))
         return v_int(THEME_LAYOUT_MAX_H);
-    if (strcmp(name, "playing") == 0)
+    if (IS("playing"))
         return v_int(c != 0 && c->st != 0 ? c->st->playing : 0);
-    if (strcmp(name, "paused") == 0)
+    if (IS("paused"))
         return v_int(c != 0 && c->st != 0 ? c->st->paused : 0);
-    if (strcmp(name, "stopped") == 0)
+    if (IS("stopped"))
         return v_int(c != 0 && c->st != 0 ? c->st->stopped : 0);
-    if (strcmp(name, "volume") == 0)
+    if (IS("volume"))
         return v_int(c != 0 && c->st != 0 ? c->st->volume_db : 0);
-    if (strcmp(name, "battery") == 0)
+    if (IS("battery"))
         return v_int(c != 0 && c->st != 0 ? c->st->battery_pct : -1);
-    if (strcmp(name, "lvl_l") == 0)
+    if (IS("lvl_l"))
         return v_int(c != 0 && c->st != 0 ? c->st->lvl_l : 0);
-    if (strcmp(name, "lvl_r") == 0)
+    if (IS("lvl_r"))
         return v_int(c != 0 && c->st != 0 ? c->st->lvl_r : 0);
-    if (strcmp(name, "peak_l") == 0)
+    if (IS("peak_l"))
         return v_int(c != 0 && c->st != 0 ? c->st->peak_l : 0);
-    if (strcmp(name, "peak_r") == 0)
+    if (IS("peak_r"))
         return v_int(c != 0 && c->st != 0 ? c->st->peak_r : 0);
-    if (strcmp(name, "bt") == 0)
+    if (IS("bt"))
         return v_int(c != 0 && c->st != 0 ? c->st->bt : 0);
-    if (strcmp(name, "bt_stream") == 0)
+    if (IS("bt_stream"))
         return v_int(c != 0 && c->st != 0 ? c->st->bt_stream : 0);
-    if (strcmp(name, "art_ok") == 0)
+    if (IS("art_ok"))
         return v_int(s_art != 0 ? s_art->ok : 0);
-    if (strcmp(name, "art_c1") == 0)
+    if (IS("art_c1"))
         return v_int(s_art != 0 ? s_art->c1 : 0);
-    if (strcmp(name, "art_c2") == 0)
+    if (IS("art_c2"))
         return v_int(s_art != 0 ? s_art->c2 : 0);
-    if (strcmp(name, "art_mean") == 0)
+    if (IS("art_mean"))
         return v_int(s_art != 0 ? s_art->mean : 0);
-    if (strcmp(name, "art_accent") == 0)
+    if (IS("art_accent"))
         return v_int(s_art != 0 ? s_art->accent : 0);
-    if (strcmp(name, "art_bg_a") == 0)
+    if (IS("art_bg_a"))
         return v_int(s_art != 0 ? s_art->bg_a : 0);
-    if (strcmp(name, "art_bg_b") == 0)
+    if (IS("art_bg_b"))
         return v_int(s_art != 0 ? s_art->bg_b : 0);
-    if (strcmp(name, "art_glow") == 0)
+    if (IS("art_glow"))
         return v_int(s_art != 0 ? s_art->glow : 0);
-    if (strcmp(name, "art_panel") == 0)
+    if (IS("art_panel"))
         return v_int(s_art != 0 ? s_art->panel : 0);
-    if (strcmp(name, "art_label") == 0)
+    if (IS("art_label"))
         return v_int(s_art != 0 ? s_art->label : 0);
-    if (strcmp(name, "art_ink") == 0)
+    if (IS("art_ink"))
         return v_int(s_art != 0 ? s_art->ink : 0);
-    if (strcmp(name, "art_ink_dim") == 0)
+    if (IS("art_ink_dim"))
         return v_int(s_art != 0 ? s_art->ink_dim : 0);
-    if (strcmp(name, "pos") == 0)
+    if (IS("pos"))
         return v_int(c != 0 && c->st != 0
                          ? (int)(c->st->position_ms / 1000) : 0);
-    if (strcmp(name, "dur") == 0)
+    if (IS("dur"))
         return v_int(c != 0 && c->st != 0
                          ? (int)(c->st->duration_ms / 1000) : 0);
-    if (strcmp(name, "pos_ms") == 0)
+    if (IS("pos_ms"))
         return v_int(c != 0 && c->st != 0 ? (int)c->st->position_ms : 0);
-    if (strcmp(name, "dur_ms") == 0)
+    if (IS("dur_ms"))
         return v_int(c != 0 && c->st != 0 ? (int)c->st->duration_ms : 0);
-    if (strcmp(name, "pos_fmt") == 0) {
+    if (IS("pos_fmt")) {
         char buf[32];
         long s = c != 0 && c->st != 0 ? c->st->position_ms / 1000 : 0;
 
@@ -308,7 +314,7 @@ static skin_val_t variable(const char *name)
         snprintf(buf, sizeof buf, "%ld:%02ld", s / 60, s % 60);
         return v_str(buf);
     }
-    if (strcmp(name, "dur_fmt") == 0) {
+    if (IS("dur_fmt")) {
         char buf[32];
         long s = c != 0 && c->st != 0 ? c->st->duration_ms / 1000 : 0;
 
@@ -317,48 +323,48 @@ static skin_val_t variable(const char *name)
         snprintf(buf, sizeof buf, "%ld:%02ld", s / 60, s % 60);
         return v_str(buf);
     }
-    if (strcmp(name, "bits") == 0)
+    if (IS("bits"))
         return v_int(c != 0 && c->st != 0 ? c->st->bits : 0);
-    if (strcmp(name, "rate") == 0)
+    if (IS("rate"))
         return v_int(c != 0 && c->st != 0 ? (int)c->st->sample_rate : 0);
-    if (strcmp(name, "pl_i") == 0)
+    if (IS("pl_i"))
         return v_int(c != 0 && c->st != 0 ? c->st->playlist_pos : 0);
-    if (strcmp(name, "pl_n") == 0)
+    if (IS("pl_n"))
         return v_int(c != 0 && c->st != 0 ? c->st->playlist_count : 0);
-    if (strcmp(name, "shuffle") == 0)
+    if (IS("shuffle"))
         return v_int(c != 0 && c->st != 0 ? c->st->shuffle : 0);
-    if (strcmp(name, "repeat") == 0)
+    if (IS("repeat"))
         return v_int(c != 0 && c->st != 0 ? c->st->repeat : 0);
-    if (strcmp(name, "title") == 0)
+    if (IS("title"))
         return v_str(c != 0 && c->st != 0 ? c->st->title : "");
-    if (strcmp(name, "artist") == 0)
+    if (IS("artist"))
         return v_str(c != 0 && c->st != 0 ? c->st->artist : "");
-    if (strcmp(name, "album") == 0)
+    if (IS("album"))
         return v_str(c != 0 && c->st != 0 ? c->st->album : "");
-    if (strcmp(name, "state") == 0)
+    if (IS("state"))
         return v_str(c != 0 && c->st != 0 ? c->st->state : "");
-    if (strcmp(name, "path") == 0)
+    if (IS("path"))
         return v_str(c != 0 && c->st != 0 ? c->st->path : "");
-    if (strcmp(name, "heading") == 0)
+    if (IS("heading"))
         return v_str(c != 0 && c->st != 0 ? c->st->heading : "");
-    if (strcmp(name, "true") == 0)
+    if (IS("true"))
         return v_int(1);
-    if (strcmp(name, "false") == 0)
+    if (IS("false"))
         return v_int(0);
 
-    if (strcmp(name, "background") == 0)
+    if (IS("background"))
         return v_int(t->background);
-    if (strcmp(name, "surface") == 0)
+    if (IS("surface"))
         return v_int(t->surface);
-    if (strcmp(name, "text") == 0)
+    if (IS("text"))
         return v_int(t->text);
-    if (strcmp(name, "text_dim") == 0)
+    if (IS("text_dim"))
         return v_int(t->text_dim);
-    if (strcmp(name, "accent") == 0)
+    if (IS("accent"))
         return v_int(t->accent);
-    if (strcmp(name, "danger") == 0)
+    if (IS("danger"))
         return v_int(t->danger);
-    if (strcmp(name, "success") == 0)
+    if (IS("success"))
         return v_int(t->success);
 
     /* Theme-defined variables from [vars], evaluated once per frame. */
@@ -480,19 +486,19 @@ static skin_val_t call_function(skin_expr_t *e, const char *name, int depth)
     }
     (void)take(e, ")");
 
-    if (strcmp(name, "min") == 0 && n >= 2) {
+    if (IS("min") && n >= 2) {
         int x = as_int(a[0]), y = as_int(a[1]);
         return v_int(x < y ? x : y);
     }
-    if (strcmp(name, "max") == 0 && n >= 2) {
+    if (IS("max") && n >= 2) {
         int x = as_int(a[0]), y = as_int(a[1]);
         return v_int(x > y ? x : y);
     }
-    if (strcmp(name, "abs") == 0 && n >= 1) {
+    if (IS("abs") && n >= 1) {
         int x = as_int(a[0]);
         return v_int(x < 0 ? -x : x);
     }
-    if (strcmp(name, "clamp") == 0 && n >= 3) {
+    if (IS("clamp") && n >= 3) {
         int x = as_int(a[0]), lo = as_int(a[1]), hi = as_int(a[2]);
         if (x < lo)
             x = lo;
@@ -500,22 +506,22 @@ static skin_val_t call_function(skin_expr_t *e, const char *name, int depth)
             x = hi;
         return v_int(x);
     }
-    if (strcmp(name, "mod") == 0 && n >= 2) {
+    if (IS("mod") && n >= 2) {
         int x = as_int(a[0]), y = as_int(a[1]);
         return v_int(y != 0 ? x % y : 0);
     }
-    if (strcmp(name, "noise") == 0 && n >= 2)
+    if (IS("noise") && n >= 2)
         return v_int(noise_int(as_int(a[0]), as_int(a[1])));
-    if (strcmp(name, "sin") == 0 && n >= 3)
+    if (IS("sin") && n >= 3)
         return v_int(sin_int(as_int(a[0]), as_int(a[1]), as_int(a[2])));
-    if (strcmp(name, "sqrt") == 0 && n >= 1) {
+    if (IS("sqrt") && n >= 1) {
         int v = as_int(a[0]);
 
         return v_int(v > 0 ? isqrt_i(v) : 0);   /* integer floor, generic */
     }
-    if (strcmp(name, "seq") == 0 && n >= 4)
+    if (IS("seq") && n >= 4)
         return seq_value(as_int(a[0]), as_int(a[1]), as_int(a[2]), a[3]);
-    if ((strcmp(name, "wl") == 0 || strcmp(name, "wr") == 0) && n >= 1) {
+    if ((IS("wl") || IS("wr")) && n >= 1) {
         const skin_ctx_t *c = g_ctx;
         const short *w = 0;
         int i = as_int(a[0]);
@@ -526,13 +532,13 @@ static skin_val_t call_function(skin_expr_t *e, const char *name, int depth)
             return v_int(0);
         return v_int(w[i]);
     }
-    if (strcmp(name, "mix") == 0 && n >= 3) {
+    if (IS("mix") && n >= 3) {
         int w = as_int(a[2]);
 
         return v_int(mix565((uint16_t)as_int(a[0]), (uint16_t)as_int(a[1]),
                             w < 0 ? 0 : (w > 1000 ? 1000 : w)));
     }
-    if (strcmp(name, "if") == 0 && n >= 3)
+    if (IS("if") && n >= 3)
         return truthy(a[0]) ? a[1] : a[2];
     return v_int(0);
 }
@@ -1118,6 +1124,7 @@ int theme_skin_load(const char *root, const char *id, const char *path)
     s_list.next_key = THEME_SKIN_KEY_DOWN;
     s_list.count = 0;
     s_refresh_ms = 125;
+    s_idle_refresh_ms = 0;
     s_refresh_h = -1;
     s_animated = 0;
     s_var_count = 0;
@@ -1135,6 +1142,9 @@ int theme_skin_load(const char *root, const char *id, const char *path)
                 s_refresh_ms = as_int(v_str(v));
                 s_animated = s_refresh_ms > 0;
             }
+            v = prop(&sec, "idle_refresh_ms");
+            if (v != 0)
+                s_idle_refresh_ms = as_int(v_str(v));
             v = prop(&sec, "refresh_h");
             if (v != 0)
                 s_refresh_h = as_int(v_str(v));
@@ -1200,6 +1210,11 @@ const char *theme_skin_text(void)
 void theme_skin_set_dynamic_only(int on)
 {
     s_dyn_only = on ? 1 : 0;
+}
+
+int theme_skin_idle_refresh_ms(void)
+{
+    return s_idle_refresh_ms;
 }
 
 int theme_skin_dyn_every(int idx)
@@ -1570,14 +1585,42 @@ static void skin_gradient(int x, int y, int w, int h, uint16_t from,
         int32_t rr = ar, gg = ag, bb = ab;
         int py = y + yy;
 
+        uint16_t pat[4];
+
         if (py < 0 || py >= DISPLAY_H)
             continue;
+        /* Vertical gradient: the colour is constant along a row and the Bayer
+         * dither repeats every 4 columns, so a row is just 4 distinct pixels.
+         * Quantise those once instead of per pixel (same output). */
+        if (!diagonal) {
+            int c;
+
+            for (c = 0; c < 4; c++) {
+                int d = (int)k_bayer[py & 3][c] - 8;
+                int r8 = (int)(rr >> 16) + d;
+                int g8 = (int)(gg >> 16) + d;
+                int b8 = (int)(bb >> 16) + d;
+
+                if (r8 < 0) r8 = 0; else if (r8 > 255) r8 = 255;
+                if (g8 < 0) g8 = 0; else if (g8 > 255) g8 = 255;
+                if (b8 < 0) b8 = 0; else if (b8 > 255) b8 = 255;
+                pat[c] = (uint16_t)((((r8 * 249) >> 11) << 11) |
+                                    (((g8 * 253) >> 10) << 5) |
+                                    ((b8 * 249) >> 11));
+            }
+        }
         for (xx = 0; xx < w; xx += SKIN_GRAD_CHUNK) {
             int n = w - xx;
             int i;
 
             if (n > SKIN_GRAD_CHUNK)
                 n = SKIN_GRAD_CHUNK;
+            if (!diagonal) {
+                for (i = 0; i < n; i++)
+                    pix[i] = pat[(x + xx + i) & 3];
+                display_blit_span(x + xx, py, n, pix);
+                continue;
+            }
             for (i = 0; i < n; i++) {
                 int px = x + xx + i;
                 int r8 = (int)(rr >> 16);
