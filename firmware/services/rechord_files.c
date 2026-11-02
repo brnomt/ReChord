@@ -148,5 +148,8 @@ int rechord_files_init(void)
     (void)fs_ensure_file(RECHORD_EQ_DIR "/custom3.cfg", EQ_FILE_BYTES, 0);
     (void)fs_ensure_file(RECHORD_EQ_DIR "/custom4.cfg", EQ_FILE_BYTES, 0);
     (void)fs_ensure_file(RECHORD_EQ_DIR "/custom5.cfg", EQ_FILE_BYTES, 0);
+    /* Per-output volume/EQ memory (output_mem.c): rewritten in place, so it is
+     * preallocated like the rest. */
+    (void)fs_ensure_file(RECHORD_OUTPUT, 2048u, "# ReChord per-output memory\n");
     return FS_OK;
 }

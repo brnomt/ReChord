@@ -318,6 +318,43 @@ static void test_persist_across_boot(void)
           c->band[1].gain_tdb == 77, "gains survived");
 }
 
+static int obs_calls;
+static void observer(void) { obs_calls++; }
+
+/* Restoring an output's EQ replaces curve + name + on/off, persists it and
+ * publishes it, but is not reported as a user edit. */
+static void test_restore(void)
+{
+    eq_curve_t c;
+    int before;
+
+    TEST("restore");
+    fs_host_set_root(ROOT);
+    reset_tree();
+    CHECK(eq_profile_boot() == 0, "boot");
+    eq_profile_set_observer(observer);
+    CHECK(eq_profile_select(2) == 0, "pick Rock");
+    CHECK(obs_calls > 0, "a user edit notifies the observer");
+
+    c = *eq_profile_curve();
+    c.band[0].gain_tdb = 33;
+    obs_calls = 0;
+    before = pub_calls;
+    CHECK(eq_profile_restore(&c, "Phones", 1) == 0, "restore applies");
+    CHECK(eq_profile_enabled() == 1 && strcmp(eq_profile_name(), "Phones") == 0 &&
+          eq_profile_curve()->band[0].gain_tdb == 33, "state replaced");
+    CHECK(obs_calls == 0, "restore is not a user edit");
+    CHECK(pub_calls == before + 1, "restore publishes to the engine");
+    CHECK(eq_profile_boot() == 0, "reboot");
+    CHECK(eq_profile_enabled() == 1 && eq_profile_curve()->band[0].gain_tdb == 33 &&
+          strcmp(eq_profile_name(), "Phones") == 0, "restore persisted");
+
+    c.count = 3;                                 /* invalid curve */
+    CHECK(eq_profile_restore(&c, "Bad", 0) < 0, "invalid curve rejected");
+    CHECK(strcmp(eq_profile_name(), "Phones") == 0, "rejection changes nothing");
+    eq_profile_set_observer(0);
+}
+
 int main(void)
 {
     printf("=== eq_profile tests ===\n");
@@ -326,6 +363,7 @@ int main(void)
     test_format_freq();
     test_service();
     test_persist_across_boot();
+    test_restore();
 
     printf("\n%s (%d failure%s)\n",
            failures == 0 ? "ALL EQ PROFILE TESTS PASSED" : "FAILURES",

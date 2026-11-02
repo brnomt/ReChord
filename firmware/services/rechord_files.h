@@ -23,6 +23,7 @@
  * are named customN.cfg (N = 1..8); extra user files appear in the picker. */
 #define RECHORD_EQ_DIR "/Internal/.rechord/eq"
 #define RECHORD_EQ_CFG "/Internal/.rechord/eq.cfg"
+#define RECHORD_OUTPUT "/Internal/.rechord/output"   /* per-output volume + EQ */
 /* Library extras (BRNOMT-70 follow-up): favorite and recently-played path
  * hashes (32-bit FNV-1a), ~0.5 KB each. */
 #define RECHORD_FAVORITES "/Internal/.rechord/favorites"

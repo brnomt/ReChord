@@ -42,6 +42,15 @@ int eq_profile_ready(void);
 
 void eq_profile_set_publisher(eq_publish_fn fn);
 
+/* Called after every change to the active EQ (enable, profile, band edit,
+ * restore). The app uses it to remember the EQ per output. */
+void eq_profile_set_observer(void (*fn)(void));
+
+/* Replace the active EQ wholesale (used when the audio output changes):
+ * curve + name + on/off. Persists eq.cfg and publishes, without notifying the
+ * observer. Returns 0, or < 0 when the curve is invalid (nothing changes). */
+int eq_profile_restore(const eq_curve_t *curve, const char *name, int enabled);
+
 /* Re-send the active curve/enable flag (no file I/O). */
 int eq_profile_apply(void);
 

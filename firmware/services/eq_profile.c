@@ -62,6 +62,8 @@ static uint8_t    s_enabled;
 static uint8_t    s_dirty;
 static uint8_t    s_booted;
 static eq_publish_fn s_publish;
+static void (*s_observer)(void);
+static uint8_t s_quiet;            /* restore in progress: do not notify */
 
 /* ---- small text helpers (same shape as settings.c) ---- */
 
@@ -489,6 +491,34 @@ int eq_profile_apply(void)
     s_active.enabled = s_enabled ? 1u : 0u;
     if (s_publish != 0)
         s_publish((int)s_enabled, &s_active);
+    if (s_observer != 0 && !s_quiet)
+        s_observer();
+    return 0;
+}
+
+void eq_profile_set_observer(void (*fn)(void))
+{
+    s_observer = fn;
+}
+
+int eq_profile_restore(const eq_curve_t *curve, const char *name, int enabled)
+{
+    eq_curve_t c;
+
+    if (curve == 0)
+        return -1;
+    c = *curve;
+    c.enabled = enabled ? 1u : 0u;
+    if (!eq_curve_valid(&c))
+        return -1;
+    s_active = c;
+    s_enabled = c.enabled;
+    copy_str(s_name, sizeof s_name, name != 0 ? name : "");
+    s_dirty = 1;
+    s_quiet = 1;                       /* restoring is not a user edit */
+    (void)eq_profile_save();
+    eq_profile_apply();
+    s_quiet = 0;
     return 0;
 }
 
