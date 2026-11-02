@@ -1423,10 +1423,26 @@ static void scope_line(int x0, int y0, int x1, int y1, int r, uint16_t color)
     }
 }
 
-__attribute__((noinline)) static void skin_scope(int x, int y, int w, int h, const char *ch, int gain,
-                       const theme_skin_state_t *st, uint16_t core,
-                       uint16_t glow)
+/* Mix two RGB565 colours; `w` is the weight of `a` in permille. */
+static uint16_t mix565(uint16_t a, uint16_t b, int w)
 {
+    int r = (((a >> 11) & 31) * w + ((b >> 11) & 31) * (1000 - w)) / 1000;
+    int g = (((a >> 5) & 63) * w + ((b >> 5) & 63) * (1000 - w)) / 1000;
+    int bl = ((a & 31) * w + (b & 31) * (1000 - w)) / 1000;
+
+    return (uint16_t)((r << 11) | (g << 5) | bl);
+}
+
+/* `glow` is the halo strength in permille (1000 = default): three widening
+ * passes (7, 5 and 3 px wide) fade from the core colour into `bg`, so the line
+ * bleeds light into the tube. The caller keeps the box 3 px inside whatever it
+ * flushes, because the halo is drawn outside x..x+w / y..y+h. */
+__attribute__((noinline)) static void skin_scope(
+    int x, int y, int w, int h, const char *ch, int gain,
+    const theme_skin_state_t *st, uint16_t core, uint16_t bg, int glow)
+{
+    static const short k_r[4] = { 3, 2, 1, 0 };
+    static const short k_w[4] = { 150, 330, 600, 1000 };
     const short *a, *b;
     int n, pass, i;
     int xy = ch != 0 && key_eq(ch, "xy");
@@ -1439,11 +1455,15 @@ __attribute__((noinline)) static void skin_scope(int x, int y, int w, int h, con
     if (a == 0 || b == 0)
         return;
 
-    for (pass = 0; pass < 2; pass++) {
-        uint16_t col = pass == 0 ? glow : core;
-        int r = pass == 0 ? 1 : 0;
+    for (pass = 0; pass < 4; pass++) {
+        int wt = pass == 3 ? 1000 : k_w[pass] * glow / 1000;
+        uint16_t col;
+        int r = k_r[pass];
         int px = 0, py = 0;
 
+        if (wt > 950)
+            wt = 950;
+        col = pass == 3 ? core : mix565(core, bg, wt);
         if (xy) {
             for (i = 0; i < n; i++) {
                 int cx = x + w / 2 + (a[i] * gain / 1000) * (w / 2) / 1000;
@@ -1773,7 +1793,8 @@ static void render_section(const skin_section_t *sec, skin_ctx_t *ctx, int sel)
         skin_scope(x, y, w, h, ch, eval_int(prop(sec, "gain"), ctx, 1000),
                    ctx->st,
                    color_of(prop(sec, "color"), ctx, theme_get()->text),
-                   color_of(prop(sec, "glow"), ctx, theme_get()->text_dim));
+                   theme_get()->background,
+                   eval_int(prop(sec, "glow"), ctx, 1000));
         return;
     }
 

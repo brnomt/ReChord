@@ -275,7 +275,7 @@ void test_skin_engine(void)
 
         if (fs != 0) {
             fputs("[s]\ntype=scope\nx=0\ny=0\nw=90\nh=41\nch=l\n"
-                  "color=65535\nglow=2113\n", fs);
+                  "color=65535\nglow=800\n", fs);
             fclose(fs);
         }
         memset(&ss, 0, sizeof ss);
