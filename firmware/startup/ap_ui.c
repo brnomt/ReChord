@@ -1213,7 +1213,7 @@ static void open_system(void) { ui_push_screen(&system_screen_entry); }
 
 /* ---- root menu ---------------------------------------------------------- */
 /* Title-row status (BRNOMT-72/83): volume, plus the battery approximation when
- * the gauge answers (5-step ladder -> 0/25/50/75/100 %). */
+ * the gauge answers (Li-ion curve, 0..100 %). */
 static const char *vol_status(void)
 {
     static char buf[24];
@@ -1632,6 +1632,7 @@ void ap_ui_loop(void)
     display_set_brightness(settings_screen_get()->brightness);
     player_screen_set_volume(player_get_volume());
     s_volume_seen = player_get_volume();
+    battery_set_charging(usb_cable());
     battery_poll();      /* BRNOMT-83: seed the gauge before the first draw */
     /* Bluetooth: restore the user's choice + remembered devices. The module
      * stays off unless the user enabled it. */
@@ -1882,6 +1883,7 @@ void ap_ui_loop(void)
         if ((unsigned)(now - s_batt_ms) >= 15000u) {
             int before = battery_percent();
 
+            battery_set_charging(usb_cable());
             battery_poll();
             s_batt_ms = now;
             {
@@ -1895,8 +1897,8 @@ void ap_ui_loop(void)
                 if (mv - logged_mv >= 25 || logged_mv - mv >= 25 ||
                     logged_mv == -9999 ||
                     (unsigned)(now - logged_ms) >= 300000u) {
-                    log_printf("batt: %d mV lvl %d usb %d", mv,
-                               battery_level(), usb_cable());
+                    log_printf("batt: %d mV %d%% usb %d", mv,
+                               battery_percent(), usb_cable());
                     logged_mv = mv;
                     logged_ms = now;
                 }
