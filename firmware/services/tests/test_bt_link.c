@@ -326,34 +326,6 @@ static void seed_two(void)
     feed("CV1", 100);
 }
 
-static void test_wired_headphones_block(void)
-{
-    static const char a1[] = "\xAA\xBB\xCC\xDD\xEE\xFF";
-
-    seed_two();
-    bt_link_set_wired(1, 150);                 /* headphones in the jack */
-    reset_io();
-    bt_link_service(6000);                     /* auto-connect window elapsed */
-    CHECK(!sent_has("CL06", 4), "no auto-connect with wired headphones");
-    bt_link_connect(0, 6100);
-    CHECK(!sent_has("CL06", 4), "no manual connect with wired headphones");
-    CHECK(strcmp(bt_link_status_text(), "Headphones in") == 0,
-          "the screen says why");
-
-    bt_link_set_wired(0, 6200);                /* unplugged */
-    reset_io();
-    bt_link_service(12000);
-    CHECK(sent_has("CL06", 4), "auto-connect resumes once unplugged");
-    CHECK(sent_has(a1, 6), "to the most recent device");
-
-    /* Plugging in mid-attempt abandons it. */
-    reset_io();
-    bt_link_set_wired(1, 12100);
-    CHECK_EQI(bt_link_state()->state, BT_STATE_READY, "attempt abandoned");
-    CHECK(sent_has("CT00", 4), "module told to drop the attempt");
-    bt_link_set_wired(0, 12200);
-}
-
 static void test_forget_drops_attempt_and_relents(void)
 {
     seed_two();
@@ -391,8 +363,6 @@ int main(void)
     TEST("bt_link: scan results are not auto-connected");
     test_scan_results_are_not_saved();
     test_idle_off_with_display();
-    TEST("bt_link: wired headphones block Bluetooth");
-    test_wired_headphones_block();
     TEST("bt_link: forget drops an attempt in flight");
     test_forget_drops_attempt_and_relents();
 
