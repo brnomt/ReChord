@@ -1407,7 +1407,7 @@ static void scope_line(int x0, int y0, int x1, int y1, int r, uint16_t color)
     }
 }
 
-static void skin_scope(int x, int y, int w, int h, const char *ch, int gain,
+__attribute__((noinline)) static void skin_scope(int x, int y, int w, int h, const char *ch, int gain,
                        const theme_skin_state_t *st, uint16_t core,
                        uint16_t glow)
 {
