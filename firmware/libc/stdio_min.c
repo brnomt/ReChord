@@ -23,19 +23,22 @@ static int out_char(char **p, char *end, char c)
     return 1;                          /* return the would-be length */
 }
 
-static int out_str(char **p, char *end, const char *s, int width, int left, int pad)
+static int out_str(char **p, char *end, const char *s, int width, int left,
+                   int pad, int prec)
 {
     int len = 0;
     const char *q = s;
     while (*q++)
         len++;
+    if (prec >= 0 && len > prec)       /* %.Ns: at most N characters */
+        len = prec;
     int padn = width > len ? width - len : 0;
     int written = 0;
     if (!left)
         while (padn-- > 0)
             written += out_char(p, end, (char)pad);
-    while (*s)
-        written += out_char(p, end, *s++);
+    for (int i = 0; i < len; i++)
+        written += out_char(p, end, s[i]);
     if (left)
         while (padn-- > 0)
             written += out_char(p, end, (char)pad);
@@ -104,13 +107,29 @@ int vsnprintf(char *buf, size_t cap, const char *fmt, va_list ap)
             /* '+', ' ' flags are parsed and ignored: SDK formats don't rely
              * on them and ignoring keeps the parser simple and total. */
         }
-        while (*fmt >= '0' && *fmt <= '9')
-            width = width * 10 + (*fmt++ - '0');
+        if (*fmt == '*') {             /* width from the argument list */
+            width = va_arg(ap, int);
+            if (width < 0) {
+                left = 1;
+                width = -width;
+            }
+            fmt++;
+        } else {
+            while (*fmt >= '0' && *fmt <= '9')
+                width = width * 10 + (*fmt++ - '0');
+        }
         if (*fmt == '.') {
             fmt++;
             prec = 0;
-            while (*fmt >= '0' && *fmt <= '9')
-                prec = prec * 10 + (*fmt++ - '0');
+            if (*fmt == '*') {         /* precision from the argument list */
+                prec = va_arg(ap, int);
+                if (prec < 0)
+                    prec = -1;         /* negative = no precision */
+                fmt++;
+            } else {
+                while (*fmt >= '0' && *fmt <= '9')
+                    prec = prec * 10 + (*fmt++ - '0');
+            }
         }
         if (*fmt == 'l') {             /* long modifier: consume, same path */
             fmt++;
@@ -125,7 +144,7 @@ int vsnprintf(char *buf, size_t cap, const char *fmt, va_list ap)
         }
         case 's': {
             const char *s = va_arg(ap, const char *);
-            out_str(&p, end, s ? s : "(null)", width, left, pad);
+            out_str(&p, end, s ? s : "(null)", width, left, pad, prec);
             break;
         }
         case 'd':

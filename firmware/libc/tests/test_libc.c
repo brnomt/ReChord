@@ -63,6 +63,18 @@ int main(void)
     check(strcmp(buf, "100% k%") == 0, "%% and %c");
     snprintf(buf, sizeof buf, "%5d", 42);
     check(strcmp(buf, "   42") == 0, "%5d width");
+    /* The Bluetooth store saved device names with %.*s; an unsupported '*' was
+     * printed verbatim ("%*s") instead of the name. */
+    snprintf(buf, sizeof buf, ",%.*s\n", 31, "Nothing Ear (1)");
+    check(strcmp(buf, ",Nothing Ear (1)\n") == 0, "%.*s prints the name");
+    snprintf(buf, sizeof buf, "%.*s", 7, "Nothing Ear (1)");
+    check(strcmp(buf, "Nothing") == 0, "%.*s truncates");
+    snprintf(buf, sizeof buf, "%.3s|", "abcdef");
+    check(strcmp(buf, "abc|") == 0, "%.3s truncates");
+    snprintf(buf, sizeof buf, "%*d|%-*d|", 4, 7, 4, 7);
+    check(strcmp(buf, "   7|7   |") == 0, "%*d and %-*d width from args");
+    snprintf(buf, sizeof buf, "%*s|", -4, "x");
+    check(strcmp(buf, "x   |") == 0, "negative * width left-aligns");
 
     /* math: analytic values */
     check(approx(sin(0.0), 0.0, 1e-12), "sin(0)");
