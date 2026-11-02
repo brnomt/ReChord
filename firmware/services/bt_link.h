@@ -37,11 +37,17 @@ void bt_link_connect(int device, unsigned long now);
 void bt_link_disconnect(unsigned long now);
 void bt_link_forget(int device, unsigned long now);
 
+/* Wired headphones in the jack: no Bluetooth link is started (manual or
+ * automatic) while they are plugged, and an attempt in flight is abandoned.
+ * An existing link is left alone (the jack sense is unreliable while the
+ * audio is routed to the module). */
+void bt_link_set_wired(int plugged, unsigned long now);
+
 /* Before power_off(): a powered module keeps the player from switching off. */
 void bt_link_power_off(void);
 
 /* Right-aligned Settings value: Off / Starting… / Searching… / Connecting… /
- * <name> / Not connected / On. */
+ * <name> / Not connected / Headphones in / On. */
 const char *bt_link_status_text(void);
 
 #endif /* RECHORD_SERVICES_BT_LINK_H */

@@ -38,6 +38,8 @@ static int8_t  s_pending_target;
 static uint8_t s_init;
 static uint8_t s_on;
 static uint8_t s_user_disconnected;
+static uint8_t s_wired;          /* wired headphones plugged in: no Bluetooth link */
+static uint8_t s_wired_logged;
 static uint8_t s_screen_open;
 static uint8_t s_display_on = 1;
 static uint8_t s_dirty;
@@ -190,6 +192,13 @@ static void attempt_connect(unsigned long now, int index)
 
     if (index < 0 || index >= s_bt.count)
         return;
+    if (s_wired) {
+        if (!s_wired_logged) {
+            s_wired_logged = 1;
+            log_printf("bt: connect blocked, headphones plugged in");
+        }
+        return;
+    }
     if (bt_proto_connect(&s_bt, index, now, &f)) {
         send_frame(&f);
         s_last_attempt = now;
@@ -263,7 +272,7 @@ void bt_link_service(unsigned long now)
     }
 
     /* Auto-connect to the most recent device. */
-    if (s_bt.state == BT_STATE_READY && s_bt.count > 0 &&
+    if (s_bt.state == BT_STATE_READY && s_bt.count > 0 && !s_wired &&
         !s_user_disconnected && s_pending_target < 0 &&
         now - s_last_attempt >= BT_RETRY_MS) {
         int i;
@@ -377,6 +386,11 @@ void bt_link_connect(int device, unsigned long now)
 {
     if (!s_on || device < 0 || device >= s_bt.count)
         return;
+    if (s_wired) {                     /* the jack wins: wired headphones */
+        s_wired_logged = 1;
+        log_printf("bt: connect blocked, headphones plugged in");
+        return;
+    }
     s_user_disconnected = 0;
     bt_proto_mark_saved(&s_bt, device);
     s_dirty = 1;
@@ -406,11 +420,38 @@ void bt_link_forget(int device, unsigned long now)
 {
     if (device < 0 || device >= s_bt.count)
         return;
-    if (s_bt.connected == device)
+    /* Drop the link or the attempt in flight: removing only the entry would
+     * leave the module still connecting to a device we no longer know. (The
+     * module has no unpair command, so this is all ReChord can do.) */
+    if (s_bt.connected == device || s_bt.target == device)
         bt_link_disconnect(now);
     bt_proto_remove_device(&s_bt, device);
+    if (s_pending_target == device)
+        s_pending_target = -1;
+    else if (s_pending_target > device)
+        s_pending_target--;
+    /* bt_link_disconnect held auto-connect off for the device just dropped;
+     * that device is gone, so the other saved devices may connect again. */
+    s_user_disconnected = 0;
     s_dirty = 1;
     save_devices();                    /* a forget persists immediately */
+}
+
+void bt_link_set_wired(int plugged, unsigned long now)
+{
+    plugged = plugged ? 1 : 0;
+    if (plugged == s_wired)
+        return;
+    s_wired = (uint8_t)plugged;
+    s_wired_logged = 0;
+    log_printf("bt: wired headphones %s", plugged ? "in" : "out");
+    if (plugged && s_on && s_bt.state == BT_STATE_CONNECTING) {
+        bt_frame_t f;
+
+        s_pending_target = -1;
+        if (bt_proto_disconnect(&s_bt, now, &f))
+            send_frame(&f);          /* abandon the attempt in flight */
+    }
 }
 
 void bt_link_power_off(void)
@@ -439,6 +480,6 @@ const char *bt_link_status_text(void)
     }
     case BT_STATE_READY:
     default:
-        return "Not connected";
+        return s_wired ? "Headphones in" : "Not connected";
     }
 }

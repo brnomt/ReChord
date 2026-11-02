@@ -2064,6 +2064,7 @@ void ap_ui_loop(void)
                 }
                 s_jack_prev = k;
                 s_jack_ready = 1;
+                bt_link_set_wired(k != JACK_NONE, (unsigned long)now);
             }
         }
 
