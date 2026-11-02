@@ -44,9 +44,34 @@ static int write_skin(void)
         "color=65535\nbg=0\n"
         "\n"
         "[btmark]\n"
-        "type=fill\nx=200\ny=60\nw=1\nh=1\ncolor=63488\nvisible=bt\n",
+        "type=fill\nx=200\ny=60\nw=1\nh=1\ncolor=63488\nvisible=bt\n"
+        "\n"
+        /* && / || must consume their right operand even when the left side
+         * already decides the result, or a following ?: is left unparsed. */
+        "[bool1]\n"
+        "type=text\nx=0\ny=40\ntext=((1<2&&1<2)?\"OKA\":\"NOA\")\n"
+        "color=65535\nbg=0\n"
+        "[bool2]\n"
+        "type=text\nx=0\ny=50\ntext=((1<2||1>2)?\"OKB\":\"NOB\")\n"
+        "color=65535\nbg=0\n"
+        "[bool3]\n"
+        "type=text\nx=0\ny=60\ntext=((1>2&&1<2)?\"OKC\":\"NOC\")\n"
+        "color=65535\nbg=0\n"
+        "[bool4]\n"
+        "type=text\nx=0\ny=70\ntext=((1>2||1>2)?\"OKD\":\"NOD\")\n"
+        "color=65535\nbg=0\n",
         f);
     fclose(f);
+    return 0;
+}
+
+static int has_text_exact(const char *s)
+{
+    int i, n = mock_display_text_count();
+
+    for (i = 0; i < n; i++)
+        if (strcmp(mock_display_text(i)->text, s) == 0)
+            return 1;
     return 0;
 }
 
@@ -144,6 +169,12 @@ void test_skin_engine(void)
         CHECK(plain);
         CHECK(right);
     }
+
+    /* ---- && / || inside a ?: condition (parser regression) ------------- */
+    CHECK(has_text_exact("OKA"));
+    CHECK(has_text_exact("OKB"));
+    CHECK(has_text_exact("NOC"));
+    CHECK(has_text_exact("NOD"));
 
     /* ---- static/dynamic split: dyn=1 sections and their rects ---------- */
     {

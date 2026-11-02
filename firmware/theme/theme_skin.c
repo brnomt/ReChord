@@ -690,8 +690,14 @@ static skin_val_t eval_and(skin_expr_t *e, int depth)
 {
     skin_val_t v = eval_cmp(e, depth);
 
-    while (take(e, "&&"))
-        v = v_int(truthy(v) && truthy(eval_cmp(e, depth)));
+    while (take(e, "&&")) {
+        /* Evaluate BOTH sides: the right operand must still be consumed from
+         * the input, or a following `?:`/`)` is left unparsed (C short-circuit
+         * here would corrupt the parser position). */
+        skin_val_t r = eval_cmp(e, depth);
+
+        v = v_int(truthy(v) && truthy(r));
+    }
     return v;
 }
 
@@ -699,8 +705,11 @@ static skin_val_t eval_or(skin_expr_t *e, int depth)
 {
     skin_val_t v = eval_and(e, depth);
 
-    while (take(e, "||"))
-        v = v_int(truthy(v) || truthy(eval_and(e, depth)));
+    while (take(e, "||")) {
+        skin_val_t r = eval_and(e, depth);
+
+        v = v_int(truthy(v) || truthy(r));
+    }
     return v;
 }
 
