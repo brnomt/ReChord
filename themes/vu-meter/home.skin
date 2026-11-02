@@ -334,7 +334,8 @@ type=text
 x=12
 y=124
 text=(md==1?"BATERIA BAJA":(md>2&&md<5?"PAUSA":title))
-color=(md==1?64459:((md==1||md==3)?text_dim:text))
+maxc=27
+color=(md==1?64459:(md==3?text_dim:text))
 bg=65
 dyn=1
 [v2]

@@ -100,7 +100,7 @@ meter, VFD and bottom bar.
 
 | file | bytes / 4096 | sections / 52 |
 |---|---|---|
-| home.skin | 4090 | 45 |
+| home.skin | 4089 | 45 |
 | now_playing.skin | 3585 | 41 |
 | library.skin | 1144 | 16 |
 | library_cat.skin | 1148 | 16 |
