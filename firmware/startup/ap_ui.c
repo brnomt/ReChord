@@ -1926,7 +1926,13 @@ void ap_ui_loop(void)
         {
             int secs = settings_screen_get()->screen_off_s;
 
-            if (secs > 0 && !s_screen_off && !s_hold &&
+            const bt_proto_t *btp = bt_link_state();
+            int bt_busy = btp->state == BT_STATE_SCANNING ||
+                          btp->state == BT_STATE_CONNECTING;
+
+            /* A pairing search or connect attempt runs for up to 30 s: do not
+             * blank the screen under someone who is waiting for the list. */
+            if (secs > 0 && !s_screen_off && !s_hold && !bt_busy &&
                 ui_top_screen() != &usb_choice_screen &&
                 (unsigned)(now - s_input_ms) >= (unsigned)secs * 1000u) {
                 log_printf("power: screen timeout %d s", secs);
