@@ -290,6 +290,34 @@ static void test_service(void)
           "custom6 label parsed");
 }
 
+
+/* The device bug: eq.cfg is created holding the short default template, and a
+ * save longer than that was rejected, so EQ on/off and the profile never
+ * survived a restart. The host fs now refuses growth like the target does. */
+static void test_persist_across_boot(void)
+{
+    const eq_curve_t *c;
+
+    TEST("persist");
+    fs_host_set_root(ROOT);
+    reset_tree();
+    write_text(ACTIVE, "format=1\nenabled=0\nname=Flat\n"
+                       "band0=80,70,0\nband1=160,140,0\nband2=320,140,0\n"
+                       "band3=640,140,0\nband4=1250,140,0\n");   /* short */
+    CHECK(eq_profile_boot() == 0, "boot from a short file");
+    eq_profile_set_enabled(1);
+    CHECK(eq_profile_select(2) == 0, "pick Rock");
+    eq_profile_set_band_gain(1, 77);
+    CHECK(eq_profile_save() == 0, "a longer profile saves");
+
+    CHECK(eq_profile_boot() == 0, "reboot");            /* reload from disk */
+    c = eq_profile_curve();
+    CHECK(eq_profile_enabled() == 1, "EQ is still on after a restart");
+    CHECK(strcmp(eq_profile_name(), "Rock") == 0, "profile name survived");
+    CHECK(c->count == 10 && c->band[0].gain_tdb == 60 &&
+          c->band[1].gain_tdb == 77, "gains survived");
+}
+
 int main(void)
 {
     printf("=== eq_profile tests ===\n");
@@ -297,6 +325,7 @@ int main(void)
     test_format_gain();
     test_format_freq();
     test_service();
+    test_persist_across_boot();
 
     printf("\n%s (%d failure%s)\n",
            failures == 0 ? "ALL EQ PROFILE TESTS PASSED" : "FAILURES",

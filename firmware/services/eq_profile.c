@@ -384,9 +384,12 @@ static int write_file(const char *path, const char *text, int len)
 {
     if (len <= 0)
         return -1;
-    /* NUL-terminated in place; the files are preallocated, so a shorter
-     * rewrite leaves stale bytes after the terminator (the parser stops). */
-    return (fs_patch(path, 0, text, (uint32_t)len + 1u) == FS_OK) ? 0 : -1;
+    /* fs_store_file rewrites the preallocated file in place AND sets its size
+     * to len. This used to be fs_patch(), which never changes the size: eq.cfg
+     * is created with its (short) default template as its size, so every save
+     * longer than that template was rejected with FS_ERR_ARG and the EQ state
+     * was silently never persisted. */
+    return (fs_store_file(path, text, (uint32_t)len) == FS_OK) ? 0 : -1;
 }
 
 static int slot_path(int slot, char *buf, unsigned cap)

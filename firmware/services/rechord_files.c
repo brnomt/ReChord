@@ -63,16 +63,16 @@ static const char k_eq_default[] =
     "format=1\n"
     "enabled=0\n"
     "name=Flat\n"
-    "band0=31,70,0\n"
-    "band1=62,70,0\n"
-    "band2=125,70,0\n"
-    "band3=250,70,0\n"
-    "band4=500,70,0\n"
-    "band5=1000,70,0\n"
-    "band6=2000,70,0\n"
-    "band7=4000,70,0\n"
-    "band8=8000,70,0\n"
-    "band9=16000,70,0\n";
+    "band0=80,70,0\n"
+    "band1=160,140,0\n"
+    "band2=320,140,0\n"
+    "band3=640,140,0\n"
+    "band4=1250,140,0\n"
+    "band5=2500,140,0\n"
+    "band6=4000,140,0\n"
+    "band7=6300,140,0\n"
+    "band8=10000,140,0\n"
+    "band9=14000,70,0\n";
 
 int rechord_files_init(void)
 {

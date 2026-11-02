@@ -280,11 +280,24 @@ int fs_patch(const char *path, uint32_t off, const void *buf, uint32_t len)
     fs_file_t *f;
     long n;
 
+    long size;
+
     if (len == 0u)
         return FS_OK;
     f = open_with_mode(path, "r+b");
     if (f == NULL)
         return FS_ERR_OPEN;
+    /* Same rule as the target (fs_target_file_patch): a patch never changes the
+     * file's size, so it must land inside what the file already holds. */
+    {
+        unsigned long sz = 0;
+
+        size = (fs_size_file(path, &sz) == FS_OK) ? (long)sz : -1;
+    }
+    if (size < 0 || (long)off > size || (long)len > size - (long)off) {
+        fs_close(f);
+        return FS_ERR_ARG;
+    }
     n = fs_seek(f, (long)off) < 0 ? -1 : fs_write(f, buf, len);
     fs_close(f);
     return n == (long)len ? FS_OK : FS_ERR_IO;
