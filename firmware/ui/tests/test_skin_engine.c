@@ -263,6 +263,45 @@ void test_skin_engine(void)
     }
 
 
+    /* ---- scope section: draws the tapped waveform, nothing without it ---- */
+    {
+        FILE *fs = fopen("rechord_scope.skin", "w");
+        static const short ramp[4] = { -1000, -333, 333, 1000 };
+        theme_skin_state_t ss;
+        int i, n, lo = 9999, hi = -9999, seen = 0;
+
+        if (fs != 0) {
+            fputs("[s]\ntype=scope\nx=0\ny=0\nw=90\nh=41\nch=l\n"
+                  "color=65535\nglow=2113\n", fs);
+            fclose(fs);
+        }
+        memset(&ss, 0, sizeof ss);
+        CHECK_EQ_INT(theme_skin_load(".", "", "rechord_scope.skin"), 0);
+        mock_display_reset();
+        theme_skin_render(0, 0, 0, 0, &ss);          /* no tap: draws nothing */
+        CHECK_EQ_INT(mock_display_rect_count(), 0);
+        ss.wave_l = ramp;
+        ss.wave_r = ramp;
+        ss.wave_n = 4;
+        mock_display_reset();
+        theme_skin_render(0, 0, 0, 0, &ss);
+        n = mock_display_rect_count();
+        for (i = 0; i < n; i++) {
+            const mock_rect_t *r = mock_display_rect(i);
+
+            if (r->color == 65535) {
+                seen++;
+                if (r->y0 < lo) lo = r->y0;
+                if (r->y1 > hi) hi = r->y1;
+                CHECK(r->x0 >= 0 && r->x1 <= 89);
+            }
+        }
+        CHECK(seen >= 90);               /* a core column per x               */
+        CHECK(lo <= 2 && hi >= 38);      /* ramp spans the box top to bottom  */
+        (void)remove("rechord_scope.skin");
+    }
+
+
     (void)remove("rechord_engine.skin");
     (void)remove("rechord_dyn.skin");
 }

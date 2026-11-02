@@ -1364,6 +1364,104 @@ static void skin_triangle(int x1, int y1, int x2, int y2, int x3, int y3,
     }
 }
 
+
+/* Scope trace: the audio tap's waveform drawn as a smooth, glowing line.
+ * ch=l|r is a time trace across x (eased between points, so 48 samples look
+ * like a curve on a 190 px screen); ch=xy plots L against R (Lissajous).
+ * Glow is a wider dim pass drawn first, the core 1 px line on top. `gain` is a
+ * permille amplitude multiplier (skins fold the volume in). */
+static int scope_y(int v, int gain, int y, int h)
+{
+    int half = h / 2;
+    int py;
+
+    v = v * gain / 1000;
+    py = y + half - v * half / 1000;
+    return py < y ? y : (py > y + h - 1 ? y + h - 1 : py);
+}
+
+static int scope_ease(int a, int b, int num, int den)
+{
+    int t = num * 256 / den;               /* 0..256 */
+    int e = t * t * (768 - 2 * t) / (256 * 256); /* smoothstep, 0..256 */
+
+    return a + (b - a) * e / 256;
+}
+
+static void scope_line(int x0, int y0, int x1, int y1, int r, uint16_t color)
+{
+    int dx = x1 > x0 ? x1 - x0 : x0 - x1;
+    int dy = y1 > y0 ? y0 - y1 : y1 - y0;     /* -|dy| */
+    int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+
+    for (;;) {
+        int e2;
+
+        display_fill_rect(x0 - r, y0 - r, x0 + r, y0 + r, color);
+        if (x0 == x1 && y0 == y1)
+            break;
+        e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+static void skin_scope(int x, int y, int w, int h, const char *ch, int gain,
+                       const theme_skin_state_t *st, uint16_t core,
+                       uint16_t glow)
+{
+    const short *a, *b;
+    int n, pass, i;
+    int xy = ch != 0 && key_eq(ch, "xy");
+
+    if (st == 0 || st->wave_n < 2 || w < 2 || h < 2)
+        return;
+    n = st->wave_n;
+    a = (ch != 0 && key_eq(ch, "r")) ? st->wave_r : st->wave_l;
+    b = st->wave_r;
+    if (a == 0 || b == 0)
+        return;
+
+    for (pass = 0; pass < 2; pass++) {
+        uint16_t col = pass == 0 ? glow : core;
+        int r = pass == 0 ? 1 : 0;
+        int px = 0, py = 0;
+
+        if (xy) {
+            for (i = 0; i < n; i++) {
+                int cx = x + w / 2 + (a[i] * gain / 1000) * (w / 2) / 1000;
+                int cy = scope_y(b[i], gain, y, h);
+
+                if (cx < x) cx = x;
+                if (cx > x + w - 1) cx = x + w - 1;
+                if (i > 0)
+                    scope_line(px, py, cx, cy, r, col);
+                px = cx;
+                py = cy;
+            }
+            continue;
+        }
+        for (i = 0; i < w; i++) {
+            int seg = i * (n - 1) / (w - 1);
+            int num, den, v, cy, lo, hi;
+
+            if (seg >= n - 1)
+                seg = n - 2;
+            num = i * (n - 1) - seg * (w - 1);
+            den = w - 1;
+            v = scope_ease(a[seg], a[seg + 1], num, den);
+            cy = scope_y(v, gain, y, h);
+            if (i == 0)
+                py = cy;
+            lo = cy < py ? cy : py;
+            hi = cy < py ? py : cy;
+            display_fill_rect(x + i - r, lo - r, x + i + r, hi + r, col);
+            py = cy;
+        }
+    }
+}
+
 /* Two-colour gradient (vertical or diagonal) with 4x4 ordered dithering.
  * Channels are interpolated in 8-bit space (16.16 fixed point) and dithered
  * BEFORE the 5/6/5 quantisation, which hides the banding a plain RGB565 ramp
@@ -1646,6 +1744,20 @@ static void render_section(const skin_section_t *sec, skin_ctx_t *ctx, int sel)
         display_fill_rect(x, y, x + w - 1, y + h - 1,
                           color_of(prop(sec, "color"), ctx,
                                    theme_get()->text));
+        return;
+    }
+
+    if (key_eq(type, "scope")) {
+        const char *ch = prop(sec, "ch");
+
+        x = eval_int(prop(sec, "x"), ctx, 0);
+        y = eval_int(prop(sec, "y"), ctx, 0);
+        w = eval_int(prop(sec, "w"), ctx, 100);
+        h = eval_int(prop(sec, "h"), ctx, 50);
+        skin_scope(x, y, w, h, ch, eval_int(prop(sec, "gain"), ctx, 1000),
+                   ctx->st,
+                   color_of(prop(sec, "color"), ctx, theme_get()->text),
+                   color_of(prop(sec, "glow"), ctx, theme_get()->text_dim));
         return;
     }
 
