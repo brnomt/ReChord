@@ -68,8 +68,8 @@ void audio_scope_feed(audio_scope_t *s, const volatile int32_t *ring,
         acc_l += l;
         acc_r += r;
         if (++in_b == per) {
-            s->wave_l[b] = clamp1000(to_k((int32_t)(acc_l / per)));
-            s->wave_r[b] = clamp1000(to_k((int32_t)(acc_r / per)));
+            s->wave_l[b] = (int16_t)clamp1000(to_k((int32_t)(acc_l / per)));
+            s->wave_r[b] = (int16_t)clamp1000(to_k((int32_t)(acc_r / per)));
             b++;
             in_b = 0;
             acc_l = acc_r = 0;
@@ -96,7 +96,7 @@ void audio_scope_idle(audio_scope_t *s, int dt_ms)
     s->peak_l = peak_step(s->peak_l, 0, dt_ms);
     s->peak_r = peak_step(s->peak_r, 0, dt_ms);
     for (i = 0; i < AUDIO_SCOPE_N; i++) {
-        s->wave_l[i] = s->wave_l[i] * 3 / 4;
-        s->wave_r[i] = s->wave_r[i] * 3 / 4;
+        s->wave_l[i] = (int16_t)(s->wave_l[i] * 3 / 4);
+        s->wave_r[i] = (int16_t)(s->wave_r[i] * 3 / 4);
     }
 }

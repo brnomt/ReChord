@@ -16,14 +16,14 @@
 
 #include <stdint.h>
 
-#define AUDIO_SCOPE_N       32     /* waveform points per channel            */
+#define AUDIO_SCOPE_N       48     /* waveform points per channel            */
 #define AUDIO_SCOPE_FRAMES  1024   /* frames reduced per update (~23 ms)     */
 
 typedef struct {
     int lvl_l, lvl_r;              /* smoothed level, 0..1000 (fast attack)  */
     int peak_l, peak_r;            /* peak hold, 0..1000, falls ~1 s         */
-    int wave_l[AUDIO_SCOPE_N];     /* -1000..1000, mean per bucket           */
-    int wave_r[AUDIO_SCOPE_N];
+    int16_t wave_l[AUDIO_SCOPE_N]; /* -1000..1000, mean per bucket           */
+    int16_t wave_r[AUDIO_SCOPE_N];
 } audio_scope_t;
 
 void audio_scope_reset(audio_scope_t *s);

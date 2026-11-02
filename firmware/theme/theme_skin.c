@@ -515,7 +515,7 @@ static skin_val_t call_function(skin_expr_t *e, const char *name, int depth)
         return seq_value(as_int(a[0]), as_int(a[1]), as_int(a[2]), a[3]);
     if ((strcmp(name, "wl") == 0 || strcmp(name, "wr") == 0) && n >= 1) {
         const skin_ctx_t *c = g_ctx;
-        const int *w = 0;
+        const short *w = 0;
         int i = as_int(a[0]);
 
         if (c != 0 && c->st != 0)

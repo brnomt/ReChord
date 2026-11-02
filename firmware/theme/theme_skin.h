@@ -69,8 +69,8 @@ typedef struct theme_skin_state {
      * of -1000..1000, or NULL. */
     int lvl_l, lvl_r;
     int peak_l, peak_r;
-    const int *wave_l;
-    const int *wave_r;
+    const short *wave_l;
+    const short *wave_r;
     int wave_n;
     const char *title;
     const char *artist;

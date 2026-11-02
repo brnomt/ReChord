@@ -235,8 +235,8 @@ void test_skin_engine(void)
     /* ---- audio tap: lvl_l/peak_r and wl()/wr() waveform lookups ---------- */
     {
         FILE *fa = fopen("rechord_audio.skin", "w");
-        static const int wl[3] = { 100, -200, 300 };
-        static const int wr[3] = { -7, 8, 9 };
+        static const short wl[3] = { 100, -200, 300 };
+        static const short wr[3] = { -7, 8, 9 };
         theme_skin_state_t as;
 
         if (fa != 0) {
