@@ -1441,7 +1441,7 @@ static uint16_t mix565(uint16_t a, uint16_t b, int w)
 }
 
 /* `glow` is the halo strength in permille (1000 = default): three widening
- * passes (up to 11..3 px wide, `halo`=1..5 sets the outer radius) fade from the
+ * passes (up to 11..3 px wide, `halo`=1..6 passes, outer radius up to 7) fade from the
  * core colour into `bg`, so the line bleeds light into the tube. The caller
  * keeps the box `halo` px inside whatever it flushes, because the halo is drawn
  * outside x..x+w / y..y+h. */
@@ -1450,8 +1450,8 @@ __attribute__((noinline)) static void skin_scope(
     const theme_skin_state_t *st, uint16_t core, uint16_t bg, int glow,
     int halo)
 {
-    static const short k_r[6] = { 5, 4, 3, 2, 1, 0 };
-    static const short k_w[6] = { 60, 110, 170, 300, 560, 1000 };
+    static const short k_r[7] = { 7, 5, 4, 3, 2, 1, 0 };
+    static const short k_w[7] = { 40, 90, 150, 230, 360, 600, 1000 };
     const short *a, *b;
     int n, pass, i;
     int xy = ch != 0 && key_eq(ch, "xy");
@@ -1465,9 +1465,9 @@ __attribute__((noinline)) static void skin_scope(
         return;
 
     if (halo < 1) halo = 1;
-    if (halo > 5) halo = 5;
-    for (pass = 5 - halo; pass < 6; pass++) {
-        int wt = pass == 5 ? 1000 : k_w[pass] * glow / 1000;
+    if (halo > 6) halo = 6;
+    for (pass = 6 - halo; pass < 7; pass++) {
+        int wt = pass == 6 ? 1000 : k_w[pass] * glow / 1000;
         uint16_t col;
         int r = k_r[pass];
         int px = 0, py = 0;
@@ -1475,7 +1475,7 @@ __attribute__((noinline)) static void skin_scope(
         if (wt > 950)
             wt = 950;
         /* hot core: phosphor burns whiter at its centre than in its halo */
-        col = pass == 5 ? mix565(core, 0xFFFF, 720) : mix565(core, bg, wt);
+        col = pass == 6 ? mix565(core, 0xFFFF, 720) : mix565(core, bg, wt);
         if (xy) {
             for (i = 0; i < n; i++) {
                 int cx = x + w / 2 + (a[i] * gain / 1000) * (w / 2) / 1000;

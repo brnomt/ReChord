@@ -69,7 +69,7 @@ visible=!art_ok
 type=text
 x=8
 y=137
-text="CH2 PORTADA"
+text="ReChord"
 color=57117
 bg=10663
 [xbez]
@@ -156,8 +156,8 @@ h=74
 ch=xy
 gain=(800+1500*(volume+60)/60)
 color=ac
-halo=3
-glow=(800+lvl_l*3/2)
+halo=4
+glow=(1000+lvl_l*2)
 dyn=1
 [dot]
 type=roundrect
