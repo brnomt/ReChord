@@ -11,11 +11,15 @@ md=(battery<15?1:(idle<700?2:a1))
 av=(-135+270*(volume+60)/60)
 at=(-135+270*pos_ms/(dur_ms>0?dur_ms:1))
 tx=(18+191*pos_ms/(dur_ms>0?dur_ms:1))
-tc=(md==1?danger:text)
 kvA=sin(av*10,3600,13)
 kvB=sin(av*10+900,3600,13)
 kvC=sin(av*10+900,3600,3)
 [vars2]
+ac=(art_ok?art_accent:2047)
+g1=mix(ac,background,150)
+g2=mix(ac,background,320)
+tt=mix(ac,65535,780)
+td=mix(ac,background,520)
 kvD=sin(av*10,3600,3)
 ktA=sin(at*10,3600,13)
 ktB=sin(at*10+900,3600,13)
@@ -52,7 +56,7 @@ x=17
 y=25
 w=194
 h=98
-color=6822
+color=g2
 dyn=1
 [gi]
 type=fill
@@ -68,7 +72,7 @@ x=41
 y=26
 w=1
 h=96
-color=2436
+color=g1
 dyn=1
 [v2]
 type=fill
@@ -76,7 +80,7 @@ x=65
 y=26
 w=1
 h=96
-color=2436
+color=g1
 dyn=1
 [v3]
 type=fill
@@ -84,7 +88,7 @@ x=89
 y=26
 w=1
 h=96
-color=2436
+color=g1
 dyn=1
 [v4]
 type=fill
@@ -92,7 +96,7 @@ x=113
 y=26
 w=1
 h=96
-color=6822
+color=g2
 dyn=1
 [v5]
 type=fill
@@ -100,7 +104,7 @@ x=137
 y=26
 w=1
 h=96
-color=2436
+color=g1
 dyn=1
 [v6]
 type=fill
@@ -108,7 +112,7 @@ x=161
 y=26
 w=1
 h=96
-color=2436
+color=g1
 dyn=1
 [v7]
 type=fill
@@ -116,7 +120,7 @@ x=185
 y=26
 w=1
 h=96
-color=2436
+color=g1
 dyn=1
 [h1]
 type=fill
@@ -124,7 +128,7 @@ x=18
 y=41
 w=192
 h=1
-color=2436
+color=g1
 dyn=1
 [h2]
 type=fill
@@ -132,7 +136,7 @@ x=18
 y=57
 w=192
 h=1
-color=2436
+color=g1
 dyn=1
 [h3]
 type=fill
@@ -140,7 +144,7 @@ x=18
 y=73
 w=192
 h=1
-color=6822
+color=g2
 dyn=1
 [h4]
 type=fill
@@ -148,7 +152,7 @@ x=18
 y=89
 w=192
 h=1
-color=2436
+color=g1
 dyn=1
 [h5]
 type=fill
@@ -156,7 +160,7 @@ x=18
 y=105
 w=192
 h=1
-color=2436
+color=g1
 dyn=1
 [sc]
 type=scope
@@ -165,9 +169,10 @@ y=54
 w=184
 h=40
 ch=l
-gain=(700+1500*(volume+60)/60)
-color=(md==1?danger:(art_ok?art_accent:2047))
-glow=(700+lvl_l)
+gain=(1500+2500*(volume+60)/60)
+color=(md==1?danger:ac)
+halo=3
+glow=(800+lvl_l*3/2)
 dyn=1
 [trg]
 type=triangle
@@ -177,7 +182,7 @@ x2=(tx+4)
 y2=19
 x3=tx
 y3=23
-color=accent
+color=ac
 visible=playing
 dyn=1
 [rd1]
@@ -185,7 +190,7 @@ type=text
 x=13
 y=13
 text="CH1 " + volume + "dB"
-color=text
+color=tt
 bg=background
 dyn=1
 [rd2]
@@ -193,7 +198,7 @@ type=text
 x=213
 y=13
 text=(playing?bits + "/" + (rate/1000) + " " + pos_fmt:"STOP " + pos_fmt)
-color=(playing?accent:text_dim)
+color=(playing?ac:td)
 bg=background
 align=right
 dyn=1
@@ -203,14 +208,14 @@ x=13
 y=129
 text=title
 maxc=19
-color=(md==1?text:55292)
+color=(md==1?text:tt)
 bg=background
 [status]
 type=text
 x=213
 y=129
 text=(md==1?"LOW BAT":pl_i + "/" + pl_n)
-color=(md==1?danger:text_dim)
+color=(md==1?danger:td)
 bg=background
 align=right
 dyn=1
@@ -227,7 +232,7 @@ type=text
 x=231
 y=8
 text="OSC-60  RC"
-color=57117
+color=tt
 bg=4291
 [kv]
 type=roundrect
@@ -287,7 +292,7 @@ type=text
 x=232
 y=58
 text="VOLTS TIME"
-color=57117
+color=tt
 bg=14922
 [led]
 type=roundrect
@@ -296,14 +301,14 @@ y=76
 w=7
 h=7
 r=3
-color=(playing?24561:6597)
+color=(playing?ac:6597)
 dyn=1
 [trig]
 type=text
 x=240
 y=75
 text=(playing?"TRIG'D":"READY")
-color=(playing?57117:accent)
+color=(playing?tt:ac)
 bg=14889
 dyn=1
 [bat]
@@ -311,7 +316,7 @@ type=text
 x=229
 y=93
 text="BAT"
-color=57117
+color=tt
 bg=12777
 [bp]
 type=fill
@@ -319,14 +324,14 @@ x=257
 y=93
 w=52
 h=8
-color=4291
+color=g1
 [bf]
 type=fill
 x=258
 y=94
 w=(50*max(0,battery))/100
 h=6
-color=(md==1?danger:24561)
+color=(md==1?danger:ac)
 dyn=1
 [bnc]
 type=roundrect

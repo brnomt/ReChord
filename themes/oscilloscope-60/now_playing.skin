@@ -6,6 +6,11 @@ dyn2_every=59
 dyn3=234,5,317,92
 dyn3_every=60
 [vars]
+ac=(art_ok?art_accent:2047)
+g1=mix(ac,background,150)
+g2=mix(ac,background,320)
+tt=mix(ac,65535,780)
+td=mix(ac,background,520)
 av=(-135+270*(volume+60)/60)
 [pan]
 type=gradient
@@ -51,7 +56,7 @@ type=text
 x=32
 y=64
 text=" NO SIGNAL "
-color=55292
+color=tt
 bg=background
 visible=!art_ok
 [ch2off]
@@ -92,7 +97,7 @@ x=145
 y=48
 w=77
 h=1
-color=2436
+color=g1
 dyn=1
 [xv]
 type=fill
@@ -100,7 +105,7 @@ x=183
 y=10
 w=1
 h=76
-color=2436
+color=g1
 dyn=1
 [ax1]
 type=triangle
@@ -110,7 +115,7 @@ x2=149
 y2=12
 x3=219
 y3=84
-color=2436
+color=g2
 dyn=1
 [ax2]
 type=triangle
@@ -120,28 +125,28 @@ x2=219
 y2=12
 x3=147
 y3=84
-color=2436
+color=g2
 dyn=1
 [lt]
 type=text
 x=145
 y=11
 text="L"
-color=text_dim
+color=td
 bg=background
 [rt]
 type=text
 x=213
 y=11
 text="R"
-color=text_dim
+color=td
 bg=background
 [xyl]
 type=text
 x=145
 y=78
 text="X-Y"
-color=accent
+color=ac
 bg=background
 dyn=1
 [xs]
@@ -151,9 +156,10 @@ y=11
 w=76
 h=74
 ch=xy
-gain=(600+1300*(volume+60)/60)
-color=(art_ok?art_accent:2047)
-glow=(700+lvl_l)
+gain=(1200+2000*(volume+60)/60)
+color=ac
+halo=3
+glow=(800+lvl_l*3/2)
 dyn=1
 [dot]
 type=roundrect
@@ -172,14 +178,14 @@ y=5
 w=38
 h=15
 r=3
-color=accent
+color=ac
 [b1t]
 type=text
 x=237
 y=9
 text="X-Y"
 color=6272
-bg=accent
+bg=ac
 [b2]
 type=roundrect
 x=276
@@ -244,7 +250,7 @@ type=text
 x=288
 y=56
 text="CH2"
-color=57117
+color=tt
 bg=14922
 [vbg]
 type=fill
@@ -259,7 +265,7 @@ type=text
 x=237
 y=66
 text=volume + "dB"
-color=57117
+color=tt
 bg=14890
 dyn=1
 [rrd]
@@ -286,7 +292,7 @@ x=144
 y=101
 text=title
 maxc=21
-color=55292
+color=tt
 bg=background
 dyn=1
 [rart]
@@ -295,7 +301,7 @@ x=144
 y=112
 text=artist
 maxc=21
-color=text
+color=tt
 bg=background
 dyn=1
 [rpos]
@@ -303,7 +309,7 @@ type=text
 x=144
 y=123
 text=pos_fmt + " / " + dur_fmt
-color=(playing?accent:text_dim)
+color=(playing?ac:td)
 bg=background
 dyn=1
 [rpl]
@@ -311,7 +317,7 @@ type=text
 x=310
 y=123
 text=pl_i + "/" + pl_n
-color=text_dim
+color=td
 bg=background
 align=right
 dyn=1
@@ -321,7 +327,7 @@ x=137
 y=140
 w=180
 h=4
-color=4291
+color=g1
 dyn=1
 [pf]
 type=fill
@@ -329,7 +335,7 @@ x=138
 y=141
 w=(178*pos_ms/(dur_ms>0?dur_ms:1))
 h=2
-color=text
+color=ac
 dyn=1
 [sbar]
 type=fill
@@ -345,13 +351,13 @@ x=6
 y=157
 text=(playing?" RUN ":" STOP ")
 color=(playing?6272:55292)
-bg=(playing?accent:surface)
+bg=(playing?ac:surface)
 dyn=1
 [fmt]
 type=text
 x=62
 y=157
 text=bits + "b/" + (rate/1000) + "k   " + (shuffle?"SHUF ":"") + (repeat?"REP":"")
-color=text_dim
+color=td
 bg=background
 dyn=1

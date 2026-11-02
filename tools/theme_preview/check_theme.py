@@ -59,7 +59,7 @@ def parse_manifest(path):
 
 
 def split_sections(text):
-    """Return [(name, nprops, nvar_entries)] as the C loader sees it."""
+    """Return [[name, raw prop count]] (the C loader keeps only SKIN_PROPS)."""
     secs = []
     cur = None
     for line in text.splitlines():
@@ -74,8 +74,8 @@ def split_sections(text):
                 continue
         if cur is None:
             continue
-        if "=" in s and cur[1] < SKIN_PROPS:
-            cur[1] += 1
+        if "=" in s:
+            cur[1] += 1   # counted raw: the C loader silently drops the 13th+
     return secs
 
 
