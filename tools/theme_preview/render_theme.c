@@ -226,6 +226,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "package '%s' rejected\n", id);
         return 1;
     }
+    k_setv[0] = theme_get()->name;
     printf("theme '%s' name '%s' home %d assets ok\n",
            theme_pkg_active_id(), theme_get()->name, theme_layout()->home);
 
