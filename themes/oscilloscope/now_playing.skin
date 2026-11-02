@@ -157,7 +157,7 @@ ch=xy
 gain=(800+1500*(volume+60)/60)
 color=ac
 halo=4
-glow=(1000+lvl_l*2)
+glow=(1000+lvl_l/2)
 dyn=1
 [dot]
 type=roundrect

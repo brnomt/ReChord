@@ -170,7 +170,7 @@ ch=l
 gain=(900+1700*(volume+60)/60)
 color=(md==1?danger:ac)
 halo=6
-glow=(1000+lvl_l*2)
+glow=(1000+lvl_l/2)
 dyn=1
 [trg]
 type=triangle

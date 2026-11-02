@@ -1451,7 +1451,9 @@ __attribute__((noinline)) static void skin_scope(
     int halo)
 {
     static const short k_r[7] = { 7, 5, 4, 3, 2, 1, 0 };
-    static const short k_w[7] = { 40, 90, 150, 230, 360, 600, 1000 };
+    /* Steep falloff: a thin bright core with a faint bloom reads as light; a
+     * bright halo reads as a fat line. */
+    static const short k_w[7] = { 22, 45, 80, 130, 200, 310, 1000 };
     const short *a, *b;
     int n, pass, i;
     int xy = ch != 0 && key_eq(ch, "xy");
@@ -1475,7 +1477,7 @@ __attribute__((noinline)) static void skin_scope(
         if (wt > 950)
             wt = 950;
         /* hot core: phosphor burns whiter at its centre than in its halo */
-        col = pass == 6 ? mix565(core, 0xFFFF, 720) : mix565(core, bg, wt);
+        col = pass == 6 ? mix565(core, 0xFFFF, 480) : mix565(core, bg, wt);
         if (xy) {
             for (i = 0; i < n; i++) {
                 int cx = x + w / 2 + (a[i] * gain / 1000) * (w / 2) / 1000;
