@@ -682,6 +682,25 @@ int ipc_b_poll_state(ipc_b_status_t *out)
     return (int)g_state;
 }
 
+int ipc_b_ring_window(const volatile int32_t **ring, uint32_t *rd,
+                      uint32_t *mask, int *frames)
+{
+    uint32_t r, w;
+
+    if (g_state != IPC_B_RUNNING || g_paused || ring == 0 || rd == 0 ||
+        mask == 0 || frames == 0)
+        return 0;
+    r = CTRL[IPC_SH_RD];
+    w = CTRL[IPC_SH_WR];
+    if (w == r)
+        return 0;                       /* dry: nothing is playing */
+    *ring = (const volatile int32_t *)IPC_RING_BASE;
+    *rd = r;
+    *mask = IPC_RING_MASK;
+    *frames = (int)((w - r) / 8u);
+    return 1;
+}
+
 int ipc_b_ring_fill(const int32_t *pcm, int frames)
 {
     uint32_t rd, wr, free_bytes;

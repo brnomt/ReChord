@@ -188,6 +188,14 @@ int ipc_b_poll_state(ipc_b_status_t *out);
  * Returns the number of frames actually accepted (clamped on overflow). */
 int ipc_b_ring_fill(const int32_t *pcm, int frames);
 
+/* Read-only window on the PCM about to be played (for the UI scope/VU).
+ * Frames in [rd, wr) are not touched by the producer until played, so no lock
+ * is needed. On success fills the ring base, the byte offset of the next frame,
+ * the ring mask and how many frames are available, and returns 1. Returns 0
+ * when nothing is playing (paused, stopped, host mock). */
+int ipc_b_ring_window(const volatile int32_t **ring, uint32_t *rd,
+                      uint32_t *mask, int *frames);
+
 /* Discard all buffered PCM and zero the per-stream consumed counter
  * (used on seek; only legal while paused/stopped or between fills). */
 int ipc_b_flush(void);

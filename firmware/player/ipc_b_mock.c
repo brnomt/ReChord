@@ -249,6 +249,13 @@ int ipc_b_ring_fill(const int32_t *pcm, int frames)
     return (int)(written / (size_t)g_frame_bytes);
 }
 
+int ipc_b_ring_window(const volatile int32_t **ring, uint32_t *rd,
+                      uint32_t *mask, int *frames)
+{
+    (void)ring; (void)rd; (void)mask; (void)frames;
+    return 0;
+}
+
 int ipc_b_flush(void)
 {
     rb_reset(&g_ring);
