@@ -83,7 +83,7 @@ knob and the engine list share the bottom bar.
 
 ## Animation and redraw
 
-`refresh_ms=50`; three dyn rects:
+`refresh_ms=125` on Home and `100` on Now Playing; three dyn rects:
 
 ```
 dyn=6,4,158,116      left meter (everything, faces dim on low/asleep)
@@ -100,8 +100,8 @@ meter, VFD and bottom bar.
 
 | file | bytes / 4096 | sections / 52 |
 |---|---|---|
-| home.skin | 4089 | 45 |
-| now_playing.skin | 3585 | 41 |
+| home.skin | 4090 | 45 |
+| now_playing.skin | 3586 | 41 |
 | library.skin | 1144 | 16 |
 | library_cat.skin | 1148 | 16 |
 | browser.skin | 1146 | 16 |

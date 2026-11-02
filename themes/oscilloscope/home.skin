@@ -1,7 +1,7 @@
 [skin]
-refresh_ms=50
-dyn=4,4,222,147
-dyn2=222,0,319,147
+refresh_ms=125
+dyn=13,13,213,136
+dyn2=222,20,319,105
 dyn3=0,146,319,169
 [vars]
 md=(battery>=0&&battery<15?1:(idle<700?2:(!playing&&idle>60000?3:(!playing?4:(volume>-6?5:0)))))
@@ -46,7 +46,6 @@ w=210
 h=135
 r=7
 color=background
-dyn=1
 [gf]
 type=fill
 x=17

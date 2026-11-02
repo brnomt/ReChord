@@ -1,5 +1,5 @@
 [skin]
-refresh_ms=50
+refresh_ms=100
 dyn=137,3,317,93
 dyn2=137,96,317,145
 dyn3=0,146,319,169

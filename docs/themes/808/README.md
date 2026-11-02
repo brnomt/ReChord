@@ -64,7 +64,7 @@ blink.
 
 Home: `refresh_ms=50`, `dyn=0,88,319,133` (LED + keys + overlays),
 `dyn2=250,4,314,18` (time display), `dyn3=136,33,169,76` (BATT knob).
-Now Playing: `dyn=0,130,319,146` (progress keys), `dyn2=0,90,319,169`
+Now Playing (`refresh_ms=100`): `dyn=0,130,319,146` (progress keys), `dyn2=0,90,319,169`
 (knobs + bottom bar), `dyn3=136,56,250,72` (time display).
 
 ## Budget (measured)
@@ -72,7 +72,7 @@ Now Playing: `dyn=0,130,319,146` (progress keys), `dyn2=0,90,319,169`
 | file | bytes / 4096 | sections / 52 |
 |---|---|---|
 | home.skin | 4095 | 47 |
-| now_playing.skin | 3988 | 49 |
+| now_playing.skin | 3989 | 49 |
 | library.skin | 1353 | 18 |
 | library_cat.skin | 1357 | 18 |
 | browser.skin | 1355 | 18 |

@@ -61,11 +61,11 @@ Play/pause also flips the TRIG'D lamp to READY and the right readout to
 
 ## Animation and redraw
 
-`refresh_ms=50` with three dynamic rectangles:
+`refresh_ms=125` (8 fps) with three dynamic rectangles:
 
 ```
-dyn=4,4,222,147      scope tube, graticule, trace, markers, readouts
-dyn2=222,0,319,147   TIME knob, TRIG lamp, battery bar
+dyn=13,13,213,136    graticule, trace, trigger, readouts
+dyn2=222,20,319,105  TIME knob, TRIG lamp, battery bar
 dyn3=0,146,319,169   nav bar + list selection
 ```
 
@@ -88,8 +88,8 @@ now evaluates both operands before combining them; a regression case lives in
 
 | file | bytes / 4096 | sections / 52 |
 |---|---|---|
-| home.skin | 4057 | 48 |
-| now_playing.skin | 4027 | 47 |
+| home.skin | 4055 | 48 |
+| now_playing.skin | 4028 | 47 |
 | library.skin | 1010 | 13 |
 | library_cat.skin | 1022 | 13 |
 | browser.skin | 1018 | 13 |
