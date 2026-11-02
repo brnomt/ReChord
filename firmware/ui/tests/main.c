@@ -23,6 +23,7 @@ void test_skin_screens(void);
 void test_skin_art(void);
 void test_skin_engine(void);
 void test_theme_cassette(void);
+void test_theme_packages(void);
 void test_player_resume(void);
 void test_player_keys(void);
 
@@ -52,6 +53,7 @@ int main(void)
     run("skin_art", test_skin_art);
     run("skin_engine", test_skin_engine);
     run("theme_cassette", test_theme_cassette);
+    run("theme_packages", test_theme_packages);
     run("player_resume", test_player_resume);
     run("player_keys", test_player_keys);
 
