@@ -46,7 +46,8 @@ static void check_package(const char *id, const char *name,
     CHECK_STR_EQ(theme_get()->name, name);
     CHECK_EQ_INT(theme_layout()->home, THEME_HOME_SKIN);
     CHECK(theme_layout()->home_nav == THEME_NAV_HORIZONTAL);
-    check_asset(asset, aw, ah);
+    if (asset != 0)                  /* asset-free packages (live scope) */
+        check_asset(asset, aw, ah);
 
     for (i = 0; i < (int)(sizeof k_skins / sizeof k_skins[0]); i++)
         CHECK_EQ_INT(theme_skin_load(ROOT, id, k_skins[i]), 0);
@@ -57,7 +58,7 @@ void test_theme_packages(void)
     ui_init();
     mock_services_reset();
 
-    check_package("oscilloscope", "Oscilloscope", "w1", 64, 32);
+    check_package("oscilloscope", "Oscilloscope", 0, 0, 0);
     check_package("vu-meter", "VU Meter", "vu_a", 64, 40);
     check_package("808", "808", "ring", 32, 32);
 }

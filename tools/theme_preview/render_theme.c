@@ -7,6 +7,7 @@
  *
  * Usage: render_theme <themes-root> <package-id> <out-dir>
  */
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -101,22 +102,54 @@ static int load(const char *root, const char *id, const char *path)
     return r;
 }
 
+/* Stand-in for the device's audio tap: a few harmonics with a slow envelope
+ * (silent when not playing), so the scope/VU skins render something real. */
+static short s_wl[48], s_wr[48];
+
+static void fake_audio(theme_skin_state_t *st, unsigned t)
+{
+    int i;
+    double ph = t / 1000.0 * 6.0;
+
+    if (!st->playing) {
+        st->wave_n = 0;
+        st->lvl_l = st->lvl_r = st->peak_l = st->peak_r = 0;
+        return;
+    }
+    for (i = 0; i < 48; i++) {
+        double x = i / 48.0 * 6.28318 * 3.0;
+
+        s_wl[i] = (short)(520 * sin(x + ph) + 230 * sin(2.0 * x + 1.7 * ph));
+        s_wr[i] = (short)(480 * sin(x + ph + 0.8) + 260 * sin(3.0 * x + ph));
+    }
+    st->wave_l = s_wl;
+    st->wave_r = s_wr;
+    st->wave_n = 48;
+    st->lvl_l = 520 + (int)(180 * sin(ph * 0.7));
+    st->lvl_r = 480 + (int)(180 * sin(ph * 0.9 + 1.0));
+    st->peak_l = st->lvl_l + 150;
+    st->peak_r = st->lvl_r + 150;
+}
+
 static void shot(const char *dir, const char *name, unsigned t, unsigned idle,
                  int sel, int top, const theme_skin_state_t *st)
 {
     char path[512];
     unsigned step;
+    theme_skin_state_t ls = *st;
 
     s_art.ok = s_art_ok;
     theme_skin_set_art(&s_art);
 
     /* Warm the persistent [vars] (needle ballistics) with earlier frames. */
     for (step = (t > 3200u ? t - 3200u : 0); step < t; step += 40) {
+        fake_audio(&ls, step);
         display_clear(theme_get()->background);
-        theme_skin_render(step, idle, sel, top, st);
+        theme_skin_render(step, idle, sel, top, &ls);
     }
+    fake_audio(&ls, t);
     display_clear(theme_get()->background);
-    theme_skin_render(t, idle, sel, top, st);
+    theme_skin_render(t, idle, sel, top, &ls);
     display_flush_rows(0, DISPLAY_H - 1);
     snprintf(path, sizeof path, "%s/%s.ppm", dir, name);
     if (panel_io_sim_write_ppm(path) != 0)
