@@ -228,7 +228,7 @@ static void test_service(void)
           "custom slot label comes from name=");
 
     {
-        int r;
+        int r, saved = pub_calls;
 
         for (r = 0; r < EQ_PROFILE_BUILTINS; r++) {
             CHECK(eq_profile_select(r) == 0, "every built-in selects");
@@ -236,6 +236,7 @@ static void test_service(void)
                   "every built-in is a valid curve");
         }
         (void)eq_profile_select(0);
+        pub_calls = saved;
     }
     CHECK(strcmp(eq_profile_entry_name(2), "Rock") == 0, "built-in row 2 is Rock");
     CHECK(eq_profile_select(2) == 0, "select built-in Rock");

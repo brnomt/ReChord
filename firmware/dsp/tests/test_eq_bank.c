@@ -163,7 +163,8 @@ static void test_gain(eq_bank_state_t *st)
     ratio = rms32_steady(out, NSAMP) / rms32_steady(in, NSAMP);
     CHECK(fabs(ratio - 0.5012) < 0.02, "-6 dB at 1 kHz measures ~0.50x");
 
-    /* +6 dB at 1 kHz: preamp backs off 60 % of the boost, net ~ +2.4 dB. */
+    /* +6 dB at 1 kHz: the preamp backs off max(mean boost, 40 % of the peak),
+     * here ~2.4 dB, so the tone nets ~+3.6 dB instead of being cancelled. */
     curve_flat10(&c);
     c.band[5].gain_tdb = 60;
     CHECK(eq_bank_apply(st, &c) == 0, "+6 dB curve applies");
@@ -172,7 +173,7 @@ static void test_gain(eq_bank_state_t *st)
     memcpy(out, in, sizeof in);
     eq_bank_process(st, out, NSAMP);
     ratio = rms32_steady(out, NSAMP) / rms32_steady(in, NSAMP);
-    CHECK(fabs(ratio - 1.32) < 0.08, "+6 dB with 60 % preamp measures ~+2.4 dB");
+    CHECK(ratio > 1.40 && ratio < 1.65, "+6 dB nets about +3.6 dB after the preamp");
 }
 
 static void test_no_clip(eq_bank_state_t *st)
