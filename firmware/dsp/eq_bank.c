@@ -86,26 +86,26 @@ static void copy_coeffs(Biquad *dst, const Biquad *src)
     dst->a2 = src->a2;
 }
 
-/* Largest boost (dB) of the WHOLE cascade over 20 Hz..Nyquist-ish, evaluated
- * from the quantised coefficients that actually run, plus its mean over the
+/* Largest boost of the WHOLE cascade over 20 Hz..Nyquist-ish, evaluated from
+ * the quantised coefficients that actually run, plus its geometric mean over a
  * log-frequency grid (music has roughly equal energy per octave, so the mean
  * tracks how much louder the curve makes a track). Overlapping bands add up
  * (two neighbouring +4 dB bands make ~+7 dB between them), which a per-band
- * maximum misses. 0 when nothing boosts. */
+ * maximum misses. Amplitudes are linear: Core B's libm has no log. */
 #define EQ_PEAK_GRID 48
 
-static double curve_peak_db(const eq_bank_impl_t *s, double *mean_db)
+static double curve_response(const eq_bank_impl_t *s, double *mean_amp)
 {
     double nyq = (double)s->sample_rate * 0.5;
     double top = nyq * 0.9 < 20000.0 ? nyq * 0.9 : 20000.0;
-    double peak = 0.0, sum = 0.0;
+    double peak = 1.0, prod = 1.0;
     int k, b;
 
     for (k = 0; k < EQ_PEAK_GRID; k++) {
         double f = 20.0 * pow(top / 20.0, (double)k / (EQ_PEAK_GRID - 1));
         double w = 2.0 * RCH_PI * f / (double)s->sample_rate;
         double c1 = cos(w), s1 = sin(w), c2 = cos(2.0 * w), s2 = sin(2.0 * w);
-        double db = 0.0;
+        double pw = 1.0;                       /* cascade |H|^2 */
 
         for (b = 0; b < s->curve.count; b++) {
             const Biquad *q = &s->bank[0][b];
@@ -122,13 +122,14 @@ static double curve_peak_db(const eq_bank_impl_t *s, double *mean_db)
             ni = b1 * s1 + b2 * s2;
             dr = 1.0 + a1 * c1 + a2 * c2;
             di = a1 * s1 + a2 * s2;
-            db += 10.0 * log10((nr * nr + ni * ni) / (dr * dr + di * di));
+            pw *= (nr * nr + ni * ni) / (dr * dr + di * di);
         }
-        sum += db;
-        if (db > peak)
-            peak = db;
+        pw = sqrt(pw);
+        prod *= pw;
+        if (pw > peak)
+            peak = pw;
     }
-    *mean_db = sum / EQ_PEAK_GRID;
+    *mean_amp = pow(prod, 1.0 / EQ_PEAK_GRID);
     return peak;
 }
 
@@ -236,17 +237,16 @@ int eq_bank_apply(eq_bank_state_t *st, const eq_curve_t *curve)
 
     /* Preamp: keep loudness roughly where it was instead of pulling the whole
      * track down by the biggest boost. Back off the mean boost (what the ear
-     * hears as "louder") but never less than 40 % of the peak, and let the soft
-     * knee absorb the rest. Cut-only curves stay at unity. */
+     * hears as "louder") but never less than peak^0.4 (40 % of it in dB), and
+     * let the soft knee absorb the rest. Cut-only curves stay at unity. */
     {
-        double mean = 0.0;
-        double pk = curve_peak_db(s, &mean);
-        double back = mean > 0.4 * pk ? mean : 0.4 * pk;
+        double mean = 1.0;
+        double pk = curve_response(s, &mean);
+        double floor_amp = pow(pk, 0.4);
+        double back = mean > floor_amp ? mean : floor_amp;
 
-        s->boosting = pk > 0.05;
-        s->pre_scale = s->boosting
-                           ? f2q30(pow(10.0, -back / 20.0))
-                           : Q30_ONE;
+        s->boosting = pk > 1.0058;               /* > 0.05 dB */
+        s->pre_scale = s->boosting ? f2q30(1.0 / back) : Q30_ONE;
     }
 
     if (now_on && !was_on)
