@@ -5,9 +5,9 @@ dyn2=222,0,319,147
 dyn3=0,146,319,169
 [vars]
 md=(battery>=0&&battery<15?1:(idle<700?2:(!playing&&idle>60000?3:(!playing?4:(volume>-6?5:0)))))
-w0=(md>1&&md<5?"w1":(md==5?"w3":(noise(t/110,1)>0?"w2":"w1")))
-w1=(md>1&&md<5?"w1":(md==5?"w3":(noise(t/110+7,1)>0?"w2":"w1")))
-w2=(md>1&&md<5?"w1":(md==5?"w3":(noise(t/110+14,1)>0?"w2":"w1")))
+w0=((md==2||md==5)?(noise(t/110,2)>-2?"w3":"w2"):(noise(t/110,1)>0?"w2":"w1"))
+w1=((md==2||md==5)?(noise(t/110+5,2)>-2?"w3":"w2"):(noise(t/110+7,1)>0?"w2":"w1"))
+w2=((md==2||md==5)?(noise(t/110+10,2)>-2?"w3":"w2"):(noise(t/110+14,1)>0?"w2":"w1"))
 av=(-135+270*(volume+60)/60)
 at=(-135+270*pos_ms/(dur_ms>0?dur_ms:1))
 tx=(18+191*pos_ms/(dur_ms>0?dur_ms:1))
@@ -363,13 +363,6 @@ w=(50*max(0,battery))/100
 h=6
 color=(md==1?danger:24561)
 dyn=1
-[ch1]
-type=text
-x=229
-y=116
-text="CH1"
-color=57117
-bg=12744
 [bnc]
 type=roundrect
 x=282

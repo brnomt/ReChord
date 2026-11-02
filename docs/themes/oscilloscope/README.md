@@ -52,7 +52,7 @@ literals only: the expression parser has no `0x` numbers.
 | 0 | playing, volume <= -6 dB | three tiles alternate `w1`/`w2` |
 | 5 | playing, volume > -6 dB | `w3`, the clipped square wave |
 | 4 | not playing | trace hidden, flat line + READY |
-| 2 | `idle < 700` ms | frozen `w1` frame |
+| 2 | `idle < 700` ms | loud `w2`/`w3` tiles (key pressed) |
 | 3 | paused and `idle > 60 s` | flat line (asleep) |
 | 1 | battery 0..14 % | trace in `danger`, LOW BAT, red battery bar |
 
@@ -88,7 +88,7 @@ now evaluates both operands before combining them; a regression case lives in
 
 | file | bytes / 4096 | sections / 52 |
 |---|---|---|
-| home.skin | 4064 | 49 |
+| home.skin | 4057 | 48 |
 | now_playing.skin | 4027 | 47 |
 | library.skin | 1010 | 13 |
 | library_cat.skin | 1022 | 13 |
@@ -103,7 +103,8 @@ the 1024 B cache.
 These are deliberate budget cuts, not engine limits:
 
 * the third (dimmest) goniometer beam sliver is omitted;
-* the tube's CH1 ground arrow and the `1M 300V` spec line are omitted;
+* the tube's CH1 ground arrow, the `1M 300V` spec line and the BNC
+  `CH1` label (redundant with the `CH1 -18dB` readout) are omitted;
 * the trace shape is `noise()`-driven, so a still frame never matches the
   mockup's generated tile pixel for pixel (the tile *set* is identical);
 * text always paints its background, so panel labels show a faint flat box
