@@ -59,6 +59,7 @@ void test_theme_packages(void)
     mock_services_reset();
 
     check_package("oscilloscope", "Oscilloscope", 0, 0, 0);
+    check_package("oscilloscope-60", "Oscilloscope 60", 0, 0, 0);
     check_package("vu-meter", "VU Meter", "vu_a", 64, 40);
     check_package("808", "808", "ring", 32, 32);
 }
