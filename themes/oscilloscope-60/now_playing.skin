@@ -1,5 +1,6 @@
 [skin]
 refresh_ms=16
+idle_refresh_ms=500
 dyn=141,7,225,89
 dyn2=137,93,317,169
 dyn2_every=59
