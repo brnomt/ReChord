@@ -11,6 +11,7 @@
 #include "../../services/art_pack.h"
 #include "../../services/bt_link.h"
 #include "../../services/rechord_files.h"
+#include "../../drivers/battery.h"
 
 static unsigned s_now_ms;
 static unsigned s_last_input_ms;
@@ -103,7 +104,7 @@ void theme_ui_fill_state(theme_skin_state_t *st, const char *heading)
     st->paused = player_get_state() == PLAYER_PAUSED;
     st->stopped = player_get_state() == PLAYER_STOPPED;
     st->volume_db = player_get_volume();
-    st->battery_pct = -1;
+    st->battery_pct = battery_percent();
     st->position_ms = player_get_position_ms();
     st->shuffle = player_get_shuffle();
     st->repeat = player_get_repeat();

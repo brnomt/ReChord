@@ -16,6 +16,7 @@ static int           s_q_head;
 static int           s_q_tail;
 static char          s_log_last[128];
 static int           s_log_count;
+static int           s_battery_pct = 76;
 
 void mock_services_reset(void)
 {
@@ -27,6 +28,19 @@ void mock_services_reset(void)
     mock_fs_reset();
     mock_player_reset();
     mock_bt_reset();
+    s_battery_pct = 76;
+}
+
+/* ---- battery (the skin bridge reads battery_percent) ------------------- */
+
+void mock_battery_set(int pct)
+{
+    s_battery_pct = pct;
+}
+
+int battery_percent(void)
+{
+    return s_battery_pct;
 }
 
 

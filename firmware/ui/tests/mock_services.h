@@ -13,7 +13,10 @@
 #include "settings_schema.h"
 
 /* ---- input ------------------------------------------------------------- */
-void mock_services_reset(void);   /* input queue + log + settings + fs tree */
+void mock_services_reset(void);
+
+/* Battery level reported to the skin bridge (default 76 %). */
+void mock_battery_set(int pct);   /* input queue + log + settings + fs tree */
 void mock_input_push(input_key_t key, uint16_t adc);
 int  mock_input_pending(void);
 
