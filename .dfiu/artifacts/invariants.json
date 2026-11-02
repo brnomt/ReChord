@@ -2,37 +2,6 @@
   "project": "ReChord",
   "rules": [
     {
-      "action": "Before adding statics to the AP, check _bss_end; reclaim RAM (union the mutually-exclusive big buffers: FLAC pool / USB-MSC chunk / fw_update staging) instead of raising the ceiling.",
-      "content_hash": "1ff26f4be1524cadc63c4c003b32ec2a08f422edcf80c30c6fe20065ec3b6bb8",
-      "id": "R-8cd5fb0eb24a",
-      "incident_ids": [
-        "fb41cb15-1ca7-4ba7-9642-b430b7eed95d"
-      ],
-      "invariant": "Never link the AP image with _bss_end above 0x0304A000; FW_RAM length is 0x46000 and the linker enforces it.",
-      "revision": 1,
-      "scope": "AP (fw1) .bss layout / linker script / image geometry",
-      "severity": "blocker",
-      "when": {
-        "args": [
-          {
-            "field": "project",
-            "op": "eq",
-            "value": "ReChord"
-          },
-          {
-            "field": "files_touched",
-            "op": "touches_any",
-            "value": [
-              "firmware/firmware_ap.ld",
-              "tools/make_fw1.py",
-              "tools/pack_fw1.py"
-            ]
-          }
-        ],
-        "op": "all"
-      }
-    },
-    {
       "action": "Guarantee a reply for every mailbox command path, including error answers; treat any silent command as a deadlock.",
       "content_hash": "f67536b5020acb05b28d54cf0553c9333f0d12e52d5e05bb78c7546191ca530f",
       "id": "R-e9b5d8222673",
@@ -57,93 +26,6 @@
           }
         ],
         "op": "all"
-      }
-    },
-    {
-      "action": "When a screen shows 'empty' while the data is known good, check who opens the shared state first. Never pre-acquire state in a test that the code under test should acquire.",
-      "content_hash": "37db6fc01c708e75d533738c32eb0de7ca9ffeb2ce1c1e968762bd69cbba0a6f",
-      "id": "R-3f66ea5d12c8",
-      "incident_ids": [
-        "82cac4ee-76e2-4fe7-b8cc-317114288a41"
-      ],
-      "invariant": "A module reading shared state owns acquiring and releasing it, and its test enters through the same door production does: a test that pre-acquires that state hides lifecycle bugs.",
-      "revision": 1,
-      "scope": "firmware/services, firmware/ui/screens",
-      "severity": "warning",
-      "when": {
-        "args": [
-          {
-            "field": "files_touched",
-            "op": "touches_any",
-            "value": [
-              "firmware/services/media_query.c"
-            ]
-          },
-          {
-            "field": "subsystem",
-            "op": "eq",
-            "value": "ui/library (category queries)"
-          }
-        ],
-        "op": "any"
-      }
-    },
-    {
-      "action": "Run arm-none-eabi-nm on the CFW ELF and confirm every remaining weak symbol is an intentional fallback before handing a build over for hardware test.",
-      "content_hash": "20b205c4afe04dd82f351f7bbc691b9c84d7eef8e264147d8f70470ee7f9de02",
-      "id": "R-7cd6518a7e7b",
-      "incident_ids": [
-        "1c010b79-654b-423a-af94-65ca21c31cae"
-      ],
-      "invariant": "A feature must not depend on a weak symbol that lacks a strong implementation: check the linked ELF for W symbols in that subsystem before trusting the feature.",
-      "revision": 1,
-      "scope": "firmware/startup (link seams)",
-      "severity": "warning",
-      "when": {
-        "args": [
-          {
-            "field": "files_touched",
-            "op": "touches_any",
-            "value": [
-              "firmware/startup/ap_main.c"
-            ]
-          },
-          {
-            "field": "subsystem",
-            "op": "eq",
-            "value": "startup/ap_main.c (weak stubs)"
-          }
-        ],
-        "op": "any"
-      }
-    },
-    {
-      "action": "When adding a fallback for a hardware/OS dependency, log the first time it engages (once, not per pass), and verify the dependency on hardware before tuning anything that depends on it.",
-      "content_hash": "ab12fde45434dee5908ec2d9b973ce3b14be8ea700c203a0634d1e32cfae0bef",
-      "id": "R-e68bf2428377",
-      "incident_ids": [
-        "26eed982-5093-4d17-9b9a-ceb60392f5a2"
-      ],
-      "invariant": "A safety net that hides a broken dependency is a bug amplifier: when a fallback triggers, make it observable (log/counter) so the real failure cannot masquerade as a tuning problem.",
-      "revision": 1,
-      "scope": "firmware/startup, firmware/services/input.c",
-      "severity": "warning",
-      "when": {
-        "args": [
-          {
-            "field": "files_touched",
-            "op": "touches_any",
-            "value": [
-              "firmware/startup/ap_ui.c"
-            ]
-          },
-          {
-            "field": "subsystem",
-            "op": "eq",
-            "value": "startup/ap_clock + input ladder"
-          }
-        ],
-        "op": "any"
       }
     },
     {
@@ -179,6 +61,27 @@
           }
         ],
         "op": "all"
+      }
+    },
+    {
+      "action": "Apply the flattened a1/md chain to the repo themes, bisect the remaining 808 freeze with per-section on-device logging, build a clean AP5M image, and verify on hardware with cassette/mono controls.",
+      "content_hash": "e6b9ea45b70fafc1cbb7c7c202c553a1def42ebae2e74ed43a42be5a562bc3fc",
+      "id": "R-5ae688d6b708",
+      "incident_ids": [
+        "b0e5d778-405d-4239-99cc-71454c01ecb3"
+      ],
+      "invariant": "On-device, every package home skin must complete eval_vars + its first render and let the UI draw; keep mood logic depth<=2 with staged vars and no &&/|| until the target evaluator is proven.",
+      "revision": 1,
+      "scope": "themes/*/home.skin + firmware/theme/theme_skin.c",
+      "severity": "blocker",
+      "when": {
+        "field": "files_touched",
+        "op": "touches_any",
+        "value": [
+          "themes/oscilloscope/home.skin",
+          "themes/vu-meter/home.skin",
+          "themes/808/home.skin"
+        ]
       }
     },
     {
@@ -244,37 +147,6 @@
             "op": "touches_any",
             "value": [
               "tools/pack_img.py"
-            ]
-          }
-        ],
-        "op": "all"
-      }
-    },
-    {
-      "action": "Always duplicate IMG[0:0x200] at offset fw_end = LE32(IMG[0x1F4]); byte-check it in the packer before flashing.",
-      "content_hash": "1c27a1d8d979a84cbe72d883a279a70996a5f60d385dcc0e81267246b2c4669b",
-      "id": "R-9f6e141101cb",
-      "incident_ids": [
-        "3a318ade-7496-4530-8d14-24bb09639c96"
-      ],
-      "invariant": "A valid update image must duplicate its first 512 bytes at offset fw_end (LE32 at 0x1F4) and carry the trailer CRC at (fw_end+0x104000)&~0xFFFFF.",
-      "revision": 4,
-      "scope": "update image format: outer header + fw_end header copy (tools/make_fw1.py, tools/pack_img.py)",
-      "severity": "blocker",
-      "when": {
-        "args": [
-          {
-            "field": "project",
-            "op": "eq",
-            "value": "ReChord"
-          },
-          {
-            "field": "files_touched",
-            "op": "touches_any",
-            "value": [
-              "tools/make_fw1.py",
-              "tools/pack_img.py",
-              "tools/pack_fw1.py"
             ]
           }
         ],
