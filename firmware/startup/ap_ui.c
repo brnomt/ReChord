@@ -33,6 +33,7 @@
 #include "services/input.h"
 #include "services/art_pack.h"
 #include "services/eq_profile.h"
+#include "services/output_mem.h"
 #include "services/bt_link.h"
 #include "services/power_save.h"
 #include "services/library_extras.h"
@@ -440,6 +441,107 @@ static void anim_account(unsigned now, unsigned t0)
     }
 }
 
+
+/* ---- per-output volume + EQ memory (services/output_mem) ------------------
+ * The output is "wired" or the connected Bluetooth device. Changing it restores
+ * that output's last volume and EQ; edits are written back (debounced). A new
+ * output inherits the current settings, so nothing jumps the first time. */
+static char     s_out_key[OM_KEY_MAX];
+static unsigned s_out_dirty_ms;      /* 0 = nothing to write              */
+static unsigned s_out_poll_ms;
+
+static void out_mark_dirty(unsigned now)
+{
+    s_out_dirty_ms = now != 0 ? now : 1u;
+}
+
+static void out_eq_observer(void)
+{
+    out_mark_dirty(ap_ms());
+}
+
+static void out_key_now(char *key)
+{
+    const bt_proto_t *bt = bt_link_state();
+    const bt_device_t *d =
+        bt->state == BT_STATE_CONNECTED ? bt_proto_connected(bt) : 0;
+
+    if (d != 0)
+        om_key_bt(d->addr, key);
+    else
+        om_key_wired(key);
+}
+
+static void out_capture(om_state_t *st)
+{
+    const char *nm = eq_profile_name();
+    unsigned i;
+
+    memset(st, 0, sizeof *st);
+    st->has_vol = 1;
+    st->vol_db = player_get_volume();
+    st->has_eq = 1;
+    st->eq_on = eq_profile_enabled() ? 1 : 0;
+    for (i = 0; nm[i] != '\0' && i < OM_NAME_MAX - 1; i++)
+        st->name[i] = nm[i];
+    st->curve = *eq_profile_curve();
+}
+
+static void out_save_current(void)
+{
+    om_state_t st;
+
+    if (s_out_key[0] == '\0')
+        return;
+    out_capture(&st);
+    if (om_save(s_out_key, &st) != 0)
+        log_printf("output: save failed (%s)", s_out_key);
+    s_out_dirty_ms = 0;
+}
+
+static void out_flush_now(void)
+{
+    if (s_out_dirty_ms != 0)
+        out_save_current();
+}
+
+static void out_changed(const char *key)
+{
+    om_state_t st;
+
+    if (om_load(key, &st)) {
+        if (st.has_vol)
+            (void)player_set_volume(st.vol_db);
+        if (st.has_eq)
+            (void)eq_profile_restore(&st.curve, st.name, st.eq_on);
+        log_printf("output: %s vol %d eq %d %s", key, player_get_volume(),
+                   eq_profile_enabled() ? 1 : 0, eq_profile_name());
+    } else {
+        out_capture(&st);               /* first time here: inherit */
+        (void)om_save(key, &st);
+        log_printf("output: %s new, inherits vol %d", key,
+                   player_get_volume());
+    }
+}
+
+/* Called every loop pass; cheap (a 250 ms poll plus a debounce check). */
+static void out_service(unsigned now)
+{
+    if ((unsigned)(now - s_out_poll_ms) >= 250u) {
+        char key[OM_KEY_MAX];
+
+        s_out_poll_ms = now;
+        out_key_now(key);
+        if (strcmp(key, s_out_key) != 0) {
+            out_flush_now();            /* edits belong to the OLD output */
+            memcpy(s_out_key, key, sizeof key);
+            out_changed(key);
+        }
+    }
+    if (s_out_dirty_ms != 0 && (unsigned)(now - s_out_dirty_ms) >= 1500u)
+        out_save_current();
+}
+
 /* ---- BRNOMT-75: display off / Hold ------------------------------------ */
 
 static void screen_wake(void)
@@ -733,6 +835,7 @@ static void usb_session(void)
              * battery. */
             s_usb_power_off = 0;
             resume_poll(ap_ms(), 1);  /* persist the last position first */
+            out_flush_now();
             settings_screen_store();
             (void)log_flush("power");
             power_off();              /* may return on VBUS (park) */
@@ -778,6 +881,7 @@ static void usb_dac_entry(void)
     if (s_usb_power_off) {
         s_usb_power_off = 0;
         resume_poll(ap_ms(), 1);
+        out_flush_now();
         settings_screen_store();
         (void)log_flush("power");
         power_off();                  /* may return on VBUS (park) */
@@ -1659,6 +1763,7 @@ void ap_ui_loop(void)
      * track starts; ipc_b_set_eq caches it until Core B accepts a track. */
     eq_profile_set_publisher(eq_publish_ipc);
     eq_profile_boot();
+    eq_profile_set_observer(out_eq_observer);
 
     player_set_volume(settings_screen_get()->volume_db);
     player_set_shuffle(settings_screen_get()->shuffle);           /* BRNOMT-90 */
@@ -1858,6 +1963,7 @@ void ap_ui_loop(void)
         pev = sampled ? power_hold_step(s_key_power, now) : POWER_EV_NONE;
         if (pev == POWER_EV_HOLD) {
             resume_poll(now, 1);       /* persist the last position first */
+            out_flush_now();
             settings_screen_store();
             (void)log_flush("power");
             power_off();
@@ -1893,8 +1999,10 @@ void ap_ui_loop(void)
         if (player_get_volume() != s_volume_seen) {
             s_volume_seen = player_get_volume();
             settings_screen_volume_changed(s_volume_seen, now);
+            out_mark_dirty(now);
         }
         settings_screen_flush_pending(now);
+        out_service(now);
         resume_poll(now, 0);      /* BRNOMT-87: deferred position save */
 
         /* Standby auto-off: paused/stopped and no user input for the
@@ -1907,6 +2015,7 @@ void ap_ui_loop(void)
                 (unsigned)(now - s_idle_ms) >= (unsigned)mins * 60000u) {
                 log_printf("power: standby %d", mins);
                 resume_poll(now, 1);      /* persist the position first */
+                out_flush_now();
                 settings_screen_store();
                 (void)log_flush("standby");
                 power_off();              /* on VBUS this parks and returns */

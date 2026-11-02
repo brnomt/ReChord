@@ -135,6 +135,7 @@ AP_SERVICE_SRCS := \
   firmware/services/settings_store.c \
   firmware/services/resume.c \
   firmware/services/audio_scope.c \
+  firmware/services/output_mem.c \
   firmware/services/eq_profile.c \
   firmware/services/bt_proto.c \
   firmware/services/file_io.c \

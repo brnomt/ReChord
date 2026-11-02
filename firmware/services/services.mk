@@ -25,6 +25,7 @@ SERVICES_TARGET_SRCS := \
   $(SERVICES_DIR)/settings_store.c \
   $(SERVICES_DIR)/resume.c \
   $(SERVICES_DIR)/audio_scope.c \
+  $(SERVICES_DIR)/output_mem.c \
   $(SERVICES_DIR)/fs_target.c \
   $(SERVICES_DIR)/rechord_files.c
 
