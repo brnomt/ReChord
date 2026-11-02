@@ -1884,6 +1884,23 @@ void ap_ui_loop(void)
 
             battery_poll();
             s_batt_ms = now;
+            {
+                /* Evidence for the gauge: log the raw millivolts when they
+                 * move >= 25 mV or every 5 min (an idle player writes nothing
+                 * otherwise). */
+                static int logged_mv = -9999;
+                static unsigned logged_ms;
+                int mv = battery_mv();
+
+                if (mv - logged_mv >= 25 || logged_mv - mv >= 25 ||
+                    logged_mv == -9999 ||
+                    (unsigned)(now - logged_ms) >= 300000u) {
+                    log_printf("batt: %d mV lvl %d usb %d", mv,
+                               battery_level(), usb_cable());
+                    logged_mv = mv;
+                    logged_ms = now;
+                }
+            }
             if (battery_percent() != before && !s_screen_off)
                 ui_invalidate(0, 0, DISPLAY_W - 1, 16);
         }
