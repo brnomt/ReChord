@@ -18,8 +18,6 @@ kvC=sin(av*10+900,3600,3)
 ac=(art_ok?art_accent:2047)
 g1=mix(ac,background,150)
 g2=mix(ac,background,320)
-tt=mix(ac,65535,780)
-td=mix(ac,background,520)
 kvD=sin(av*10,3600,3)
 ktA=sin(at*10,3600,13)
 ktB=sin(at*10+900,3600,13)
@@ -190,7 +188,7 @@ type=text
 x=13
 y=13
 text="CH1 " + volume + "dB"
-color=tt
+color=text
 bg=background
 dyn=1
 [rd2]
@@ -198,7 +196,7 @@ type=text
 x=213
 y=13
 text=(playing?bits + "/" + (rate/1000) + " " + pos_fmt:"STOP " + pos_fmt)
-color=(playing?ac:td)
+color=(playing?accent:text_dim)
 bg=background
 align=right
 dyn=1
@@ -208,14 +206,14 @@ x=13
 y=129
 text=title
 maxc=19
-color=(md==1?text:tt)
+color=(md==1?text:55292)
 bg=background
 [status]
 type=text
 x=213
 y=129
 text=(md==1?"LOW BAT":pl_i + "/" + pl_n)
-color=(md==1?danger:td)
+color=(md==1?danger:text_dim)
 bg=background
 align=right
 dyn=1
@@ -232,7 +230,7 @@ type=text
 x=231
 y=8
 text="OSC-20  RC"
-color=tt
+color=57117
 bg=4291
 [kv]
 type=roundrect
@@ -292,7 +290,7 @@ type=text
 x=232
 y=58
 text="VOLTS TIME"
-color=tt
+color=57117
 bg=14922
 [led]
 type=roundrect
@@ -308,7 +306,7 @@ type=text
 x=240
 y=75
 text=(playing?"TRIG'D":"READY")
-color=(playing?tt:ac)
+color=(playing?57117:accent)
 bg=14889
 dyn=1
 [bat]
@@ -316,7 +314,7 @@ type=text
 x=229
 y=93
 text="BAT"
-color=tt
+color=57117
 bg=12777
 [bp]
 type=fill

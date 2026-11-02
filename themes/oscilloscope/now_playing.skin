@@ -9,8 +9,6 @@ dyn3_every=20
 ac=(art_ok?art_accent:2047)
 g1=mix(ac,background,150)
 g2=mix(ac,background,320)
-tt=mix(ac,65535,780)
-td=mix(ac,background,520)
 av=(-135+270*(volume+60)/60)
 [pan]
 type=gradient
@@ -56,7 +54,7 @@ type=text
 x=32
 y=64
 text=" NO SIGNAL "
-color=tt
+color=55292
 bg=background
 visible=!art_ok
 [ch2off]
@@ -132,21 +130,21 @@ type=text
 x=145
 y=11
 text="L"
-color=td
+color=text_dim
 bg=background
 [rt]
 type=text
 x=213
 y=11
 text="R"
-color=td
+color=text_dim
 bg=background
 [xyl]
 type=text
 x=145
 y=78
 text="X-Y"
-color=ac
+color=accent
 bg=background
 dyn=1
 [xs]
@@ -250,7 +248,7 @@ type=text
 x=288
 y=56
 text="CH2"
-color=tt
+color=57117
 bg=14922
 [vbg]
 type=fill
@@ -265,7 +263,7 @@ type=text
 x=237
 y=66
 text=volume + "dB"
-color=tt
+color=57117
 bg=14890
 dyn=1
 [rrd]
@@ -292,7 +290,7 @@ x=144
 y=101
 text=title
 maxc=21
-color=tt
+color=55292
 bg=background
 dyn=1
 [rart]
@@ -301,7 +299,7 @@ x=144
 y=112
 text=artist
 maxc=21
-color=tt
+color=text
 bg=background
 dyn=1
 [rpos]
@@ -309,7 +307,7 @@ type=text
 x=144
 y=123
 text=pos_fmt + " / " + dur_fmt
-color=(playing?ac:td)
+color=(playing?accent:text_dim)
 bg=background
 dyn=1
 [rpl]
@@ -317,7 +315,7 @@ type=text
 x=310
 y=123
 text=pl_i + "/" + pl_n
-color=td
+color=text_dim
 bg=background
 align=right
 dyn=1
@@ -358,6 +356,6 @@ type=text
 x=62
 y=157
 text=bits + "b/" + (rate/1000) + "k   " + (shuffle?"SHUF ":"") + (repeat?"REP":"")
-color=td
+color=text_dim
 bg=background
 dyn=1
