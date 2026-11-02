@@ -7,7 +7,7 @@ dyn3=136,56,250,72
 a1=(!playing?(idle>60000?3:4):(volume>-6?5:0))
 md=(battery<15?1:(idle<700?2:a1))
 bk=(mod(t,1000)<500)
-pr=(16*pos_ms/(dur_ms>0?dur_ms:1))
+pr=(playing?mod(t/125,16):16*pos_ms/(dur_ms>0?dur_ms:1))
 av=(-135+270*(volume+60)/60)
 aa=(-135+270*(md==5?85:35)/100)
 [pan]

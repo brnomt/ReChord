@@ -1,11 +1,12 @@
 [skin]
 refresh_ms=0
-dyn=0,88,319,133
+dyn=0,88,319,169
 dyn2=250,4,314,18
 dyn3=136,33,169,76
 [vars]
 a1=(!playing?(idle>60000?3:4):(volume>-6?5:0))
 md=(battery<15?1:(idle<700?2:a1))
+d=(md==3)
 st=mod(t/125,16)
 bk=(mod(t,1000)<500)
 av=(-135+270*(volume+60)/60)
@@ -200,7 +201,7 @@ y=92
 w=6
 h=3
 color=(playing||bk||md==2?63940:18594)
-visible=(md==1?0:(md==3?0:1))
+visible=(md!=1&&!d)
 dyn=1
 [k0]
 type=roundrect
@@ -208,7 +209,7 @@ x=17
 y=97
 w=16
 h=34
-color=(md==3?35139:md==5?62803:(noise(pl_i*31+0,4)>-3?57861:35139))
+color=(d?35139:md==5?62803:(noise(pl_i*31+0,4)>-3?57861:35139))
 dyn=1
 [k1]
 type=roundrect
@@ -216,7 +217,7 @@ x=35
 y=97
 w=16
 h=34
-color=(md==3?35139:(noise(pl_i*31+1,4)>-3?57861:35139))
+color=(d?35139:(noise(pl_i*31+1,4)>-3?57861:35139))
 dyn=1
 [k2]
 type=roundrect
@@ -224,7 +225,7 @@ x=53
 y=97
 w=16
 h=34
-color=(md==3?35139:(noise(pl_i*31+2,4)>-3?57861:35139))
+color=(d?35139:(noise(pl_i*31+2,4)>-3?57861:35139))
 dyn=1
 [k3]
 type=roundrect
@@ -232,7 +233,7 @@ x=71
 y=97
 w=16
 h=34
-color=(md==3?35139:(noise(pl_i*31+3,4)>-3?57861:35139))
+color=(d?35139:(noise(pl_i*31+3,4)>-3?57861:35139))
 dyn=1
 [k4]
 type=roundrect
@@ -240,7 +241,7 @@ x=89
 y=97
 w=16
 h=34
-color=(md==3?41635:md==5?65107:(noise(pl_i*31+4,4)>-3?62499:41635))
+color=(d?41635:md==5?65107:(noise(pl_i*31+4,4)>-3?62499:41635))
 dyn=1
 [k5]
 type=roundrect
@@ -248,7 +249,7 @@ x=107
 y=97
 w=16
 h=34
-color=(md==3?41635:(noise(pl_i*31+5,4)>-3?62499:41635))
+color=(d?41635:(noise(pl_i*31+5,4)>-3?62499:41635))
 dyn=1
 [k6]
 type=roundrect
@@ -256,7 +257,7 @@ x=125
 y=97
 w=16
 h=34
-color=(md==3?41635:(noise(pl_i*31+6,4)>-3?62499:41635))
+color=(d?41635:(noise(pl_i*31+6,4)>-3?62499:41635))
 dyn=1
 [k7]
 type=roundrect
@@ -264,7 +265,7 @@ x=143
 y=97
 w=16
 h=34
-color=(md==3?41635:(noise(pl_i*31+7,4)>-3?62499:41635))
+color=(d?41635:(noise(pl_i*31+7,4)>-3?62499:41635))
 dyn=1
 [k8]
 type=roundrect
@@ -272,7 +273,7 @@ x=161
 y=97
 w=16
 h=34
-color=(md==3?46149:md==5?65332:(noise(pl_i*31+8,4)>-3?63015:46149))
+color=(d?46149:md==5?65332:(noise(pl_i*31+8,4)>-3?63015:46149))
 dyn=1
 [k9]
 type=roundrect
@@ -280,7 +281,7 @@ x=179
 y=97
 w=16
 h=34
-color=(md==3?46149:(noise(pl_i*31+9,4)>-3?63015:46149))
+color=(d?46149:(noise(pl_i*31+9,4)>-3?63015:46149))
 dyn=1
 [k10]
 type=roundrect
@@ -288,7 +289,7 @@ x=197
 y=97
 w=16
 h=34
-color=(md==3?46149:(noise(pl_i*31+10,4)>-3?63015:46149))
+color=(d?46149:(noise(pl_i*31+10,4)>-3?63015:46149))
 dyn=1
 [k11]
 type=roundrect
@@ -296,7 +297,7 @@ x=215
 y=97
 w=16
 h=34
-color=(md==3?46149:(noise(pl_i*31+11,4)>-3?63015:46149))
+color=(d?46149:(noise(pl_i*31+11,4)>-3?63015:46149))
 dyn=1
 [k12]
 type=roundrect
@@ -304,7 +305,7 @@ x=233
 y=97
 w=16
 h=34
-color=(md==3?42226:md==5?63421:(noise(pl_i*31+12,4)>-3?61242:42226))
+color=(d?42226:md==5?63421:(noise(pl_i*31+12,4)>-3?61242:42226))
 dyn=1
 [k13]
 type=roundrect
@@ -312,7 +313,7 @@ x=251
 y=97
 w=16
 h=34
-color=(md==3?42226:(noise(pl_i*31+13,4)>-3?61242:42226))
+color=(d?42226:(noise(pl_i*31+13,4)>-3?61242:42226))
 dyn=1
 [k14]
 type=roundrect
@@ -320,7 +321,7 @@ x=269
 y=97
 w=16
 h=34
-color=(md==3?42226:(noise(pl_i*31+14,4)>-3?61242:42226))
+color=(d?42226:(noise(pl_i*31+14,4)>-3?61242:42226))
 dyn=1
 [k15]
 type=roundrect
@@ -328,7 +329,7 @@ x=287
 y=97
 w=16
 h=34
-color=(md==3?42226:(noise(pl_i*31+15,4)>-3?61242:42226))
+color=(d?42226:(noise(pl_i*31+15,4)>-3?61242:42226))
 dyn=1
 [cur]
 type=roundrect
@@ -337,7 +338,7 @@ y=97
 w=16
 h=34
 color=63421
-visible=(md==3?0:(playing?1:bk))
+visible=(d?0:(playing?1:bk))
 dyn=1
 [low]
 type=roundrect
@@ -355,6 +356,14 @@ y=135
 text="BASS     SNARE    TOMS     HATS"
 color=35886
 bg=background
+[bar]
+type=fill
+x=0
+y=146
+w=W
+h=24
+color=background
+dyn=1
 [items]
 type=list
 axis=horizontal
@@ -366,3 +375,4 @@ next=up
 item0=LIBRARY:library
 item1=NOW PLAYING:player
 item2=SETTINGS:settings
+dyn=1
