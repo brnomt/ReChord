@@ -81,6 +81,7 @@ static int s_art_dirty;              /* new track: look up its cover      */
 static unsigned s_log_ms;            /* last periodic log flush (see loop) */
 static unsigned s_batt_ms;           /* last battery poll (see loop) */
 static unsigned s_idle_ms;           /* last user input / last playing ms */
+static unsigned s_input_ms;          /* last key press (screen timeout)    */
 static int      s_resume_done;       /* boot resume restore ran (BRNOMT-87) */
 static int      s_resume_started;    /* first probe seen; settle timer     */
 static unsigned s_resume_ms;         /* when the settle wait began         */
@@ -446,6 +447,7 @@ static void screen_wake(void)
     if (!s_screen_off)
         return;
     s_screen_off = 0;
+    s_input_ms = ap_ms();        /* a wake restarts the screen timeout */
     s_player_ms = 0;             /* force a Now Playing sync on wake */
     bt_link_set_display(1, (unsigned long)ap_ms());
     backlight_on();
@@ -1156,6 +1158,7 @@ static void usb_storage_run(void)
     }
     usb_session();
     s_idle_ms = ap_ms();      /* a long MSC session is not standby */
+    s_input_ms = s_idle_ms;
 }
 
 #if AP_CDC_OVERLAY
@@ -1674,6 +1677,7 @@ void ap_ui_loop(void)
     bt_link_init((unsigned long)ap_ms());
     power_save_init(&s_power_save);
     s_idle_ms = ap_ms();
+    s_input_ms = s_idle_ms;
     menu_screen_bind(&k_root);
     ui_push_screen(&menu_screen);
     /* The package decides the home: a menu-only theme keeps the classic list;
@@ -1811,6 +1815,7 @@ void ap_ui_loop(void)
             if (s_hold || s_combo_latch)
                 continue;
             s_idle_ms = now;           /* any key is user activity */
+            s_input_ms = now;
             if (ev.type == KEY_POWER)
                 continue;              /* global power handling below */
             /* Screen off is display-only: transport keys keep working. BACK
@@ -1906,10 +1911,28 @@ void ap_ui_loop(void)
                 (void)log_flush("standby");
                 power_off();              /* on VBUS this parks and returns */
                 s_idle_ms = ap_ms();      /* the wake press is not standby */
+                s_input_ms = s_idle_ms;
             }
         }
         if (player_get_state() == PLAYER_PLAYING)
             s_idle_ms = now;
+
+        /* Screen timeout (settings "Screen off", seconds, 0 = never): the
+         * panel goes dark after that long without a key, exactly like the
+         * Power key does (transport keys keep working, Power/MENU wakes). A
+         * dark panel stops all theme work, so this is also the biggest saving
+         * for the animated themes. Not while Hold is on (already dark), and
+         * not while a chooser is waiting for an answer. */
+        {
+            int secs = settings_screen_get()->screen_off_s;
+
+            if (secs > 0 && !s_screen_off && !s_hold &&
+                ui_top_screen() != &usb_choice_screen &&
+                (unsigned)(now - s_input_ms) >= (unsigned)secs * 1000u) {
+                log_printf("power: screen timeout %d s", secs);
+                screen_sleep();
+            }
+        }
 
         /* Battery gauge (BRNOMT-83): one slow poll (the SARADC is shared with
          * the keys); repaint the title row only when the step changed. */

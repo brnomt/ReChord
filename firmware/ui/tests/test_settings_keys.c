@@ -298,11 +298,12 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(ui_stack_depth(), 2);
     group = settings_group_model();
     CHECK_STR_EQ(group->title, "Interface");
-    CHECK_EQ_INT(group->item_count, 4);
+    CHECK_EQ_INT(group->item_count, 5);
     CHECK_STR_EQ(group->items[0].label, "Brightness");
-    CHECK_STR_EQ(group->items[1].label, "Theme");
-    CHECK_STR_EQ(group->items[2].label, "Controls");
-    CHECK_STR_EQ(group->items[3].label, "Bluetooth");
+    CHECK_STR_EQ(group->items[1].label, "Screen off (s)");
+    CHECK_STR_EQ(group->items[2].label, "Theme");
+    CHECK_STR_EQ(group->items[3].label, "Controls");
+    CHECK_STR_EQ(group->items[4].label, "Bluetooth");
 
     /* Brightness applies to the backlight immediately (8 -> 9). */
     e = ev(KEY_SELECT); ui_handle_event(&e);
@@ -312,7 +313,8 @@ static void test_settings_screen_binding(void)
     /* BRNOMT-107: Controls submenu + immediate persistence. */
     e = ev(KEY_DOWN); ui_handle_event(&e);
     e = ev(KEY_DOWN); ui_handle_event(&e);
-    CHECK_EQ_INT(settings_group_view()->cursor, 2);
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_group_view()->cursor, 3);
     e = ev(KEY_SELECT); ui_handle_event(&e);
     CHECK_EQ_INT(ui_stack_depth(), 3);
     CHECK(ui_top_screen() == &controls_screen);
@@ -334,7 +336,8 @@ static void test_settings_screen_binding(void)
     e = ev(KEY_DOWN); ui_handle_event(&e);
     e = ev(KEY_DOWN); ui_handle_event(&e);
     e = ev(KEY_DOWN); ui_handle_event(&e);
-    CHECK_EQ_INT(settings_group_view()->cursor, 3);
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_group_view()->cursor, 4);
     e = ev(KEY_SELECT); ui_handle_event(&e);
     CHECK_EQ_INT(ui_stack_depth(), 3);
     CHECK(ui_top_screen() == &bluetooth_screen);

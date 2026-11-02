@@ -250,10 +250,11 @@ static const setting_group_item_t s_playback_items[] = {
     { 0, 0, GROUP_KEY },
 };
 
-/* Interface: live backlight brightness, the theme picker and the volume-key
- * mapping (screen_off is still hidden until it actually controls something). */
+/* Interface: live backlight brightness, the screen timeout, the theme picker
+ * and the volume-key mapping. */
 static const setting_group_item_t s_interface_items[] = {
     { "Brightness", "brightness", GROUP_KEY },
+    { "Screen off (s)", "screen_off", GROUP_KEY },
     { "Theme", 0, GROUP_THEME },
     { "Controls", 0, GROUP_CONTROLS },
     { "Bluetooth", 0, GROUP_BT },
