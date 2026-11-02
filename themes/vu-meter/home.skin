@@ -7,12 +7,12 @@ dyn3_every=10
 [vars]
 a1=(!playing?(idle>60000?3:4):(volume>-6?5:0))
 md=(battery<15?1:(idle<700?2:a1))
-tg=(!playing?0:clamp(lvl_l*(400+750*(volume+60)/60)/1000+(md==2?250:0),0,1060))
-vl=(vl*55/100+(tg-ps)*32/100)
+tg=(!playing?0:clamp(lvl_l*(700+1400*(volume+60)/60)/1000+(md==2?250:0),0,1060))
+vl=(vl*40/100+(tg-ps)*42/100)
 ps=clamp(ps+vl,-30,1060)
 th=(ps*9/10-450)
-tr=(!playing?0:clamp(lvl_r*(400+750*(volume+60)/60)/1000+(md==2?250:0),0,1060))
-vr=(vr*55/100+(tr-pr)*32/100)
+tr=(!playing?0:clamp(lvl_r*(700+1400*(volume+60)/60)/1000+(md==2?250:0),0,1060))
+vr=(vr*40/100+(tr-pr)*42/100)
 pr=clamp(pr+vr,-30,1060)
 thr=(pr*9/10-450)
 [vars2]

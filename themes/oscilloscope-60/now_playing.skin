@@ -151,9 +151,9 @@ y=11
 w=76
 h=74
 ch=xy
-gain=(350+650*(volume+60)/60)
-color=55292
-glow=(lvl_l>550?11692:6984)
+gain=(600+1300*(volume+60)/60)
+color=(art_ok?art_accent:2047)
+glow=(700+lvl_l)
 dyn=1
 [dot]
 type=roundrect
