@@ -22,6 +22,10 @@ void jack_init(void);
  * state to *out; 0 otherwise (or while debouncing). */
 int jack_poll(jack_kind_t *out);
 
+/* Raw sense pins (1 = high), for diagnostics: lets the log show what the
+ * hardware actually does when a plug goes in or out. */
+void jack_raw(int *single_ended, int *balanced);
+
 /* Last stable state (JACK_NONE before the first poll). */
 jack_kind_t jack_current(void);
 

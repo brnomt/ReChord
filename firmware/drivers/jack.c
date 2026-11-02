@@ -65,6 +65,14 @@ int jack_poll(jack_kind_t *out)
     return 1;
 }
 
+void jack_raw(int *single_ended, int *balanced)
+{
+    if (single_ended != 0)
+        *single_ended = pin_read(PIN_SINGLE_ENDED_PORT, PIN_SINGLE_ENDED);
+    if (balanced != 0)
+        *balanced = pin_read(PIN_BALANCED_PORT, PIN_BALANCED);
+}
+
 jack_kind_t jack_current(void)
 {
     return s_stable;

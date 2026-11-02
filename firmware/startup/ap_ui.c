@@ -2055,7 +2055,24 @@ void ap_ui_loop(void)
             jack_kind_t k;
 
             s_jack_ms = now;
+            if (!bt_hw_routed() && !bt_hw_settling()) {
+                /* Evidence for the sense pins (the pinout comes from EchoPod,
+                 * not from a measurement on this unit): log raw changes, capped
+                 * so a bouncing contact cannot flood the log. */
+                static int raw_se = -1, raw_bal = -1, raw_logs;
+                int se, bal;
+
+                jack_raw(&se, &bal);
+                if ((se != raw_se || bal != raw_bal) && raw_logs < 60) {
+                    raw_se = se;
+                    raw_bal = bal;
+                    raw_logs++;
+                    log_printf("jack: pins se=%d bal=%d", se, bal);
+                }
+            }
             if (!bt_hw_routed() && !bt_hw_settling() && jack_poll(&k)) {
+                log_printf("jack: %s", k == JACK_NONE ? "none"
+                           : (k == JACK_SINGLE_ENDED ? "3.5 mm" : "4.4 mm"));
                 if (s_jack_ready && k == JACK_NONE &&
                     s_jack_prev != JACK_NONE &&
                     player_get_state() == PLAYER_PLAYING) {
