@@ -1797,7 +1797,8 @@ void ap_ui_loop(void)
     /* The package decides the home: a menu-only theme keeps the classic list;
      * one that declares home=skin gets the declarative home inserted above it
      * (BACK still reaches Files/USB/System). */
-    skin_home_set_actions(open_library, open_player, open_settings, open_system);
+    skin_home_set_actions(open_library, open_player, open_settings);
+    settings_screen_set_system_opener(open_system);
     settings_screen_set_theme_applied(home_stack_sync);
     home_stack_sync();
     /* BRNOMT-87: the resume restore runs inside the loop, AFTER the first

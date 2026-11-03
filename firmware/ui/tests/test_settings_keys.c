@@ -220,12 +220,14 @@ static void test_settings_screen_binding(void)
 
     /* Top level: categories, not a flat key list. */
     model = settings_screen_model();
-    CHECK_EQ_INT(model->item_count, 2);
+    CHECK_EQ_INT(model->item_count, 3);
     CHECK_STR_EQ(model->title, "Settings");
     CHECK_STR_EQ(model->items[0].label, "Playback");
     CHECK_STR_EQ(model->items[1].label, "Interface");
+    CHECK_STR_EQ(model->items[2].label, "System");
     CHECK(model->items[0].on_select != 0);
     CHECK(model->items[1].on_select != 0);
+    CHECK(model->items[2].on_select != 0);
 
     /* defaults are live after enter */
     CHECK_EQ_INT(settings_screen_get()->resume_mode, 1);    /* folder */

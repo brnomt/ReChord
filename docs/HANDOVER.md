@@ -5157,12 +5157,10 @@ el índice de 16 bits tope 65534), cae al escaneo completo. Cambiar solo tags
 sin cambiar tamaño/mtime no se detecta hasta un rebuild.
 
 **System.** El menú System gana **Update index** (incremental) y conserva
-**Rebuild index** (completo, reparación). Los seis temas skin (OSC, OSC-60,
-Cassette, VU, 808, Companion) añaden `item3=SYSTEM:system` a su home: la acción
-`system` es nueva en el engine y `skin_home_set_actions()` recibe el cuarto
-callback. El 808 estaba a 4,088 B del tope de 4,096 B del skin; se quitó
-`axis=horizontal` de su home (el manifest ya declara `home_nav=horizontal`),
-quedando en 4,090 B.
+**Rebuild index** (completo, reparación). Se llega desde **Settings → System**
+(última fila de la lista de categorías, igual en todos los temas); el home de los
+temas skin queda con sus tres entradas. (El primer intento puso un `item3=SYSTEM`
+en el home de los seis temas; se revirtió: el 808 volvió a su `axis=horizontal`.)
 
 **Tests.** `test_media_scan` cubre update sin índice (fallback), alta, baja y
 cambio de tamaño (52 checks); UI 825 checks (incluye la acción `system` y el

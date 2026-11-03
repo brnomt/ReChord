@@ -1044,8 +1044,6 @@ static int action_from_word(const char *s)
         return THEME_SKIN_PLAYER;
     if (key_eq(s, "settings"))
         return THEME_SKIN_SETTINGS;
-    if (key_eq(s, "system"))
-        return THEME_SKIN_SYSTEM;
     return THEME_SKIN_NONE;
 }
 

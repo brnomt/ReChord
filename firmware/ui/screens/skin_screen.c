@@ -20,17 +20,14 @@ static unsigned s_last_input_ms;
 static void (*s_open_lib)(void);
 static void (*s_open_np)(void);
 static void (*s_open_set)(void);
-static void (*s_open_sys)(void);
 
 void skin_home_set_actions(void (*library)(void),
                            void (*player)(void),
-                           void (*settings)(void),
-                           void (*system)(void))
+                           void (*settings)(void))
 {
     s_open_lib = library;
     s_open_np = player;
     s_open_set = settings;
-    s_open_sys = system;
 }
 
 void skin_home_tick(unsigned now_ms)
@@ -109,10 +106,6 @@ static void skin_handle_event(const input_event_t *ev)
     case THEME_SKIN_SETTINGS:
         if (s_open_set)
             s_open_set();
-        break;
-    case THEME_SKIN_SYSTEM:
-        if (s_open_sys)
-            s_open_sys();
         break;
     default:
         break;

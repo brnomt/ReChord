@@ -171,6 +171,11 @@ extern const ui_screen_t bluetooth_screen;
  * screen remains open (BRNOMT-69). */
 void settings_screen_set_theme_applied(void (*cb)(void));
 
+/* The "System" row at the end of the Settings category list opens this screen
+ * (index maintenance + diagnostics). Registered by the app: the System screen
+ * lives in ap_ui.c. */
+void settings_screen_set_system_opener(void (*cb)(void));
+
 extern const ui_screen_t library_screen;       /* category menu */
 extern const ui_screen_t library_cat_screen;   /* names -> songs  */
 void library_cat_open(int cat);                /* set the category before pushing */

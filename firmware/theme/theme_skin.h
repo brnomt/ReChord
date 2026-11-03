@@ -53,8 +53,7 @@ enum {
     THEME_SKIN_BACK,
     THEME_SKIN_LIBRARY,
     THEME_SKIN_PLAYER,
-    THEME_SKIN_SETTINGS,
-    THEME_SKIN_SYSTEM
+    THEME_SKIN_SETTINGS
 };
 
 /* Read-only state exposed to skin expressions. The UI adapter fills it; the

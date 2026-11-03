@@ -366,11 +366,13 @@ color=background
 dyn=1
 [items]
 type=list
+axis=horizontal
+y=155
+height=14
 selected=1
 prev=down
 next=up
 item0=LIBRARY:library
 item1=NOW PLAYING:player
 item2=SETTINGS:settings
-item3=SYSTEM:system
 dyn=1

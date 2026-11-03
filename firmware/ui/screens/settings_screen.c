@@ -1,7 +1,7 @@
 /*
  * settings_screen.c — config schema bound to a categorized menu.
  *
- * Top level: one row per category (Playing, Interface). Selecting a category
+ * Top level: one row per category (Playing, Interface) plus System. Selecting a category
  * pushes settings_group_screen, which lists that category's schema keys (and
  * the live Theme picker/Equalizer/Controls under Interface/Playback). The
  * on-disk 19-key format is unchanged; the categories only decide what the
@@ -11,8 +11,9 @@
  *            Equalizer
  * Interface: Brightness, Theme, Controls (BRNOMT-107)
  *
- * The System diagnostics menu stays in the root menu (it is a debug view, not
- * a configuration group). BACK on a group returns to the category list; BACK
+ * System (index maintenance + diagnostics) is the last row of the category
+ * list; it opens the System screen through a callback the app registers (it is
+ * not a configuration group). BACK on a group returns to the category list; BACK
  * on the category list saves and pops, exactly as before.
  */
 #include <stdio.h>
@@ -267,9 +268,24 @@ static const setting_group_item_t *const s_group_items_spec[] = {
 static const char *const s_group_titles[] = { "Playback", "Interface" };
 #define SETTING_GROUP_COUNT 2
 
-static menu_item_t s_cat_items[SETTING_GROUP_COUNT];
+#define SETTING_CAT_COUNT (SETTING_GROUP_COUNT + 1)   /* + System */
+
+static void (*s_open_system)(void);
+
+void settings_screen_set_system_opener(void (*cb)(void))
+{
+    s_open_system = cb;
+}
+
+static void open_system_row(void)
+{
+    if (s_open_system != 0)
+        s_open_system();
+}
+
+static menu_item_t s_cat_items[SETTING_CAT_COUNT];
 static menu_view_t s_view;
-static menu_model_t s_model = { "Settings", s_cat_items, SETTING_GROUP_COUNT, NULL };
+static menu_model_t s_model = { "Settings", s_cat_items, SETTING_CAT_COUNT, NULL };
 
 static menu_item_t s_group_items[8];   /* Playback has exactly 8 rows */
 static menu_model_t s_group_model = { "Playback", s_group_items, 0, NULL };
@@ -287,7 +303,10 @@ static void build_categories(void)
     s_cat_items[1].label = "Interface";
     s_cat_items[1].value_text = 0;
     s_cat_items[1].on_select = open_interface;
-    s_model.item_count = SETTING_GROUP_COUNT;
+    s_cat_items[2].label = "System";
+    s_cat_items[2].value_text = 0;
+    s_cat_items[2].on_select = open_system_row;
+    s_model.item_count = SETTING_CAT_COUNT;
 }
 
 static void build_group_items(void)

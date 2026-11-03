@@ -14,8 +14,7 @@ extern const ui_screen_t skin_home_screen;
 
 void skin_home_set_actions(void (*library)(void),
                            void (*player)(void),
-                           void (*settings)(void),
-                           void (*system)(void));
+                           void (*settings)(void));
 
 /* Feed the millisecond clock used by skin expressions. Called once per UI
  * pass; cheap. */

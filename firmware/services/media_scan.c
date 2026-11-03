@@ -351,8 +351,10 @@ static int scan_run(media_scan_progress_t progress, int want_incremental)
      * record staging]. The stack lives here (not in .bss) so the walk costs
      * no static RAM. */
     region = (uint8_t *)scratch_claim(SCRATCH_OWNER_INDEX);
-    if (region == 0)
+    if (region == 0) {
+        log_printf("index: scratch busy (owner %u)", scratch_owner());
         return FS_ERR_IO;
+    }
     stack = (scan_frame_t *)region;
 
     /* Incremental update: index the CURRENT index in the space the staging

@@ -224,8 +224,7 @@ home adapter. Full guide: `docs/THEMING.md`.
     properties are expressions over `t idle playing volume W H sel n aw ah
     title ...`, with `min max abs clamp mod noise sin seq if`. A `[vars]`
     section defines reusable expressions; the interactive list carries its
-    own labels/actions (`library`, `player`, `settings`, `system`) and
-    `prev`/`next` key bindings.
+    own labels/actions and `prev`/`next` key bindings.
   - `theme_assets.{h,c}`: 1-bit assets loaded from the package into a 1 KiB
     cache; declared-but-unreadable assets reject the package.
   - `display_bitmap1()` blits raw MSB-first rows; `skin_screen.c` is a generic
