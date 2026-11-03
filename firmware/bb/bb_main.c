@@ -25,6 +25,7 @@
 #include <string.h>
 
 #include "ipc_shared.h"
+#include "bb_telem.h"
 #include "codec.h"
 #include "rg_math.h"
 #include "dsp/eq_bank.h"
@@ -159,8 +160,12 @@ static void handle_command(void)
             /* OPEN starts a new stream: stale history from another position
              * would click. NEXT is gapless, so it keeps the history (the rate
              * change, if any, already reset it inside set_rate). */
-            if (cmd == IPC_C_OPEN)
+            if (cmd == IPC_C_OPEN) {
                 eq_bank_reset(&s_eq);
+                CTRL[IPC_T_PCM_MIN] = 0xFFFFFFFFu;
+                CTRL[IPC_T_FILE_MIN] = 0xFFFFFFFFu;
+                CTRL[IPC_T_DEC_MAX] = 0;
+            }
             CTRL[IPC_C_BEOF] = 0;
             CTRL[IPC_C_BERR] = 0;
             CTRL[IPC_C_BSTATE] = IPC_BS_OPEN;
@@ -194,7 +199,9 @@ static void handle_command(void)
     dmb();
 }
 
-static void decode_round(void)
+static int s_did_decode;            /* inner round reached the codec */
+
+static void decode_round_inner(void)
 {
     uint32_t rd, wr, freeb;
     int got, gain;
@@ -208,6 +215,7 @@ static void decode_round(void)
     if (freeb < CHUNK_FRAMES * 8u)
         return;                       /* ring full; the AP's ISR is draining */
 
+    s_did_decode = 1;
     got = s_codec->decode(s_cstate, s_pcm, (int)CHUNK_FRAMES);
     if (got < 0) {
         CTRL[IPC_C_BERR] = (uint32_t)got;
@@ -281,12 +289,42 @@ static void decode_round(void)
     }
     eq_bank_process(&s_eq, s_pcm, got * 2);
 
+    {
+        /* Telemetry: the PCM fill right before this write is the lowest it
+         * gets in a round (the AP drained during the decode). */
+        uint32_t fill = (wr - CTRL[IPC_SH_RD]) / 8u;
+
+        if (fill < CTRL[IPC_T_PCM_MIN])
+            CTRL[IPC_T_PCM_MIN] = fill;
+        CTRL[IPC_T_FRAMES] += (uint32_t)got;
+    }
     ring_write(wr, s_pcm, (uint32_t)got * 8u);
     wr += (uint32_t)got * 8u;
     dmb();
     CTRL[IPC_SH_WR] = wr;             /* publish after the data */
     dmb();
     I2S_INTCR |= INTCR_TX_EMPTY;      /* re-arm the AP's TX-empty feeder */
+}
+
+/* One decode round, with its cost accounted: cycles between the start and the
+ * end of a round that actually decoded, minus what bcio spent waiting on the
+ * file ring (IPC_T_WAIT grows inside the round). Idle spins are not counted. */
+static void decode_round(void)
+{
+    uint32_t t0 = bt_now();
+    uint32_t w0 = CTRL[IPC_T_WAIT];
+    uint32_t cyc;
+
+    s_did_decode = 0;
+    decode_round_inner();
+    if (!s_did_decode)
+        return;
+    cyc = bt_since(t0) - (CTRL[IPC_T_WAIT] - w0);
+    if ((int32_t)cyc < 0)
+        cyc = 0;
+    CTRL[IPC_T_CYC] += cyc;
+    if (cyc > CTRL[IPC_T_DEC_MAX])
+        CTRL[IPC_T_DEC_MAX] = cyc;
 }
 
 /* Stream geometry the AP prescanned while pre-opening the file (BRNOMT-73):
@@ -315,6 +353,9 @@ void bb_reset(void)
 
     /* Register AFTER the .data/.bss copy (the hook lives in the codec's
      * statics, which that copy just zeroed). */
+    bt_init();
+    CTRL[IPC_T_PCM_MIN] = 0xFFFFFFFFu;
+    CTRL[IPC_T_FILE_MIN] = 0xFFFFFFFFu;
     flac_set_prescan_source(b_prescan_read);
     eq_bank_init(&s_eq, s_rate);
 

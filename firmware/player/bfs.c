@@ -45,6 +45,14 @@ static const uint16_t k_w[2][9] = {
 static const uint32_t k_base[2]  = { IPC_FILE_BASE,  IPC_FILE2_BASE };
 static const uint32_t k_bytes[2] = { IPC_FILE_BYTES, IPC_FILE2_BYTES };
 
+/* Telemetry (perf/core-b-hires): longest gap between two bfs_poll() calls
+ * (= how long Core B's file ring went unserviced) and the slowest single
+ * SD/eMMC read, both in ms since the last bfs_stats_take(). */
+static unsigned long (*s_clock)(void);  /* ms clock; NULL = no telemetry */
+static unsigned long s_last_poll;       /* 0 = no serviced file yet       */
+static unsigned long s_gap_max;
+static unsigned long s_rd_max;
+
 typedef struct {
     codec_io_t *io;
     int         slot;
@@ -156,7 +164,14 @@ static void poll_svc(bfs_svc_t *s)
         if (n > REFILL_CHUNK)
             n = REFILL_CHUNK;
 
-        got = cio_read(s->io, (void *)(uintptr_t)(ring_base + pos), (long)n);
+        {
+            unsigned long t0 = (s_clock != 0) ? s_clock() : 0;
+
+            got = cio_read(s->io, (void *)(uintptr_t)(ring_base + pos),
+                           (long)n);
+            if (s_clock != 0 && s_clock() - t0 > s_rd_max)
+                s_rd_max = s_clock() - t0;
+        }
         if (got < 0) {
             CTRL[w[W_OPEN]] = 0;        /* surface the error to B */
             dmb();
@@ -293,8 +308,30 @@ const char *bfs_preopen_path(void)
     return (s_pre_valid && s_pre.io != 0) ? s_pre_path : 0;
 }
 
+void bfs_set_clock(unsigned long (*ms)(void))
+{
+    s_clock = ms;
+}
+
+void bfs_stats_take(unsigned long *gap_max, unsigned long *rd_max)
+{
+    *gap_max = s_gap_max;
+    *rd_max = s_rd_max;
+    s_gap_max = 0;
+    s_rd_max = 0;
+}
+
 void bfs_poll(void)
 {
+    if (s_cur.io != 0 && s_clock != 0) {
+        unsigned long now = s_clock();
+
+        if (s_last_poll != 0 && now - s_last_poll > s_gap_max)
+            s_gap_max = now - s_last_poll;
+        s_last_poll = now;
+    } else {
+        s_last_poll = 0;
+    }
     poll_svc(&s_cur);
     poll_svc(&s_pre);
 }

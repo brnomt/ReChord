@@ -51,4 +51,11 @@ uint32_t bfs_read_pos(void);
  * logs which track it had pre-opened when the path does not match. */
 const char *bfs_preopen_path(void);
 
+/* Millisecond clock for the telemetry below (NULL = off; host tests). */
+void bfs_set_clock(unsigned long (*ms)(void));
+
+/* Telemetry: longest gap between bfs_poll() calls and slowest single file
+ * read (ms) since the previous call; resets both. */
+void bfs_stats_take(unsigned long *gap_max, unsigned long *rd_max);
+
 #endif /* RECHORD_BFS_H */

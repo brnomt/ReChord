@@ -45,6 +45,7 @@ static uint32_t s_preload_hash;
 /* BRNOMT-76: the EQ curve is cached so a curve chosen before playback is
  * re-published on every start/gapless handoff (B only reads it while it is
  * the decoder). */
+static unsigned long s_tel_t;      /* telemetry window start; 0 = rebase */
 static eq_curve_t g_eq;
 static int  g_eq_valid;
 
@@ -571,6 +572,7 @@ int ipc_b_start(const ipc_b_track_t *track, int fade_in)
     log_printf("ipc: prebuffer %ld frames",
                (long)(CTRL[IPC_SH_WR] - CTRL[IPC_SH_RD]) / 8);
     g_state = IPC_B_RUNNING;
+    s_tel_t = 0;                        /* counters restarted: re-baseline */
     return 0;
 }
 
@@ -656,10 +658,77 @@ void ipc_b_set_fade_ms(int ms)
     audio_output_set_fade_ms(ms);
 }
 
+/* ---- hi-res telemetry (perf/core-b-hires) ---------------------------------
+ * Every TEL_MS of playback, one log line says which stage of the audio path is
+ * short of time: AP ISR underruns, Core B load (decode vs waiting on the file
+ * ring), the lowest PCM/file ring fill, and how long the AP went without
+ * serving the file ring. Core B is assumed to run at 200 MHz. */
+#define TEL_MS 5000UL
+
+static uint32_t s_tel_und, s_tel_cyc, s_tel_wait, s_tel_frames, s_tel_stall;
+
+static void telemetry_rebase(void)
+{
+    unsigned long g, r;
+
+    bfs_set_clock(log_now_ms);
+    s_tel_t = log_now_ms();
+    s_tel_und = CTRL[IPC_SH_UNDERRUNS];
+    s_tel_cyc = CTRL[IPC_T_CYC];
+    s_tel_wait = CTRL[IPC_T_WAIT];
+    s_tel_frames = CTRL[IPC_T_FRAMES];
+    s_tel_stall = CTRL[IPC_C_BSTALL];
+    bfs_stats_take(&g, &r);
+}
+
+static void telemetry_tick(void)
+{
+    unsigned long now = log_now_ms();
+    unsigned long dt;
+    unsigned long gap, rd;
+    uint32_t cyc, wait, frames, pmin, fmin;
+
+    if (s_tel_t == 0) {                 /* first tick of this run: baseline */
+        telemetry_rebase();
+        return;
+    }
+    dt = now - s_tel_t;
+    if (dt < TEL_MS)
+        return;
+    cyc = CTRL[IPC_T_CYC] - s_tel_cyc;
+    wait = CTRL[IPC_T_WAIT] - s_tel_wait;
+    frames = CTRL[IPC_T_FRAMES] - s_tel_frames;
+    pmin = CTRL[IPC_T_PCM_MIN];
+    fmin = CTRL[IPC_T_FILE_MIN];
+    bfs_stats_take(&gap, &rd);
+    /* busy/wait are % of wall time (cycles / (200000 * ms)). */
+    log_printf("tel: %lums und+%u stall+%u frm %u busy %u wait %u "
+               "decmax %uus",
+               dt, (unsigned)(CTRL[IPC_SH_UNDERRUNS] - s_tel_und),
+               (unsigned)(CTRL[IPC_C_BSTALL] - s_tel_stall),
+               (unsigned)frames, (unsigned)(cyc / (200UL * dt)),
+               (unsigned)(wait / (200UL * dt)),
+               (unsigned)(CTRL[IPC_T_DEC_MAX] / 200u));
+    log_printf("tel: pcm_min %u fr file_min %u B ap_gap %lums sd_rd %lums",
+               (unsigned)(pmin == 0xFFFFFFFFu ? 0u : pmin),
+               (unsigned)(fmin == 0xFFFFFFFFu ? 0u : fmin), gap, rd);
+    s_tel_t = now;
+    s_tel_und = CTRL[IPC_SH_UNDERRUNS];
+    s_tel_cyc = CTRL[IPC_T_CYC];
+    s_tel_wait = CTRL[IPC_T_WAIT];
+    s_tel_frames = CTRL[IPC_T_FRAMES];
+    s_tel_stall = CTRL[IPC_C_BSTALL];
+}
+
 int ipc_b_poll_state(ipc_b_status_t *out)
 {
     if (g_state == IPC_B_STARTING)
         g_state = IPC_B_RUNNING;
+
+    if (g_state == IPC_B_RUNNING && s_b_decodes && !g_paused)
+        telemetry_tick();
+    else
+        s_tel_t = 0;
 
     /* Boundary timing (BRNOMT-73): this timestamp vs the following
      * "ipc: next" line is the AP's reaction + metadata-open cost. */

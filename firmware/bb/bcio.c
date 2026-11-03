@@ -20,6 +20,7 @@
 
 #include "codec_io.h"
 #include "ipc_shared.h"
+#include "bb_telem.h"
 
 #define CTRL ((volatile uint32_t *)IPC_SHARED_BASE)
 
@@ -65,6 +66,9 @@ static long bcio_read(void *ctx, void *buf, long len)
     uint8_t *d = (uint8_t *)buf;
     long got = 0;
     uint32_t spins = 0;
+    uint32_t w0 = 0;
+    int waiting = 0;
+    int first = 1;
 
     (void)ctx;
     if (buf == 0 || len <= 0)
@@ -76,7 +80,16 @@ static long bcio_read(void *ctx, void *buf, long len)
         uint32_t avail = wr - rd;
         uint32_t pos, n;
 
+        if (first) {                     /* telemetry: fill at read entry */
+            first = 0;
+            if (avail < CTRL[IPC_T_FILE_MIN])
+                CTRL[IPC_T_FILE_MIN] = avail;
+        }
         if (avail == 0u) {
+            if (!waiting) {
+                waiting = 1;
+                w0 = bt_now();
+            }
             /* End of file, or A stopped serving. */
             if (CTRL[s_w[W_EOF]] || !CTRL[s_w[W_OPEN]])
                 break;
@@ -93,6 +106,10 @@ static long bcio_read(void *ctx, void *buf, long len)
             continue;                   /* wait for the read-ahead */
         }
         spins = 0;
+        if (waiting) {                   /* data arrived: close the wait */
+            CTRL[IPC_T_WAIT] += bt_since(w0);
+            waiting = 0;
+        }
 
         n = avail;
         if ((uint32_t)(len - got) < n)
@@ -120,6 +137,8 @@ static long bcio_read(void *ctx, void *buf, long len)
         CTRL[s_w[W_RD]] = rd;            /* publish the consumed cursor */
         dmb();
     }
+    if (waiting)                         /* EOF / stall exit */
+        CTRL[IPC_T_WAIT] += bt_since(w0);
     return got;
 }
 

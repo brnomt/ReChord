@@ -113,7 +113,17 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_C_EQ_GEN   46u   /* AP: seqlock generation (even = stable)    */
 #define IPC_C_EQ_BASE  47u   /* AP: 10 packed band words (EQ_BANDS_MAX)   */
 
-#define IPC_SH_COUNT   57u
+/* ---- hi-res telemetry (perf/core-b-hires): B -> AP, read-only for the AP ----
+ * Monotonic counters (the AP logs deltas) except the two *_MIN/_MAX words,
+ * which B resets on OPEN. Cycles are Core B core-clock cycles (SysTick). */
+#define IPC_T_CYC      57u   /* B: cycles spent decoding (excl. file waits) */
+#define IPC_T_FRAMES   58u   /* B: frames written to the PCM ring           */
+#define IPC_T_DEC_MAX  59u   /* B: slowest decode round, cycles             */
+#define IPC_T_PCM_MIN  60u   /* B: lowest PCM-ring fill before a write, frames */
+#define IPC_T_FILE_MIN 61u   /* B: lowest file-ring fill at a read, bytes   */
+#define IPC_T_WAIT     62u   /* B: cycles spent waiting on the file ring    */
+
+#define IPC_SH_COUNT   63u
 
 #define IPC_SH_MAGIC_VAL  0x42524459u   /* 'BRDY' */
 
