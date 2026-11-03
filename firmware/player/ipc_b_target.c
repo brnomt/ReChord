@@ -929,12 +929,27 @@ int ipc_b_seek(long ms)
     if (s_preload_valid)
         return 0;
 
-    sh_set(IPC_SH_STATE, IPC_SH_IDLE);   /* stop B's production */
-    sh_set(IPC_SH_RD, 0);
-    sh_set(IPC_SH_WR, 0);
+    /* The PCM ring has one producer (B owns WR) and one consumer (the I2S ISR
+     * owns RD): the AP may only rewrite the indices while BOTH are parked.
+     * Zeroing them first, as this used to, raced a decode round already in
+     * flight on B: it finished with the stale WR (~MBs into the free-running
+     * counter) and published it, so WR-RD was far above the ring size. B then
+     * saw "plenty of free space" and overwrote audio the ISR had not played,
+     * and the ISR played stale data — the skipped samples and crackle after
+     * rewinding to the start of a song (the telemetry showed pcm_min in the
+     * millions of frames). So: mute the ISR, park B, and reset only after B
+     * has acknowledged the SEEK (it handles commands between rounds, so any
+     * round in flight has published by then). */
+    rknano_i2s_hold(1);
+    sh_set(IPC_SH_STATE, IPC_SH_IDLE);   /* no new decode round */
 
     (void)b_seek_now(ms);
+
+    sh_set(IPC_SH_RD, 0);
+    sh_set(IPC_SH_WR, 0);
     sh_set(IPC_SH_FRAMES, 0);
     sh_set(IPC_SH_STATE, g_paused ? IPC_SH_PAUSE : IPC_SH_RUN);
+    if (!g_paused)
+        rknano_i2s_hold(0);              /* a paused stream stays held */
     return 0;
 }
