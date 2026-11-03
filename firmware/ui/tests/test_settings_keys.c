@@ -83,7 +83,7 @@ static void test_defaults_and_format(void)
     CHECK_EQ_INT(s.repeat_mode, 0);      /* off */
     CHECK_EQ_INT(s.fade_ms, 300);        /* BRNOMT-67 default */
     CHECK_EQ_INT(s.replaygain_mode, 3);  /* BRNOMT-106: auto */
-    CHECK_STR_EQ(s.theme, "");           /* boot falls back to active_theme */
+    CHECK_STR_EQ(s.theme, "");           /* boot falls back to Mono */
 
     /* values format exactly like the config file writes them */
     settings_format(&setting_schema[0], &s, buf, (int)sizeof(buf));

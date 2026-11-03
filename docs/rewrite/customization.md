@@ -177,8 +177,9 @@ the package declares `home=skin`, its `skin=` file and every declared 1-bit
 asset are loaded from the same directory; the generic interpreter renders the
 home and no theme code is compiled in. A missing or malformed package falls
 back to `mono`, then to the built-in defaults — a bad file must never leave the
-UI with a broken theme. Configs without `theme=` keep using the legacy
-`/.rechord/active_theme`; Settings → Theme writes both files. Accepted palette
+UI with a broken theme. The choice lives only in `theme=` of `rechord.cfg`
+(no key boots Mono); the old `/.rechord/active_theme` file is no longer read or
+created and can be deleted. Accepted palette
 keys (case-insensitive, override style):
 
 ```

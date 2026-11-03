@@ -56,22 +56,6 @@ static int build_path(char *out, int cap, const char *root, const char *id)
     return (n > 0 && n < cap) ? 0 : -1;
 }
 
-static void trim(char *s)
-{
-    int len = (int)strlen(s);
-    int start = 0;
-
-    while (start < len && (s[start] == ' ' || s[start] == '\t' ||
-                           s[start] == '\r' || s[start] == '\n'))
-        start++;
-    while (len > start && (s[len - 1] == ' ' || s[len - 1] == '\t' ||
-                           s[len - 1] == '\r' || s[len - 1] == '\n'))
-        len--;
-    if (start > 0)
-        memmove(s, s + start, (size_t)(len - start));
-    s[len - start] = '\0';
-}
-
 static int read_text(const char *path, char *buf, unsigned cap)
 {
     FILE *f;
@@ -267,43 +251,12 @@ int theme_pkg_apply(const char *root, const char *id)
     return 0;
 }
 
-int theme_pkg_store(const char *active_path, const char *id)
+int theme_pkg_boot(const char *root, const char *id, const char *fallback_id)
 {
-    if (active_path == 0 || !valid_id(id))
-        return -1;
-
-#ifdef RECHORD_AP_BUILD
-    return fs_target_file_rewrite(active_path, id,
-                                  (uint32_t)strlen(id)) == FS_OK ? 0 : -1;
-#else
-    {
-        FILE *f = fopen(active_path, "w");
-        unsigned n = (unsigned)strlen(id);
-
-        if (f == 0)
-            return -1;
-        if (fwrite(id, 1, n, f) != n) {
-            fclose(f);
-            return -1;
-        }
-        fclose(f);
-        return 0;
-    }
-#endif
-}
-
-int theme_pkg_boot(const char *root, const char *active_path,
-                   const char *fallback_id)
-{
-    char id[THEME_PKG_ID_MAX];
     int applied = 0;
 
-    id[0] = '\0';
-    if (active_path != 0 && read_text(active_path, id, sizeof id) > 0) {
-        trim(id);
-        if (valid_id(id))
-            applied = (theme_pkg_apply(root, id) == 0);
-    }
+    if (valid_id(id))
+        applied = (theme_pkg_apply(root, id) == 0);
     if (!applied && valid_id(fallback_id))
         applied = (theme_pkg_apply(root, fallback_id) == 0);
     if (!applied) {

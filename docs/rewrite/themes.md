@@ -11,9 +11,8 @@
   loader (`theme_file.c`, key=value, partial overrides).
 - **Packages are live** (`theme_runtime.c`): `/.rechord/themes/<id>/theme.cfg`
   is enumerated, applied atomically (palette + layout + home renderer) and the
-  selection is persisted as `theme=<id>` in `/.rechord/rechord.cfg` (with the
-  pre-created `/.rechord/active_theme` kept as the fallback for configs that
-  predate the key). Settings → Theme cycles
+  selection is persisted as `theme=<id>` in `/.rechord/rechord.cfg` (a missing
+  key boots Mono). Settings → Theme cycles
   the installed packages at runtime; no reboot, no recompilation.
 - Screens never hardcode colors: they ask `theme_get()` through the
   `THEME_COLOR_*` macros (`firmware/ui/theme.h`), so a palette swap restyles
@@ -170,14 +169,13 @@ home adapter. Full guide: `docs/THEMING.md`.
    package.
 3. On success: palette + layout are committed together, the main skin text and
    assets are loaded from the package, the id is written as `theme=<id>` in
-   `/.rechord/rechord.cfg` (and mirrored to the legacy
-   `/.rechord/active_theme`), and the app inserts/removes the skin home so
+   `/.rechord/rechord.cfg`, and the app inserts/removes the skin home so
    `home=` takes effect without leaving Settings. The Settings screen reloads
    its own skin for the new package. `ui_invalidate_all()` repaints; audio is
    never touched. Other screen skins are loaded by their screens on entry, so
    a theme change is fully live.
-4. Boot: the cfg `theme=` id is applied; configs without it fall back to
-   `active_theme`, then to `mono`, then to the built-in palette/default layout.
+4. Boot: the cfg `theme=` id is applied; configs without it (or with a bad
+   id) fall back to `mono`, then to the built-in palette/default layout.
 5. Any failure anywhere → **built-in `Mono`**, never a blank screen.
 
 ## 8. Milestones
@@ -214,7 +212,7 @@ home adapter. Full guide: `docs/THEMING.md`.
   - `theme_runtime.{h,c}`: `theme_pkg_scan()` (fixed 16-entry table, sorted by
     id), `theme_pkg_apply()` (one manifest read; palette + layout validated
     together and committed atomically), `theme_pkg_boot()` (cfg `theme=` id →
-    legacy `active_theme` → `mono` → built-in defaults).
+    `mono` → built-in defaults).
   - Settings → Theme cycles **installed packages** (not compiled palettes),
     persists the selection and syncs the home screen under the open Settings
     screen (`ui_insert_screen`/`ui_remove_screen`).

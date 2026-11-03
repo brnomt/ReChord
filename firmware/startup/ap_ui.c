@@ -1744,22 +1744,16 @@ void ap_ui_loop(void)
     /* After ui_init(): the hook invalidates the Now Playing rows. */
     player_set_callback(player_state_changed, 0);
     ap_clock_init();     /* ms clock for the input hold ladder */
-    /* Active package: the cfg `theme=` id wins; older configs (no key) fall
-     * back to /.rechord/active_theme, then to Mono. Settings reload first
-     * because the id lives in rechord.cfg. */
+    /* Active package: the `theme=` id in rechord.cfg (empty = Mono). Settings
+     * reload first because the id lives there. */
     settings_screen_reload();
     {
         const char *theme_id = settings_screen_get()->theme;
-        int applied = 0;
 
-        if (theme_id[0] != '\0') {
-            applied = (theme_pkg_apply(RECHORD_THEMES_DIR, theme_id) == 0);
-            if (!applied)
-                log_printf("theme: cfg id '%s' rejected", theme_id);
-        }
-        if (!applied)
-            (void)theme_pkg_boot(RECHORD_THEMES_DIR, RECHORD_ACTIVE_THEME,
-                                 "mono");
+        if (theme_pkg_boot(RECHORD_THEMES_DIR, theme_id, "mono") != 0 ||
+            (theme_id[0] != '\0' &&
+             strcmp(theme_pkg_active_id(), theme_id) != 0))
+            log_printf("theme: cfg id '%s' rejected", theme_id);
     }
     log_printf("boot: %s theme '%s' home %d nav %d skin v%d '%s'", RC_BUILD,
                theme_pkg_active_id(), theme_layout()->home,

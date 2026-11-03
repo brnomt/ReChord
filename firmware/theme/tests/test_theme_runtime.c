@@ -65,7 +65,7 @@ static int write_file(const char *path, const char *text)
 int main(void)
 {
     char tmp[] = "/tmp/rechord_theme_XXXXXX";
-    char root[256], path[320], active[256];
+    char root[256], path[320];
     theme_pkg_info_t infos[THEME_PKG_MAX];
     int n;
 
@@ -74,7 +74,6 @@ int main(void)
     CHECK(mkdtemp(tmp) != 0);
     snprintf(root, sizeof root, "%s/themes", tmp);
     CHECK(mkdir(root, 0700) == 0);
-    snprintf(active, sizeof active, "%s/active_theme", tmp);
 
     snprintf(path, sizeof path, "%s/mono", root);
     CHECK(mkdir(path, 0700) == 0);
@@ -145,25 +144,21 @@ int main(void)
     CHECK(theme_pkg_apply(root, "missing") != 0);
     CHECK(theme_pkg_apply(root, "") != 0);
 
-    /* 5. persistence + boot loads the stored package (newline trimmed). */
-    CHECK(theme_pkg_store(active, "companion-bot") == 0);
+    /* 5. boot applies the configured id. */
     theme_layout_reset();
-    CHECK(theme_pkg_boot(root, active, "mono") == 0);
+    CHECK(theme_pkg_boot(root, "companion-bot", "mono") == 0);
     CHECK(theme_layout()->home == THEME_HOME_SKIN);
     CHECK(strcmp(theme_pkg_active_id(), "companion-bot") == 0);
 
-    /* 6. a missing active file falls back to the requested default. */
-    snprintf(path, sizeof path, "%s/does-not-exist", tmp);
+    /* 6. no id (fresh config) falls back to the requested default. */
     theme_layout_reset();
-    CHECK(theme_pkg_boot(root, path, "mono") == 0);
+    CHECK(theme_pkg_boot(root, "", "mono") == 0);
     CHECK(theme_layout()->home == THEME_HOME_MENU);
     CHECK(strcmp(theme_pkg_active_id(), "mono") == 0);
 
-    /* 7. an unknown stored id also falls back. */
-    CHECK(theme_pkg_store(active, "mono") == 0);
-    CHECK(write_file(active, "ghost\n") == 0);
+    /* 7. an unknown id also falls back. */
     theme_layout_reset();
-    CHECK(theme_pkg_boot(root, active, "mono") == 0);
+    CHECK(theme_pkg_boot(root, "ghost", "mono") == 0);
     CHECK(strcmp(theme_pkg_active_id(), "mono") == 0);
 
     /* cleanup */
@@ -175,7 +170,6 @@ int main(void)
     snprintf(path, sizeof path, "%s/broken/theme.cfg", root); unlink(path);
     snprintf(path, sizeof path, "%s/broken", root); rmdir(path);
     rmdir(root);
-    unlink(active);
     rmdir(tmp);
 
     printf("%d checks, %d failures\n", checks, fails);

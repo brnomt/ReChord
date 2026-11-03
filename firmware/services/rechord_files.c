@@ -135,7 +135,6 @@ int rechord_files_init(void)
      * firmware embeds no theme content. Best effort: a full volume must not
      * fail the boot. */
     (void)fs_target_mkdir(RECHORD_THEMES_DIR);
-    (void)fs_ensure_file(RECHORD_ACTIVE_THEME, 64u, "mono\n");
 
     /* EQ (BRNOMT-76): active curve + five writable custom slots. All are
      * preallocated so the in-place rewrite path never has to grow a cluster.

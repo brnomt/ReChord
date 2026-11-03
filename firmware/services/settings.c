@@ -45,7 +45,7 @@ void settings_defaults(settings_t *s)
     memcpy(s->shuffle, "off", 3);
     memcpy(s->repeat_mode, "off", 3);
     memcpy(s->fade, "300", 3);   /* BRNOMT-67: 150/300/500 ms, off=0 */
-    s->theme[0] = '\0';          /* empty: boot falls back to active_theme */
+    s->theme[0] = '\0';          /* empty: boot uses Mono */
     memcpy(s->replaygain, "auto", 5);   /* BRNOMT-106: off/track/album/auto */
     memcpy(s->vol_orient, "normal", 7); /* BRNOMT-107: normal/swapped */
     memcpy(s->hold_vol, "skip", 5);     /* BRNOMT-107: skip/seek */

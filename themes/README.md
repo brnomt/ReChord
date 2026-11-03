@@ -20,8 +20,7 @@ engine) and reads everything from `/.rechord/themes/<theme_id>/`.
 
 Copy the whole directory to `/.rechord/themes/<id>/` (e.g. over USB storage),
 then choose it in **Settings → Theme**. The choice is written as `theme=<id>` in
-`/.rechord/rechord.cfg`; `/.rechord/active_theme` is the legacy fallback for
-configs without that key. No recompilation and no reboot are needed.
+`/.rechord/rechord.cfg`. No recompilation and no reboot are needed.
 
 The repository ships authoring copies under `themes/`; the firmware does not
 create them (no theme content is embedded in the binary).

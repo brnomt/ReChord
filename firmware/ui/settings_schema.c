@@ -180,7 +180,7 @@ void settings_view_defaults(rechord_settings_t *s)
     s->shuffle = 0;        /* off */
     s->repeat_mode = 0;    /* off */
     s->fade_ms = 300;      /* BRNOMT-67: 300 ms play/pause fade */
-    s->theme[0] = '\0';    /* no explicit choice: boot uses active_theme  */
+    s->theme[0] = '\0';    /* no explicit choice: boot uses Mono */
     s->replaygain_mode = 3; /* BRNOMT-106: auto (shuffle->track, album->album) */
     s->vol_orient = VOL_ORIENT_NORMAL;
     s->hold_vol = HOLD_VOL_SKIP;

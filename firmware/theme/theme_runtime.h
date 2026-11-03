@@ -34,15 +34,10 @@ int theme_pkg_scan(const char *root, theme_pkg_info_t *out, int max);
  * active theme/layout are then untouched). */
 int theme_pkg_apply(const char *root, const char *id);
 
-/* Persist the selection into an existing, pre-created file (the device only
- * rewrites files it created; see fs_target_file_rewrite()). */
-int theme_pkg_store(const char *active_path, const char *id);
-
-/* Boot entry: read the active id, apply its package, fall back to
- * `fallback_id`, and finally to the built-in Mono theme. Returns 0 when a
- * package was applied. */
-int theme_pkg_boot(const char *root, const char *active_path,
-                   const char *fallback_id);
+/* Boot entry: apply package `id` (the cfg `theme=` value; NULL or "" = none),
+ * fall back to `fallback_id`, and finally to the built-in Mono theme. Returns
+ * 0 when a package was applied. */
+int theme_pkg_boot(const char *root, const char *id, const char *fallback_id);
 
 /* id currently applied (empty when the built-in fallback is active). */
 const char *theme_pkg_active_id(void);

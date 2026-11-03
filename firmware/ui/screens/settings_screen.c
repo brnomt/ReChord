@@ -175,8 +175,7 @@ void settings_screen_set_theme_applied(void (*cb)(void))
 
 /* BRNOMT-69: cycle the installed packages (not just the compiled palettes).
  * A package is applied atomically (palette + layout + home renderer). The
- * choice is written to RECHORD.CFG like every other visible setting (and to
- * active_theme as the boot fallback for older configs), then the app syncs
+ * choice is written to RECHORD.CFG like every other visible setting, then the app syncs
  * the home screen that the new package declares. */
 static void on_select_theme(void)
 {
@@ -203,7 +202,6 @@ static void on_select_theme(void)
             log_printf("theme: apply '%s' failed", themes[idx].id);
             continue;                 /* broken package: try the next one */
         }
-        (void)theme_pkg_store(RECHORD_ACTIVE_THEME, themes[idx].id);
         snprintf(s_settings.theme, sizeof s_settings.theme, "%s",
                  themes[idx].id);
         settings_screen_store();

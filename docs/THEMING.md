@@ -25,7 +25,7 @@ The reference theme is `themes/companion-bot/`.
 ## 1. Lifecycle
 
 1. **Boot**: `ap_ui_loop()` reads `theme=<id>` from `/.rechord/rechord.cfg`.
-   If the key is absent, it reads the legacy `/.rechord/active_theme`.
+   If the key is absent or names a broken package, Mono is used.
 2. `theme_pkg_apply()` reads `theme.cfg` **once**, parses palette + layout into
    scratch structs, validates both, and only then commits them together.
 3. If the package declares `home=skin`, the `skin=` file and every declared

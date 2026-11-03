@@ -13,9 +13,6 @@
 #define RECHORD_LOG     "/Internal/.rechord/LOG"
 /* Installable theme packages (BRNOMT-69): materialized on first boot. */
 #define RECHORD_THEMES_DIR "/Internal/.rechord/themes"
-/* Active package id (directory name under RECHORD_THEMES_DIR). Rewritten in
- * place when the user picks a theme in Settings. */
-#define RECHORD_ACTIVE_THEME "/Internal/.rechord/active_theme"
 /* Precomputed album art (tools/artpack). Built on the PC; the firmware only
  * ever reads it (services/art_pack.c). */
 #define ARTPACK_PATH "/Internal/.rechord/ARTPACK.BIN"
