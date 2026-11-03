@@ -115,9 +115,9 @@ static int test_id3v2_txxx(void)
     put_id3v2_header(blob, 3);
     n = 10;
     n = append_txxx(blob, n, "REPLAYGAIN_TRACK_GAIN", "-3.0 dB");
-    n = append_txxx(blob, n, "REPLAYGAIN_TRACK_PEAK", "0.5");
+    n = append_txxx(blob, n, "REPLAYGAIN_TRACK_PEAK", "0.500000");   /* 6 decimals: real taggers */
     n = append_txxx(blob, n, "REPLAYGAIN_ALBUM_GAIN", "-1.5 dB");
-    n = append_txxx(blob, n, "REPLAYGAIN_ALBUM_PEAK", "0.25");
+    n = append_txxx(blob, n, "REPLAYGAIN_ALBUM_PEAK", "0.250000");
     put_synchsafe(blob + 6, (unsigned int)(n - 10));   /* tag payload size */
 
     if (write_blob("/tmp/rechord_tags_id3.bin", blob, n) != 0)
@@ -335,7 +335,7 @@ static int test_vorbis_comments(void)
     n = vorbis_entry(blob, n, "GENRE=Synthpop");
     n = vorbis_entry(blob, n, "TRACKNUMBER=3/8");
     n = vorbis_entry(blob, n, "REPLAYGAIN_TRACK_GAIN=-6.0 dB");
-    n = vorbis_entry(blob, n, "REPLAYGAIN_TRACK_PEAK=0.75");
+    n = vorbis_entry(blob, n, "REPLAYGAIN_TRACK_PEAK=0.750000");
     n = vorbis_entry(blob, n, "REPLAYGAIN_ALBUM_GAIN=-3.0 dB");
     /* (album peak omitted -> stays 0) */
 

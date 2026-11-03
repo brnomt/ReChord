@@ -134,28 +134,40 @@ static int parse_db10(const char *s, int *out)
     return 0;
 }
 
-/* Parse a 0.0..1.0 float into Q1.15 (0..32767). */
+/* Parse a 0.0..1.0 float into Q1.15 (0..32767).
+ *
+ * `long` is 32 bits on the Cortex-M3: "0.988525" (the usual 6 decimals) made
+ * frac * 32767 overflow, so the peak came out as 0 ("no peak") or garbage and
+ * the peak limiter never worked on device (host longs are 64-bit, so the host
+ * tests could not see it). Keep at most 6 decimals and multiply in 64 bits. */
 static int parse_peak_q15(const char *s, int *out)
 {
     long intpart = 0;
     long frac = 0;
-    int ndec = 0;
-    long scale;
-    long v;
+    long scale = 1;
+    int64_t v;
 
     while (*s == ' ' || *s == '\t' || *s == '"')
         s++;
     if (*s == '-') s++;
     else if (*s == '+') s++;
-    while (*s >= '0' && *s <= '9') { intpart = intpart * 10 + (*s - '0'); s++; }
+    while (*s >= '0' && *s <= '9') {
+        if (intpart < 100)              /* peak >= 100 is nonsense; clamp */
+            intpart = intpart * 10 + (*s - '0');
+        s++;
+    }
     if (*s == '.') {
         s++;
-        while (*s >= '0' && *s <= '9') { frac = frac * 10 + (*s - '0'); ndec++; s++; }
+        while (*s >= '0' && *s <= '9') {
+            if (scale < 1000000L) {     /* first 6 decimals are plenty */
+                frac = frac * 10 + (*s - '0');
+                scale *= 10;
+            }
+            s++;
+        }
     }
-    scale = 1;
-    while (ndec > 0) { scale *= 10; ndec--; }
     /* peak is in [0,1]; map intpart.frac -> Q1.15 = val*32767, clamped. */
-    v = intpart * 32767 + (long)(frac * 32767) / scale;
+    v = (int64_t)intpart * 32767 + (int64_t)frac * 32767 / scale;
     if (v < 0) v = 0;
     if (v > 32767) v = 32767;
     *out = (int)v;
