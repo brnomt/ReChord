@@ -321,6 +321,40 @@ static void test_retune_continuity(eq_bank_state_t *st)
           "gain-only retune keeps the filter history (no jump)");
 }
 
+/* The block path (band-major) must equal the frame-at-a-time path (one frame
+ * per call = sample-major). Loud, boosted, 96 kHz so the soft knee and the
+ * saturation both run. */
+static void test_block_equals_frames(void)
+{
+    static int32_t a[NSAMP], b[NSAMP];
+    eq_bank_state_t sa, sb;
+    eq_curve_t c;
+    static const int16_t g[10] = { 90, 30, 0, 0, -10, -10, 0, 20, 40, 40 };
+    unsigned seed = 12345u;
+    int i, diff = 0;
+
+    curve_flat10(&c);
+    for (i = 0; i < 10; i++)
+        c.band[i].gain_tdb = g[i];
+    for (i = 0; i < NSAMP; i++) {
+        seed = seed * 1664525u + 1013904223u;
+        a[i] = b[i] = (int32_t)(seed & 0xFFFFFF00u) >> 1;   /* loud noise */
+    }
+
+    eq_bank_init(&sa, 96000);
+    eq_bank_init(&sb, 96000);
+    eq_bank_apply(&sa, &c);
+    eq_bank_apply(&sb, &c);
+
+    eq_bank_process(&sa, a, NSAMP);
+    for (i = 0; i < NFRAMES; i++)
+        eq_bank_process(&sb, b + 2 * i, 2);
+
+    for (i = 0; i < NSAMP; i++)
+        diff += (a[i] != b[i]);
+    CHECK(diff == 0, "block == frame-at-a-time (bit-exact, 96k boosted)");
+}
+
 int main(void)
 {
     eq_bank_state_t st;
@@ -339,6 +373,7 @@ int main(void)
     test_nyquist_skip(&st);
     test_atomic_reject(&st);
     test_retune_continuity(&st);
+    test_block_equals_frames();
 
     printf("\n%s (%d failure%s)\n",
            failures == 0 ? "ALL EQ BANK TESTS PASSED" : "FAILURES",

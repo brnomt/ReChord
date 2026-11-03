@@ -274,10 +274,49 @@ void eq_bank_reset(eq_bank_state_t *st)
     }
 }
 
+/* One band over one channel of an interleaved stereo block (stride 2). The
+ * coefficients and the four history words live in locals for the whole block,
+ * and a1/a2 are negated up front so every term is a multiply-accumulate
+ * (SMLAL) instead of a multiply-subtract. Bit-identical to biquad_run(): same
+ * 64-bit accumulate, same >>30 and same saturation. */
+static void band_block(Biquad *f, int32_t *p, int frames)
+{
+    const int32_t b0 = f->b0, b1 = f->b1, b2 = f->b2;
+    const int32_t na1 = -f->a1, na2 = -f->a2;   /* coeffs are clamped, no wrap */
+    int32_t x1 = f->x1, x2 = f->x2, y1 = f->y1, y2 = f->y2;
+
+    while (frames-- > 0) {
+        int32_t x = *p;
+        int64_t acc = (int64_t)b0 * x;
+        int64_t t;
+        int32_t y;
+
+        acc += (int64_t)b1 * x1;
+        acc += (int64_t)b2 * x2;
+        acc += (int64_t)na1 * y1;
+        acc += (int64_t)na2 * y2;
+        t = acc >> 30;
+        if (t > 2147483647LL)
+            t = 2147483647LL;
+        else if (t < -2147483647LL)
+            t = -2147483647LL;
+        y = (int32_t)t;
+        x2 = x1; x1 = x;
+        y2 = y1; y1 = y;
+        *p = y;
+        p += 2;
+    }
+    f->x1 = x1; f->x2 = x2; f->y1 = y1; f->y2 = y2;
+}
+
+/* Band-major: each active band runs over the whole block before the next one.
+ * The bands form a causal cascade per channel, so this gives the same samples
+ * as running every band per sample, but keeps a band's state in registers
+ * instead of reloading nine words from RAM for every sample. */
 void eq_bank_process(eq_bank_state_t *st, int32_t *pcm, int n)
 {
     eq_bank_impl_t *s;
-    int ch, b, i;
+    int ch, b, i, frames;
 
     if (st == 0 || pcm == 0 || n <= 0)
         return;
@@ -286,17 +325,22 @@ void eq_bank_process(eq_bank_state_t *st, int32_t *pcm, int n)
     if (!s->curve.enabled || s->curve.count == 0)
         return;
 
+    frames = n / EQ_BANK_CHANNELS;
     for (ch = 0; ch < EQ_BANK_CHANNELS; ch++) {
         Biquad *bands = s->bank[ch];
+        int32_t *p = pcm + ch;
 
-        for (i = ch; i < n; i += EQ_BANK_CHANNELS) {
-            int64_t y = ((int64_t)pcm[i] * s->pre_scale) >> 30;
-
-            for (b = 0; b < s->curve.count; b++) {
-                if (s->band_active[b])
-                    y = biquad_run(&bands[b], (int32_t)y);
-            }
-            pcm[i] = s->boosting ? soft_knee((int32_t)y) : (int32_t)y;
+        for (i = 0; i < frames; i++)
+            p[i * EQ_BANK_CHANNELS] = (int32_t)(
+                ((int64_t)p[i * EQ_BANK_CHANNELS] * s->pre_scale) >> 30);
+        for (b = 0; b < s->curve.count; b++) {
+            if (s->band_active[b])
+                band_block(&bands[b], p, frames);
+        }
+        if (s->boosting) {
+            for (i = 0; i < frames; i++)
+                p[i * EQ_BANK_CHANNELS] =
+                    soft_knee(p[i * EQ_BANK_CHANNELS]);
         }
     }
 }

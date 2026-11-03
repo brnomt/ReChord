@@ -701,17 +701,21 @@ static void telemetry_tick(void)
     pmin = CTRL[IPC_T_PCM_MIN];
     fmin = CTRL[IPC_T_FILE_MIN];
     bfs_stats_take(&gap, &rd);
-    /* busy/wait are % of wall time (cycles / (200000 * ms)). */
+    /* busy/wait are % of wall time: cycles / (200e6 * s / 100) = cyc / (2000 * ms). */
     log_printf("tel: %lums und+%u stall+%u frm %u busy %u wait %u "
                "decmax %uus",
                dt, (unsigned)(CTRL[IPC_SH_UNDERRUNS] - s_tel_und),
                (unsigned)(CTRL[IPC_C_BSTALL] - s_tel_stall),
-               (unsigned)frames, (unsigned)(cyc / (200UL * dt)),
-               (unsigned)(wait / (200UL * dt)),
+               (unsigned)frames, (unsigned)(cyc / (2000UL * dt)),
+               (unsigned)(wait / (2000UL * dt)),
                (unsigned)(CTRL[IPC_T_DEC_MAX] / 200u));
     log_printf("tel: pcm_min %u fr file_min %u B ap_gap %lums sd_rd %lums",
                (unsigned)(pmin == 0xFFFFFFFFu ? 0u : pmin),
                (unsigned)(fmin == 0xFFFFFFFFu ? 0u : fmin), gap, rd);
+    /* Per-window extremes: B restarts them (a lost race costs one sample). */
+    CTRL[IPC_T_DEC_MAX] = 0;
+    CTRL[IPC_T_PCM_MIN] = 0xFFFFFFFFu;
+    CTRL[IPC_T_FILE_MIN] = 0xFFFFFFFFu;
     s_tel_t = now;
     s_tel_und = CTRL[IPC_SH_UNDERRUNS];
     s_tel_cyc = CTRL[IPC_T_CYC];
