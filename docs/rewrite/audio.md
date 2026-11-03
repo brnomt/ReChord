@@ -260,6 +260,7 @@ firmware/player/
    is `replaygain=off|track|album|auto` in `rechord.cfg`, under
    Settings > Playback (BRNOMT-106).
 5. Warm reboot / high-speed USB — polish, not blocking audio.
+6. 192 kHz (FLAC block 16384) and 384 kHz — see `docs/STATUS.md`.
 
 ## 6. Modular pipeline refactor (2026-10-16)
 
@@ -341,3 +342,50 @@ audio/audio_output.c    -- audio_output_t controller: format coordination
   goes to none. While audio is routed to Bluetooth (or for 500 ms after a
   route change) the sense pins read wrong, so the app skips the sample then.
   Pins and mapping come from EchoPod's hardware map on the same player.
+
+## 7. Playback telemetry (2026-11-03)
+
+While a track plays on Core B, `ipc_b_poll_state()` logs two lines every 5 s
+(`telemetry_tick`, `ipc_b_target.c`). They say which stage of the audio path is
+short of time, so a stutter report can be read from `/.rechord/LOG` instead of
+guessed at:
+
+```
+tel: 5000ms und+0 stall+0 frm 478208 busy 28 wait 1 decmax 24215us
+tel: pcm_min 1988 fr file_min 0 B ap_gap 119ms sd_rd 4ms
+```
+
+| Field | Meaning | Healthy |
+|---|---|---|
+| `und+N` | AP I2S ISR found the PCM ring empty (`IPC_SH_UNDERRUNS`) | 0 |
+| `stall+N` | Core B gave up on a file-ring read (`IPC_C_BSTALL`) | 0 |
+| `frm` | frames Core B wrote in the window | ≈ rate × 5 s |
+| `busy` | % of wall time Core B spent decoding (cycles via its own SysTick, assumes 200 MHz) | well under 100 |
+| `wait` | % of wall time Core B waited on the file ring | ~0 |
+| `decmax` | slowest decode round in µs (a 1024-frame chunk lasts 10 667 µs at 96k) | below the chunk time; a one-off spike at track start is the EQ curve being designed |
+| `pcm_min` | lowest PCM-ring fill before a write, in frames (ring = 8192) | far from 0, never above 8192 |
+| `file_min` | lowest file-ring fill at a read, bytes (ring = 32 KiB) | > 0 |
+| `ap_gap` | longest time the AP went without calling `bfs_poll()` | below the file-ring cover (~85 ms at 24/96) |
+| `sd_rd` | slowest single SD/eMMC read | ~5 ms |
+
+The counters live in `IPC_T_*` words of the shared block (B writes, the AP only
+reads; the per-window extremes are restarted by the AP after each log).
+
+Reading it: high `busy` with `frm` below the sample rate means Core B is too
+slow (the EQ case); high `wait` / low `file_min` with a large `ap_gap` means
+the AP loop starves the file ring; underruns with healthy minima point at the
+I2S interrupt. A `pcm_min` in the millions means the ring indices have
+desynchronised (see §8).
+
+## 8. Seek and the PCM ring indices
+
+The PCM ring has one producer (Core B owns `IPC_SH_WR`) and one consumer (the AP
+I2S ISR owns `IPC_SH_RD`). The AP may only rewrite the indices while both are
+parked. `ipc_b_seek()` therefore mutes the ISR (`rknano_i2s_hold`), sets the
+state to IDLE, sends SEEK and waits for B's ack (B handles commands between
+decode rounds, so a round in flight has published), and only then zeroes
+RD/WR/FRAMES and resumes. Zeroing them first raced a round already in flight:
+B published its stale WR, WR − RD ended up far above the ring size, B thought the
+ring was empty and overwrote unplayed audio, and the ISR played stale data until
+the track changed (skipped samples and crackle after rewinding to the start of a
+song; `pcm_min` was in the millions in the log).

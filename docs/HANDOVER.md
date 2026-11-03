@@ -5168,3 +5168,27 @@ paquete 808); theme suite verde.
 
 **Build.** `make cfw-ap` PASS; `.bss_end 0x03049B74` (1,164 B bajo el techo
 `0x0304A000`). Sin empaquetar ni flashear.
+
+## CQ. Session 2026-11-03 — Hi-res 96 kHz + EQ, seek race, System under Settings
+
+- **96 kHz stutter with the EQ on = Core B CPU.** Telemetry (`tel:` log lines,
+  `docs/rewrite/audio.md` §7) showed Core B at ~100 % and only ~84k of 96k
+  frames/s with the EDM curve; the AP, file ring and SD were fine. Fix:
+  `eq_bank_process` band-major (`docs/rewrite/eq.md` §2), bit-identical output.
+  Verified on device: 24/96 *The End* with the oscilloscope theme and the EQ on
+  plays clean, but Core B sits at ~86 % (28 % with the EQ off): a 10-active-band
+  curve would likely underrun. Next: Core B `-O2`, wait-state check.
+- **Rewind-to-start crackle (old bug).** `ipc_b_seek` reset the PCM ring
+  indices while Core B could be mid-round; fixed by parking the ISR and B first
+  (`audio.md` §8). Verified on device.
+- **System page moved under Settings → System** (last row of the category list,
+  every theme); the skinned homes keep three entries. The skin engine's
+  `system` action and the fourth home item added by the incremental-index commit
+  were reverted. Update/Rebuild index live there.
+- **`/.rechord/active_theme` removed.** The theme is only `theme=<id>` in
+  `rechord.cfg`; no key boots Mono. The old file on a device is unused.
+- **Device themes are copies.** The skins on the device (`/.rechord/themes/`)
+  are not part of the firmware image; copy the repo's `themes/` over them after
+  a skin change.
+- **Index rebuild** failed once after the v4 bump and worked on a later build;
+  cause not identified (no log line was captured). A scratch-busy exit now logs.

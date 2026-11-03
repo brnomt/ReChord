@@ -33,16 +33,21 @@ plays audio on hardware:
   serves the track bytes over the A→B file rings (`bfs`) and drains the PCM ring
   in its I2S TX ISR. Verified: 16/44.1 and 24-bit 88.2/96 kHz clean. Note that
   **96 kHz halves every time budget** (64 KiB PCM ring ≈ 74 ms of cover, TX-FIFO
-  refill margin ≈ 0.15 ms) — occasional crackles on 96k material are still being
-  chased.
+  refill margin ≈ 0.15 ms). The 96k stutter with the EQ on (2026-11-03) was Core B
+  running out of CPU, not the AP: with the EDM curve Core B sat at ~100 % and made
+  ~84k of the 96k frames/s (≈51 ISR underruns per 5 s). `eq_bank_process` now runs
+  band-major: measured ~86 % Core B load at 96k with the 7-band EDM curve (28 %
+  with the EQ off), clean on device. A 10-active-band curve would not fit
+  (extrapolated ~110 %); see `docs/rewrite/eq.md` §2.
 - **UI/library**: menus, browser, iterative media index (depth-capped, one
   scratch claim), Album/Artist/Genre/Year/Label/Album Artist/Composer, All
   Songs; Now Playing shows bit depth/rate (`16/44.1kHz`), the list position
   (`i/N`) and the repeat/shuffle mode (`R:one`, ` S`). Names sort
   **case-insensitively** and paths are stored whole up to **208 chars**. The
-  index format is **v3** (BRNOMT-92: global CRC covering the header, strict
-  UTF-8 text, dual `INDEX.A`/`INDEX.B` slots) — an index built by an older
-  firmware is ignored, so **rebuild it once from the menu** after flashing.
+  index format is **v4** (BRNOMT-92 CRC/dual slots, plus per-track size+mtime for
+  incremental updates) — an index built by an older firmware is ignored, so
+  **rebuild it once** (Settings → System → Rebuild index) after flashing; later,
+  **Update index** only reads new or changed files.
 - **Playback lists**: album/genre/folder queue with Rockbox-style shuffle and
   repeat off/all/one (config keys `shuffle`, `repeat_mode`; 16-key schema +
   theme/controls, 19 cfg keys), applied to the player immediately and preserved
@@ -168,7 +173,7 @@ plays audio on hardware:
   at runtime from `/Internal/.rechord/eq*` (no recompilation). The AP publishes
   the curve over the shared block; Settings → Playback → Equalizer edits it.
   Contract, format and budgets: `docs/rewrite/eq.md`.
-- **Open**: 96k margins (above), 192 kHz / FLAC block 16384 (~143 KB window),
+- **Open**: 192 kHz / FLAC block 16384 (~143 KB window),
   384 kHz, and EQ skin support (the EQ screens use the compiled layout).
 - **History**: everything below is dated notes from the reverse-engineering and
   bring-up phases; kept for provenance (some statements are superseded).

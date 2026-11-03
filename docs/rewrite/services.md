@@ -31,7 +31,7 @@ firmware/services/
 ├── library_extras.c          favorites + recently played + play counts
 │                             (path hashes, no index dependency)
 ├── store.h / store.c         raw-sector store (in-place file rewrites)
-├── media_db.h / media_db.c   media index (v3: dual A/B slots + CRC commit)
+├── media_db.h / media_db.c   media index (v4: dual A/B slots + CRC commit, size/mtime)
 ├── media_scan.c              iterative directory walk (depth-capped)
 ├── media_query.c             sorted category/All Songs queries (case-insensitive)
 ├── settings_store.c          settings <-> on-disk persistence glue

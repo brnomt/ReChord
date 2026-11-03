@@ -55,9 +55,23 @@ State: `eq_bank_state_t` is an opaque, 8-byte-aligned 896-byte buffer holding
 `Biquad[2][10]` plus the active curve (~800 B used), statically allocated in
 Core B. No heap.
 
-Cost: 10 biquads × 2 channels ≈ 7–9 % of Core B at 44.1 kHz, 15–18 % at
-96 kHz. If `IPC_SH_UNDERRUNS` starts moving, process the block in 256-frame
-chunks (the engine is stateless per call).
+Cost, measured on device (2026-11-03, 24-bit 96 kHz, EDM curve = 7 active
+bands): the first implementation ran the whole cascade per sample through an
+out-of-line 64-bit `biquad_run()` (~130 cycles per band-sample) and took Core B
+to ~100 % — only ~84k of the 96k frames/s were produced and the AP ISR counted
+~51 underruns per 5 s. `eq_bank_process` is now **band-major**: each active band
+runs over the whole block with its coefficients and history in registers
+(`band_block()`, one `smull` + four `smlal` per sample, a1/a2 negated so every
+term accumulates). The output is bit-identical to the old per-sample loop
+(`test_eq_bank` checks block == frame-at-a-time; a one-off comparison over
+19.6 MB at 44.1/48/96 kHz matched byte for byte). Measured Core B load at 96 kHz
+(device log, 7 active bands): **86 %** with the EQ on, 28 % with it off, so the
+EQ still costs ~86 cycles per band-sample (more than the instruction count
+suggests; Core B code runs from HIGHRAM, wait states not yet measured). That is
+clean on device but thin: ten active bands extrapolate to ~110 % and would
+underrun again. Next levers, in order: build Core B with `-O2`, check
+instruction-fetch wait states, replace the soft-knee division. Remaining per-sample cost outside the biquads is the soft knee
+(`__aeabi_ldivmod`, only above 0.8 FS while boosting).
 
 ## 3. IPC — `firmware/player/eq_ipc.h`
 

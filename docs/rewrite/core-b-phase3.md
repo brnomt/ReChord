@@ -198,5 +198,6 @@ depth); a format change stays a hard boundary because the DAC must re-lock.
   list changed under us), `ipc_b_next()` returns -1 and the caller takes the hard
   path instead of playing the wrong file.
 - **96 kHz.** Every budget above halves at 96k (PCM cover ≈ 74 ms, TX-FIFO
-  refill margin ≈ 0.15 ms), so the boundary and the feeder are tight there —
-  tracked separately in HANDOVER/STATUS.
+  refill margin ≈ 0.15 ms), so the boundary and the feeder are tight there. The
+  96k stutter with the EQ on turned out to be Core B's CPU (see `eq.md` §2), not
+  the feeder; the telemetry in `audio.md` §7 shows which stage is short.

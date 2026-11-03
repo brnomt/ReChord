@@ -20,8 +20,8 @@ byte-mod of the stock binary.
 > Track-to-track **gapless works within one format** (same rate / channels /
 > depth); a format change stays a **hard boundary by design**, because the DAC
 > has to re-lock (an album that mixes rates, e.g. 96k and 44.1k, will show a
-> short pause there). Still open: the 192 kHz edge case (FLAC max_block 16384
-> needs a ~143 KB decode window) and the DSP chain. Driver/hardware changes must
+> short pause there). 24-bit 88.2/96 kHz plays clean with the EQ on. Still open:
+> the 192 kHz edge case (FLAC max_block 16384 needs a ~143 KB decode window). Driver/hardware changes must
 > be verified on physical hardware before merge.
 
 ## What works today
@@ -39,8 +39,9 @@ byte-mod of the stock binary.
   bring-up and feeds the CS43131 from a shared PCM ring.
 - **Hi-res** — int32 left-justified end-to-end, source bit depth reported to the
   DAC; 24-bit at 44.1/48/88.2/96 kHz verified on device.
-- **Library** — recursive media index (v3, dual `INDEX.A`/`INDEX.B` slots with a
-  CRC-checked commit) with Album / Artist / Genre / Year / Label / Album Artist
+- **Library** — recursive media index (v4, dual `INDEX.A`/`INDEX.B` slots with a
+  CRC-checked commit; **Settings → System → Update index** only reads new or
+  changed files, **Rebuild index** re-reads everything) with Album / Artist / Genre / Year / Label / Album Artist
   / Composer and **All Songs**; names sort case-insensitively, paths up to 208
   chars. A reindex is only needed when the layout changes.
 - **Playback lists** — playing a song inside a list queues that list, shows
@@ -49,7 +50,8 @@ byte-mod of the stock binary.
 - **Resume** — the `resume` setting (off/folder/track) restores the last track
   at its position plus the browser folder/row from `/.rechord/state`, written
   in place and deferred. It opens **paused** (never autoplays).
-- **Diagnostics** — a RAM log that persists itself (append + rotate at 32 KiB,
+- **Diagnostics** — while a track plays, a `tel:` line pair every 5 s reports
+  underruns, Core B load and ring minima (`docs/rewrite/audio.md` §7). A RAM log that persists itself (append + rotate at 32 KiB,
   written when there is news, at most every 30 s) so a session can be read back
   without plugging the USB cable.
 
@@ -103,7 +105,7 @@ boundary is a `NEXT` command over the live ring. Details:
 | Playback lists, `i/N`, shuffle, repeat | ✅ |
 | Gapless between **same-format** tracks (Core B, BRNOMT-73) | ✅ verified on device |
 | **Format-change** boundary | hard by design (DAC re-lock, ~200 ms) |
-| 96 kHz margins (ring cover, FIFO refill) | 🟡 every time budget halves at 96k; occasional crackles under investigation |
+| 96 kHz with the EQ on | ✅ device (EQ cascade is band-major on Core B; Core B ~86 % busy at 96k with a 7-band curve, was saturated; tight, see `docs/rewrite/eq.md`) |
 | 192 kHz (FLAC block 16384) | ⬜ rate is in the table; needs a ~143 KB decode window (the workbuf is 80,896 B) |
 | 384 kHz | ⬜ not in the rate table / untested |
 | DSP effects in the playback path | 🟢 5–10 band EQ on Core B with runtime profiles (`docs/rewrite/eq.md`) |
@@ -184,8 +186,9 @@ stock/                        # official firmware backups (not distributed)
       format change stays a hard boundary (the DAC must re-lock)
 - [x] **Resume**: last track/position + browser folder/row in `/.rechord/state`
       (`resume` off/folder/track), restored paused
-- [ ] **96 kHz margins** — 96k halves the ring cover and the TX-FIFO refill
-      margin; occasional crackles there are still being chased
+- [x] **96 kHz + EQ** — the stutter at 24-bit 88.2/96 kHz was the EQ
+      saturating Core B (not the AP); fixed by the band-major EQ loop. Margin is
+      thin: ~86 % Core B load at 96k with 7 active bands
 - [ ] **192 kHz** (bigger decode window) and **384 kHz**
 - [x] **EQ** 5–10 bands with runtime profiles on Core B (`docs/rewrite/eq.md`)
 - [x] **ReplayGain** track/album/auto normalization (`docs/rewrite/audio.md`)

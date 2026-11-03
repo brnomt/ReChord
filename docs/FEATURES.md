@@ -12,7 +12,7 @@
 
 | Feature | State |
 |---|---|
-| FLAC 16/24-bit up to 96 kHz, MP3, WAV | ✅ device (96k margins still chased) |
+| FLAC 16/24-bit up to 96 kHz, MP3, WAV | ✅ device (96k + EQ + oscilloscope clean) |
 | Core B decodes; AP owns DAC/I2S and the PCM ring | ✅ device |
 | Gapless same-format tracks | ✅ device |
 | Format-change boundary | hard by design (DAC re-lock) |
@@ -34,7 +34,7 @@
 
 | Feature | State |
 |---|---|
-| Media index (v3, dual slot + CRC), iterative scan | ✅ device |
+| Media index (v4, dual slot + CRC), iterative scan, incremental "Update index" | ✅ device (Settings → System) |
 | Album / Artist / Genre / Year / Label / Album Artist / Composer / All Songs | ✅ device |
 | Case-insensitive sort, track-number tiebreak | ✅ device |
 | Filesystem browser, play folder, "i/N" | ✅ device |
