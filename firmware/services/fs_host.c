@@ -261,8 +261,24 @@ int fs_list_dir(const char *path, uint32_t index, fs_dirent_t *out,
         if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
             continue;                    /* callers never see dot entries */
         if (i >= index && written < max) {
+            char ep[FS_HOST_PATH_MAX];
+            struct stat st;
+            int is_dir = (e->d_type == DT_DIR);
+            uint32_t size = 0, mtime = 0;
+
             snprintf(out[written].name, FS_NAME_MAX, "%s", e->d_name);
-            out[written].is_dir = (e->d_type == DT_DIR);
+            if (snprintf(ep, sizeof ep, "%s/%s", host, e->d_name) < (int)sizeof ep &&
+                stat(ep, &st) == 0) {
+                uint64_t sz;
+
+                is_dir = S_ISDIR(st.st_mode);
+                sz = (st.st_size < 0) ? 0u : (uint64_t)st.st_size;
+                size = sz > 0xFFFFFFFFu ? 0xFFFFFFFFu : (uint32_t)sz;
+                mtime = (uint32_t)st.st_mtime;
+            }
+            out[written].is_dir = is_dir;
+            out[written].size = is_dir ? 0u : size;
+            out[written].mtime = is_dir ? 0u : mtime;
             written++;
         }
         i++;

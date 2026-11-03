@@ -161,3 +161,4 @@ next=up
 item0=LIBRARY:library
 item1=NOW PLAYING:player
 item2=SETTINGS:settings
+item3=SYSTEM:system

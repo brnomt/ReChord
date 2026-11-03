@@ -239,18 +239,21 @@ static int index_progress(uint32_t files, const char *name)
     return keys_power();
 }
 
-/* "Rebuild index": one full scan into the inactive slot, committed at the
- * end. An abort or a failure leaves the previous index in place. */
-static void index_rebuild_run(void)
+/* Index maintenance into the inactive slot, committed at the end. An abort or
+ * a failure leaves the previous index in place. `full` re-reads every file
+ * (the repair path); otherwise unchanged records are copied forward and only
+ * new/changed files are tag-read. */
+static void index_run(const char *title, int full)
 {
     char b[48];
     int r;
 
-    screen("Rebuild index");
+    screen(title);
     line(1, "scanning...");
     display_flush_rows(0, DISPLAY_H - 1);
-    r = media_scan_build(index_progress);
-    s_index_cache = 0xFFFFFFFFu;          /* the rebuilt index is the truth */
+    r = full ? media_scan_build(index_progress)
+             : media_scan_update(index_progress);
+    s_index_cache = 0xFFFFFFFFu;          /* the new index is the truth */
     if (r == FS_OK) {
         uint32_t tracks = 0;
 
@@ -262,12 +265,14 @@ static void index_rebuild_run(void)
         } else {
             snprintf(b, sizeof b, "index unreadable");
         }
-        log_printf("index: rebuild ok, %lu tracks", (unsigned long)tracks);
+        log_printf("index: %s ok, %lu tracks", full ? "rebuild" : "update",
+                   (unsigned long)tracks);
     } else {
         /* The code says where it stopped: -1 begin (scratch/slot), -2 open,
          * -3 io, -4 unsupported; MEDIA_SCAN_ABORTED is its own value. */
         snprintf(b, sizeof b, r == MEDIA_SCAN_ABORTED ? "aborted" : "failed %d", r);
-        log_printf("index: rebuild rc %d (previous index kept)", r);
+        log_printf("index: %s rc %d (previous index kept)",
+                   full ? "rebuild" : "update", r);
         snprintf(b, sizeof b, r == MEDIA_SCAN_ABORTED ? "aborted" : "failed");
         line(1, b);
         snprintf(b, sizeof b, "previous index kept");
@@ -279,6 +284,9 @@ static void index_rebuild_run(void)
     while (keys_power() || keys_adc() < 1000)
         panel_io_delay_ms(1);
 }
+
+static void index_update_run(void)  { index_run("Update index", 0); }
+static void index_rebuild_run(void) { index_run("Rebuild index", 1); }
 
 /* Root menu row: how many tracks the current index holds. Opening the index is
  * I/O, so the value is cached -- and invalidated after a rebuild, otherwise the
@@ -1292,6 +1300,7 @@ static const menu_item_t k_sys_items[] = {
 #if AP_CDC_OVERLAY
     { "CDC overlay",   NULL,       cdc_overlay_run },
 #endif
+    { "Update index",  NULL,       index_update_run },
     { "Rebuild index", NULL,       index_rebuild_run },
     { "Index",         index_text, NULL },
     { "Keys",          keys_text,  NULL },
@@ -1788,7 +1797,7 @@ void ap_ui_loop(void)
     /* The package decides the home: a menu-only theme keeps the classic list;
      * one that declares home=skin gets the declarative home inserted above it
      * (BACK still reaches Files/USB/System). */
-    skin_home_set_actions(open_library, open_player, open_settings);
+    skin_home_set_actions(open_library, open_player, open_settings, open_system);
     settings_screen_set_theme_applied(home_stack_sync);
     home_stack_sync();
     /* BRNOMT-87: the resume restore runs inside the loop, AFTER the first

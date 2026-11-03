@@ -39,10 +39,18 @@ typedef struct fs_file fs_file_t;
 #endif
 
 /* Directory entry value type. Callers that collect entries (UI browser,
- * tests) use this struct; the callback API below stays pointer-light. */
+ * tests) use this struct; the callback API below stays pointer-light.
+ *
+ * `size`/`mtime` are the change stamp the incremental index uses to tell an
+ * unchanged track from a new or edited one. The scan compares both; a backend
+ * that cannot provide them leaves them 0 ("unknown"), which makes the scan
+ * re-read that file's tags (safe, just not incremental). `mtime` is opaque:
+ * FAT/exFAT pack their date+time into it, the host uses st_mtime. */
 typedef struct fs_dirent {
-    char name[FS_NAME_MAX];
-    int  is_dir;
+    char     name[FS_NAME_MAX];
+    int      is_dir;
+    uint32_t size;                  /* regular-file bytes (dirs: 0)          */
+    uint32_t mtime;                 /* backend-defined change stamp          */
 } fs_dirent_t;
 
 /* Directory entry callback for fs_list_dir.

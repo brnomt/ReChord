@@ -179,6 +179,7 @@ next=up
 item0=LIBRARY:library
 item1=NOW PLAYING:player
 item2=SETTINGS:settings
+item3=SYSTEM:system
 ```
 
 ### Meters
@@ -194,6 +195,11 @@ item2=SETTINGS:settings
 | `text` | `x y text color bg [maxc] [align]` (`maxc` cuts to N chars ending in `~`; `align=right` makes `x` the right edge) |
 | `bar` | `x y w h value max color bg` |
 | `list` | `axis x y height selected rows source prev next item0..item3` |
+
+Static list item actions: `library`, `player`, `settings`, `system`
+(`item3=SYSTEM:system` opens the System page: index maintenance + diagnostics).
+The axis defaults to the manifest's `home_nav`, so a horizontal home can omit
+`axis=horizontal`.
 
 Any meter may set `visible=<expr>`; a false value skips it.
 

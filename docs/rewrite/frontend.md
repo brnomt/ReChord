@@ -182,9 +182,10 @@ int settings_save(const rechord_settings_t *s);
 /* log (firmware/services/log.h) */
 void log_printf(const char *fmt, ...);
 
-/* fs (firmware/services/fs.h) — names + counts only */
-#define FS_NAME_MAX 32
-typedef struct fs_dirent { char name[FS_NAME_MAX]; uint8_t is_dir; } fs_dirent_t;
+/* fs (firmware/services/fs.h) — names + counts + the incremental change stamp */
+#define FS_NAME_MAX 256
+typedef struct fs_dirent { char name[FS_NAME_MAX]; int is_dir;
+                           uint32_t size, mtime; } fs_dirent_t;
 int fs_list_dir(const char *path, uint32_t index, fs_dirent_t *out,
                 uint32_t max, uint32_t *out_count, uint32_t *out_total);
 ```
