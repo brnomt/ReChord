@@ -226,14 +226,37 @@ void media_db_abort(void);
 /* read */
 int      media_db_open(void); uint32_t media_db_count(void);
 int      media_db_get(uint32_t i, media_rec_t *out); void media_db_close(void);
-int      media_scan_build(media_scan_progress_t progress);
+int      media_scan_build(media_scan_progress_t progress);   /* full scan  */
+int      media_scan_update(media_scan_progress_t progress);  /* fast path  */
 ```
 
 Format: two slots `INDEX.A` / `INDEX.B` (`/Internal/.rechord`, BRNOMT-74),
-`[sector 0: header][record 0]…`. `MEDIA_VERSION` **3** (BRNOMT-92).
+`[sector 0: header][record 0]…`. `MEDIA_VERSION` **4**.
 `media_hdr_t` = magic `MDB1`, version, seq, count, rec_bytes, **global crc**.
 `media_rec_t` is a fixed-size record with inline text fields (the browse index
-keeps speed over density here).
+keeps speed over density here) plus `size`/`mtime`, the change stamp the
+incremental scan compares.
+
+**Incremental update (v4).** `media_scan_update()` is the menu's "Update
+index"; `media_scan_build()` stays as the full repair path ("Rebuild index").
+
+- `fs_dirent_t` now carries `size` + `mtime` (FAT write date/time, exFAT
+  last-modified, host `stat`). `mtime` is opaque and only compared between two
+  scans of the same backend.
+- The update reads the current index once into an open-addressing table
+  (`16-bit path fingerprint -> 16-bit record index`, sized ≥ 1.25x the record
+  count) carved out of the shared scratch region between the traversal stack
+  and the staging buffer. During the walk, a file whose `(path, size, mtime)`
+  matches an old record is emitted with `media_db_add()` **without opening
+  the file**; new/changed files go through the tag reader; paths absent from
+  the walk are simply not copied, so deletions fall out.
+- It degrades safely: no index, a corrupt one, or a library too large for the
+  table (the 16-bit index caps at 65534; the table no longer fits beside the
+  staging buffer at roughly 3.2k tracks) runs the full scan instead.
+- A file whose tags change but whose size+mtime do not stays stale until
+  "Rebuild index" (FAT timestamps resolve 2 s; normal retagging changes size).
+- The version bump means an older index reads as "no index": the first update
+  after flashing is a full scan.
 
 Crash safety (unchanged, and the reason we did **not** adopt the spec's
 `index.tmp` + rename — `fs.h` has no rename): a build targets the slot that is

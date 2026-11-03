@@ -40,7 +40,7 @@
 #define MEDIA_DB_B      "/Internal/.rechord/INDEX.B"
 
 #define MEDIA_MAGIC     0x4D444231u   /* "MDB1" */
-#define MEDIA_VERSION   3u
+#define MEDIA_VERSION   4u            /* 4: size/mtime for incremental scans */
 #define MEDIA_HDR_BYTES 512u
 #define MEDIA_PATH_MAX  208
 #define MEDIA_TEXT_MAX  24
@@ -57,6 +57,8 @@ typedef struct media_rec {
     uint16_t track_no;
     uint16_t year;                  /* 0 = unknown -> the views show "Undefined" */
     uint32_t duration_ms;
+    uint32_t size;                  /* file bytes at scan time (0 = unknown)  */
+    uint32_t mtime;                 /* FS change stamp at scan time           */
 } media_rec_t;
 
 /* The record size is derived, never written by hand: the header stores it and

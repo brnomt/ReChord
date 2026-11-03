@@ -5140,3 +5140,33 @@ comprueba las filas nuevas y la navegación. Todas las suites verdes.
 **Build.** `make` PASS; AP5M CRC `0x317AABB4`; `.bss_end 0x03049818` (2,024 B
 libres). Pendiente de hardware: confirmar que el long-press y las vistas se
 sienten bien con la biblioteca real.
+
+## CP. Session 2026-11-03 — Índice incremental y System en los temas skin
+
+**Índice incremental.** Añadir una canción ya no obliga a releer la tarjeta
+entera. `MEDIA_VERSION` pasa a **4**: `media_rec_t` guarda `size` + `mtime`, y
+`fs_dirent_t` los expone (FAT usa fecha/hora del dirent, exFAT LastModified,
+host `stat`). `media_scan_update()` carga el índice actual en una tabla
+open-addressing de 16 bits (fingerprint de path → índice de record, tamaño
+≥1.25x) en el scratch, entre el stack de recorrido y el staging de
+`media_db`; un archivo cuyo `(path,size,mtime)` coincide se copia con
+`media_db_add()` **sin abrirlo**, y los nuevos/cambiados pasan por el lector de
+tags. Un path que ya no aparece simplemente no se copia, así que los borrados
+caen solos. Si no hay índice, está corrupto o la tabla no cabe (~3.2k pistas;
+el índice de 16 bits tope 65534), cae al escaneo completo. Cambiar solo tags
+sin cambiar tamaño/mtime no se detecta hasta un rebuild.
+
+**System.** El menú System gana **Update index** (incremental) y conserva
+**Rebuild index** (completo, reparación). Los seis temas skin (OSC, OSC-60,
+Cassette, VU, 808, Companion) añaden `item3=SYSTEM:system` a su home: la acción
+`system` es nueva en el engine y `skin_home_set_actions()` recibe el cuarto
+callback. El 808 estaba a 4,088 B del tope de 4,096 B del skin; se quitó
+`axis=horizontal` de su home (el manifest ya declara `home_nav=horizontal`),
+quedando en 4,090 B.
+
+**Tests.** `test_media_scan` cubre update sin índice (fallback), alta, baja y
+cambio de tamaño (52 checks); UI 825 checks (incluye la acción `system` y el
+paquete 808); theme suite verde.
+
+**Build.** `make cfw-ap` PASS; `.bss_end 0x03049B74` (1,164 B bajo el techo
+`0x0304A000`). Sin empaquetar ni flashear.

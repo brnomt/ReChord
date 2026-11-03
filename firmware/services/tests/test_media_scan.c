@@ -60,6 +60,17 @@ static int has_path(const char *p)
     return 0;
 }
 
+static int get_path(const char *p, media_rec_t *out)
+{
+    uint32_t i, n = media_db_count();
+
+    for (i = 0; i < n; i++) {
+        if (media_db_get(i, out) == FS_OK && strcmp(out->path, p) == 0)
+            return 1;
+    }
+    return 0;
+}
+
 int main(void)
 {
     media_rec_t r;
@@ -85,7 +96,8 @@ int main(void)
     put("/Internal/Music/notes.txt");              /* not audio: ignored */
     put("/SD/Second.flac");
 
-    CHECK(media_scan_build(0) == 0);
+    /* No index yet: update must fall back to a full scan. */
+    CHECK(media_scan_update(0) == 0);
     CHECK(media_db_open() == FS_OK);
     CHECK(media_db_count() == 2);
     CHECK(media_db_get(0, &r) == FS_OK);
@@ -105,6 +117,46 @@ int main(void)
     CHECK(strcmp(r.label, "Undefined") == 0);
     CHECK(r.year == 0);
     media_db_close();
+
+    /* Incremental update: add / remove / change, while the untouched records
+     * are carried forward without opening their files. */
+    {
+        media_rec_t r;
+
+        put("/SD/Third.mp3");                    /* new file */
+        CHECK(media_scan_update(0) == 0);
+        CHECK(media_db_open() == FS_OK);
+        CHECK(media_db_count() == 3);
+        CHECK(has_path("SD/Third.mp3") == 1);
+        CHECK(has_path("Internal/Music/01 First.mp3") == 1);
+        CHECK(has_path("SD/Second.flac") == 1);
+        media_db_close();
+
+        (void)remove(".work/SD/Third.mp3");      /* deleted file */
+        CHECK(media_scan_update(0) == 0);
+        CHECK(media_db_open() == FS_OK);
+        CHECK(media_db_count() == 2);
+        CHECK(has_path("SD/Third.mp3") == 0);
+        media_db_close();
+
+        /* Same path, different size: the entry's stamp changed, so the file
+         * is re-read and the record carries the new size. */
+        {
+            fs_file_t *f = fs_open_write("/SD/Second.flac");
+
+            CHECK(f != 0);
+            if (f != 0) {
+                (void)fs_write(f, "a much longer audio payload", 26);
+                fs_close(f);
+            }
+        }
+        CHECK(media_scan_update(0) == 0);
+        CHECK(media_db_open() == FS_OK);
+        CHECK(media_db_count() == 2);
+        CHECK(get_path("SD/Second.flac", &r) == 1);
+        CHECK(r.size == 26);
+        media_db_close();
+    }
 
     /* Abort: nothing is committed, the previous index stays current. The
      * callback fires every 8 files, so grow the library past that first. */

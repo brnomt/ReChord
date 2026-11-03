@@ -20,11 +20,12 @@
 #include "../../theme/theme_pkg.h"
 #include "../../theme/theme_assets.h"
 
-static int s_lib, s_player, s_settings;
+static int s_lib, s_player, s_settings, s_system;
 
 static void open_lib(void)      { s_lib++; }
 static void open_player(void)   { s_player++; }
 static void open_settings(void) { s_settings++; }
+static void open_system(void)   { s_system++; }
 
 static input_event_t key(int type)
 {
@@ -66,7 +67,8 @@ static int write_skin(void)
         "next=up\n"
         "item0=LIBRARY:library\n"
         "item1=PLAYER:player\n"
-        "item2=SETTINGS:settings\n",
+        "item2=SETTINGS:settings\n"
+        "item3=SYSTEM:system\n",
         f);
     fclose(f);
     return 0;
@@ -87,7 +89,7 @@ void test_skin_home(void)
     CHECK_EQ_INT(theme_skin_load(".", "", "rechord_test.skin"), 0);
     remove("rechord_test.skin");
     CHECK(theme_skin_text() != NULL);
-    CHECK_EQ_INT(theme_skin_item_count(), 3);
+    CHECK_EQ_INT(theme_skin_item_count(), 4);
     CHECK_EQ_INT(theme_skin_selected_default(), 1);
     CHECK_EQ_INT(theme_skin_refresh_ms(), 100);
     CHECK_EQ_INT(theme_skin_refresh_h(), 80);
@@ -100,6 +102,10 @@ void test_skin_home(void)
     CHECK_EQ_INT(sel, 1);
     CHECK_EQ_INT(theme_skin_key(THEME_SKIN_KEY_SELECT, &sel),
                  THEME_SKIN_PLAYER);
+    sel = 3;
+    CHECK_EQ_INT(theme_skin_key(THEME_SKIN_KEY_SELECT, &sel),
+                 THEME_SKIN_SYSTEM);
+    sel = 1;
 
     /* BRNOMT-107: the global orientation decides the ACTION even when the
      * home skin maps prev=down/next=up. Normal VOL+ = PREV (key DOWN here),
@@ -147,8 +153,8 @@ void test_skin_home(void)
     CHECK(mock_display_text_find("SETTINGS") >= 0);
 
     /* Adapter: keys go through the engine and actions reach the app. */
-    s_lib = s_player = s_settings = 0;
-    skin_home_set_actions(open_lib, open_player, open_settings);
+    s_lib = s_player = s_settings = s_system = 0;
+    skin_home_set_actions(open_lib, open_player, open_settings, open_system);
     skin_home_tick(2000);
     CHECK(ui_push_screen(&skin_home_screen));
     mock_display_reset();
@@ -171,6 +177,15 @@ void test_skin_home(void)
         CHECK_EQ_INT(s_player, 1);
     }
     {
+        input_event_t e = key(KEY_UP);        /* -> SETTINGS -> SYSTEM */
+        ui_handle_event(&e);
+        e = key(KEY_UP);
+        ui_handle_event(&e);
+        e = key(KEY_SELECT);
+        ui_handle_event(&e);
+        CHECK_EQ_INT(s_system, 1);
+    }
+    {
         input_event_t e = key(KEY_BACK);
         ui_handle_event(&e);
         CHECK_EQ_INT(ui_stack_depth(), 0);
@@ -185,7 +200,7 @@ void test_skin_home(void)
                                    theme_layout()), 0);
     CHECK_EQ_INT(theme_skin_load("../../../themes", "companion-bot",
                                  theme_layout()->skin), 0);
-    CHECK_EQ_INT(theme_skin_item_count(), 3);
+    CHECK_EQ_INT(theme_skin_item_count(), 4);
     CHECK_EQ_INT(theme_skin_key(THEME_SKIN_KEY_DOWN, &sel),
                  THEME_SKIN_REDRAW);          /* prev=down */
     CHECK_EQ_INT(sel, 0);
@@ -201,6 +216,7 @@ void test_skin_home(void)
     CHECK(mock_display_text_find("LIBRARY") >= 0);
     CHECK(mock_display_text_find("NOW PLAYING") >= 0);
     CHECK(mock_display_text_find("SETTINGS") >= 0);
+    CHECK(mock_display_text_find("SYSTEM") >= 0);
 
     theme_skin_reset();
     theme_assets_reset();

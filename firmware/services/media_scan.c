@@ -7,6 +7,14 @@
  * and feeds one fixed record per file to media_db. The title falls back to the
  * filename, so a library without tags still browses.
  *
+ * `media_scan_update()` adds the incremental path: the current index is read
+ * once into a small open-addressing table (16-bit path fingerprint -> record
+ * index) carved out of the same scratch region, and the walk copies an
+ * unchanged record (same path, size and mtime) straight through instead of
+ * opening the file. New and changed files still go through the tag reader, so
+ * the result is identical to a full scan. Above the size that fits the table
+ * the update falls back to the full path.
+ *
  * The scan is deliberately frame-based and **iterative**, not recursive: an
  * explicit traversal stack lives in the shared scratch region (no .bss, no
  * per-level AP stack frame), the depth is capped at 8, paths that would not fit
@@ -45,6 +53,56 @@ static media_scan_progress_t s_progress;
 static uint32_t s_files;
 static uint32_t s_skipped_long;    /* paths too long for a record (BRNOMT-92) */
 static int      s_aborted;
+
+/* ---- incremental-update lookup table -----------------------------------
+ * Open addressing with linear probing. A slot is empty when its fingerprint
+ * is 0 (path_key() forces bit 0), so a full table is impossible by design:
+ * the table is sized to at least 1.25x the record count. 16-bit indexes cap
+ * the incremental path at 65534 records; larger libraries use the full scan.
+ */
+static uint16_t *s_hash;
+static uint16_t *s_hrec;
+static uint32_t  s_hmask;
+static int       s_incremental;
+
+static uint16_t path_key(const char *s)
+{
+    uint32_t h = 2166136261u;          /* FNV-1a */
+
+    while (*s != '\0') {
+        h ^= (uint8_t)*s++;
+        h *= 16777619u;
+    }
+    h ^= h >> 16;
+    return (uint16_t)(h | 1u);
+}
+
+static void htab_insert(uint16_t key, uint16_t rec)
+{
+    uint32_t i = key & s_hmask;
+
+    while (s_hash[i] != 0)
+        i = (i + 1u) & s_hmask;
+    s_hash[i] = key;
+    s_hrec[i] = rec;
+}
+
+/* Find the current-index record for `path`. Returns 0 when it is new. A
+ * fingerprint collision is resolved by comparing the real path, so the
+ * result is exact. */
+static int htab_find(const char *path, media_rec_t *out)
+{
+    uint16_t key = path_key(path);
+    uint32_t i = key & s_hmask;
+
+    while (s_hash[i] != 0) {
+        if (s_hash[i] == key && media_db_get(s_hrec[i], out) == FS_OK &&
+            strcmp(out->path, path) == 0)
+            return 1;
+        i = (i + 1u) & s_hmask;
+    }
+    return 0;
+}
 
 static int is_audio(const char *name)
 {
@@ -171,7 +229,7 @@ static void norm_field(char *dst, size_t cap, const char *src)
     dst[n] = '\0';
 }
 
-static int add_file(const char *rel)
+static int add_file(const char *rel, uint32_t size, uint32_t mtime)
 {
     media_rec_t r;
     codec_meta_t meta;
@@ -197,6 +255,8 @@ static int add_file(const char *rel)
     norm_field(r.label, sizeof r.label, meta.label);
     r.track_no = (uint16_t)(meta.track > 0 ? meta.track : 0);
     r.year = (uint16_t)(meta.year >= 1000 && meta.year <= 9999 ? meta.year : 0);
+    r.size = size;
+    r.mtime = mtime;
     return media_db_add(&r);
 }
 
@@ -242,7 +302,20 @@ static int walk_volume(const char *root_rel, scan_frame_t *stack)
             stack[sp].index = 0;
             sp++;
         } else if (is_audio(e.name)) {
-            if (add_file(sub_rel) != FS_OK)
+            int rr;
+
+            if (s_incremental) {
+                media_rec_t old;
+
+                if (htab_find(sub_rel, &old) &&
+                    old.size == e.size && old.mtime == e.mtime)
+                    rr = media_db_add(&old);      /* unchanged: no file read */
+                else
+                    rr = add_file(sub_rel, e.size, e.mtime);
+            } else {
+                rr = add_file(sub_rel, e.size, e.mtime);
+            }
+            if (rr != FS_OK)
                 return FS_ERR_IO;
             s_files++;
             if (s_progress != 0 && (s_files & 7u) == 0u &&
@@ -255,38 +328,99 @@ static int walk_volume(const char *root_rel, scan_frame_t *stack)
     return FS_OK;
 }
 
-int media_scan_build(media_scan_progress_t progress)
+static int scan_run(media_scan_progress_t progress, int want_incremental)
 {
     uint8_t      *region;
     scan_frame_t *stack;
     uint8_t      *dbuf;
     uint32_t      dbuf_bytes;
+    uint32_t      table_bytes = 0;
+    int           opened = 0;      /* this call opened the read handle */
     int r;
 
     s_progress = progress;
     s_files = 0;
     s_skipped_long = 0;
     s_aborted = 0;
+    s_incremental = 0;
+    s_hash = 0;
+    s_hrec = 0;
+    s_hmask = 0;
 
-    /* One claim of the shared region: [traversal stack | record staging]. The
-     * stack lives here (not in .bss) so the walk costs no static RAM. */
+    /* One claim of the shared region: [traversal stack | lookup table |
+     * record staging]. The stack lives here (not in .bss) so the walk costs
+     * no static RAM. */
     region = (uint8_t *)scratch_claim(SCRATCH_OWNER_INDEX);
     if (region == 0)
         return FS_ERR_IO;
     stack = (scan_frame_t *)region;
-    dbuf = region + SCAN_STACK_BYTES;
-    dbuf_bytes = SCRATCH_BYTES - SCAN_STACK_BYTES;
+
+    /* Incremental update: index the CURRENT index in the space the staging
+     * buffer will give up. The read handle is reopened here (and closed again
+     * if it was not already open) so stale handles cannot seed the table. */
+    if (want_incremental) {
+        int was_open = media_db_is_open();
+        int have = (media_db_open() == FS_OK);
+
+        /* Re-open unconditionally: a handle left over from before a rebuild
+         * can still point at the previous slot, and the table must describe
+         * the CURRENT index. Close it only if this call opened it. */
+        opened = have && !was_open;
+        if (have) {
+            uint32_t old_count = media_db_count();
+
+            if (old_count > 0u && old_count < 0xFFFEu) {
+                uint32_t need = old_count + (old_count >> 2);
+                uint32_t entries = 16u;
+                uint32_t i;
+
+                while (entries < need)
+                    entries <<= 1u;
+                table_bytes = entries * 4u;
+                if (table_bytes + MEDIA_REC_BYTES <=
+                    SCRATCH_BYTES - SCAN_STACK_BYTES) {
+                    s_hash = (uint16_t *)(region + SCAN_STACK_BYTES);
+                    s_hrec = s_hash + entries;
+                    s_hmask = entries - 1u;
+                    memset(s_hash, 0, table_bytes);
+                    for (i = 0; i < old_count; i++) {
+                        media_rec_t rr;
+
+                        if (media_db_get(i, &rr) != FS_OK) {
+                            table_bytes = 0;
+                            break;
+                        }
+                        htab_insert(path_key(rr.path), (uint16_t)i);
+                    }
+                    s_incremental = (table_bytes != 0u);
+                }
+            }
+        }
+        if (!s_incremental && opened) {
+            media_db_close();
+            opened = 0;
+        }
+    }
+
+    dbuf = region + SCAN_STACK_BYTES + table_bytes;
+    dbuf_bytes = SCRATCH_BYTES - SCAN_STACK_BYTES - table_bytes;
 
     r = media_db_begin(dbuf, dbuf_bytes);
-    log_printf("index: begin rc %d", r);
+    log_printf("index: begin rc %d (%s)", r,
+               s_incremental ? "update" : "full");
     if (r != FS_OK) {
+        if (opened)
+            media_db_close();
         scratch_release(SCRATCH_OWNER_INDEX);
         return r;
     }
     r = walk_volume("Internal", stack);
     if (r == FS_OK)
         r = walk_volume("SD", stack);
-    log_printf("index: scan rc %d, %lu files, %lu too long", r,
+    if (opened)
+        media_db_close();
+    log_printf("index: %s rc %d, %lu files, %lu too long",
+               s_incremental ? "update" : "scan", r,
                (unsigned long)s_files, (unsigned long)s_skipped_long);
     if (r != FS_OK) {
         media_db_abort();
@@ -295,6 +429,16 @@ int media_scan_build(media_scan_progress_t progress)
     }
     r = media_db_end();
     scratch_release(SCRATCH_OWNER_INDEX);
-    log_printf("index: end rc %d", r);
+    log_printf("index: end rc %d", (int)r);
     return r;
+}
+
+int media_scan_build(media_scan_progress_t progress)
+{
+    return scan_run(progress, 0);
+}
+
+int media_scan_update(media_scan_progress_t progress)
+{
+    return scan_run(progress, 1);
 }

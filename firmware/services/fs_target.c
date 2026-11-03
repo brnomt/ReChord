@@ -29,6 +29,7 @@ typedef struct {                     /* a directory entry or the root */
     char name[FS_NAME_MAX];
     int is_dir, contig;
     uint32_t clus, size;
+    uint32_t mtime;                  /* FAT/exFAT packed date+time         */
 } ent_t;
 
 typedef struct {                     /* directory cursor */
@@ -319,6 +320,9 @@ static int fat_dir_read(cur_t *d, ent_t *e)
         e->contig = 0;
         e->clus = (d->v->type == T_FAT32 ? le16(p + 20) << 16 : 0u) | le16(p + 26);
         e->size = le32(p + 28);
+        /* Write date (+24) / time (+22), combined into the same 32-bit
+         * stamp exFAT uses so the scan compares one field. */
+        e->mtime = (le16(p + 24) << 16) | le16(p + 22);
         if (e->is_dir && e->clus == 0u)      /* ".." to root: not reported */
             continue;
         s_size_lba = (d->clus == 0u) ? d->v->root + d->sec
@@ -335,18 +339,20 @@ static int exfat_dir_read(cur_t *d, ent_t *e)
 
     while ((p = cur_next(d)) && p[0] != 0) {
         unsigned n2, len, got = 0;
-        uint32_t attr;
+        uint32_t attr, mtime;
 
         if (p[0] != 0x85 || p[1] < 2u)
             continue;
         n2 = p[1];
         attr = le16(p + 4);
+        mtime = le32(p + 12);          /* LastModifiedTimestamp */
         if (!(p = cur_next(d)) || p[0] != 0xC0)
             continue;
         len = p[3];
         e->contig = (p[1] & 2u) != 0;
         e->clus = le32(p + 20);
         e->size = le32(p + 28) ? 0xFFFFFFFFu : le32(p + 24);   /* > 4 GiB: clamp */
+        e->mtime = mtime;
         memset(s_u16, 0, sizeof s_u16);
         for (unsigned k = 1; k < n2; k++) {
             if (!(p = cur_next(d)))
@@ -414,6 +420,7 @@ static int resolve(const char *path, const vol_t **pv)
     s_ent.is_dir = 1;
     s_ent.contig = 0;
     s_ent.size = 0;
+    s_ent.mtime = 0;
     s_ent.clus = v->type == T_FAT16 ? 0u : v->root;
     for (c = component(c + n, &n); n; c = component(c + n, &n)) {
         int found = 0;
@@ -451,7 +458,10 @@ int fs_list_dir(const char *path, uint32_t index, fs_dirent_t *out,
                 continue;
             if (total >= index && count < max && out) {
                 snprintf(out[count].name, FS_NAME_MAX, "%s", s_vol[i].name);
-                out[count++].is_dir = 1;
+                out[count].is_dir = 1;
+                out[count].size = 0;
+                out[count].mtime = 0;
+                count++;
             }
             total++;
         }
@@ -462,7 +472,10 @@ int fs_list_dir(const char *path, uint32_t index, fs_dirent_t *out,
         while (dir_read(&d, &s_ent) == 1) {
             if (total >= index && count < max && out) {
                 memcpy(out[count].name, s_ent.name, FS_NAME_MAX);
-                out[count++].is_dir = s_ent.is_dir;
+                out[count].is_dir = s_ent.is_dir;
+                out[count].size = s_ent.size;
+                out[count].mtime = s_ent.mtime;
+                count++;
             }
             total++;
         }
