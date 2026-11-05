@@ -43,6 +43,48 @@ int main(void)
     memmove(m + 1, m, 5);              /* overlapping forward<->back */
     check(memcmp(m, "hhello", 6) == 0, "memmove overlap");
 
+    /* Word-at-a-time paths: every alignment of dst/src and every length up to
+     * 70 against a byte-loop reference, guard bytes included; memmove also in
+     * both overlap directions. */
+    {
+        static unsigned char ref[96], got[96], src[96];
+        int bad = 0, i, n, d0, s0, sh;
+
+        for (i = 0; i < 96; i++)
+            src[i] = (unsigned char)(i * 37 + 11);
+        for (n = 0; n <= 70; n++)
+            for (d0 = 0; d0 < 4; d0++) {
+                for (i = 0; i < 96; i++)
+                    ref[i] = got[i] = 0x5A;
+                for (i = 0; i < n; i++)
+                    ref[8 + d0 + i] = 0xC3;
+                memset(got + 8 + d0, 0xC3, (size_t)n);
+                bad += memcmp(ref, got, 96) != 0;
+                for (s0 = 0; s0 < 4; s0++) {
+                    for (i = 0; i < 96; i++)
+                        ref[i] = got[i] = 0x5A;
+                    for (i = 0; i < n; i++)
+                        ref[8 + d0 + i] = src[4 + s0 + i];
+                    memcpy(got + 8 + d0, src + 4 + s0, (size_t)n);
+                    bad += memcmp(ref, got, 96) != 0;
+                }
+                for (sh = -6; sh <= 6; sh++) {
+                    unsigned char tmp[96];
+                    int from = 12 + d0, to = 12 + d0 + sh;
+
+                    for (i = 0; i < 96; i++)
+                        ref[i] = got[i] = src[i];
+                    for (i = 0; i < n; i++)
+                        tmp[i] = ref[from + i];
+                    for (i = 0; i < n; i++)
+                        ref[to + i] = tmp[i];
+                    memmove(got + to, got + from, (size_t)n);
+                    bad += memcmp(ref, got, 96) != 0;
+                }
+            }
+        check(bad == 0, "memset/memcpy/memmove all alignments, lengths, overlaps");
+    }
+
     /* str */
     check(strlen("abcdef") == 6, "strlen");
     char s[16];

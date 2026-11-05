@@ -99,6 +99,10 @@ static int s_idle_refresh_ms;      /* slower refresh while not playing (0 = same
  * and flushes the declared rects, leaving the background, art and labels
  * untouched from the last full draw. */
 static int s_dyn_only;
+/* Offsets of the sections that carry dyn=1, recorded at load, so a
+ * dynamic-only frame parses just those instead of the whole skin text. */
+static uint16_t s_dyn_off[SKIN_SECTIONS];
+static int s_dyn_secs;
 static int s_dyn_n;
 static int s_dyn_rect[3][4];
 static int s_dyn_every[3] = { 1, 1, 1 };   /* flush rect every Nth frame */
@@ -132,6 +136,7 @@ typedef struct {
 static skin_val_t eval_expr(skin_expr_t *e, int depth);
 static skin_val_t eval_raw(const char *text);
 static uint16_t mix565(uint16_t a, uint16_t b, int w);
+static void skin_copy(char *dst, int cap, const char *src);
 /* Integer square root (defined with the drawing helpers; used by sqrt()). */
 static int isqrt_i(int v);
 
@@ -139,8 +144,11 @@ static skin_val_t v_int(int i)
 {
     skin_val_t v;
 
-    memset(&v, 0, sizeof v);
+    /* Field stores, not a 72-byte memset: values are built thousands of
+     * times per animated frame. */
+    v.is_str = 0;
     v.i = i;
+    v.s[0] = '\0';
     return v;
 }
 
@@ -148,9 +156,9 @@ static skin_val_t v_str(const char *s)
 {
     skin_val_t v;
 
-    memset(&v, 0, sizeof v);
     v.is_str = 1;
-    snprintf(v.s, sizeof v.s, "%s", s != 0 ? s : "");
+    v.i = 0;
+    skin_copy(v.s, (int)sizeof v.s, s != 0 ? s : "");
     return v;
 }
 
@@ -192,18 +200,35 @@ static void skip_ws(skin_expr_t *e)
         e->p++;
 }
 
+/* Length of `tok` if the input starts with it, else 0 (tok is non-empty).
+ * One pass instead of strlen + strncmp per token test. */
+static int tok_match(const char *p, const char *tok)
+{
+    int n = 0;
+
+    while (tok[n] != '\0') {
+        if (p[n] != tok[n])
+            return 0;
+        n++;
+    }
+    return n;
+}
+
 static int peek(skin_expr_t *e, const char *tok)
 {
     skip_ws(e);
-    return strncmp(e->p, tok, strlen(tok)) == 0;
+    return tok_match(e->p, tok) != 0;
 }
 
 static int take(skin_expr_t *e, const char *tok)
 {
+    int n;
+
     skip_ws(e);
-    if (strncmp(e->p, tok, strlen(tok)) != 0)
+    n = tok_match(e->p, tok);
+    if (n == 0)
         return 0;
-    e->p += strlen(tok);
+    e->p += n;
     return 1;
 }
 
@@ -812,7 +837,7 @@ static int eval_string(const char *text, skin_ctx_t *ctx, char *out, int cap)
     v = eval_raw(text);
     g_ctx = 0;
     if (v.is_str)
-        snprintf(out, (size_t)cap, "%s", v.s);
+        skin_copy(out, cap, v.s);
     else
         snprintf(out, (size_t)cap, "%d", v.i);
     return 0;
@@ -912,7 +937,11 @@ static int next_section(const char **pp, skin_section_t *sec)
     const char *p = *pp;
     char line[SKIN_LINE_MAX];
 
-    memset(sec, 0, sizeof *sec);
+    /* Only the header fields: prop() never reads past `count`, and clearing
+     * the whole ~2 KB section per section per frame was a large share of an
+     * animated frame. */
+    sec->name[0] = '\0';
+    sec->count = 0;
 
     for (;;) {
         char *s;
@@ -929,7 +958,7 @@ static int next_section(const char **pp, skin_section_t *sec)
 
             if (close != 0) {
                 *close = '\0';
-                snprintf(sec->name, sizeof sec->name, "%s", s + 1);
+                skin_copy(sec->name, (int)sizeof sec->name, s + 1);
                 break;
             }
         }
@@ -954,8 +983,8 @@ static int next_section(const char **pp, skin_section_t *sec)
         eq = strchr(s, '=');
         if (eq != 0 && sec->count < SKIN_PROPS) {
             *eq = '\0';
-            snprintf(sec->key[sec->count], SKIN_KEY_MAX, "%s", trim(s));
-            snprintf(sec->val[sec->count], SKIN_PROP_MAX, "%s", trim(eq + 1));
+            skin_copy(sec->key[sec->count], SKIN_KEY_MAX, trim(s));
+            skin_copy(sec->val[sec->count], SKIN_PROP_MAX, trim(eq + 1));
             sec->count++;
         }
     }
@@ -1105,6 +1134,7 @@ int theme_skin_load(const char *root, const char *id, const char *path)
     const char *p;
     skin_section_t sec;
     int n = 0;
+    int n_secs = 0;
 
     theme_skin_reset();
     if (root == 0 || id == 0 || path == 0)
@@ -1133,8 +1163,21 @@ int theme_skin_load(const char *root, const char *id, const char *path)
     s_dyn_every[0] = s_dyn_every[1] = s_dyn_every[2] = 1;
 
     p = s_text;
-    while ((n = next_section(&p, &sec)) > 0) {
-        const char *type = prop(&sec, "type");
+    s_dyn_secs = 0;
+    for (;;) {
+        const char *start = p;
+        const char *type;
+
+        if ((n = next_section(&p, &sec)) <= 0)
+            break;
+        type = prop(&sec, "type");
+        /* Same section budget and dyn test as theme_skin_render(). */
+        if (++n_secs <= SKIN_SECTIONS) {
+            const char *d = prop(&sec, "dyn");
+
+            if (d != 0 && !key_eq(d, "0"))
+                s_dyn_off[s_dyn_secs++] = (uint16_t)(start - s_text);
+        }
 
         if (key_eq(sec.name, "skin")) {
             const char *v = prop(&sec, "refresh_ms");
@@ -1199,6 +1242,7 @@ void theme_skin_reset(void)
     s_animated = 0;
     s_var_count = 0;
     s_dyn_n = 0;
+    s_dyn_secs = 0;
     s_dyn_only = 0;
 }
 
@@ -1997,16 +2041,20 @@ void theme_skin_render(unsigned now, unsigned idle, int sel, int top,
     ctx.top = top;
     ctx.st = st;
     eval_vars(&ctx);
+    if (s_dyn_only) {
+        int i;
+
+        for (i = 0; i < s_dyn_secs; i++) {
+            p = s_text + s_dyn_off[i];
+            if (next_section(&p, &sec))
+                render_section(&sec, &ctx, sel);
+        }
+        return;
+    }
     p = s_text;
     while (next_section(&p, &sec)) {
         if (++sections > SKIN_SECTIONS)
             break;
-        if (s_dyn_only) {
-            const char *d = prop(&sec, "dyn");
-
-            if (d == 0 || key_eq(d, "0"))
-                continue;
-        }
         render_section(&sec, &ctx, sel);
     }
 }

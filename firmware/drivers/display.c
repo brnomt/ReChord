@@ -22,7 +22,7 @@
 
 /* The whole screen lives in RAM; the linker script owns placement.
  * (170 rows * 640 B = 108,800 B -- see docs/rewrite/drivers.md.) */
-static uint16_t display_fb[DISPLAY_H][DISPLAY_W];
+static uint16_t display_fb[DISPLAY_H][DISPLAY_W] __attribute__((aligned(4)));
 
 /* Send a 16-bit parameter big-endian (high byte first), as DCS expects. */
 static void send_u16(uint16_t v)
@@ -72,10 +72,27 @@ void display_fill_rect(int x0, int y0, int x1, int y1, uint16_t rgb565)
         return;   /* empty after clipping (incl. reversed input) */
     }
 
-    for (y = y0; y <= y1; y++) {
-        uint16_t *row = &display_fb[y][x0];
-        for (x = x0; x <= x1; x++) {
-            *row++ = rgb565;
+    {
+        /* Two pixels per 32-bit store (both halves hold the same colour, so
+         * endianness does not matter); an odd leading/trailing pixel is a
+         * halfword store. */
+        typedef uint32_t __attribute__((may_alias)) px2_t;
+        uint32_t pair = (uint32_t)rgb565 | ((uint32_t)rgb565 << 16);
+
+        for (y = y0; y <= y1; y++) {
+            uint16_t *row = &display_fb[y][x0];
+            int n = x1 - x0 + 1;
+            px2_t *w;
+
+            if (((uintptr_t)row & 2u) != 0u) {
+                *row++ = rgb565;
+                n--;
+            }
+            w = (px2_t *)(void *)row;
+            for (x = 0; x + 1 < n; x += 2)
+                *w++ = pair;
+            if (n & 1)
+                *(uint16_t *)(void *)w = rgb565;
         }
     }
 }

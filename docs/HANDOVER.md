@@ -5213,3 +5213,13 @@ paquete 808); theme suite verde.
 - **Verify on device:** idle/paused temperature; a `tel:` log at 24/96 should
   show `und+0` and the same or lower `busy` than before; seek, pause/resume,
   gapless track change, Core B power-down after stop.
+- **Skin frames (oscilloscope-60).** Counted on an emulated M3 (Unicorn, real
+  firmware libc, `-Os`): a dynamic home frame was 2.14M instructions, 59 % of
+  them in the byte-at-a-time `memset`/`memcpy` (struct copies and a 2 KB
+  section clear per section per frame). Now 0.80M: word-wise libc
+  `memset`/`memcpy`/`memmove` (both cores), field stores instead of value
+  memsets, no `snprintf`/`strlen` in the parser and tokenizer, a load-time index
+  of the `dyn=1` sections (a dynamic frame no longer re-parses the static
+  ones), 32-bit stores in `display_fill_rect`. The framebuffer after 6 dynamic
+  frames and a full render is byte-identical before/after for all 36 bundled
+  skins. The panel flush (bit-banged GPIO) is unchanged.
