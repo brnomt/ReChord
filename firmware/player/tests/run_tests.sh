@@ -22,6 +22,10 @@ PLAYER_SRCS="../player.c ../codecs/codec_registry.c ../codecs/wav.c \
 # codec_io.c; the FS-backend test links codec_io_fs.c + fs_host.c + codec_io.c.
 IO_DISPATCH=../codec_io.c
 
+# bfs: the A->B file ring against Core B's reader protocol (stdio backend).
+$CC $CFLAGS -I.. -o .work/test_bfs test_bfs.c ../bfs.c ../codec_io_stdio.c $IO_DISPATCH
+.work/test_bfs
+
 # ringbuf: standalone (no codec_io).
 $CC $CFLAGS -I.. -o .work/test_ringbuf   test_ringbuf.c ../ringbuf.c
 

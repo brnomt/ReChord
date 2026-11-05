@@ -45,6 +45,20 @@ $CC $CFLAGS -I.. -I../.. -o .work/test_art_pack test_art_pack.c ../art_pack.c ..
 .work/test_log
 .work/test_input
 .work/test_fs
+$CC $CFLAGS -I.. -o .work/test_crash_record test_crash_record.c ../crash_record.c
+.work/test_crash_record
+# fs_target multi-sector reads on real FAT16/FAT32 images (needs mkfs.fat).
+MKFS=$(command -v mkfs.fat || command -v /usr/sbin/mkfs.fat || true)
+if [ -n "$MKFS" ]; then
+    $CC $CFLAGS -Wno-error=maybe-uninitialized -I.. -o .work/test_fs_bulk test_fs_bulk.c ../fs_target.c 2>/dev/null
+    truncate -s 32M .work/bulk16.img && "$MKFS" -F 16 -s 8 .work/bulk16.img >/dev/null
+    .work/test_fs_bulk .work/bulk16.img
+    truncate -s 300M .work/bulk32.img && "$MKFS" -F 32 -s 8 .work/bulk32.img >/dev/null
+    .work/test_fs_bulk .work/bulk32.img
+    rm -f .work/bulk16.img .work/bulk32.img
+else
+    echo "test_fs_bulk: skipped (no mkfs.fat)"
+fi
 .work/test_store
 .work/test_scratch
 .work/test_media_db

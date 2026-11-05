@@ -29,6 +29,15 @@ const char *fs_target_type(int idx);
 typedef int (*fs_block_write_t)(uint32_t lba, uint32_t count, const void *buf);
 int fs_target_set_writer(int idx, fs_block_write_t wr);
 
+/* 1 once a multi-sector read on volume `idx` failed and fs_read() fell back
+ * to one sector per command (cleared by the next mount). */
+int fs_target_multi_failed(int idx);
+
+/* Absolute device LBAs of the first `max` data sectors of an existing file on
+ * a writable FAT volume (the crash handler writes them raw, without the FS).
+ * Returns how many were filled (0 = not found / not writable). */
+int fs_target_file_sectors(const char *path, uint32_t *lba, unsigned max);
+
 /* Rewrite an existing file's contents IN PLACE: writes `len` bytes at offset
  * 0, zero-fills the rest of the sectors it touches, and patches the file's
  * 4-byte size field in its FAT short directory entry (so the file shows

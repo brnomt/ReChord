@@ -23,6 +23,7 @@ typedef struct {
     int type;                        /* 0 = not mounted */
     uint32_t fat, fat_secs, data, spc, root, root_secs, nclus;
     uint32_t fsi;                    /* FAT32 FSInfo sector (0 = none)     */
+    int no_multi;                    /* a multi-sector read failed: 1/call */
 } vol_t;
 
 typedef struct {                     /* a directory entry or the root */
@@ -60,8 +61,9 @@ static uint32_t s_size_lba, s_size_off;
 static uint32_t le16(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8; }
 static uint32_t le32(const uint8_t *p) { return le16(p) | le16(p + 2) << 16; }
 
-/* ponytail: one cached sector for everything; multi-sector reads when the
- * audio path needs throughput. lba is relative to the volume. */
+/* One cached sector for metadata and partial reads; fs_read() moves whole
+ * aligned sectors straight into the caller's buffer. lba is relative to the
+ * volume. */
 static const uint8_t *sector(const vol_t *v, uint32_t lba)
 {
     if (v != s_sec_vol || lba != s_sec_lba) {
@@ -150,6 +152,12 @@ void fs_target_unmount(int idx)
         s_vol[idx].type = 0;
         s_sec_vol = NULL;
     }
+}
+
+int fs_target_multi_failed(int idx)
+{
+    return idx >= 0 && idx < FS_VOLUMES && s_vol[idx].type != 0 &&
+           s_vol[idx].no_multi;
 }
 
 const char *fs_target_type(int idx)
@@ -546,8 +554,36 @@ long fs_read(fs_file_t *f, void *buf, unsigned long cap)
             if (!f->clus)
                 return FS_ERR_IO;
         }
-        if (f->clus < 2u ||
-            !(b = sector(f->v, clus_lba(f->v, f->clus) + f->pos % cl / 512u)))
+        if (f->clus < 2u)
+            return FS_ERR_IO;
+        /* Bulk path: whole sectors from a sector-aligned position into a
+         * word-aligned buffer, as ONE multi-block command (CMD18) per run
+         * inside the current cluster, instead of one command per 512 bytes
+         * through the cache. The partial head/tail still go through
+         * sector(). A failed multi-sector read turns the bulk path off for
+         * that volume and the same bytes are re-read one sector at a time. */
+        if (off == 0u && !f->v->no_multi &&
+            ((uintptr_t)(o + n) & 3u) == 0u) {
+            uint32_t in = f->pos % cl / 512u;
+            uint32_t run = f->v->spc - in;
+            uint32_t room = (uint32_t)((cap - n) / 512u);
+            uint32_t left = (f->size - f->pos) / 512u;
+
+            if (run > room)
+                run = room;
+            if (run > left)
+                run = left;
+            if (run >= 2u) {
+                if (f->v->rd(f->v->base + clus_lba(f->v, f->clus) + in, run,
+                             o + n) == 0) {
+                    n += run * 512u;
+                    f->pos += run * 512u;
+                    continue;
+                }
+                ((vol_t *)f->v)->no_multi = 1;
+            }
+        }
+        if (!(b = sector(f->v, clus_lba(f->v, f->clus) + f->pos % cl / 512u)))
             return FS_ERR_IO;
         k = 512u - off;
         if (k > cap - n)
@@ -1461,4 +1497,26 @@ int fs_ensure_file(const char *path, uint32_t bytes, const char *template_text)
             return FS_ERR_IO;
     }
     return FS_OK;
+}
+
+int fs_target_file_sectors(const char *path, uint32_t *lba, unsigned max)
+{
+    const vol_t *v;
+    uint32_t c, secs;
+    unsigned i;
+
+    if (path == 0 || lba == 0 || resolve(path, &v) != 0 || s_ent.is_dir ||
+        v->type == T_EXFAT || v->wr == 0 || s_ent.clus < 2u)
+        return 0;
+    secs = (s_ent.size + 511u) / 512u;
+    c = s_ent.clus;
+    for (i = 0; i < max && i < secs; i++) {
+        if (i > 0u && i % v->spc == 0u) {
+            c = s_ent.contig ? c + 1u : fat_next(v, c);
+            if (c < 2u)
+                break;
+        }
+        lba[i] = v->base + clus_lba(v, c) + i % v->spc;
+    }
+    return (int)i;
 }

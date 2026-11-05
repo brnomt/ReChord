@@ -132,14 +132,20 @@ static void poll_svc(bfs_svc_t *s)
     if (s->io == 0)
         return;
 
-    /* 1. Apply a pending seek. B is quiesced until SEEK_ACK catches up. */
+    /* 1. Apply a pending seek. B is quiesced until SEEK_ACK catches up.
+     * The ring is re-based on the target's SECTOR (BASE = to & ~511) with
+     * RD = WR = to - BASE: B still reads `to` first (its offset is BASE + RD),
+     * and ring position == file offset mod 512 keeps every refill on the
+     * multi-sector path below (word-aligned destination, whole sectors). */
     if (CTRL[w[W_SEEK_SEQ]] != CTRL[w[W_SEEK_ACK]]) {
         uint32_t to = CTRL[w[W_SEEK_TO]];
 
         if (cio_seek(s->io, (long)to) == (long)to) {
-            CTRL[w[W_BASE]] = to;
-            CTRL[w[W_RD]] = 0;
-            CTRL[w[W_WR]] = 0;
+            uint32_t base = to & ~511u;
+
+            CTRL[w[W_BASE]] = base;
+            CTRL[w[W_RD]] = to - base;
+            CTRL[w[W_WR]] = to - base;
             CTRL[w[W_EOF]] = 0;
         }
         dmb();
@@ -155,7 +161,11 @@ static void poll_svc(bfs_svc_t *s)
     wr = CTRL[w[W_WR]];
     freeb = ring_bytes - (wr - rd);
 
-    while (freeb > 0u) {
+    /* Refill in REFILL_CHUNK steps, not every few hundred bytes B consumed:
+     * each read then moves whole sectors in one SD command. The ring stays
+     * within one chunk of full (32 KiB ring: >= 28 KiB = ~80 ms at 24/96),
+     * and B can only be waiting on an EMPTY ring, which is always refilled. */
+    while (freeb >= REFILL_CHUNK) {
         uint32_t pos = wr & ring_mask;
         uint32_t first = ring_bytes - pos;
         uint32_t n = (freeb < first) ? freeb : first;
@@ -163,6 +173,9 @@ static void poll_svc(bfs_svc_t *s)
 
         if (n > REFILL_CHUNK)
             n = REFILL_CHUNK;
+        /* End on a file sector boundary so the next read starts on one. */
+        if (n > 512u)
+            n -= (CTRL[w[W_BASE]] + wr + n) & 511u;
 
         {
             unsigned long t0 = (s_clock != 0) ? s_clock() : 0;
