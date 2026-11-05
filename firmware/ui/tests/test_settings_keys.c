@@ -76,7 +76,7 @@ static void test_defaults_and_format(void)
     CHECK_EQ_INT(s.strip, 0);            /* off */
     CHECK_EQ_INT(s.tags, 1);             /* on */
     CHECK_EQ_INT(s.cpu_mode, 0);         /* auto */
-    CHECK_EQ_INT(s.volume_db, -23);
+    CHECK_EQ_INT(s.volume_db, -30);
     CHECK_STR_EQ(s.browse, "");
     CHECK_EQ_INT(s.cursor, 0);
     CHECK_EQ_INT(s.shuffle, 0);          /* off */
@@ -97,7 +97,7 @@ static void test_defaults_and_format(void)
     settings_format(&setting_schema[7], &s, buf, (int)sizeof(buf));
     CHECK_STR_EQ(buf, "on");
     settings_format(&setting_schema[9], &s, buf, (int)sizeof(buf));
-    CHECK_STR_EQ(buf, "-23");
+    CHECK_STR_EQ(buf, "-30");
     settings_format(&setting_schema[14], &s, buf, (int)sizeof(buf));
     CHECK_STR_EQ(buf, "300");
 }
@@ -119,7 +119,7 @@ static void test_key_field_mapping(void)
         { 6, 1 },    /* strip: off -> on                          */
         { 7, 0 },    /* tags: on -> off                           */
         { 8, 1 },    /* cpu_mode: auto -> low                     */
-        { 9, -22 },  /* volume_db: -23 -> -22                     */
+        { 9, -29 },  /* volume_db: -30 -> -29                     */
         { 10, 0 },   /* browse: cleared (string)                  */
         { 11, 1 },   /* cursor: 0 -> 1                            */
         { 12, 1 },   /* shuffle: off -> on                        */
@@ -231,7 +231,7 @@ static void test_settings_screen_binding(void)
 
     /* defaults are live after enter */
     CHECK_EQ_INT(settings_screen_get()->resume_mode, 1);    /* folder */
-    CHECK_EQ_INT(settings_screen_get()->volume_db, -23);
+    CHECK_EQ_INT(settings_screen_get()->volume_db, -30);
     CHECK_EQ_INT(settings_screen_get()->fade_ms, 300);
 
     /* Enter Playback. */
@@ -256,7 +256,7 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(settings_group_view()->cursor, 3);
     e = ev(KEY_SELECT); ui_handle_event(&e);
     CHECK_EQ_INT(settings_screen_get()->resume_mode, 2);    /* track */
-    CHECK_EQ_INT(settings_screen_get()->volume_db, -23);    /* untouched */
+    CHECK_EQ_INT(settings_screen_get()->volume_db, -30);    /* untouched */
 
     /* Fade applies immediately to the player (300 -> 500). */
     e = ev(KEY_DOWN); ui_handle_event(&e);
@@ -365,7 +365,7 @@ static void test_settings_volume_flush(void)
     mock_services_reset();
 
     settings_screen_reload();
-    CHECK_EQ_INT(settings_screen_get()->volume_db, -23);   /* default */
+    CHECK_EQ_INT(settings_screen_get()->volume_db, -30);   /* default */
     CHECK_EQ_INT(mock_settings_save_count(), 0);
 
     /* A sweep: every step re-arms the quiet deadline. */

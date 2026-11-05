@@ -39,7 +39,7 @@ void settings_defaults(settings_t *s)
     memcpy(s->strip, "off", 3);
     memcpy(s->tags, "on", 2);
     memcpy(s->cpu, "auto", 4);
-    s->volume = -23;
+    s->volume = -30;      /* BRNOMT-95: a fresh cfg must not start loud */
     s->browse[0] = '\0';
     s->cursor = 0;
     memcpy(s->shuffle, "off", 3);

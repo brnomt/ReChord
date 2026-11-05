@@ -40,7 +40,7 @@ static const char k_sample_cfg[] =
     "strip=off\n"
     "tags=on\n"
     "cpu=auto\n"
-    "volume=-23\n"
+    "volume=-30\n"
     "# where the browser and the player were (first clusters; sd: = the card)\n"
     "browse=\n"
     "cursor=0\n";
@@ -57,7 +57,7 @@ static void check_sample_values(const settings_t *s, int auto_off)
     CHECK(strcmp(s->strip, "off") == 0);
     CHECK(strcmp(s->tags, "on") == 0);
     CHECK(strcmp(s->cpu, "auto") == 0);
-    CHECK(s->volume == -23);
+    CHECK(s->volume == -30);
     CHECK(strcmp(s->browse, "") == 0);
     CHECK(s->cursor == 0);
     CHECK(strcmp(s->shuffle, "off") == 0);       /* BRNOMT-90 */
@@ -172,7 +172,7 @@ static void test_sample_round_trip(void)
     CHECK(strstr(text, "strip=off\n") != NULL);
     CHECK(strstr(text, "tags=on\n") != NULL);
     CHECK(strstr(text, "cpu=auto\n") != NULL);
-    CHECK(strstr(text, "volume=-23\n") != NULL);
+    CHECK(strstr(text, "volume=-30\n") != NULL);
     CHECK(strstr(text, "browse=\n") != NULL);
     CHECK(strstr(text, "cursor=0\n") != NULL);
     CHECK(strstr(text, "shuffle=off\n") != NULL);      /* BRNOMT-90 */

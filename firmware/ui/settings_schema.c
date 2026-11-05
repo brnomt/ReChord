@@ -174,7 +174,7 @@ void settings_view_defaults(rechord_settings_t *s)
     s->strip = 0;          /* off */
     s->tags = 1;           /* on */
     s->cpu_mode = 0;       /* auto */
-    s->volume_db = -23;
+    s->volume_db = -30;    /* BRNOMT-95: same default as settings.c */
     memset(s->browse, 0, sizeof s->browse);   /* whole buffer: no stale tail */
     s->cursor = 0;
     s->shuffle = 0;        /* off */
