@@ -49,13 +49,14 @@ static const char *p_int(const char *s, int *out)
     return s;
 }
 
-/* "f,q,g f,q,g ..." -> curve bands. Returns the band count or -1. */
+/* "f,q,g[,t] f,q,g[,t] ..." -> curve bands (t = EQ_TYPE_*, BRNOMT-77;
+ * absent = positional). Returns the band count or -1. */
 static int p_bands(const char *s, eq_curve_t *c)
 {
     int n = 0;
 
     while (*s != '\0' && *s != ';' && *s != '\n') {
-        int f, q, g;
+        int f, q, g, t = EQ_TYPE_AUTO;
 
         if (*s == ' ') {
             s++;
@@ -69,9 +70,13 @@ static int p_bands(const char *s, eq_curve_t *c)
             return -1;
         if ((s = p_int(s, &g)) == 0)
             return -1;
+        if (*s == ',' && ((s = p_int(s + 1, &t)) == 0 || t < 0 ||
+                          t > EQ_TYPE_MAX))
+            return -1;
         c->band[n].freq_hz = (uint16_t)f;
         c->band[n].q_x100 = (uint16_t)q;
         c->band[n].gain_tdb = (int16_t)g;
+        c->band[n].type = (uint8_t)t;
         n++;
     }
     return n;
@@ -165,11 +170,16 @@ static int format_line(char *buf, unsigned cap, const char *key,
         nm[j] = '\0';
         n += snprintf(buf + n, cap - (unsigned)n, "e=%d;n=%s;b=",
                       st->eq_on ? 1 : 0, nm);
-        for (i = 0; i < st->curve.count && n > 0 && (unsigned)n < cap; i++)
+        for (i = 0; i < st->curve.count && n > 0 && (unsigned)n < cap; i++) {
             n += snprintf(buf + n, cap - (unsigned)n, "%s%u,%u,%d",
                           i ? " " : "", (unsigned)st->curve.band[i].freq_hz,
                           (unsigned)st->curve.band[i].q_x100,
                           (int)st->curve.band[i].gain_tdb);
+            if (st->curve.band[i].type != EQ_TYPE_AUTO && n > 0 &&
+                (unsigned)n < cap)
+                n += snprintf(buf + n, cap - (unsigned)n, ",%u",
+                              (unsigned)st->curve.band[i].type);
+        }
     }
     if (n <= 0 || (unsigned)n + 2 > cap)
         return -1;
@@ -185,7 +195,7 @@ static void drop_range(char *text, char *from, char *to)
 
 int om_upsert(char *text, unsigned cap, const char *key, const om_state_t *st)
 {
-    char line[200];
+    char line[256];                      /* 10 typed bands + key/name fit */
     int ln_len = format_line(line, sizeof line, key, st);
     char *p;
     int lines = 0;

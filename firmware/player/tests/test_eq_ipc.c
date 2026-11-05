@@ -21,6 +21,7 @@ static void curve_flat10(eq_curve_t *c)
         c->band[i].freq_hz = iso_freq[i];
         c->band[i].q_x100 = 70;
         c->band[i].gain_tdb = 0;
+        c->band[i].type = EQ_TYPE_AUTO;
     }
 }
 
@@ -33,7 +34,8 @@ static int curves_equal(const eq_curve_t *a, const eq_curve_t *b)
     for (i = 0; i < a->count; i++) {
         if (a->band[i].freq_hz != b->band[i].freq_hz ||
             a->band[i].q_x100 != b->band[i].q_x100 ||
-            a->band[i].gain_tdb != b->band[i].gain_tdb)
+            a->band[i].gain_tdb != b->band[i].gain_tdb ||
+            a->band[i].type != b->band[i].type)
             return 0;
     }
     return 1;
@@ -63,6 +65,17 @@ static void test_pack(void)
 
     CHECK((eq_ipc_pack_band(&(eq_band_t){ 1000, 70, 0 }) & 0x7FFFu) == 1000,
           "frequency occupies the low 15 bits");
+
+    /* BRNOMT-77: type and Q bit 9 travel in the ext word. */
+    in.freq_hz = 5332;
+    in.q_x100 = 1000;
+    in.gain_tdb = -11;
+    in.type = EQ_TYPE_HSHELF;
+    w = eq_ipc_pack_band(&in);
+    eq_ipc_unpack_band(w, &out);
+    eq_ipc_unpack_ext(eq_ipc_pack_ext(&in, 9), &out, 9);
+    CHECK(out.freq_hz == 5332 && out.q_x100 == 1000 && out.gain_tdb == -11 &&
+          out.type == EQ_TYPE_HSHELF, "typed band with Q 10.0 round-trips");
 }
 
 static void test_publish_read(void)
@@ -85,6 +98,18 @@ static void test_publish_read(void)
     CHECK(eq_ipc_read(sh, &gen, &got) == 1, "new curve is read");
     CHECK(curves_equal(&c, &got), "curve round-trips through the block");
     CHECK(eq_ipc_read(sh, &gen, &got) == 0, "same generation is not re-read");
+
+    /* BRNOMT-77: explicit types and a Q above 5.11 survive the block. */
+    c.band[2].type = EQ_TYPE_LSHELF;
+    c.band[7].type = EQ_TYPE_PEAK;
+    c.band[7].q_x100 = 575;
+    c.band[9].type = EQ_TYPE_HSHELF;
+    eq_ipc_publish(sh, &c);
+    CHECK(eq_ipc_read(sh, &gen, &got) == 1 && curves_equal(&c, &got) &&
+          got.band[7].q_x100 == 575, "typed curve round-trips");
+    curve_flat10(&c);
+    c.band[5].gain_tdb = -45;
+    c.band[9].gain_tdb = 60;
 
     c.enabled = 0;
     eq_ipc_publish(sh, &c);

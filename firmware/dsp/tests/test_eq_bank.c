@@ -31,6 +31,7 @@ static void curve_flat10(eq_curve_t *c)
         c->band[i].freq_hz = iso_freq[i];
         c->band[i].q_x100 = 70;
         c->band[i].gain_tdb = 0;
+        c->band[i].type = EQ_TYPE_AUTO;
     }
 }
 
@@ -321,6 +322,64 @@ static void test_retune_continuity(eq_bank_state_t *st)
           "gain-only retune keeps the filter history (no jump)");
 }
 
+/* BRNOMT-77: an explicit type wins over the band's position. Cut-only curves,
+ * so the preamp stays at unity and the tone ratios are the filter alone. */
+static double tone_ratio(eq_bank_state_t *st, const eq_curve_t *c, double hz)
+{
+    static int32_t in[NSAMP], out[NSAMP];
+
+    if (eq_bank_apply(st, c) != 0)
+        return -1.0;
+    eq_bank_reset(st);
+    gen_sine32(in, NFRAMES, hz, 0.25);
+    memcpy(out, in, sizeof in);
+    eq_bank_process(st, out, NSAMP);
+    return rms32_steady(out, NSAMP) / rms32_steady(in, NSAMP);
+}
+
+static void test_band_types(eq_bank_state_t *st)
+{
+    eq_curve_t c;
+    double r;
+
+    printf("explicit band types (AutoEQ)\n");
+
+    /* A middle band is a peak by position; LSHELF turns it into a shelf. */
+    curve_flat10(&c);
+    c.band[4].gain_tdb = -60;                       /* 500 Hz */
+    r = tone_ratio(st, &c, 40.0);
+    CHECK(r > 0.95 && r < 1.05, "auto middle band: 40 Hz untouched (peak)");
+    c.band[4].type = EQ_TYPE_LSHELF;
+    r = tone_ratio(st, &c, 40.0);
+    CHECK(r > 0.47 && r < 0.55, "LSHELF middle band: 40 Hz cut ~6 dB");
+    r = tone_ratio(st, &c, 8000.0);
+    CHECK(r > 0.97 && r < 1.03, "LSHELF middle band: 8 kHz untouched");
+
+    /* Band 0 is a low shelf by position; HSHELF there cuts the highs. */
+    curve_flat10(&c);
+    c.band[0].gain_tdb = -60;                       /* 31 Hz */
+    c.band[0].type = EQ_TYPE_HSHELF;
+    r = tone_ratio(st, &c, 1000.0);
+    CHECK(r > 0.47 && r < 0.55, "HSHELF at band 0: 1 kHz cut ~6 dB");
+
+    /* PEAK on the last band (a high shelf by position). */
+    curve_flat10(&c);
+    c.band[9].gain_tdb = -60;                       /* 16 kHz */
+    c.band[9].freq_hz = 12000;
+    c.band[9].type = EQ_TYPE_PEAK;
+    c.band[9].q_x100 = 575;                         /* narrow AutoEQ peak */
+    r = tone_ratio(st, &c, 3000.0);
+    CHECK(r > 0.97 && r < 1.03, "PEAK at the last band: 3 kHz untouched");
+    r = tone_ratio(st, &c, 12000.0);
+    CHECK(r > 0.47 && r < 0.55, "PEAK at the last band: 12 kHz cut ~6 dB");
+
+    /* Q above 4.0 is only legal with an explicit type. */
+    c.band[9].type = EQ_TYPE_AUTO;
+    CHECK(!eq_curve_valid(&c), "auto band rejects Q 5.75");
+    c.band[9].type = 4;
+    CHECK(!eq_curve_valid(&c), "unknown type rejected");
+}
+
 /* The block path (band-major) must equal the frame-at-a-time path (one frame
  * per call = sample-major). Loud, boosted, 96 kHz so the soft knee and the
  * saturation both run. */
@@ -374,6 +433,7 @@ int main(void)
     test_atomic_reject(&st);
     test_retune_continuity(&st);
     test_block_equals_frames();
+    test_band_types(&st);
 
     printf("\n%s (%d failure%s)\n",
            failures == 0 ? "ALL EQ BANK TESTS PASSED" : "FAILURES",

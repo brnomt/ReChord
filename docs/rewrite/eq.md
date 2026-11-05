@@ -138,6 +138,39 @@ Rules:
 * Any violation rejects the whole profile: the active curve is untouched.
 * The name is a UI label only. Core B receives just bands, Q and gains.
 
+**Band types (BRNOMT-77).** An optional 4th field sets the filter:
+`band1=105,70,64,2` = low shelf with a true Q. `0` (or no field) keeps the
+positional layout above (first band low shelf with Q read as the RBJ slope S,
+last band high shelf, the rest peaks), so every older file is unchanged.
+`1` = peak, `2` = low shelf, `3` = high shelf, each anywhere in the list and
+with a true Q (Equalizer APO's LSC/HSC). Typed bands allow Q up to 10.00;
+positional bands stay at 4.00. The type and Q bit 9 cross to Core B in
+`IPC_C_EQ_EXT` (3 bits per band); per-output memory stores them as
+`f,q,g,t`.
+
+### AutoEQ / Equalizer APO import
+
+Copy an AutoEQ `… ParametricEQ.txt` (or any `.txt` in Equalizer APO's
+parametric syntax) into `/Internal/.rechord/eq/`. It appears in the profile
+picker after the custom slots, named after the file without
+` ParametricEQ.txt` (up to 8 files, 19 characters). The rows are read-only;
+selecting one copies the curve into `eq.cfg`, so it survives a reboot and the
+`.txt` can be edited or removed afterwards.
+
+```
+Preamp: -6.1 dB
+Filter 1: ON LSC Fc 105 Hz Gain 6.4 dB Q 0.70
+Filter 2: ON PK Fc 8800 Hz Gain 5.1 dB Q 1.42
+...
+```
+
+`eq_profile_parse_autoeq()`: `PK`/`PEQ`, `LSC`/`LS`, `HSC`/`HS`; `OFF`
+filters are skipped; any other type (LP, HP, notch…) or more than 10 filters
+rejects the file. Filters are sorted by frequency (the cascade commutes), gain
+is clamped to ±12 dB and Q to 0.10..10.0, fewer than 5 filters are padded with
+flat peaks. `Preamp` is ignored: the engine already sets its own headroom from
+the curve's response (§2) and has the soft knee.
+
 Built-in presets (flash, not files): Flat, Rock, Jazz, EDM, Vocal, each with
 10 ISO bands (31/62/125/250/500/1k/2k/4k/8k/16k Hz, Q 0.70). The curves are
 project data (standard graphic-EQ shapes), not copied code.

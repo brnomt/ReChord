@@ -38,6 +38,26 @@ static om_state_t mk(int vol, int eq_on, const char *name, int g0)
     return s;
 }
 
+static void test_typed_bands(void)
+{
+    char text[OM_FILE_MAX];
+    om_state_t a = mk(-30, 1, "Sennheiser HD 650", 64), b;
+
+    a.curve.band[0].freq_hz = 25;
+    a.curve.band[0].type = EQ_TYPE_LSHELF;
+    a.curve.band[5].type = EQ_TYPE_PEAK;
+    a.curve.band[5].q_x100 = 1000;
+    a.curve.band[9].type = EQ_TYPE_HSHELF;
+    text[0] = '\0';
+    CHECK(om_upsert(text, sizeof text, "wired", &a) > 0, "typed curve stored");
+    CHECK(om_find(text, "wired", &b) == 1 && b.has_eq &&
+          b.curve.band[0].type == EQ_TYPE_LSHELF &&
+          b.curve.band[5].type == EQ_TYPE_PEAK &&
+          b.curve.band[5].q_x100 == 1000 &&
+          b.curve.band[9].type == EQ_TYPE_HSHELF &&
+          b.curve.band[1].type == EQ_TYPE_AUTO, "types and Q 10.0 survive");
+}
+
 int main(void)
 {
     static char text[OM_FILE_MAX];
@@ -121,6 +141,7 @@ int main(void)
     }
     CHECK(strlen(text) < OM_FILE_MAX, "stays inside the buffer");
 
+    test_typed_bands();
     if (fails == 0)
         printf("test_output_mem: OK\n");
     return fails != 0;

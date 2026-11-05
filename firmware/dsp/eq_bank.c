@@ -61,6 +61,27 @@ static int band_designable(const eq_band_t *b, int sample_rate)
     return (long)b->freq_hz * 2L < (long)sample_rate;
 }
 
+/* RBJ shelf from a true Q (Equalizer APO's LSC/HSC): alpha = sin(w0)/(2Q).
+ * The core's shelves take the slope S instead, which the positional layout
+ * (and every saved curve before BRNOMT-77) relies on. */
+static void shelf_q(Biquad *f, double fs, double f0, double dbgain, double q,
+                    int high)
+{
+    double A = pow(10.0, dbgain / 40.0);
+    double w0 = 2.0 * RCH_PI * f0 / fs;
+    double cw = cos(w0);
+    double t = 2.0 * sqrt(A) * (sin(w0) / (2.0 * q));
+    double s = high ? -1.0 : 1.0;   /* high shelf: mirror the cos terms */
+
+    biquad_set(f,
+               A * ((A + 1.0) - s * (A - 1.0) * cw + t),
+               s * 2.0 * A * ((A - 1.0) - s * (A + 1.0) * cw),
+               A * ((A + 1.0) - s * (A - 1.0) * cw - t),
+               (A + 1.0) + s * (A - 1.0) * cw + t,
+               -s * 2.0 * ((A - 1.0) + s * (A + 1.0) * cw),
+               (A + 1.0) + s * (A - 1.0) * cw - t);
+}
+
 static void band_design(Biquad *f, const eq_band_t *b, int index, int count,
                         int sample_rate)
 {
@@ -69,6 +90,19 @@ static void band_design(Biquad *f, const eq_band_t *b, int index, int count,
     double q  = (double)b->q_x100 / 100.0;
     double g  = (double)b->gain_tdb / 10.0;
 
+    switch (b->type) {
+    case EQ_TYPE_PEAK:
+        biquad_peaking(f, fs, f0, g, q);
+        return;
+    case EQ_TYPE_LSHELF:
+        shelf_q(f, fs, f0, g, q, 0);
+        return;
+    case EQ_TYPE_HSHELF:
+        shelf_q(f, fs, f0, g, q, 1);
+        return;
+    default:
+        break;
+    }
     if (index == 0)
         biquad_lowshelf(f, fs, f0, g, q);
     else if (index == count - 1)
@@ -215,7 +249,8 @@ int eq_bank_apply(eq_bank_state_t *st, const eq_curve_t *curve)
         same = was_on && s->curve.count == curve->count &&
                s->band_active[i] &&
                s->curve.band[i].freq_hz == curve->band[i].freq_hz &&
-               s->curve.band[i].q_x100 == curve->band[i].q_x100;
+               s->curve.band[i].q_x100 == curve->band[i].q_x100 &&
+               s->curve.band[i].type == curve->band[i].type;
 
         {
             Biquad nb;

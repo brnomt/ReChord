@@ -12,6 +12,13 @@
  *     ...
  *     band9=16000,70,-10
  *
+ * A 4th band field sets the filter type (eq_bank.h EQ_TYPE_*); without it the
+ * band keeps the positional layout:
+ *     band0=105,70,64,2           # low shelf, true Q
+ *
+ * AutoEQ / Equalizer APO "ParametricEQ.txt" files copied into the same folder
+ * show up as read-only profiles named after the file (BRNOMT-77).
+ *
  * The name is a UI label only: Core B receives just the curve (bands, Q and
  * gains) through the shared block (eq_ipc.h).
  *
@@ -27,6 +34,7 @@
 
 #define EQ_PROFILE_NAME_MAX 20
 #define EQ_PROFILE_SLOTS    8     /* customN.cfg, N = 1..8 */
+#define EQ_PROFILE_IMPORTS  8     /* *.txt AutoEQ files listed (BRNOMT-77) */
 #define EQ_PROFILE_BUILTINS 10    /* Flat, Bass Boost, Rock, Pop, Jazz, EDM,
                                    * Hip-Hop, Vocal, Treble, Loudness */
 
@@ -57,8 +65,14 @@ int eq_profile_apply(void);
 /* Persist the active curve to /Internal/.rechord/eq.cfg. */
 int eq_profile_save(void);
 
-/* Rows the picker shows: the built-ins followed by every present custom slot. */
+/* Rows the picker shows: the built-ins, every present custom slot, then the
+ * AutoEQ imports. */
 int eq_profile_count(void);
+int eq_profile_custom_count(void);
+
+/* AutoEQ / Equalizer APO parametric text -> curve with explicit band types.
+ * Returns 0, or -1 (unsupported filter type, > 10 filters, malformed). */
+int eq_profile_parse_autoeq(const char *text, int len, eq_curve_t *out);
 const char *eq_profile_entry_name(int index);
 int eq_profile_entry_is_custom(int index);
 

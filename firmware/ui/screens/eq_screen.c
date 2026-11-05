@@ -185,11 +185,10 @@ const ui_screen_t eq_screen = {
 static menu_view_t s_prof_view;
 static uint8_t     s_store_mode;
 
+/* Writable slots only: AutoEQ imports (listed after them) are read-only. */
 static int custom_count(void)
 {
-    int n = eq_profile_count() - EQ_PROFILE_BUILTINS;
-
-    return (n > 0) ? n : 0;
+    return eq_profile_custom_count();
 }
 
 static void prof_on_enter(void)
@@ -201,7 +200,8 @@ static void prof_on_enter(void)
 
 static void prof_draw(void)
 {
-    menu_item_t items[EQ_PROFILE_BUILTINS + EQ_PROFILE_SLOTS + 1];
+    menu_item_t items[EQ_PROFILE_BUILTINS + EQ_PROFILE_SLOTS +
+                      EQ_PROFILE_IMPORTS + 1];
     menu_model_t model;
     int i, n = 0;
 

@@ -6,10 +6,14 @@
  * int32, LEFT-JUSTIFIED 24-bit (see firmware/player/codec.h). Converting to
  * int16 first would throw away the low 8 bits of every 24-bit sample.
  *
- * The curve describes 5..10 bands in ascending frequency order:
- *   band 0            -> low shelf
- *   band count-1      -> high shelf
+ * The curve describes 5..10 bands in ascending frequency order. A band's
+ * filter is set by its `type`; EQ_TYPE_AUTO (the built-ins and every file
+ * written before BRNOMT-77) keeps the positional layout:
+ *   band 0            -> low shelf  (q_x100 is the RBJ shelf slope S)
+ *   band count-1      -> high shelf (q_x100 is the RBJ shelf slope S)
  *   every middle band -> peaking
+ * Explicit types (AutoEQ / Equalizer APO imports) can sit anywhere; their
+ * shelves take a true Q, like Equalizer APO's LSC/HSC.
  * Filters use the proven RBJ/Q2.30 biquad math of rechord_dsp_core.c (each
  * translation unit includes its own private copy, exactly like mod_eq.c).
  *
@@ -28,14 +32,22 @@
 #define EQ_FREQ_MIN_HZ 20
 #define EQ_FREQ_MAX_HZ 20000
 #define EQ_Q_MIN_X100  10
-#define EQ_Q_MAX_X100  400
+#define EQ_Q_MAX_X100  1000      /* Q 10.0: AutoEQ narrow peaks go to ~6 */
 #define EQ_GAIN_MAX_TDB 120      /* +/- 12.0 dB */
+
+/* eq_band_t.type */
+#define EQ_TYPE_AUTO   0         /* positional (see above)              */
+#define EQ_TYPE_PEAK   1
+#define EQ_TYPE_LSHELF 2         /* low shelf, true Q                   */
+#define EQ_TYPE_HSHELF 3         /* high shelf, true Q                  */
+#define EQ_TYPE_MAX    3
 
 typedef struct
 {
     uint16_t freq_hz;
     uint16_t q_x100;             /* Q * 100 (70 = 0.70)                 */
     int16_t  gain_tdb;           /* tenths of dB, -120..+120            */
+    uint8_t  type;               /* EQ_TYPE_*                           */
 } eq_band_t;
 
 typedef struct
@@ -98,6 +110,12 @@ static inline int eq_curve_valid(const eq_curve_t *c)
         if (b->q_x100 < EQ_Q_MIN_X100 || b->q_x100 > EQ_Q_MAX_X100)
             return 0;
         if (b->gain_tdb < -EQ_GAIN_MAX_TDB || b->gain_tdb > EQ_GAIN_MAX_TDB)
+            return 0;
+        if (b->type > EQ_TYPE_MAX)
+            return 0;
+        /* The positional layout predates the wider Q range: its shelves read
+         * q_x100 as a slope and were only ever validated up to 4.0. */
+        if (b->type == EQ_TYPE_AUTO && b->q_x100 > 400)
             return 0;
         if (i > 0 && b->freq_hz <= c->band[i - 1].freq_hz)
             return 0;

@@ -123,7 +123,9 @@ _Static_assert((IPC_RING_BYTES & IPC_RING_MASK) == 0u, "ring must be pow2");
 #define IPC_T_FILE_MIN 61u   /* B: lowest file-ring fill at a read, bytes   */
 #define IPC_T_WAIT     62u   /* B: cycles spent waiting on the file ring    */
 
-#define IPC_SH_COUNT   63u
+#define IPC_C_EQ_EXT   63u   /* AP: per-band type + Q bit 9 (eq_ipc.h)      */
+
+#define IPC_SH_COUNT   64u
 
 #define IPC_SH_MAGIC_VAL  0x42524459u   /* 'BRDY' */
 

@@ -12,6 +12,10 @@
  *   bits  0..14  centre frequency, Hz (<= 20000, fits 15 bits)
  *   bits 15..23  Q * 100 (10..400, fits 9 bits)
  *   bits 24..31  gain in tenths of dB, signed (fits int8)
+ *
+ * IPC_C_EQ_EXT (BRNOMT-77) carries what did not fit: 3 bits per band i at
+ * bits 3i..3i+2 = filter type (2 bits) | Q bit 9 << 2 (Q * 100 up to 1000).
+ * All zero = the pre-BRNOMT-77 positional curve.
  */
 #ifndef RECHORD_EQ_IPC_H
 #define RECHORD_EQ_IPC_H
@@ -34,17 +38,33 @@ static inline uint32_t eq_ipc_pack_band(const eq_band_t *b)
            (((uint32_t)(uint8_t)(int8_t)b->gain_tdb) << 24);
 }
 
+static inline uint32_t eq_ipc_pack_ext(const eq_band_t *b, int i)
+{
+    return (((uint32_t)b->type & 3u) |
+            ((((uint32_t)b->q_x100 >> 9) & 1u) << 2)) << (3 * i);
+}
+
 static inline void eq_ipc_unpack_band(uint32_t w, eq_band_t *b)
 {
     b->freq_hz = (uint16_t)(w & 0x7FFFu);
     b->q_x100 = (uint16_t)((w >> 15) & 0x1FFu);
     b->gain_tdb = (int16_t)(int8_t)((w >> 24) & 0xFFu);
+    b->type = EQ_TYPE_AUTO;
+}
+
+static inline void eq_ipc_unpack_ext(uint32_t ext, eq_band_t *b, int i)
+{
+    uint32_t e = (ext >> (3 * i)) & 7u;
+
+    b->type = (uint8_t)(e & 3u);
+    b->q_x100 = (uint16_t)(b->q_x100 | ((e >> 2) << 9));
 }
 
 /* AP side: publish `c` atomically. */
 static inline void eq_ipc_publish(volatile uint32_t *sh, const eq_curve_t *c)
 {
     uint32_t gen = sh[IPC_C_EQ_GEN];
+    uint32_t ext = 0;
     int i;
 
     sh[IPC_C_EQ_GEN] = gen | 1u;         /* odd: update in progress */
@@ -60,9 +80,12 @@ static inline void eq_ipc_publish(volatile uint32_t *sh, const eq_curve_t *c)
             b.freq_hz = 0;
             b.q_x100 = 0;
             b.gain_tdb = 0;
+            b.type = EQ_TYPE_AUTO;
         }
         sh[IPC_C_EQ_BASE + i] = eq_ipc_pack_band(&b);
+        ext |= eq_ipc_pack_ext(&b, i);
     }
+    sh[IPC_C_EQ_EXT] = ext;
     EQ_IPC_BARRIER();
     sh[IPC_C_EQ_GEN] = (gen | 1u) + 1u;  /* even again: stable */
 }
@@ -76,6 +99,7 @@ static inline int eq_ipc_read(const volatile uint32_t *sh, uint32_t *last_gen,
                               eq_curve_t *out)
 {
     uint32_t gen = sh[IPC_C_EQ_GEN];
+    uint32_t ext;
     eq_curve_t c;
     int i;
 
@@ -90,13 +114,16 @@ static inline int eq_ipc_read(const volatile uint32_t *sh, uint32_t *last_gen,
         *last_gen = gen;
         return -1;
     }
+    ext = sh[IPC_C_EQ_EXT];
     for (i = 0; i < EQ_BANDS_MAX; i++) {
         if (i < c.count) {
             eq_ipc_unpack_band(sh[IPC_C_EQ_BASE + i], &c.band[i]);
+            eq_ipc_unpack_ext(ext, &c.band[i], i);
         } else {
             c.band[i].freq_hz = 0;
             c.band[i].q_x100 = 0;
             c.band[i].gain_tdb = 0;
+            c.band[i].type = EQ_TYPE_AUTO;
         }
     }
     EQ_IPC_BARRIER();

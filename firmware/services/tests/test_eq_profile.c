@@ -200,6 +200,7 @@ static void reset_tree(void)
     (void)remove(EQDIR "/custom4.cfg");
     (void)remove(EQDIR "/custom5.cfg");
     (void)remove(EQDIR "/custom6.cfg");
+    (void)remove(EQDIR "/Sennheiser HD 650 ParametricEQ.txt");
 }
 
 static void test_service(void)
@@ -355,6 +356,113 @@ static void test_restore(void)
     eq_profile_set_observer(0);
 }
 
+/* BRNOMT-77: the real AutoEQ export for the Sennheiser HD 650 (oratory1990),
+ * unsorted, PK/LSC/HSC, one Q above the old 4.0 ceiling, CRLF line ends. */
+static const char *hd650 =
+    "Preamp: -6.1 dB\r\n"
+    "Filter 1: ON LSC Fc 105 Hz Gain 6.4 dB Q 0.70\r\n"
+    "Filter 2: ON PK Fc 8800 Hz Gain 5.1 dB Q 1.42\r\n"
+    "Filter 3: ON PK Fc 118 Hz Gain -3.1 dB Q 0.50\r\n"
+    "Filter 4: ON PK Fc 37 Hz Gain 0.7 dB Q 3.96\r\n"
+    "Filter 5: ON PK Fc 3169 Hz Gain -1.7 dB Q 3.89\r\n"
+    "Filter 6: ON HSC Fc 10000 Hz Gain -2.1 dB Q 0.70\r\n"
+    "Filter 7: ON PK Fc 1227 Hz Gain -1.2 dB Q 2.53\r\n"
+    "Filter 8: ON PK Fc 2055 Hz Gain 1.2 dB Q 3.23\r\n"
+    "Filter 9: ON PK Fc 587 Hz Gain 0.4 dB Q 1.19\r\n"
+    "Filter 10: ON PK Fc 5332 Hz Gain -1.1 dB Q 5.75\r\n";
+
+static void test_autoeq(void)
+{
+    eq_curve_t c;
+    char text[600];
+    int n, i, sorted = 1;
+
+    TEST("AutoEQ import");
+    CHECK(eq_profile_parse_autoeq(hd650, (int)strlen(hd650), &c) == 0,
+          "HD 650 ParametricEQ parses");
+    CHECK(c.count == 10 && c.enabled == 1, "10 bands, enabled");
+    for (i = 1; i < c.count; i++)
+        if (c.band[i].freq_hz <= c.band[i - 1].freq_hz)
+            sorted = 0;
+    CHECK(sorted, "bands sorted by frequency");
+    CHECK(c.band[0].freq_hz == 37 && c.band[0].type == EQ_TYPE_PEAK &&
+          c.band[0].gain_tdb == 7 && c.band[0].q_x100 == 396,
+          "37 Hz peak stays a peak below the shelf");
+    CHECK(c.band[1].freq_hz == 105 && c.band[1].type == EQ_TYPE_LSHELF &&
+          c.band[1].gain_tdb == 64 && c.band[1].q_x100 == 70,
+          "105 Hz low shelf, +6.4 dB, Q 0.70");
+    CHECK(c.band[8].freq_hz == 8800 && c.band[8].type == EQ_TYPE_PEAK &&
+          c.band[8].gain_tdb == 51, "8800 Hz peak +5.1 dB");
+    CHECK(c.band[9].freq_hz == 10000 && c.band[9].type == EQ_TYPE_HSHELF &&
+          c.band[9].gain_tdb == -21, "10 kHz high shelf -2.1 dB");
+    CHECK(c.band[7].freq_hz == 5332 && c.band[7].q_x100 == 575,
+          "narrow Q 5.75 kept");
+
+    /* The typed curve survives eq.cfg (4th field) and old files still parse. */
+    n = eq_profile_format(&c, "HD 650", text, sizeof text);
+    {
+        eq_curve_t back;
+        char name[EQ_PROFILE_NAME_MAX];
+        int same = n > 0 &&
+                   eq_profile_parse(text, n, &back, name, sizeof name) == 0 &&
+                   back.count == c.count;
+
+        for (i = 0; same && i < c.count; i++)
+            same = back.band[i].freq_hz == c.band[i].freq_hz &&
+                   back.band[i].q_x100 == c.band[i].q_x100 &&
+                   back.band[i].gain_tdb == c.band[i].gain_tdb &&
+                   back.band[i].type == c.band[i].type;
+        CHECK(same, "typed curve round-trips through eq.cfg");
+    }
+
+    {
+        const char *few = "Filter 1: ON PK Fc 1000 Hz Gain -3 dB Q 1.0\n"
+                          "Filter 2: OFF PK Fc 2000 Hz Gain 3 dB Q 1.0\n"
+                          "Filter 3: ON LSC Fc 100 Hz Gain 20 dB\n";
+
+        CHECK(eq_profile_parse_autoeq(few, (int)strlen(few), &c) == 0 &&
+              c.count == 5 && c.band[0].freq_hz == 100 &&
+              c.band[0].gain_tdb == 120 && c.band[1].freq_hz == 1000 &&
+              c.band[2].gain_tdb == 0,
+              "2 filters + OFF: padded to 5, gain clamped to +12 dB");
+    }
+    {
+        const char *lp = "Filter 1: ON LP Fc 1000 Hz\n";
+        const char *noq = "Filter 1: ON PK Fc 1000 Hz Gain 3 dB\n";
+        const char *junk = "Preamp: -3 dB\n";
+
+        CHECK(eq_profile_parse_autoeq(lp, (int)strlen(lp), &c) < 0,
+              "unsupported filter type rejected");
+        CHECK(eq_profile_parse_autoeq(noq, (int)strlen(noq), &c) < 0,
+              "peak without Q rejected");
+        CHECK(eq_profile_parse_autoeq(junk, (int)strlen(junk), &c) < 0,
+              "no filters rejected");
+    }
+
+    /* Dropped into the EQ folder it shows up as a read-only profile. */
+    fs_host_set_root(ROOT);
+    reset_tree();
+    write_text(EQDIR "/Sennheiser HD 650 ParametricEQ.txt", hd650);
+    CHECK(eq_profile_boot() == 0, "boot with an import");
+    n = eq_profile_count();
+    CHECK(n == EQ_PROFILE_BUILTINS + eq_profile_custom_count() + 1,
+          "one import row after the custom slots");
+    CHECK(strcmp(eq_profile_entry_name(n - 1), "Sennheiser HD 650") == 0,
+          "row named after the file");
+    CHECK(!eq_profile_entry_is_custom(n - 1), "import is not a writable slot");
+    CHECK(eq_profile_save_to_row(n - 1) < 0, "cannot save over an import");
+    CHECK(eq_profile_select(n - 1) == 0, "select the import");
+    CHECK(strcmp(eq_profile_name(), "Sennheiser HD 650") == 0 &&
+          eq_profile_curve()->band[1].type == EQ_TYPE_LSHELF &&
+          pub_curve.band[9].type == EQ_TYPE_HSHELF,
+          "typed curve is active and published");
+    CHECK(eq_profile_boot() == 0 &&
+          strcmp(eq_profile_name(), "Sennheiser HD 650") == 0 &&
+          eq_profile_curve()->band[7].q_x100 == 575,
+          "import survives a reboot via eq.cfg");
+    (void)remove(EQDIR "/Sennheiser HD 650 ParametricEQ.txt");
+}
+
 int main(void)
 {
     printf("=== eq_profile tests ===\n");
@@ -364,6 +472,7 @@ int main(void)
     test_service();
     test_persist_across_boot();
     test_restore();
+    test_autoeq();
 
     printf("\n%s (%d failure%s)\n",
            failures == 0 ? "ALL EQ PROFILE TESTS PASSED" : "FAILURES",

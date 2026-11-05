@@ -38,6 +38,7 @@ void mock_eq_reset(void)
         s_curve.band[i].freq_hz = s_freq[i];
         s_curve.band[i].q_x100 = 70;
         s_curve.band[i].gain_tdb = 0;
+        s_curve.band[i].type = EQ_TYPE_AUTO;
     }
     snprintf(s_name, sizeof s_name, "%s", "Flat");
     s_enabled = 0;
@@ -57,6 +58,7 @@ int eq_profile_save(void) { mock_eq_save_calls++; return 0; }
 int eq_profile_scan(void) { return eq_profile_count(); }
 
 int eq_profile_count(void) { return EQ_PROFILE_BUILTINS + s_custom; }
+int eq_profile_custom_count(void) { return s_custom; }
 
 const char *eq_profile_entry_name(int index)
 {
