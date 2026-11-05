@@ -36,6 +36,7 @@
 #include "services/output_mem.h"
 #include "services/bt_link.h"
 #include "services/power_save.h"
+#include "crash.h"
 #include "services/library_extras.h"
 #include "drivers/core_b.h"
 #include "drivers/jack.h"
@@ -823,6 +824,7 @@ static void usb_session(void)
     display_flush_rows(0, DISPLAY_H - 1);
     r = usb_msc_run(luns, 2, usb_power_step, &rd, &wr);
     fs_target_mount(0, "Internal", emmc_read, s_user);   /* host may have written */
+    crash_arm();                 /* the PC may have moved or removed CRASH */
     snprintf(s_usb, sizeof s_usb, "x%d r%uM w%uM", r, (unsigned)(rd >> 11), (unsigned)(wr >> 11));
     /* Session forensics: how it ended and which SCSI opcode/LUN was last on
      * the wire. When a host-side tool misbehaves (Nautilus freezing on
@@ -1762,6 +1764,7 @@ void ap_ui_loop(void)
              strcmp(theme_pkg_active_id(), theme_id) != 0))
             log_printf("theme: cfg id '%s' rejected", theme_id);
     }
+    crash_boot(RC_BUILD);    /* report a fault from the last session */
     log_printf("boot: %s theme '%s' home %d nav %d skin v%d '%s'", RC_BUILD,
                theme_pkg_active_id(), theme_layout()->home,
                theme_layout()->home_nav, THEME_SKIN_ENGINE,
@@ -1821,6 +1824,10 @@ void ap_ui_loop(void)
         }
         s_loop_seq = s_tick_seq;
         now = ap_ms();
+#ifdef AP_CRASH_TEST
+        if (now >= 20000u)
+            crash_test_fire();   /* make AP_CRASH_TEST=1: exercise the path */
+#endif
 
         /* BRNOMT-98: the SARADC is stepped from the SysTick hook, so this only
          * collects a finished scan at the same 5 ms cadence; it never waits on

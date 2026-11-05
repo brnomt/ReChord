@@ -143,6 +143,37 @@ static int assemble(void)
     return (int)len;
 }
 
+int log_tail(char *buf, int cap)
+{
+    unsigned i, first, len = 0;
+
+    if (buf == 0 || cap <= 0)
+        return 0;
+    /* Newest lines that fit, oldest of them first. No snprintf and no FS:
+     * the crash handler calls this from a fault. */
+    first = s_count;
+    while (first > 0) {
+        unsigned n = (unsigned)strlen(
+            s_lines[(s_head + first - 1u) % (unsigned)LOG_BUFFER_LINES]) + 1u;
+
+        if (len + n > (unsigned)cap - 1u)
+            break;
+        len += n;
+        first--;
+    }
+    len = 0;
+    for (i = first; i < s_count; i++) {
+        const char *l = s_lines[(s_head + i) % (unsigned)LOG_BUFFER_LINES];
+        unsigned n = (unsigned)strlen(l);
+
+        memcpy(buf + len, l, n);
+        len += n;
+        buf[len++] = '\n';
+    }
+    buf[len] = '\0';
+    return (int)len;
+}
+
 int log_flush(const char *tag)
 {
     fs_file_t *f;

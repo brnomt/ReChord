@@ -80,4 +80,9 @@ unsigned long log_dropped(void);
 /* Number of lines currently buffered. */
 unsigned log_pending(void);
 
+/* Copy the newest buffered lines that fit into `buf` (oldest of them first,
+ * '\n'-separated, NUL-terminated). Touches no FS: safe from a fault handler.
+ * Returns the length. */
+int log_tail(char *buf, int cap);
+
 #endif /* RECHORD_SERVICES_LOG_H */

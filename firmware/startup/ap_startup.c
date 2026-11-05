@@ -114,16 +114,17 @@ const uint32_t ap_ram_vectors[2]
  * alignment window. */
 extern void rknano_i2s_tx_isr(void);   /* firmware/drivers/rknano_i2s.c    */
 extern void SysTick_Handler(void);     /* firmware/startup/ap_ui.c (WFI)   */
+extern void crash_handler(void);       /* firmware/startup/crash.c         */
 
 const uint32_t ap_vectors[49]
     __attribute__((section(".vectors"), used, aligned(256))) = {
     AP_INITIAL_MSP,                         /* 0x00 initial MSP = 0x03004000 */
     (uint32_t)&PowerOn_Reset,               /* 0x04 Reset_Handler             */
     (uint32_t)&Default_Handler,         /* 0x08 NMI                      */
-    (uint32_t)&Default_Handler,         /* 0x0C HardFault                */
-    (uint32_t)&Default_Handler,         /* 0x10 MemManage                */
-    (uint32_t)&Default_Handler,         /* 0x14 BusFault                 */
-    (uint32_t)&Default_Handler,         /* 0x18 UsageFault               */
+    (uint32_t)&crash_handler,           /* 0x0C HardFault: crash record  */
+    (uint32_t)&crash_handler,           /* 0x10 MemManage                */
+    (uint32_t)&crash_handler,           /* 0x14 BusFault                 */
+    (uint32_t)&crash_handler,           /* 0x18 UsageFault               */
     0, 0, 0, 0,                        /* 0x1C-0x28 reserved            */
     (uint32_t)&Default_Handler,         /* 0x2C SVCall                   */
     (uint32_t)&Default_Handler,         /* 0x30 DebugMon                 */

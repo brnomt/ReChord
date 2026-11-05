@@ -319,6 +319,24 @@ static int raw_write(uint32_t lba, uint32_t count, const void *buf)
     return ret;
 }
 
+/* Fault path (startup/crash.c): the interrupted code may have left the eMMC
+ * controller mid-transfer. Reset its state machine and FIFO (the registers
+ * keep their values), re-latch the clock, stop any open card transfer, then
+ * do a normal floor-checked write. Never returns to the interrupted code. */
+int emmc_panic_write(uint32_t lba, uint32_t count, const void *buf)
+{
+    select_mmc(0);
+    clk_gate(0x19, 1);
+    clk_gate(0x6C, 1);
+    MMC[CTRL] = 3u;                         /* controller + FIFO reset */
+    (void)wait_clear(CTRL, 3u, 5000);
+    MMC[RINTSTS] = 0xFFFFFFFFu;
+    (void)update_clock();
+    (void)send_cmd(12, RCA_ARG, F_RESP | F_CRC | F_STOP, 1);
+    (void)wait_tran();
+    return emmc_write(lba, count, buf);
+}
+
 /* Refuses anything below the user volume: IDB and firmware slots are
  * never writable from here (also not before emmc_layout() succeeded). */
 int emmc_write(uint32_t lba, uint32_t count, const void *buf)

@@ -150,5 +150,8 @@ int rechord_files_init(void)
     /* Per-output volume/EQ memory (output_mem.c): rewritten in place, so it is
      * preallocated like the rest. */
     (void)fs_ensure_file(RECHORD_OUTPUT, 2048u, "# ReChord per-output memory\n");
+    /* Crash record (startup/crash.c): written raw by the fault handler. */
+    (void)fs_ensure_file(RECHORD_CRASH, RECHORD_CRASH_BYTES,
+                         "# ReChord crash record: none yet\n");
     return FS_OK;
 }

@@ -78,6 +78,7 @@ AP_STARTUP_SRCS := \
   firmware/startup/ap_startup.c \
   firmware/startup/ap_main.c \
   firmware/startup/ap_ui.c \
+  firmware/startup/crash.c \
   firmware/startup/mem_probe.c \
   firmware/startup/overlay_demo.c \
   firmware/startup/cdc_overlay.c
@@ -136,6 +137,7 @@ AP_SERVICE_SRCS := \
   firmware/services/resume.c \
   firmware/services/audio_scope.c \
   firmware/services/output_mem.c \
+  firmware/services/crash_record.c \
   firmware/services/eq_profile.c \
   firmware/services/bt_proto.c \
   firmware/services/file_io.c \

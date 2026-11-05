@@ -13,6 +13,8 @@ uint32_t emmc_sectors(void);
 int emmc_read(uint32_t lba, uint32_t count, void *buf);
 /* Only LBAs >= the user volume start found by emmc_layout(); -30 otherwise. */
 int emmc_write(uint32_t lba, uint32_t count, const void *buf);
+/* emmc_write() for the crash handler: resets the controller first. */
+int emmc_panic_write(uint32_t lba, uint32_t count, const void *buf);
 
 /* Loader layout from the IDB: firmware area = [0x2000, user_start),
  * user volume = [user_start, emmc_sectors()). 0 on success. */

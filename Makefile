@@ -221,7 +221,7 @@ COMMON_FLAGS := -mcpu=cortex-m3 -mthumb -mfloat-abi=soft -Os -Wall \
 # only has to cover that plus a small burst. 40 lines keeps that margin and
 # leaves RAM headroom for the Bluetooth stack (the ring AND its assembly
 # buffer scale with this constant: ~2.5 KB saved vs 48).
-AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DAP_MEM_OVERLAY=$(AP_MEM_OVERLAY) -DAP_CDC_OVERLAY=$(AP_CDC_OVERLAY) $(if $(filter 0,$(AP_LOCAL_DECODE)),-DRECHORD_AP_METADATA_ONLY=1) -DLOG_BUFFER_LINES=40 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
+AP_CFLAGS    := $(COMMON_FLAGS) -DRECHORD_AP_BUILD -DAP_DEBUG_TOOLS=$(AP_DEBUG_TOOLS) $(if $(filter 1,$(AP_CRASH_TEST)),-DAP_CRASH_TEST=1) -DAP_MEM_PROBE=$(AP_MEM_PROBE) -DAP_MEM_OVERLAY=$(AP_MEM_OVERLAY) -DAP_CDC_OVERLAY=$(AP_CDC_OVERLAY) $(if $(filter 0,$(AP_LOCAL_DECODE)),-DRECHORD_AP_METADATA_ONLY=1) -DLOG_BUFFER_LINES=40 -Ifirmware $(addprefix -I,$(AP_INCLUDE_DIRS))
 
 .PHONY: cfw-ap standalone-ap5m cdc-image verify-standalone clean-clone-check \
         test-dsp toolchain manifests compile-check clean

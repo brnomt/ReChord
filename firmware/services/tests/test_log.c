@@ -191,6 +191,24 @@ int main(void)
     test_flush_error_keeps_buffer();
     test_args();
 
+    /* log_tail(): newest lines that fit, oldest of them first, no FS. */
+    {
+        char tail[64];
+        int n;
+
+        log_init(mock_clock);
+        log_printf("one");
+        log_printf("two");
+        log_printf("three");
+        n = log_tail(tail, (int)sizeof tail);
+        CHECK(n > 0 && strstr(tail, "one\n") != 0 &&
+              strstr(tail, "two\n") < strstr(tail, "three\n"));
+        n = log_tail(tail, 20);
+        CHECK(n < 20 && strstr(tail, "three\n") != 0 &&
+              strstr(tail, "one") == 0);
+        CHECK(log_tail(tail, 1) == 0 && tail[0] == '\0');
+    }
+
     printf("test_log: %d checks, %d failures\n", s_checks, s_failures);
     return (s_failures == 0) ? 0 : 1;
 }

@@ -26,6 +26,7 @@ SERVICES_TARGET_SRCS := \
   $(SERVICES_DIR)/resume.c \
   $(SERVICES_DIR)/audio_scope.c \
   $(SERVICES_DIR)/output_mem.c \
+  $(SERVICES_DIR)/crash_record.c \
   $(SERVICES_DIR)/fs_target.c \
   $(SERVICES_DIR)/rechord_files.c
 
