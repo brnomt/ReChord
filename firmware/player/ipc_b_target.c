@@ -131,6 +131,59 @@ static void log_track(const char *path)
     log_name("ipc: track", path);
 }
 
+/* One summary line per played track (when it ends: next track, stop, hard
+ * restart), so a regression shows up in the log without reading every 5 s
+ * tel: pair: "trk: 214s und 0 stall 0 busy<=31% 05 Dissolve.flac".
+ * The time is wall time from the start (pauses included); busy is the worst
+ * 5 s telemetry window. */
+static struct {
+    unsigned long t0;
+    uint32_t      und0, stall0;
+    uint16_t      busy_max;
+    uint8_t       on;
+    char          name[40];
+} s_trk;
+
+static uint32_t since(uint32_t now, uint32_t base)
+{
+    return now >= base ? now - base : now;   /* B restarted: counters reset */
+}
+
+static void trk_end(void)
+{
+    if (!s_trk.on)
+        return;
+    s_trk.on = 0;
+    log_printf("trk: %lus und %u stall %u busy<=%u%% %s",
+               (log_now_ms() - s_trk.t0) / 1000UL,
+               (unsigned)since(CTRL[IPC_SH_UNDERRUNS], s_trk.und0),
+               (unsigned)since(CTRL[IPC_C_BSTALL], s_trk.stall0),
+               (unsigned)s_trk.busy_max, s_trk.name);
+}
+
+static void trk_begin(const char *path)
+{
+    const char *b = path, *p;
+    unsigned i = 0;
+
+    trk_end();
+    if (path == 0)
+        return;
+    for (p = path; *p != '\0'; p++)
+        if (*p == '/')
+            b = p + 1;
+    while (b[i] != '\0' && i < sizeof s_trk.name - 1u) {
+        s_trk.name[i] = b[i];
+        i++;
+    }
+    s_trk.name[i] = '\0';
+    s_trk.t0 = log_now_ms();
+    s_trk.und0 = CTRL[IPC_SH_UNDERRUNS];
+    s_trk.stall0 = CTRL[IPC_C_BSTALL];
+    s_trk.busy_max = 0;
+    s_trk.on = 1;
+}
+
 /* The AP's own codec open failed for `path` (no B command is ever sent in that
  * case, so without this the log would show nothing at the boundary). */
 void ipc_b_note_open_failed(const char *path, int rc)
@@ -469,6 +522,7 @@ int ipc_b_start(const ipc_b_track_t *track, int fade_in)
     if (track == NULL || track->channels < 1 || track->channels > 2 ||
         track->sample_rate <= 0)
         return -1;
+    trk_end();                          /* before the counters reset */
     if (b_ensure_core() != 0)
         return -1;
 
@@ -573,11 +627,13 @@ int ipc_b_start(const ipc_b_track_t *track, int fade_in)
                (long)(CTRL[IPC_SH_WR] - CTRL[IPC_SH_RD]) / 8);
     g_state = IPC_B_RUNNING;
     s_tel_t = 0;                        /* counters restarted: re-baseline */
+    trk_begin(track->path);
     return 0;
 }
 
 int ipc_b_stop(void)
 {
+    trk_end();
     if (s_b_decodes) {
         /* Quiesce Core B BEFORE the rings are torn down. Firing CLOSE off and
          * immediately calling bfs_close() (which pulls the file out from under
@@ -702,6 +758,8 @@ static void telemetry_tick(void)
     fmin = CTRL[IPC_T_FILE_MIN];
     bfs_stats_take(&gap, &rd);
     /* busy/wait are % of wall time: cycles / (200e6 * s / 100) = cyc / (2000 * ms). */
+    if (cyc / (2000UL * dt) > s_trk.busy_max)
+        s_trk.busy_max = (uint16_t)(cyc / (2000UL * dt));
     log_printf("tel: %lums und+%u stall+%u frm %u busy %u wait %u "
                "decmax %uus",
                dt, (unsigned)(CTRL[IPC_SH_UNDERRUNS] - s_tel_und),
@@ -876,6 +934,7 @@ int ipc_b_next(const ipc_b_track_t *track)
         log_printf("ipc: next failed ack");
         return -1;              /* B did not ACK: caller falls back to hard */
     }
+    trk_begin(track->path);
     return 0;
 }
 

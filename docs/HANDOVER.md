@@ -5223,3 +5223,36 @@ paquete 808); theme suite verde.
   ones), 32-bit stores in `display_fill_rect`. The framebuffer after 6 dynamic
   frames and a full render is byte-identical before/after for all 36 bundled
   skins. The panel flush (bit-banged GPIO) is unchanged.
+
+## CS. Session 2026-11-05 (cont.) — multi-sector reads, crash record, per-track log
+
+- **Multi-sector SD/eMMC reads.** `fs_read` moved one 512-byte sector per
+  command through the single-sector cache. It now reads whole sectors from a
+  sector-aligned position into a word-aligned buffer as one CMD18 per run inside
+  the current cluster (`fs_target.c`). A failed multi-sector read sets
+  `vol_t.no_multi` and the bytes are re-read one sector at a time
+  (`fs_target_multi_failed()`; SD CMD18 had never run on hardware before).
+  `bfs.c` refills the file ring in 4 KiB steps ending on a file sector, and a
+  seek re-bases the ring on the target's sector (`BASE = to & ~511`,
+  `RD = WR = to - BASE`; Core B's offset is still `BASE + RD`), so refills stay
+  on the bulk path. Tests: `services/tests/test_fs_bulk.c` (FAT16/FAT32
+  images from mkfs.fat, interleaved chains, odd/aligned/unaligned reads, ring
+  refills after seeks, injected CMD18 failure) and `player/tests/test_bfs.c`
+  (the real `bfs.c` against Core B's reader protocol with the shared block
+  mapped at `0x01020000`).
+- **Crash record.** HardFault (and MemManage/BusFault/UsageFault) now go to
+  `startup/crash.c` instead of `Default_Handler`'s silent loop. It reads the
+  stacked PC/LR/xPSR (only if SP is inside the stack zone), resets MSP, saves
+  the registers + CFSR/HFSR/MMFAR/BFAR + the last log lines raw into the data
+  sectors of the preallocated `/.rechord/CRASH` (sectors resolved at boot by
+  `fs_target_file_sectors()`, written with `emmc_panic_write()`, which resets
+  the controller first; no FAT/dirent write), shows a red crash screen and
+  powers off on battery. The next boot logs `crash: fault pc ... lr ...` and
+  marks the record `state=old`. Test image: `make standalone-ap5m
+  AP_CRASH_TEST=1 CFW_BUILD_DIR=build/cfw-crash AP5M_OUT=build/crash/ReChord_AP.IMG`
+  faults 20 s after boot (undefined instruction).
+- **Per-track summary.** `trk: 214s und 0 stall 0 busy<=31% <file>` when a
+  track ends (next track, stop, hard restart): wall time, AP underruns, Core B
+  file-ring stalls, worst 5 s Core B load.
+- Not covered: hangs without a fault (no watchdog is used; a hang still
+  freezes).
