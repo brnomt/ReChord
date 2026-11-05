@@ -53,12 +53,36 @@ void bb_reset(void);
 extern uint32_t _bb_data_start[], _bb_data_end[], _bb_data_load[];
 extern uint32_t _bb_bss_start[], _bb_bss_end[];
 
-/* Vector table: SP, Reset. Must be the first bytes of the image. */
+/* SysTick: counts the 1 ms wraps for bt_now() and wakes the loop's WFI. */
+volatile uint32_t g_bt_ticks;
+
+static void bb_systick(void)
+{
+    g_bt_ticks++;
+}
+
+/* Faults: park (B was already dead in that case; the AP's ack timeouts
+ * report it). */
+static void bb_trap(void)
+{
+    for (;;)
+        ;
+}
+
+/* Vector table: SP, Reset, the 13 system exceptions and SysTick (slot 15).
+ * Must be the first bytes of the image (0x01000000, 128-byte aligned, so
+ * VTOR can point at it). No peripheral IRQ is ever enabled on B. */
+#define T ((void *)bb_trap)
 __attribute__((section(".vectors_bb"), used))
-static const void *const bb_vectors[2] = {
+static const void *const bb_vectors[16] = {
     (void *)&__bb_stack_top,
-    (void *)bb_reset
+    (void *)bb_reset,
+    T, T, T, T, T, T, T, T, T, T, T, T, T,
+    (void *)bb_systick
 };
+#undef T
+
+#define SCB_VTOR (*(volatile uint32_t *)0xE000ED08u)
 
 #define CHUNK_FRAMES 1024u
 
@@ -353,6 +377,8 @@ void bb_reset(void)
 
     /* Register AFTER the .data/.bss copy (the hook lives in the codec's
      * statics, which that copy just zeroed). */
+    SCB_VTOR = (uint32_t)(uintptr_t)bb_vectors;
+    __asm__ volatile("dsb\n\tisb" ::: "memory");
     bt_init();
     CTRL[IPC_T_PCM_MIN] = 0xFFFFFFFFu;
     CTRL[IPC_T_FILE_MIN] = 0xFFFFFFFFu;
@@ -362,10 +388,18 @@ void bb_reset(void)
     CTRL[IPC_SH_MAGIC] = IPC_SH_MAGIC_VAL;   /* phase-1 gate / AP poll */
     CTRL[IPC_C_BSTATE] = IPC_BS_IDLE;
 
+    /* BRNOMT-97: sleep when a pass did nothing (ring full, paused, idle, no
+     * command). The 1 ms SysTick wakes us; that bounds the added latency for
+     * a command or a ring that just made room (the PCM ring covers >= 85 ms,
+     * a chunk needs 1024 free frames). A command posted right after the check
+     * waits at most that one tick. */
     for (;;) {
         handle_command();
 
+        s_did_decode = 0;
         if (CTRL[IPC_SH_STATE] == IPC_SH_RUN)
             decode_round();
+        if (!s_did_decode && CTRL[IPC_C_SEQ] == CTRL[IPC_C_ACK])
+            __asm__ volatile("wfi" ::: "memory");
     }
 }

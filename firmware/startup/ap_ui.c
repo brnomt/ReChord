@@ -1449,9 +1449,16 @@ static void text_copy(char *dst, unsigned cap, const char *src)
  * (the power paths call it with force=1 so the last position is on disk). */
 static void resume_poll(unsigned now, int force)
 {
+    static unsigned s_res_poll_ms;
     track_info_t ti;
     const browser_state_t *bs;
     int moved = 0;
+
+    /* 20 Hz is plenty: a save already waits RESUME_QUIET_MS, and every pass
+     * copies the whole track_info_t and compares three strings. */
+    if (!force && (unsigned)(now - s_res_poll_ms) < 50u)
+        return;
+    s_res_poll_ms = now;
 
     if (player_get_track(&ti) == PLAYER_OK && ti.path[0] != '\0') {
         unsigned long pos = (unsigned long)player_get_position_ms();
@@ -2147,9 +2154,13 @@ void ap_ui_loop(void)
         }
 
         /* audio pump: the ring/IRQ feeder is non-blocking once full. The loop
-         * now runs at 1 kHz, so 8 rounds per tick is plenty. */
+         * now runs at 1 kHz, so 8 rounds per tick is plenty for the AP-decode
+         * fallback. When Core B decodes, one pass is enough: bfs_poll() fills
+         * the file ring to the brim each call, and the extra passes only
+         * re-polled the shared block (bus traffic B's code fetch competes
+         * with) 9x per ms (BRNOMT-97). */
         bfs_poll();
-        if (player_get_state() == PLAYER_PLAYING) {
+        if (player_get_state() == PLAYER_PLAYING && !ipc_b_b_decodes()) {
             int n;
 
             for (n = 0; n < 8 && player_get_state() == PLAYER_PLAYING; n++)

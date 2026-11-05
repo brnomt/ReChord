@@ -5192,3 +5192,24 @@ paquete 808); theme suite verde.
   a skin change.
 - **Index rebuild** failed once after the v4 bump and worked on a later build;
   cause not identified (no log line was captured). A scratch-busy exit now logs.
+
+## CR. Session 2026-11-05 — Power/heat (BRNOMT-84/97)
+
+- **Core B never slept.** `bb_reset`'s loop polled the shared block at 200 MHz
+  whenever B was running: while paused, for 3 s after a stop (60 s with a boot
+  preload), and between decode rounds while playing (~70-90 % of the time at
+  44.1 kHz). B now has a 16-entry vector table (VTOR set to `0x01000000`), a
+  1 ms SysTick interrupt, and runs `WFI` when a pass neither decoded nor had a
+  command. Added latency is at most 1 ms, against a PCM ring that covers
+  ≥ 85 ms. `bb_telem.h`'s `bt_now()` is now a 32-bit cycle clock (wrap count ×
+  200 000 + down-counter), so `tel:` busy/wait/decmax keep their units.
+- **AP pump.** With Core B decoding, the UI loop calls `player_process()` once
+  per tick instead of 8× (each repeated pass re-polled the shared block and
+  called `bfs_poll()`; the first call already fills the file ring). The 8-round
+  pump stays for the AP-decode fallback.
+- **`resume_poll`** runs at 20 Hz instead of 1 kHz (forced saves unchanged).
+- Not done (too risky without a measurement): AP/B clock scaling (`cpu_mode`
+  is still unused), dropping the doubled WR-low store in `bus_write`.
+- **Verify on device:** idle/paused temperature; a `tel:` log at 24/96 should
+  show `und+0` and the same or lower `busy` than before; seek, pause/resume,
+  gapless track change, Core B power-down after stop.
