@@ -70,7 +70,17 @@ EQ still costs ~86 cycles per band-sample (more than the instruction count
 suggests; Core B code runs from HIGHRAM, wait states not yet measured). That is
 clean on device but thin: ten active bands extrapolate to ~110 % and would
 underrun again. Next levers, in order: build Core B with `-O2`, check
-instruction-fetch wait states, replace the soft-knee division. Remaining per-sample cost outside the biquads is the soft knee
+instruction-fetch wait states, replace the soft-knee division.
+
+**Thumb-2 `band_block` (2026-11-05).** The `-Os` loop spilled the five
+coefficients and the counter to the stack (GCC has 13 usable registers; the
+loop needs 14 values), so each band-sample did ~10 RAM accesses. The inline
+assembly version in `eq_bank.c` keeps everything in r0-r12 + lr: 21
+instructions, 2 RAM accesses (load and store the sample). The C body stays the
+reference for the host tests and for `-DEQ_BANK_NO_ASM`.
+`tools/eq_asm_check.py` builds both for Cortex-M3 and runs them on an emulated
+M3 (Unicorn) over 84 random and edge-case blocks (~30k frames, saturation and
+the exact −2^31 clamp included): bit-identical. Device load not measured yet. Remaining per-sample cost outside the biquads is the soft knee
 (`__aeabi_ldivmod`, only above 0.8 FS while boosting).
 
 ## 3. IPC — `firmware/player/eq_ipc.h`
