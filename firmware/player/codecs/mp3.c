@@ -49,6 +49,8 @@
  * incl. MAX_FREE_FORMAT_FRAME_SIZE payload. */
 #define MP3_WIN_BYTES  2560
 #define MP3_MAX_CH     2
+_Static_assert(MP3_WIN_BYTES + 1152 * MP3_MAX_CH * 2 <= WORKBUF_BYTES,
+               "mp3 window + residual exceed workbuf");
 
 static uint8_t *s_win;                       /* workbuf (claimed on open) */
 static int      s_win_pos, s_win_len;   /* unconsumed = [pos, len) */

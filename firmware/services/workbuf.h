@@ -20,8 +20,15 @@
 #ifndef RECHORD_WORKBUF_H
 #define RECHORD_WORKBUF_H
 
-/* 80896 = old FLAC pool 57344 + fw_update staging 16384 + mp3 buffers 7168. */
+/* 80896 = old FLAC pool 57344 + fw_update staging 16384 + mp3 buffers 7168.
+ * The metadata-only AP never claims the FLAC pool (Core B decodes), so its
+ * largest owner is fw_update's 2 x 8 KiB staging: 64.5 KiB less AP .bss.
+ * Each owner static-asserts its own need against this size. */
+#ifdef RECHORD_AP_METADATA_ONLY
+#define WORKBUF_BYTES 16384u
+#else
 #define WORKBUF_BYTES 80896u
+#endif
 
 #define WORKBUF_OWNER_NONE  0u
 #define WORKBUF_OWNER_FLAC  1u

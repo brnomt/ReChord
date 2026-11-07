@@ -57,6 +57,10 @@ BB_CORE_BLOB := $(BB_CORE_DIR)/bb_core_blob.o
 
 # Phase 3c: Core B decodes. It links our codecs + registry-free descriptors +
 # tags + the shared workbuf (decode pool) + codec_io over the A file ring.
+# --gc-sections is safe here (unlike the AP, R-a2d2b19d3577): the image has
+# no stubs and one root, KEEP(.vectors_bb); the AP only copies the blob and
+# shares data through fixed addresses, never BB symbols. Drops ~9 KB of
+# unused dr_flac/libc/eq entry points from the blob the AP embeds.
 BB_INC := -Ifirmware -Ifirmware/libc -Ifirmware/services -Ifirmware/player \
           -Ifirmware/drivers -Ifirmware/dsp
 
@@ -84,7 +88,7 @@ $(BB_CORE_ELF): $(BB_CORE_SRCS) firmware/player/ipc_shared.h firmware/bb/bb.ld
 	    -Wno-builtin-declaration-mismatch -Wno-return-mismatch \
 	    -Wno-return-type -Wno-unused-parameter -Wno-unused-variable \
 	    $(BB_INC) -include firmware/rockchip/include/armcc_compat.h \
-	    -T firmware/bb/bb.ld $(BB_CORE_SRCS) -lgcc -o $@
+	    -T firmware/bb/bb.ld $(BB_CORE_SRCS) -lgcc -Wl,--gc-sections -o $@
 
 $(BB_CORE_BIN): $(BB_CORE_ELF)
 	$(OBJCOPY) -O binary $< $@

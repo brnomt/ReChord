@@ -19,6 +19,7 @@ static uint32_t s_sec[128], s_fat[128], s_fat_lba;
  * use it, but the update runs at boot before any playback, and the write path
  * is abort-safe (slot 2 -> slot 1, header last, read-back). */
 static uint32_t *s_blk, *s_chk;
+_Static_assert(2u * BLK * 512u <= WORKBUF_BYTES, "fw_update staging exceeds workbuf");
 static struct { uint32_t fat, data, spc, root, nfats, fatsz; } s_fs;
 
 /* Bind the staging buffers. Returns 0, or -1 when the region is held by
