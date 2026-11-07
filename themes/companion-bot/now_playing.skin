@@ -30,6 +30,25 @@ text=heading
 color=accent
 bg=surface
 
+[batt]
+type=bar
+x=248
+y=5
+w=20
+h=7
+value=max(0,battery)
+max=100
+color=text
+bg=2113
+
+[battxt]
+type=text
+x=272
+y=5
+text=(battery>=0?battery+"%":"--")
+color=text_dim
+bg=surface
+
 [top_rule]
 type=fill
 x=0

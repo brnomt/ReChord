@@ -1,9 +1,5 @@
-# Cassette — Now Playing skin.
-#
-# Large art + info card, a mini cassette whose hubs follow pos_ms, and the
-# progress strip. RGB565 literals are DECIMAL (the expression parser has no 0x).
-# refresh_ms is 100: the art is re-streamed on every redraw, so 10 Hz keeps the
-# hubs/progress alive without doubling the read cost.
+# Cassette Now Playing. RGB565 literals are DECIMAL. refresh_ms=100: the art
+# is re-streamed on every redraw, so 10 Hz keeps hubs/progress alive.
 
 [skin]
 refresh_ms=100
@@ -59,8 +55,26 @@ align=right
 color=dim
 bg=2113
 
-# Bluetooth output: dim while on, accent while streaming (bt: 0 off/
-# 1 on/2 connected; bt_stream: 1 while A2DP streams).
+[batbar]
+type=bar
+x=168
+y=5
+w=18
+h=6
+value=max(0,battery)
+max=100
+color=(battery>=0&&battery<15?danger:dim)
+bg=12677
+
+[battxt]
+type=text
+x=222
+y=3
+text=(battery>=0?battery+"%":"--")
+align=right
+color=(battery>=0&&battery<15?danger:dim)
+bg=2113
+
 [btmark]
 type=text
 x=262

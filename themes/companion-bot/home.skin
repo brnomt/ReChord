@@ -139,6 +139,26 @@ h=6
 r=3
 color=accent
 
+# Battery, top-left (clear of the eyes). Text blinks below 15 %.
+[batt]
+type=bar
+x=8
+y=8
+w=20
+h=7
+value=max(0,battery)
+max=100
+color=text
+bg=2113
+
+[battxt]
+type=text
+x=32
+y=8
+text=(battery>=0?battery+"%":"--")
+color=(battery>=0&&battery<15&&mod(t,800)<400?text:text_dim)
+bg=background
+
 [rule]
 type=fill
 x=0

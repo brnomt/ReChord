@@ -1,5 +1,4 @@
-# Cassette home (mockup: 320x170). RGB565 literals are DECIMAL; art_* come
-# from ARTPACK.BIN (theme.cfg palette when there is no cover).
+# Cassette home. RGB565 literals are DECIMAL; art_* from ARTPACK.BIN.
 
 [skin]
 refresh_ms=50
@@ -17,6 +16,7 @@ c2=(art_ok ? art_c2 : text_dim)
 pct=(dur_ms > 0 ? pos_ms * 100 / dur_ms : 0)
 rL=sqrt(169 + (731 * (100 - pct)) / 100)
 rR=sqrt(169 + (731 * pct) / 100)
+bc=(battery>=0&&battery<15?danger:38066)
 
 [vars2]
 phL=-(26 * pos_ms) / rL
@@ -420,6 +420,26 @@ y=146
 w=W
 h=1
 color=23244
+
+[batt]
+type=bar
+x=282
+y=162
+w=32
+h=3
+value=max(0,battery)
+max=100
+color=bc
+bg=12677
+
+[battxt]
+type=text
+x=314
+y=152
+text=(battery>=0?battery+"%":"--")
+align=right
+color=bc
+bg=2113
 
 [items]
 type=list

@@ -261,6 +261,21 @@ above it. A single triangle covering a slanted edge leaves the opposite corner
 of the shape visible. Companion Bot's `happy_left`/`happy_left_body` pair is the
 working example.
 
+## Companion Bot 2
+
+`themes/companion-bot-2/` is the colour edition of Companion Bot (same
+eyes, blink, sleep and happy-lid logic). Eyes are layered (rim, body, gloss)
+and take the cover's `art_accent` (cyan without art, `danger` red below 15 %
+battery). While playing it adds blush, a rising note and five bars driven by
+`lvl_l`/`lvl_r` (they bounce on a floor level if the audio tap is absent). Idle
+for 6 s: line eyes and a drifting "z Z". It sits at ~3.96 KB of the 4 KiB
+home-skin budget, so the shipped `home.skin` has no whitespace inside
+expressions and almost no comments.
+
+Battery: Cassette (home bottom bar, Now Playing title bar), Companion Bot and
+Companion Bot 2 show a bar plus `NN%` (`--` when unknown) and turn red below
+15 %.
+
 ## Assets
 
 1-bit raw rows, MSB-first. `theme.cfg` declares the width/height and the file.

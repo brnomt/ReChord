@@ -1,0 +1,82 @@
+# Companion Bot 2 — one library category (names or songs).
+#
+# `heading` is "Category" or "Category / value"; the footer uses the live
+# cursor and total supplied by the dynamic list source.
+
+[background]
+type=fill
+x=0
+y=0
+w=W
+h=H
+color=background
+
+[topbar]
+type=fill
+x=0
+y=0
+w=W
+h=16
+color=surface
+
+[heading]
+type=text
+x=6
+y=3
+text=heading
+color=accent
+bg=surface
+
+[batt]
+type=bar
+x=276
+y=5
+w=20
+h=7
+value=max(0,battery)
+max=100
+color=(battery>=0&&battery<15?danger:success)
+bg=background
+
+[battxt]
+type=text
+x=300
+y=5
+text=(battery>=0?battery+"%":"--")
+color=text_dim
+bg=surface
+
+[rule]
+type=fill
+x=0
+y=16
+w=W
+h=1
+color=text_dim
+
+[menu]
+type=list
+axis=vertical
+x=6
+y=20
+height=14
+rows=9
+source=library_cat
+prev=up
+next=down
+
+[empty]
+type=text
+x=6
+y=20
+text="empty index"
+color=text_dim
+visible=n == 0
+
+[footer]
+type=text
+x=6
+y=156
+text=(sel + 1) + " / " + n
+color=text_dim
+visible=n > 0
