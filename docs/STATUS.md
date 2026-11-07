@@ -86,6 +86,11 @@ plays audio on hardware:
   and SELECT jumps to/plays the chosen entry. MENU or BACK closes it; MENU
   acts once per physical press (LONG/RELEASE are ignored, so a long press
   neither flickers nor leaves the overlay open).
+- **Boot & system cards**: the boot splash and every non-theme card (power,
+  USB storage/DAC, firmware update, System) share one house look in
+  `startup/ap_ui.c`: an inverted title bar with a right-aligned battery/status,
+  dim-key/white-value rows, and a footer for hints or a progress bar. The boot
+  card is painted by `ap_boot_splash()`/`ap_boot_step()` from `Main()`.
 - **System menu**: the diagnostics info rows (Index, Keys, eMMC, SD, USB)
   stay. The DAC test and USB CDC console are debug-only
   (`make ... AP_DEBUG_TOOLS=1`) because they cost ~3 KB of code and the AP

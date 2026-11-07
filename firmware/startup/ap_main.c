@@ -1,21 +1,16 @@
 /*
- * ap_main.c -- minimal AP (fw1) application main for milestone 1a.
+ * ap_main.c -- AP (fw1) application main.
  *
  * The clean-room AP startup (firmware/startup/ap_startup.c) ends its boot
  * recipe (bounded .bss zero -> VTOR = ap_vectors -> dsb/isb) by calling
- * Main().  This file provides that Main(): it brings up the display stack
- * and paints a first test screen, so the milestone-1a link exercises the
- * real drivers + theme code instead of being a bare stub.
+ * Main().  This file provides that Main(): it raises the AP clock, brings up
+ * the display stack, paints the boot card and then runs the key-driven UI
+ * loop forever.
  *
- * Test screen contract (firmware/drivers/display.h + firmware/ui/theme.h):
- *   - display_init()        one-shot panel bring-up + clear + flush
- *   - display_fill_rect()   inclusive rectangle fill in the framebuffer
- *   - display_draw_text()   8x8 glyph text, opaque cells
- *   - display_flush_rows()  push framebuffer rows to the panel (DCS 0x2A/
- *                           0x2B/0x2C path in panel_io_rknanoc.c)
- *   - all colors come from the live theme (theme_get()), never hardcoded.
- *
- * After painting (the splash), Main() runs the key-driven UI loop forever.
+ * The boot card is not theme-dependent: ap_boot_splash() / ap_boot_step()
+ * (ap_ui.c) paint it with the same "system card" house look as the power,
+ * USB and firmware-update screens. display_init() is the one-shot panel
+ * bring-up + clear + flush; ap_ui owns the drawing.
  */
 #include <stdint.h>
 
@@ -33,10 +28,12 @@
 #endif
 void ap_ui_loop(void);   /* ap_ui.c */
 
+/* Boot card helpers (ap_ui.c): the same house style as every system card. */
+void ap_boot_splash(void);
+void ap_boot_step(int row, const char *k, const char *v, unsigned pct);
+
 uint32_t Main(void)
 {
-    uint16_t bg = THEME_COLOR_BG;
-    uint16_t fg = THEME_COLOR_FG;
     const theme_t *th = theme_get();
     int b_rc;
 #if AP_MEM_PROBE
@@ -53,60 +50,29 @@ uint32_t Main(void)
 
     display_init();
 
+    /* Boot card: title bar + version, then one row per bring-up step. Row 1
+     * keeps the splash subtitle; the steps start at row 2. */
+    ap_boot_splash();
+    ap_boot_step(2, "Theme", th->name, 33);
+
 #if AP_MEM_PROBE
-    /* Runtime-only test: the initial fw1 row stays below 0x03088000. */
+    /* 0x0304AE64 loader-data window probe result. */
     probe_rc = ap_mem_probe_run();
+    ap_boot_step(3, "RAM 0304AE64", probe_rc == 0 ? "free" : "used", 66);
 #endif
 #if AP_MEM_OVERLAY
-    /* Copy the tiny overlay to 0x0304AE64 and execute it. */
+    /* Code overlay execution result. */
     overlay_rc = ap_overlay_demo_run();
+    ap_boot_step(3, "Overlay", overlay_rc == 0 ? "OK" : "FAIL", 66);
 #endif
 
     /* BRNOMT-68 phase 1: start Core B with our heartbeat image. Failure is
      * non-blocking (the AP keeps running; audio is unchanged). */
     b_rc = ap_core_b_start();
+    ap_boot_step(4, "Core B", b_rc == 0 ? "ready" : "no", 100);
 
-    /* Fill the whole screen (inclusive coordinates per display.h). */
-    display_fill_rect(0, 0, DISPLAY_W - 1, DISPLAY_H - 1, bg);
-
-    /* Accent band across the top, then the boot text line on it. */
-    display_fill_rect(0, 0, DISPLAY_W - 1, THEME_TITLE_H - 1, THEME_COLOR_ACCENT);
-    display_draw_text(THEME_PAD, THEME_TITLE_TEXT_Y,
-                      "ReChord AP alive", bg, THEME_COLOR_ACCENT);
-
-    /* Second line: active theme name (proves the theme module is live). */
-    display_draw_text(THEME_PAD, THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF,
-                      th->name, fg, bg);
-
-    /* Third line: Core B heartbeat result (BRNOMT-68 phase 1 gate). */
-    display_draw_text(THEME_PAD,
-                      THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + THEME_LINE_H,
-                      b_rc == 0 ? "Core B: ready" : "Core B: no", fg, bg);
-
-#if AP_MEM_PROBE
-    /* Fourth line: 0x0304AE64 loader-data window probe result. */
-    display_draw_text(THEME_PAD,
-                      THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + 2 * THEME_LINE_H,
-                      probe_rc == 0 ? "RAM 0304AE64: free" : "RAM 0304AE64: used",
-                      fg, bg);
-#endif
-#if AP_MEM_OVERLAY
-    /* Fourth line: code overlay execution result. */
-    display_draw_text(THEME_PAD,
-                      THEME_TITLE_H + THEME_PAD + THEME_TEXT_YOFF + 2 * THEME_LINE_H,
-                      overlay_rc == 0 ? "Overlay: OK" : "Overlay: FAIL",
-                      fg, bg);
-#endif
-
-    /* Make the lines visible on the panel. */
-#if AP_MEM_PROBE
-    display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 3 * THEME_LINE_H);
-    panel_io_delay_ms(2000);   /* keep the probe line visible */
-#elif AP_MEM_OVERLAY
-    display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 3 * THEME_LINE_H);
-    panel_io_delay_ms(2000);   /* keep the overlay line visible */
-#else
-    display_flush_rows(0, THEME_TITLE_H + THEME_PAD + 2 * THEME_LINE_H);
+#if AP_MEM_PROBE || AP_MEM_OVERLAY
+    panel_io_delay_ms(2000);   /* keep the probe/overlay row readable */
 #endif
 
 #ifdef AP_TRIAL

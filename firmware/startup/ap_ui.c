@@ -48,6 +48,7 @@
 #include "ui/screens/theme_ui.h"
 #include "ui/screens/skin_screen.h"
 #include "player/bfs.h"     /* phase 3: A-side file service for Core B */
+#include "rechord_version.h"
 
 /* Debug-only System actions (DAC test + USB CDC console). Off by default:
  * the AP code must stay below LOADER_CODE_BASE 0x03088000 (DFIU 51cc212d). */
@@ -368,30 +369,113 @@ static const char *usbd_text(void)
     return buf;
 }
 
+/* ---- system cards (boot, power, USB, update, debug) ---------------------
+ * One house look, independent of the active theme: an inverted title bar
+ * with a status on the right, key/value rows (dim key, white value), and a
+ * footer under a 1 px rule for the hint or a progress bar. Rows sit at
+ * y = 8 + row * 14 (row 1..9); the footer owns y >= CARD_RULE_Y. */
+#define CARD_FG      0xFFFFu
+#define CARD_BG      0x0000u
+#define CARD_DIM     0x8410u
+#define CARD_BAR_H   20
+#define CARD_KEY_W   (13 * 8)          /* value column */
+#define CARD_RULE_Y  146
+
 static void line(int row, const char *s)
 {
-    display_draw_text(8, 8 + row * 14, s, 0xFFFF, 0x0000);
+    display_draw_text(8, 8 + row * 14, s, CARD_FG, CARD_BG);
 }
 
+static void kv(int row, const char *k, const char *v)
+{
+    display_fill_rect(0, 8 + row * 14, DISPLAY_W - 1, 8 + row * 14 + 7, CARD_BG);
+    display_draw_text(8, 8 + row * 14, k, CARD_DIM, CARD_BG);
+    display_draw_text(8 + CARD_KEY_W, 8 + row * 14, v, CARD_FG, CARD_BG);
+}
+
+static void flush_row(int row)
+{
+    display_flush_rows(8 + row * 14, 8 + row * 14 + 7);
+}
+
+static void screen_r(const char *title, const char *right)
+{
+    display_fill_rect(0, 0, DISPLAY_W - 1, DISPLAY_H - 1, CARD_BG);
+    display_fill_rect(0, 0, DISPLAY_W - 1, CARD_BAR_H - 1, CARD_FG);
+    display_draw_text(8, 6, title, CARD_BG, CARD_FG);
+    if (right != 0)
+        display_draw_text(DISPLAY_W - 8 - 8 * (int)strlen(right), 6, right,
+                          CARD_BG, CARD_FG);
+    display_fill_rect(0, CARD_RULE_Y, DISPLAY_W - 1, CARD_RULE_Y, CARD_DIM);
+    display_flush_rows(0, DISPLAY_H - 1);
+}
+
+/* Title bar status: battery, with "CHG" while the cable feeds it. */
 static void screen(const char *title)
 {
-    display_fill_rect(0, 0, DISPLAY_W - 1, DISPLAY_H - 1, 0x0000);
-    line(0, title);
-    display_flush_rows(0, DISPLAY_H - 1);
+    char b[12];
+
+    snprintf(b, sizeof b, "%s%d%%", usb_cable() ? "CHG " : "", battery_percent());
+    screen_r(title, b);
+}
+
+/* Footer: up to two dim hint lines (NULL skips one). */
+static void hint(const char *a, const char *b)
+{
+    display_fill_rect(0, CARD_RULE_Y + 1, DISPLAY_W - 1, DISPLAY_H - 1, CARD_BG);
+    if (a != 0)
+        display_draw_text(8, CARD_RULE_Y + 6, a, CARD_DIM, CARD_BG);
+    if (b != 0)
+        display_draw_text(8, CARD_RULE_Y + 16, b, CARD_DIM, CARD_BG);
+    display_flush_rows(CARD_RULE_Y + 1, DISPLAY_H - 1);
+}
+
+/* Footer: "<what>  NN%" plus a 1 px outlined bar filled to pct. */
+static void footer_progress(const char *what, unsigned pct)
+{
+    char b[40];
+    int x1 = DISPLAY_W - 9, y0 = CARD_RULE_Y + 15, y1 = CARD_RULE_Y + 20;
+
+    if (pct > 100u)
+        pct = 100u;
+    snprintf(b, sizeof b, "%-33s%3u%%", what, pct);
+    display_fill_rect(0, CARD_RULE_Y + 1, DISPLAY_W - 1, DISPLAY_H - 1, CARD_BG);
+    display_draw_text(8, CARD_RULE_Y + 5, b, CARD_DIM, CARD_BG);
+    display_fill_rect(8, y0, x1, y1, CARD_DIM);
+    display_fill_rect(9, y0 + 1, x1 - 1, y1 - 1, CARD_BG);
+    if (pct)
+        display_fill_rect(9, y0 + 1, 9 + (x1 - 10) * (int)pct / 100, y1 - 1, CARD_FG);
+    display_flush_rows(CARD_RULE_Y + 1, DISPLAY_H - 1);
 }
 
 static void update_progress(const char *what, uint32_t done, uint32_t total)
 {
     static unsigned last = 101;
-    char buf[40];
+    static const char *last_what;
     unsigned pct = (unsigned)(done / (total / 100u + 1u));
 
-    if (pct == last)
+    if (pct == last && what == last_what)
         return;
     last = pct;
-    snprintf(buf, sizeof buf, "%-10s %3u%%", what, pct);
-    line(2, buf);
-    display_flush_rows(8 + 2 * 14, 8 + 2 * 14 + 7);
+    last_what = what;
+    /* fw_update reports "checking" (validate) and "slot N" (install) */
+    footer_progress(strcmp(what, "checking") == 0 ? "Checking image"
+                                                  : "Writing firmware", pct);
+}
+
+/* Boot splash (called from Main before the UI loop) and its step rows. */
+void ap_boot_splash(void)
+{
+    screen_r("ReChord", RECHORD_VERSION_STRING);
+    display_draw_text(8, 8 + 14, "Re-harmonize the Echo Mini", CARD_DIM, CARD_BG);
+    display_flush_rows(0, CARD_BAR_H + 14);
+}
+
+void ap_boot_step(int row, const char *k, const char *v, unsigned pct)
+{
+    kv(row, k, v);
+    flush_row(row);
+    footer_progress(pct >= 100u ? "Ready" : "Starting", pct);
 }
 
 /* KEY_SELECT = yes; BACK / power = no; any = 1 with any_key. */
@@ -416,7 +500,7 @@ static int ask(int any_key)
     }
 }
 
-static void power_off(void);
+static void power_off(const char *reason, int save);
 
 
 
@@ -669,73 +753,121 @@ static int power_hold_step(int power, unsigned now)
     return POWER_EV_NONE;
 }
 
-/* After a USB session: offer HIFIECnn.IMG / ECHOMINI.IMG if present. */
+/* After a USB session: offer HIFIECnn.IMG / ECHOMINI.IMG if present. The
+ * caller's card stays up while the footer shows the scan progress. */
+static const char *fwu_err_text(int r)
+{
+    static const char *const k[] = {
+        "eMMC read failed", "volume is not FAT32", "fragmented, recopy",
+        "bad header or size", "CRC mismatch", "too big for a slot",
+        "read-back differs", "eMMC write failed",
+    };
+
+    return (r <= -1 && r >= -8) ? k[-r - 1] : "unknown error";
+}
+
 static void update_prompt(void)
 {
     static fw_image_t img;
     char buf[40];
     int r;
 
-    screen("Looking for a firmware update");
     r = fw_update_find(s_user, &img, update_progress);
     log_printf("fw: scan rc %d '%s'", r, img.name);
-    if (r == FWU_NONE || (r && !img.name[0]))
+    if (r == FWU_NONE || (r && !img.name[0])) {
+        hint("No firmware update found.", 0);
+        panel_io_delay_ms(800);          /* let the session summary be read */
         return;
+    }
     if (r) {
-        screen("Firmware update NOT usable");
-        snprintf(buf, sizeof buf, "%s: error %d", img.name, r);
-        line(2, buf);
-        line(4, "press any key");
-        display_flush_rows(0, DISPLAY_H - 1);
+        screen("Firmware update unusable");
+        kv(1, "File", img.name);
+        snprintf(buf, sizeof buf, "%d: %s", r, fwu_err_text(r));
+        kv(2, "Problem", buf);
+        display_flush_rows(0, CARD_RULE_Y);
+        hint("Nothing was written.", "Press any key");
         ask(1);
         return;
     }
-    screen("Firmware update detected");
-    snprintf(buf, sizeof buf, "%s  %u KiB", img.name, (unsigned)(img.size >> 10));
-    line(2, buf);
+    screen("Firmware update found");
+    kv(1, "File", img.name);
+    snprintf(buf, sizeof buf, "%u KiB, CRC ok", (unsigned)(img.size >> 10));
+    kv(2, "Image", buf);
     for (int half = 0; half < 2; half++) {
         char *p = buf + snprintf(buf, sizeof buf, half ? "    " : "SHA ");
         for (int i = 0; i < 16; i++)
             p += snprintf(p, 3, "%02x", img.sha256[half * 16 + i]);
-        line(3 + half, buf);
+        line(4 + half, buf);
     }
-    line(6, "Update?  PLAY = yes   BACK = no");
-    display_flush_rows(0, DISPLAY_H - 1);
-    if (!ask(0))
+    display_flush_rows(0, CARD_RULE_Y);
+    hint("Install it?", "PLAY = install    BACK = skip");
+    if (!ask(0)) {
+        log_printf("fw: install skipped");
         return;
+    }
 
-    screen("Updating - do NOT power off");
+    screen("Updating firmware");
+    kv(1, "File", img.name);
+    kv(3, "Do NOT", "power off or unplug");
+    display_flush_rows(0, CARD_RULE_Y);
     r = fw_update_install(&img, update_progress);
     if (r) {
-        snprintf(buf, sizeof buf, "Update FAILED: error %d", r);
-        line(4, buf);
-        line(5, "keep power on: unplug/replug USB");
-        line(6, "to retry, or debrick via maskrom");
-        display_flush_rows(0, DISPLAY_H - 1);
+        snprintf(buf, sizeof buf, "%d: %s", r, fwu_err_text(r));
+        kv(3, "FAILED", buf);
+        line(5, "Keep power on: unplug/replug USB to");
+        line(6, "retry, or debrick via maskrom.");
+        display_flush_rows(0, CARD_RULE_Y);
+        hint("Press any key", 0);
         ask(1);
         return;
     }
     r = fw_update_retire(&img);
-    snprintf(buf, sizeof buf, "Update done (cleanup %d)", r);
-    line(4, buf);
-    line(5, "press power to turn off, then on");
-    display_flush_rows(0, DISPLAY_H - 1);
+    kv(3, "Done", "new firmware installed");
+    snprintf(buf, sizeof buf, r ? "kept (%d)" : "removed", r);
+    kv(4, "Update file", buf);
+    display_flush_rows(0, CARD_RULE_Y);
+    hint("Press any key to power off,", "then power on to start it.");
     ask(1);                              /* no working warm reboot yet */
-    power_off();
+    power_off("update installed", 0);
 }
 
-static void power_off(void)
+/* Switch off (battery) or park (cable). `save` persists position, settings
+ * and the log first; each step is shown as it happens. */
+static void power_off(const char *reason, int save)
 {
+    int cable = usb_cable(), row = 2;
+
+    log_printf("power: off (%s)%s", reason, cable ? ", cable in: park" : "");
     screen("Powering off");
+    kv(1, "Reason", reason);
+    display_flush_rows(0, CARD_RULE_Y);
+    if (save) {
+        resume_poll(ap_ms(), 1);
+        out_flush_now();
+        settings_screen_store();
+        kv(row, "State", "position + settings saved");
+        flush_row(row++);
+        kv(row, "Log", log_flush("power") == LOG_OK ? "written" : "kept in RAM");
+        flush_row(row++);
+    }
+    bt_link_power_off();         /* a powered module blocks a real switch-off */
+    kv(row, "Bluetooth", "off");
+    flush_row(row++);
+    audio_output_power_off();    /* silence the DAC path while we are "off" */
+    kv(row, "Audio", "muted");
+    flush_row(row++);
+    if (cable)
+        hint("Cable in: staying on to charge.", "Press Power to wake.");
+    else
+        hint("Goodbye.", 0);
     while (keys_power())
         panel_io_delay_ms(1);
+    panel_io_delay_ms(700);      /* long enough to read the card */
     display_clear(0x0000);
     display_flush_rows(0, DISPLAY_H - 1);
     backlight_off();     /* else the panel keeps glowing over a black screen */
-    bt_link_power_off();         /* a powered module blocks a real switch-off */
-    audio_output_power_off();    /* silence the DAC path while we are "off" */
 
-    if (usb_cable()) {
+    if (cable) {
         /* On VBUS the rail cut cannot kill us (the host feeds the SoC) and,
          * with the rail held low, the power key does NOT restart the player —
          * stock firmware behaves the same way (BRNOMT-91). So with a cable in,
@@ -770,6 +902,29 @@ static int s_usb_power_off;
 static int s_usb_power_hold;
 static int s_usb_key_down;
 static unsigned long s_usb_key_t0;
+static uint32_t *s_usb_rd, *s_usb_wr;   /* live MSC counters, NULL = none */
+static uint32_t s_usb_shown = ~0u;
+static unsigned long s_usb_draw_t;
+
+/* Refresh the MSC card's Activity row at most once a second, and only when
+ * the counters moved: one 8-row flush, well inside the hosts' BOT timeouts. */
+static void usb_activity_step(void)
+{
+    char b[32];
+    unsigned long now;
+
+    if (s_usb_rd == 0 || *s_usb_rd + *s_usb_wr == s_usb_shown)
+        return;
+    now = ap_ms();
+    if ((unsigned long)(now - s_usb_draw_t) < 1000UL)
+        return;
+    s_usb_draw_t = now;
+    s_usb_shown = *s_usb_rd + *s_usb_wr;
+    snprintf(b, sizeof b, "read %u / wrote %u MB",
+             (unsigned)(*s_usb_rd >> 11), (unsigned)(*s_usb_wr >> 11));
+    kv(3, "Activity", b);
+    flush_row(3);
+}
 
 /* Reset the press tracker for every session. These used to be function
  * statics: after a long-hold power-off the release was never consumed, so
@@ -782,10 +937,13 @@ static void usb_power_reset(void)
     s_usb_power_hold = 0;
     s_usb_key_down = 0;
     s_usb_key_t0 = 0;
+    s_usb_shown = 0;
+    s_usb_draw_t = 0;
 }
 
 static int usb_power_step(void)
 {
+    usb_activity_step();
     if (keys_power()) {
         if (!s_usb_key_down) {
             s_usb_key_down = 1;
@@ -808,21 +966,53 @@ static int usb_power_step(void)
 /* MSC session: expose the user volume (LUN 0) and the SD card (LUN 1,
  * read-only) until eject/unplug/power key. Runs from the "USB storage"
  * menu entry AND automatically on the cable (VBUS) edge. */
+static const char *usb_exit_text(int r)
+{
+    static const char *const k[] = {
+        "ejected by the PC", "cable unplugged", "PC went to sleep",
+        "no PC (charger only)", "USB transfer error", "Power key",
+        "storage busy",
+    };
+
+    return (r >= 1 && r <= 7) ? k[r - 1] : "unknown";
+}
+
+static void usb_storage_card(const char *title, int r, uint32_t rd, uint32_t wr)
+{
+    char b[32];
+
+    screen(title);
+    snprintf(b, sizeof b, "%u MB, read/write",
+             (unsigned)((emmc_sectors() - s_user) >> 11));
+    kv(1, "Internal", b);
+    if (sd_sectors())
+        snprintf(b, sizeof b, "%u MB, read-only", (unsigned)(sd_sectors() >> 11));
+    kv(2, "SD card", sd_sectors() ? b : "no card");
+    snprintf(b, sizeof b, "read %u / wrote %u MB",
+             (unsigned)(rd >> 11), (unsigned)(wr >> 11));
+    kv(3, "Activity", r || rd || wr ? b : "waiting for the PC");
+    if (r)
+        kv(4, "Ended", usb_exit_text(r));
+    display_flush_rows(0, CARD_RULE_Y);
+}
+
 static void usb_session(void)
 {
     const usb_lun_t luns[2] = {
         { emmc_read, emmc_write, s_user, emmc_sectors() - s_user },
         { sd_read, NULL, 0, sd_sectors() },
     };
-    uint32_t rd, wr;
+    uint32_t rd = 0, wr = 0;
     int r;
 
     usb_power_reset();
 
-    screen("USB mass storage");
-    line(1, "eject on the PC, hold power to turn off");
-    display_flush_rows(0, DISPLAY_H - 1);
+    usb_storage_card("USB storage", 0, 0, 0);
+    hint("Eject on the PC or press Power.", "Hold Power 2 s to switch off.");
+    s_usb_rd = &rd;              /* live Activity row (usb_power_step) */
+    s_usb_wr = &wr;
     r = usb_msc_run(luns, 2, usb_power_step, &rd, &wr);
+    s_usb_rd = s_usb_wr = 0;
     fs_target_mount(0, "Internal", emmc_read, s_user);   /* host may have written */
     crash_arm();                 /* the PC may have moved or removed CRASH */
     snprintf(s_usb, sizeof s_usb, "x%d r%uM w%uM", r, (unsigned)(rd >> 11), (unsigned)(wr >> 11));
@@ -844,11 +1034,7 @@ static void usb_session(void)
              * stays powered by the host — the rail cut only takes effect on
              * battery. */
             s_usb_power_off = 0;
-            resume_poll(ap_ms(), 1);  /* persist the last position first */
-            out_flush_now();
-            settings_screen_store();
-            (void)log_flush("power");
-            power_off();              /* may return on VBUS (park) */
+            power_off("USB: Power held", 1);  /* may return on VBUS (park) */
         }
         while (keys_power())          /* don't leak the exit press */
             panel_io_delay_ms(1);
@@ -858,7 +1044,10 @@ static void usb_session(void)
          * host resetting the bus skipped the scan, left the previous screen up
          * and made flashing impossible (field report). */
         if (!powered_off) {
-            log_printf("usb: exit %d, scanning for an update", r);
+            log_printf("usb: exit %d (%s), scanning for an update", r,
+                       usb_exit_text(r));
+            usb_storage_card("USB storage ended", r, rd, wr);
+            footer_progress("Looking for a firmware update", 0);
             update_prompt();
         }
     }
@@ -870,16 +1059,18 @@ static void usb_session(void)
  * paused first so nothing else owns the DAC. */
 static void usb_dac_entry(void)
 {
-    usb_dac_diag_t diag;
+    usb_dac_diag_t diag = { 0 };     /* a BUSY exit leaves it unwritten */
     int r;
 
     usb_power_reset();
     (void)log_flush("usb-dac");
     player_pause();
     screen("USB DAC");
-    line(1, "choose ReChord on the PC");
-    line(2, "hold power to turn off");
-    display_flush_rows(0, DISPLAY_H - 1);
+    kv(1, "Format", "48 kHz, 16-bit stereo");
+    kv(2, "On the PC", "pick \"ReChord\" as output");
+    kv(3, "Player", "paused");
+    display_flush_rows(0, CARD_RULE_Y);
+    hint("Press Power to leave.", "Hold Power 2 s to switch off.");
     r = usb_dac_run(usb_power_step, &diag);
     log_printf("usb-dac: exit %d%s alt %u cfg %u pkts %lu frames %lu drop %lu rep %lu",
                r, s_usb_power_hold ? " (power hold)" : "",
@@ -890,11 +1081,21 @@ static void usb_dac_entry(void)
     player_set_volume(settings_screen_get()->volume_db);
     if (s_usb_power_off) {
         s_usb_power_off = 0;
-        resume_poll(ap_ms(), 1);
-        out_flush_now();
-        settings_screen_store();
-        (void)log_flush("power");
-        power_off();                  /* may return on VBUS (park) */
+        power_off("USB DAC: Power held", 1);  /* may return on VBUS (park) */
+    } else {
+        char b[32];
+        unsigned s = (unsigned)(diag.frames / 48000u);
+
+        screen("USB DAC ended");
+        kv(1, "Ended", usb_exit_text(r));
+        snprintf(b, sizeof b, "%u:%02u", s / 60u, s % 60u);
+        kv(2, "Played", b);
+        snprintf(b, sizeof b, "%lu drop, %lu repeat",
+                 (unsigned long)diag.dropped, (unsigned long)diag.repeated);
+        kv(3, "Glitches", b);
+        display_flush_rows(0, CARD_RULE_Y);
+        hint(0, 0);
+        panel_io_delay_ms(1000);      /* let the summary be read */
     }
     while (keys_power())              /* don't leak the exit press */
         panel_io_delay_ms(1);
@@ -1980,11 +2181,8 @@ void ap_ui_loop(void)
          * is time-based, so a 5 ms cadence still fires it on time. */
         pev = sampled ? power_hold_step(s_key_power, now) : POWER_EV_NONE;
         if (pev == POWER_EV_HOLD) {
-            resume_poll(now, 1);       /* persist the last position first */
-            out_flush_now();
-            settings_screen_store();
-            (void)log_flush("power");
-            power_off();
+            /* power_off(save=1) persists position, settings and the log. */
+            power_off("power key", 1);
         } else if (pev == POWER_EV_SHORT) {
             s_idle_ms = now;
             if (!s_hold) {
@@ -2032,11 +2230,8 @@ void ap_ui_loop(void)
             if (mins > 0 && player_get_state() != PLAYER_PLAYING &&
                 (unsigned)(now - s_idle_ms) >= (unsigned)mins * 60000u) {
                 log_printf("power: standby %d", mins);
-                resume_poll(now, 1);      /* persist the position first */
-                out_flush_now();
-                settings_screen_store();
-                (void)log_flush("standby");
-                power_off();              /* on VBUS this parks and returns */
+                /* power_off(save=1) persists state; on VBUS it parks and returns. */
+                power_off("standby", 1);
                 s_idle_ms = ap_ms();      /* the wake press is not standby */
                 s_input_ms = s_idle_ms;
             }

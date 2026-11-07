@@ -5256,3 +5256,34 @@ paquete 808); theme suite verde.
   file-ring stalls, worst 5 s Core B load.
 - Not covered: hangs without a fault (no watchdog is used; a hang still
   freezes).
+
+## CT. Session 2026-11-07 — System cards + boot splash (ap_ui.c)
+
+- **One house look for the non-theme cards.** `firmware/startup/ap_ui.c`
+  gained the shared toolkit every system card uses: an inverted title bar with
+  a right-aligned status (`screen_r`), dim-key/white-value rows (`kv`), a dim
+  footer for hints (`hint`) or a progress bar (`footer_progress`), a 1 px rule
+  at `CARD_RULE_Y`, and `line`/`flush_row` helpers. `screen()` shows the
+  battery % (with `CHG` while VBUS feeds it) in the title bar. Geometry is the
+  documented 320x170 panel.
+- **Boot splash moved out of Main().** `ap_boot_splash()` paints the title bar
+  (`RECHORD_VERSION_STRING` from `rechord_version.h`) plus the subtitle, and
+  `ap_boot_step(row, key, value, pct)` renders one bring-up row and drives the
+  footer progress. `ap_main.c` now calls them for Theme, Core B and the
+  optional RAM/overlay probes instead of the old `fill_rect`/`draw_text`
+  block; the probe/overlay images keep their 2 s hold.
+- **`power_off(reason, save)` owns persistence.** The reason is shown on the
+  card and logged; `save=1` runs `resume_poll`, `out_flush_now`,
+  `settings_screen_store` and `log_flush` before muting/blanking. The USB
+  storage/DAC hold paths, the 2 s power key and standby call it with their
+  reason instead of repeating the save sequence (the two stale zero-arg calls
+  were the last compile break).
+- **Firmware update / USB cards.** `update_prompt()` is a full card flow with
+  human error text (`fwu_err_text`), the image SHA and an explicit install
+  prompt; USB storage shows Internal/SD/Activity/Ended (`usb_storage_card`,
+  `usb_exit_text`) with the Activity row refreshed at most 1x/s from the live
+  MSC counters; USB DAC shows the negotiated format and an end-of-session
+  summary (time played, drop/repeat) and zero-inits its diag struct.
+- **Verified:** `make` (default), plus the `AP_MEM_PROBE=1` and
+  `AP_MEM_OVERLAY=1` variant images, all `RESULT: PASS`; the two startup
+  objects compile warning-free.
