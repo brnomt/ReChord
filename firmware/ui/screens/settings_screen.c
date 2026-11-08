@@ -577,22 +577,57 @@ static void settings_group_on_enter(void)
         theme_ui_list(&s_source);
 }
 
+/* Row geometry for the built-in list or the active settings skin: the first
+ * row's y, the row height and the visible row count. All bundled settings
+ * skins use a vertical list, which keeps the calculation exact. */
+static int filter_row_geometry(int *y, int *row_h, int *rows)
+{
+    if (s_use_skin) {
+        int list_y = 0, list_h = 0;
+
+        if (theme_skin_list_bounds(&list_y, &list_h) != 0 || list_h <= 0)
+            return -1;
+        *rows = theme_ui_rows();
+        if (*rows <= 0)
+            return -1;
+        *row_h = list_h / *rows;
+        if (*row_h <= 0)
+            return -1;
+        *y = list_y;
+        return 0;
+    }
+    *rows = menu_page_size();
+    *row_h = THEME_ITEM_H;
+    *y = THEME_MENU_TOP;
+    return 0;
+}
+
 /* The impulse glyph sits between the label and the right-aligned value on
  * the "DAC filter" row: 24x8 pixels, one display_bitmap1() call, no DSP.
- * Built-in list drawing only — a theme skin owns its own row layout. */
+ * Drawn after the list, so it works for both the built-in renderer and a
+ * theme's settings skin. */
 static void draw_filter_preview(void)
 {
     const dac_filter_t *f;
-    int page, row, x, y, value_w, label_w;
+    int y0, row_h, rows, row, top, n, x, y, value_w, label_w;
     uint16_t fg, bg;
 
     if (s_group != 0 || s_filter_row < 0)
         return;
-    page = menu_page_size();
-    row = s_filter_row - s_group_view.top;
-    if (row < 0 || row >= page)
+    if (filter_row_geometry(&y0, &row_h, &rows) != 0)
+        return;
+    /* Match the renderer's effective top: the skin list clamps it so the
+     * last page stays full. */
+    n = s_use_skin ? theme_ui_count() : s_group_model.item_count;
+    top = s_group_view.top;
+    if (top > n - rows)
+        top = n - rows;
+    if (top < 0)
+        top = 0;
+    row = s_filter_row - top;
+    if (row < 0 || row >= rows)
         return;                           /* scrolled off the page */
-    if (THEME_ITEM_H < DAC_FILTER_GLYPH_H + 2)
+    if (row_h < DAC_FILTER_GLYPH_H + 2)
         return;                           /* row too short for the glyph */
     f = dac_filter_get(s_settings.dac_filter);
     value_w = THEME_TEXT_W((int)strlen(f->name));
@@ -600,8 +635,7 @@ static void draw_filter_preview(void)
     x = DISPLAY_W - THEME_PAD - value_w - 6 - DAC_FILTER_GLYPH_W;
     if (x < THEME_PAD + label_w + 8)
         return;                           /* not enough room between them */
-    y = THEME_MENU_TOP + row * THEME_ITEM_H +
-        (THEME_ITEM_H - DAC_FILTER_GLYPH_H) / 2;
+    y = y0 + row * row_h + (row_h - DAC_FILTER_GLYPH_H) / 2;
     if (s_group_view.cursor == s_filter_row) {
         fg = THEME_COLOR_BG;              /* punched out of the selection */
         bg = THEME_COLOR_FG;
@@ -621,7 +655,9 @@ static void draw_filter_hint(void)
     const dac_filter_t *f;
     int page, last, end_y, y;
 
-    if (s_group != 0 || s_filter_row < 0 ||
+    /* Skins place their own footer on the bottom line; the glyph still shows
+     * the character there, so only the built-in list gets the hint line. */
+    if (s_use_skin || s_group != 0 || s_filter_row < 0 ||
         s_group_view.cursor != s_filter_row)
         return;
     page = menu_page_size();
@@ -648,6 +684,7 @@ static void settings_group_draw(void)
         theme_ui_list(&s_source);
         theme_ui_fill_state(&st, s_group_model.title);
         theme_ui_draw(&st, s_group_view.cursor, s_group_view.top);
+        draw_filter_preview();
         return;
     }
     menu_draw(&s_group_model, &s_group_view);
