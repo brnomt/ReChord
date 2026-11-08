@@ -9,6 +9,8 @@
 #include "ui.h"
 #include "settings_schema.h"
 #include "screens/screens.h"
+#include "theme.h"
+#include "../../audio/dac_filter.h"
 #include "mock_display.h"
 #include "mock_services.h"
 
@@ -84,7 +86,7 @@ static void test_defaults_and_format(void)
     CHECK_EQ_INT(s.fade_ms, 300);        /* BRNOMT-67 default */
     CHECK_EQ_INT(s.replaygain_mode, 3);  /* BRNOMT-106: auto */
     CHECK_STR_EQ(s.theme, "");           /* boot falls back to Mono */
-    CHECK_EQ_INT(s.dac_filter, 1);       /* filter 1 = bring-up default */
+    CHECK_EQ_INT(s.dac_filter, 0);       /* Fast-Lin = bring-up default */
     CHECK_EQ_INT(s.bt_level, 1);         /* Louder = wired level */
 
     /* values format exactly like the config file writes them */
@@ -284,14 +286,33 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(mock_player_replaygain_mode(), 0);
     CHECK_EQ_INT(settings_screen_get()->auto_off_min, 15);
 
-    /* DAC filter: row 8, 1 -> 2, applied to the audio HAL as index 0..4. */
+    /* DAC filter: row 8, index 0 -> 1, applied to the audio HAL. The value
+     * is the audiophile name and the row carries the impulse preview. */
     e = ev(KEY_DOWN); ui_handle_event(&e);          /* Equalizer (no action) */
     e = ev(KEY_DOWN); ui_handle_event(&e);          /* DAC filter            */
     CHECK_EQ_INT(settings_group_view()->cursor, 8);
-    CHECK_EQ_INT(settings_screen_get()->dac_filter, 1);
+    CHECK_EQ_INT(settings_screen_get()->dac_filter, 0);
+    CHECK_STR_EQ(group->items[8].value_text(), "Fast-Lin");
     e = ev(KEY_SELECT); ui_handle_event(&e);
-    CHECK_EQ_INT(settings_screen_get()->dac_filter, 2);
+    CHECK_EQ_INT(settings_screen_get()->dac_filter, 1);
     CHECK_EQ_INT(mock_player_dac_filter(), 1);
+    CHECK_STR_EQ(group->items[8].value_text(), "Slow-Lin");
+
+    /* The selected row shows the 24x8 impulse glyph and its hint line, both
+     * inside the panel. */
+    mock_display_reset();
+    ui_render();
+    CHECK(mock_display_bitmap_count() >= 1);
+    if (mock_display_bitmap_count() >= 1) {
+        const mock_bitmap_t *bm = mock_display_bitmap(0);
+
+        CHECK_EQ_INT(bm->w, DAC_FILTER_GLYPH_W);
+        CHECK_EQ_INT(bm->h, DAC_FILTER_GLYPH_H);
+        CHECK(bm->y >= THEME_MENU_TOP);
+        CHECK(bm->y + bm->h <= DISPLAY_H);
+        CHECK(bm->x >= 0 && bm->x + bm->w <= DISPLAY_W);
+    }
+    CHECK(mock_display_text_find("Soft Highs") >= 0);
 
     /* Bluetooth level: row 9, Louder -> Standard, applied. */
     e = ev(KEY_DOWN); ui_handle_event(&e);

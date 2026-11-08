@@ -96,7 +96,7 @@ int main(void)
     CHECK(v.cursor == 3);
     CHECK(v.play_mode == opt_value("play", "repeat_track"));
     CHECK_STR_EQ(v.theme, "companion-bot");
-    CHECK(v.dac_filter == 1);            /* filter 1 = bring-up default */
+    CHECK(v.dac_filter == 0);            /* Fast-Lin = bring-up default */
     CHECK(v.bt_level == 1);              /* "louder" = wired level */
 
     /* 2. save maps the view back (ints straight across, enums -> text) */
@@ -120,7 +120,7 @@ int main(void)
     CHECK_STR_EQ(s_store.theme, "night");
     CHECK(strcmp(s_store.vol_orient, "swapped") == 0);
     CHECK(strcmp(s_store.hold_vol, "seek") == 0);
-    CHECK(s_store.dac_filter == 4);
+    CHECK(strcmp(s_store.dac_filter, "nos") == 0);
     CHECK(strcmp(s_store.bt_level, "standard") == 0);
 
     /* 3. round-trip through load again */
@@ -135,19 +135,34 @@ int main(void)
     CHECK(v.dac_filter == 4);
     CHECK(v.bt_level == 0);
 
-    /* 4. a timer value outside the option list keeps the default */
+    /* 4. DAC filter decoding: named ids, the legacy 1..5 numbers, and an
+     * unknown value all land on a valid 0..4 index. */
+    snprintf(s_store.dac_filter, sizeof s_store.dac_filter, "fast_min");
+    CHECK(settings_view_load(&v) == 0);
+    CHECK(v.dac_filter == 2);
+    snprintf(s_store.dac_filter, sizeof s_store.dac_filter, "5");
+    CHECK(settings_view_load(&v) == 0);
+    CHECK(v.dac_filter == 4);            /* legacy 5 = NOS */
+    snprintf(s_store.dac_filter, sizeof s_store.dac_filter, "1");
+    CHECK(settings_view_load(&v) == 0);
+    CHECK(v.dac_filter == 0);            /* legacy 1 = Fast-Lin */
+    snprintf(s_store.dac_filter, sizeof s_store.dac_filter, "bogus");
+    CHECK(settings_view_load(&v) == 0);
+    CHECK(v.dac_filter == 0);            /* unknown -> bring-up default */
+
+    /* 5. a timer value outside the option list keeps the default */
     s_store.screen_off_min = 45;         /* not an option */
     CHECK(settings_view_load(&v) == 0);
     CHECK(v.screen_off_s == 30);         /* default from the schema     */
 
-    /* 5. load failure -> the view still holds defaults */
+    /* 6. load failure -> the view still holds defaults */
     s_load_rc = -2;
     memset(&v, 0xFF, sizeof v);
     CHECK(settings_view_load(&v) == -2);
     settings_view_defaults(&defs);
     CHECK(memcmp(&v, &defs, sizeof v) == 0);
 
-    /* 6. every entry the Settings menu offers round-trips through the actual
+    /* 7. every entry the Settings menu offers round-trips through the actual
      * cfg text (serialize -> parse -> view), including the theme id. */
     {
         settings_t store;
@@ -163,15 +178,18 @@ int main(void)
         own.repeat_mode = 2;      /* one */
         own.fade_ms = 150;        /* BRNOMT-67 */
         own.replaygain_mode = 1;  /* BRNOMT-106: track */
+        own.dac_filter = 3;       /* Slow-Min */
         snprintf(own.theme, sizeof own.theme, "paper");
 
         settings_view_to_store(&own, &store);
+        CHECK(strcmp(store.dac_filter, "slow_min") == 0);  /* canonical name */
         CHECK(settings_serialize_text(&store, text, (unsigned long)sizeof text) > 0);
         for (i = 0; i < settings_visible_count(); i++) {
             snprintf(key, sizeof key, "\n%s=", settings_visible_at(i)->name);
             CHECK(strstr(text, key) != NULL);
         }
         CHECK(strstr(text, "\ntheme=") != NULL);
+        CHECK(strstr(text, "\ndac_filter=slow_min\n") != NULL);
 
         settings_defaults(&store);
         CHECK(settings_parse_text(text, &store) == 0);
@@ -182,10 +200,11 @@ int main(void)
         CHECK_EQ_INT(back.repeat_mode, 2);
         CHECK_EQ_INT(back.fade_ms, 150);
         CHECK_EQ_INT(back.replaygain_mode, 1);
+        CHECK_EQ_INT(back.dac_filter, 3);
         CHECK_STR_EQ(back.theme, "paper");
     }
 
-    /* 7. arguments */
+    /* 8. arguments */
     CHECK(settings_view_load(NULL) == -1);
     CHECK(settings_view_save(NULL) == -1);
 

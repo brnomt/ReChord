@@ -20,7 +20,7 @@
 #ifndef RECHORD_SERVICES_SETTINGS_H
 #define RECHORD_SERVICES_SETTINGS_H
 
-typedef struct { char play[16]; int brightness; int screen_off_min; int auto_off_min; char usb[8]; char resume[8]; char strip[8]; char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor; char shuffle[8]; char repeat_mode[8]; char fade[8]; char theme[32]; char replaygain[8]; char vol_orient[8]; char hold_vol[8]; int dac_filter; char bt_level[12]; } settings_t;
+typedef struct { char play[16]; int brightness; int screen_off_min; int auto_off_min; char usb[8]; char resume[8]; char strip[8]; char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor; char shuffle[8]; char repeat_mode[8]; char fade[8]; char theme[32]; char replaygain[8]; char vol_orient[8]; char hold_vol[8]; char dac_filter[16]; char bt_level[12]; } settings_t;
 
 /* Config file location: the internal eMMC volume, in the user-visible
  * .rechord folder (BRNOMT-71). Plain text, so it can be edited/copied from a

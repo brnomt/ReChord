@@ -301,13 +301,29 @@ audio/audio_output.c    -- audio_output_t controller: format coordination
   0xFF -> 0x00 with the stock's soft ramp. Hardware attenuation is
   available for coarse user volume; ReplayGain stays DSP-scaled.
 - **DAC reconstruction filter** (`audio_output_set_filter`, from EchoPod):
-  Settings → Playback → **DAC filter** 1–5 writes the CS43131 PCM filter
-  `MAP 0x090000` with `{0x02, 0x42, 0x82, 0xC2, 0x22}`. Filter 1 (`0x02`) is
-  the value the bring-up always wrote, so it is the default. The choice is
-  cached in `audio_output.c`, re-written by every `configure()` (the
-  BEFORE_MONO block) and rewritten live on both chips when the user cycles it.
-  It selects the DAC's interpolation/decimation response only — no PCM
-  processing and no change to the bit-exact sample stream.
+  Settings → Playback → **DAC filter** writes the CS43131 PCM filter
+  `MAP 0x090000`. The five hardware values and their audiophile names live in
+  the pure `audio/dac_filter.c` table: **Fast-Lin** `0x02`, **Slow-Lin**
+  `0x42`, **Fast-Min** `0x82`, **Slow-Min** `0xC2`, **NOS** `0x22`.
+  Fast-Lin is the value the bring-up always wrote, so it is the default
+  (`dac_filter=fast_lin`). The choice is cached in `audio_output.c`,
+  re-written by every `configure()` (the BEFORE_MONO block) and rewritten live
+  on both chips by one `dac_map_write()` when the user cycles it. It selects
+  the DAC's interpolation/decimation response only — no PCM processing and no
+  change to the bit-exact sample stream.
+
+  The row shows the `name` and, while the built-in list is drawing, a 24×8
+  1-bit stem plot of the impulse response (`glyph`) between the label and the
+  value, plus a one-line `hint` under the list when the row is selected
+  (e.g. "Soft Highs"). Both are `const` flash data blitted with
+  `display_bitmap1()`; the hint is only drawn when the list leaves a full
+  text line free, so it never overlaps the last row. Theme skins keep their
+  own layout and show the value text (the name) only.
+
+  `RECHORD.CFG` stores the named identifier. The loader also accepts the
+  previous build's numeric form (`dac_filter=1..5`, mapping to the same
+  register order) and any unknown value falls back to Fast-Lin; saving through
+  the Settings screen rewrites the field with the canonical name.
 - **Bluetooth level** (`audio_output_set_bluetooth_level`, from EchoPod's
   `OPTION_BLUETOOTH_LEVEL`): the external module takes the DAC's analogue
   output, so this is only a volume-table difference. **Standard** applies
@@ -317,7 +333,8 @@ audio/audio_output.c    -- audio_output_t controller: format coordination
   wired level. `drivers/bt_hw.c` calls the weak `audio_output_bluetooth_route()`
   hook when the route changes, so the level lands with the route instead of
   waiting for the next volume key. `bt_level` (standard/louder) and
-  `dac_filter` (1..5) live in `RECHORD.CFG`; both never touch the PCM data.
+  `dac_filter` (fast_lin/slow_lin/fast_min/slow_min/nos, legacy 1..5 still
+  accepted) live in `RECHORD.CFG`; both never touch the PCM data.
 - **Play/pause fade** (BRNOMT-67): `dac_volume_ramp_ms(from, to, ms)` keeps
   the stock 6-code step but paces it over the configured duration
   (off/150/300/500 ms, key `fade`, default 300). `audio_output_fade_in/out`

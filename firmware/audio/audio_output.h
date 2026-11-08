@@ -95,10 +95,10 @@ void audio_output_set_fade_ms(int ms);
 void audio_output_set_volume_db(int db);
 
 /* DAC reconstruction filter, CS43131 PCM filter MAP 0x090000. `filter` is
- * 0..4, the five values EchoPod writes on this player (the names are not
- * known, so they are numbered 1..5 in the UI). 0 is the 0x02 value the
- * bring-up has always used. Applied live when the DAC is up and again by
- * every configure(); it changes the DAC's filter only — the PCM path and the
+ * an index into dac_filters[] (dac_filter.h): Fast-Lin 0x02, Slow-Lin 0x42,
+ * Fast-Min 0x82, Slow-Min 0xC2, NOS 0x22. Index 0 is the value the bring-up
+ * has always used. Applied live when the DAC is up and again by every
+ * configure(); it changes the DAC's filter only — the PCM path and the
  * bit-exact sample stream are untouched. */
 void audio_output_set_filter(int filter);
 

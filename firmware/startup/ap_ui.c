@@ -1984,7 +1984,7 @@ void ap_ui_loop(void)
     player_set_repeat(settings_screen_get()->repeat_mode);
     player_set_fade_ms(settings_screen_get()->fade_ms);           /* BRNOMT-67 */
     player_set_replaygain_mode(settings_screen_get()->replaygain_mode); /* BRNOMT-106 */
-    player_set_dac_filter(settings_screen_get()->dac_filter - 1); /* 1..5 -> 0..4 */
+    player_set_dac_filter(settings_screen_get()->dac_filter); /* 0..4 index */
     player_set_bluetooth_level(settings_screen_get()->bt_level);
     display_set_brightness(settings_screen_get()->brightness);
     player_screen_set_volume(player_get_volume());

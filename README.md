@@ -36,10 +36,11 @@ byte-mod of the stock binary.
   self-updater. With a cable in, "off" parks the player (dark + silent + still
   charging) and a power press wakes it — the rail cut only works on battery.
 - **Audio** — Core B decodes **FLAC / MP3 / WAV**; the AP owns the DAC/I2S
-  bring-up and feeds the CS43131 from a shared PCM ring. Five selectable
-  CS43131 reconstruction filters (Settings → Playback → DAC filter) and a
-  **Bluetooth level** (Standard/Louder) change DAC registers only — the PCM
-  stream stays bit-exact.
+  bring-up and feeds the CS43131 from a shared PCM ring. Five named CS43131
+  reconstruction filters — **Fast-Lin / Slow-Lin / Fast-Min / Slow-Min /
+  NOS** (Settings → Playback → DAC filter, with a miniature impulse-response
+  glyph and character hint) — and a **Bluetooth level** (Standard/Louder)
+  change DAC registers only — the PCM stream stays bit-exact.
 - **Hi-res** — int32 left-justified end-to-end, source bit depth reported to the
   DAC; 24-bit at 44.1/48/88.2/96 kHz verified on device.
 - **Library** — recursive media index (v4, dual `INDEX.A`/`INDEX.B` slots with a

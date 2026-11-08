@@ -123,11 +123,13 @@ AP_DRIVER_SRCS := \
   firmware/drivers/battery.c
 
 # Audio output HAL (modular pipeline, docs/rewrite/audio.md): controller +
-# pure per-rate table. Replaces the monolithic dac_cs43131.c (register
-# code moved verbatim; see firmware/drivers/ao_regs.h).
+# pure per-rate table + the pure DAC-filter name/register/glyph table.
+# Replaces the monolithic dac_cs43131.c (register code moved verbatim; see
+# firmware/drivers/ao_regs.h).
 AP_AUDIO_SRCS := \
   firmware/audio/audio_output.c \
-  firmware/audio/ao_rate_table.c
+  firmware/audio/ao_rate_table.c \
+  firmware/audio/dac_filter.c
 
 # Services: settings/log/input + the target fs backend (same set as
 # $(SERVICES_TARGET_SRCS) in firmware/services/services.mk).

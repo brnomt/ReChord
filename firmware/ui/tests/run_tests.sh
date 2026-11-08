@@ -34,6 +34,7 @@ $CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
     ../../theme/theme.c ../../theme/themes_builtin.c ../../theme/theme_pkg.c \
     ../../theme/theme_file.c ../../theme/theme_runtime.c \
     ../../theme/theme_assets.c ../../theme/theme_skin.c \
+    ../../audio/dac_filter.c \
     mock_display.c mock_services.c mock_eq.c -lm
 
 .work/ui_tests
@@ -43,7 +44,7 @@ $CC $CFLAGS -I.. -I../.. -I../../services -I../../player -o .work/ui_tests \
 # with only the settings service I/O stubbed (test_settings_view.c).
 $CC $CFLAGS -I.. -I../.. -I../../services -o .work/settings_view_tests \
     test_settings_view.c ../settings_view.c ../settings_schema.c \
-    ../../services/settings.c
+    ../../services/settings.c ../../audio/dac_filter.c
 
 .work/settings_view_tests
 

@@ -273,7 +273,7 @@ static int  s_pl_play_count;
 static int  s_pl_pause_count;
 static int  s_pl_volume = -23;
 static int  s_pl_rg_mode = 3;
-static int  s_pl_dac_filter = 1;
+static int  s_pl_dac_filter = 0;
 static int  s_pl_bt_level = 1;
 static int  s_pl_state = PLAYER_STOPPED;
 static long s_pl_pos_ms;
@@ -292,7 +292,7 @@ void mock_player_reset(void)
     s_pl_pause_count = 0;
     s_pl_volume = -23;
     s_pl_rg_mode = 3;               /* auto (BRNOMT-106 default) */
-    s_pl_dac_filter = 1;            /* filter 1 (bring-up default) */
+    s_pl_dac_filter = 0;            /* Fast-Lin (bring-up default) */
     s_pl_bt_level = 1;              /* Louder (wired level) */
     s_pl_state = PLAYER_STOPPED;
     s_pl_pos_ms = 0;

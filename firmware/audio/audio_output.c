@@ -20,6 +20,7 @@
 #include "ao_rate_table.h"
 #include "ao_regs.h"
 #include "cs43131.h"
+#include "dac_filter.h"
 #include "rknano_i2s.h"
 
 /* BRNOMT-98: set the volume while the hardware mute is still asserted instead
@@ -69,12 +70,11 @@ static int s_dac_ready;
 static audio_format_t s_fmt;
 static int s_fmt_valid;
 
-/* DAC reconstruction filter = CS43131 PCM filter MAP 0x090000. The five
- * values are the ones EchoPod writes on this player; 0x02 (index 0) is the
- * value ReChord's bring-up has always written, so the default is byte-for-byte
- * the previous behaviour. The filter selects the DAC's interpolation/
- * decimation response only — the PCM stream is not processed. */
-static const uint8_t ao_filter_values[5] = { 0x02, 0x42, 0x82, 0xC2, 0x22 };
+/* DAC reconstruction filter = CS43131 PCM filter MAP 0x090000. The values,
+ * names and glyphs live in dac_filter.c; index 0 (0x02) is the value the
+ * bring-up has always written, so the default is byte-for-byte the previous
+ * behaviour. The filter selects the DAC's interpolation/decimation response
+ * only — the PCM stream is not processed. */
 static int s_filter;
 
 /* Bluetooth level (EchoPod "Standard" vs "Louder"). The module takes the
@@ -85,13 +85,6 @@ static int s_filter;
 #define AO_BT_STANDARD_EXTRA_CODES 13
 static int s_bt_louder = 1;
 static int s_bt_routed;
-
-static uint8_t ao_filter_value(int filter)
-{
-    if (filter < 0 || filter >= (int)(sizeof ao_filter_values))
-        filter = 0;
-    return ao_filter_values[filter];
-}
 
 /* Effective user attenuation code for the CURRENT route. Everything that
  * writes the user level (set/fade-in/unmute) goes through this so a Standard
@@ -253,7 +246,7 @@ static int ao_configure_rate(uint32_t rate_hz)
     dac_map_write_chan(0, 0x0005000B, 0x07);
     dac_map_write_chan(1, 0x0005000A, 0x0F);
     dac_map_write_chan(1, 0x0005000B, 0x0F);
-    dac_map_write(0x00090000, ao_filter_value(s_filter));
+    dac_map_write(0x00090000, dac_filter_get(s_filter)->reg);
     dac_volume_set(0xFF);            /* ref FUN_03055f28(255): volume mute   */
     dac_map_write(0x00090003, 0xEC);
     dac_map_write(0x00090004, 0x00);
@@ -510,16 +503,13 @@ void audio_output_set_volume_db(int db)
 
 void audio_output_set_filter(int filter)
 {
-    if (filter < 0)
-        filter = 0;
-    if (filter >= (int)(sizeof ao_filter_values))
-        filter = (int)(sizeof ao_filter_values) - 1;
-    s_filter = filter;
+    s_filter = dac_filter_clamp(filter);
     /* Before the first configure() the value is only cached: the bring-up
      * writes it in the BEFORE_MONO block. Live changes rewrite MAP 0x090000
-     * on both chips, exactly as EchoPod's filter picker does. */
+     * on both chips in one dac_map_write() (the verified broadcast), exactly
+     * as EchoPod's filter picker does. */
     if (s_dac_ready)
-        dac_map_write(0x00090000, ao_filter_value(s_filter));
+        dac_map_write(0x00090000, dac_filter_get(s_filter)->reg);
 }
 
 void audio_output_set_bluetooth_level(int louder)

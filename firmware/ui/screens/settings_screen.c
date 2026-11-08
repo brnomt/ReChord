@@ -3,9 +3,9 @@
  *
  * Top level: one row per category (Playing, Interface) plus System. Selecting a category
  * pushes settings_group_screen, which lists that category's schema keys (and
- * the live Theme picker/Equalizer/Controls under Interface/Playback). The
- * on-disk 19-key format is unchanged; the categories only decide what the
- * user sees and in what order.
+ * the live Theme picker/Equalizer/Controls/Bluetooth/DAC-filter rows). The
+ * categories only decide what the user sees and in what order; the on-disk
+ * key=value format is owned by services/settings.c and the view adapters.
  *
  * Playing:   Volume, Shuffle, Repeat, Resume, Fade, Auto-off, ReplayGain,
  *            Equalizer, DAC filter, Bluetooth level
@@ -27,6 +27,7 @@
 #include "../../services/eq_profile.h"
 #include "../../player/player.h"
 #include "../../services/bt_link.h"
+#include "../../audio/dac_filter.h"
 #include "../internal/hal.h"
 
 static rechord_settings_t s_settings;
@@ -36,9 +37,6 @@ static rechord_settings_t s_settings;
 /* value_text callbacks must return stable storage. One shared slot is enough:
  * menu_draw() consumes it immediately per row, and set_value() copies it. */
 static char s_value_buf[32];
-
-/* DAC filter labels: options 1..5 (the five CS43131 values; names unknown). */
-static const char *const s_filter_labels[5] = { "1", "2", "3", "4", "5" };
 
 static const char *value_text_for(int k)
 {
@@ -93,11 +91,7 @@ static void on_select_bt(void)
  * changes are applied through the player (which forwards to the audio HAL). */
 static const char *value_text_filter(void)
 {
-    int i = s_settings.dac_filter - 1;
-
-    if (i < 0 || i > 4)
-        i = 0;
-    return s_filter_labels[i];
+    return dac_filter_get(s_settings.dac_filter)->name;
 }
 
 static const char *value_text_bt_level(void)
@@ -107,8 +101,9 @@ static const char *value_text_bt_level(void)
 
 static void on_select_filter(void)
 {
-    s_settings.dac_filter = (s_settings.dac_filter % 5) + 1;
-    player_set_dac_filter(s_settings.dac_filter - 1);  /* apply live */
+    s_settings.dac_filter =
+        (dac_filter_clamp(s_settings.dac_filter) + 1) % DAC_FILTER_COUNT;
+    player_set_dac_filter(s_settings.dac_filter);       /* apply live */
 }
 
 static void on_select_bt_level(void)
@@ -325,6 +320,7 @@ static menu_item_t s_group_items[12];  /* Playback has 10 rows */
 static menu_model_t s_group_model = { "Playback", s_group_items, 0, NULL };
 static menu_view_t s_group_view;
 static int         s_group;
+static int         s_filter_row = -1;   /* "DAC filter" row in this group */
 
 static void open_playing(void);
 static void open_interface(void);
@@ -348,6 +344,7 @@ static void build_group_items(void)
     const setting_group_item_t *spec = s_group_items_spec[s_group];
     int n = 0;
 
+    s_filter_row = -1;
     while (spec[n].label != 0 && n < (int)(sizeof s_group_items /
                                            sizeof s_group_items[0])) {
         menu_item_t *it = &s_group_items[n];
@@ -368,6 +365,7 @@ static void build_group_items(void)
         } else if (spec[n].kind == GROUP_FILTER) {
             it->value_text = value_text_filter;
             it->on_select = on_select_filter;
+            s_filter_row = n;
         } else if (spec[n].kind == GROUP_BT_LEVEL) {
             it->value_text = value_text_bt_level;
             it->on_select = on_select_bt_level;
@@ -579,6 +577,66 @@ static void settings_group_on_enter(void)
         theme_ui_list(&s_source);
 }
 
+/* The impulse glyph sits between the label and the right-aligned value on
+ * the "DAC filter" row: 24x8 pixels, one display_bitmap1() call, no DSP.
+ * Built-in list drawing only — a theme skin owns its own row layout. */
+static void draw_filter_preview(void)
+{
+    const dac_filter_t *f;
+    int page, row, x, y, value_w, label_w;
+    uint16_t fg, bg;
+
+    if (s_group != 0 || s_filter_row < 0)
+        return;
+    page = menu_page_size();
+    row = s_filter_row - s_group_view.top;
+    if (row < 0 || row >= page)
+        return;                           /* scrolled off the page */
+    if (THEME_ITEM_H < DAC_FILTER_GLYPH_H + 2)
+        return;                           /* row too short for the glyph */
+    f = dac_filter_get(s_settings.dac_filter);
+    value_w = THEME_TEXT_W((int)strlen(f->name));
+    label_w = THEME_TEXT_W((int)strlen(s_group_items[s_filter_row].label));
+    x = DISPLAY_W - THEME_PAD - value_w - 6 - DAC_FILTER_GLYPH_W;
+    if (x < THEME_PAD + label_w + 8)
+        return;                           /* not enough room between them */
+    y = THEME_MENU_TOP + row * THEME_ITEM_H +
+        (THEME_ITEM_H - DAC_FILTER_GLYPH_H) / 2;
+    if (s_group_view.cursor == s_filter_row) {
+        fg = THEME_COLOR_BG;              /* punched out of the selection */
+        bg = THEME_COLOR_FG;
+    } else {
+        fg = THEME_COLOR_DIM;
+        bg = THEME_COLOR_BG;
+    }
+    display_bitmap1(x, y, DAC_FILTER_GLYPH_W, DAC_FILTER_GLYPH_H,
+                    DAC_FILTER_GLYPH_STRIDE, f->glyph, fg, bg);
+}
+
+/* One line of character text under the list while the DAC filter row is
+ * selected. Drawn only when the list leaves a full text line free, so it can
+ * never overlap or clip the last visible row. */
+static void draw_filter_hint(void)
+{
+    const dac_filter_t *f;
+    int page, last, end_y, y;
+
+    if (s_group != 0 || s_filter_row < 0 ||
+        s_group_view.cursor != s_filter_row)
+        return;
+    page = menu_page_size();
+    last = s_group_view.top + page;
+    if (last > s_group_model.item_count)
+        last = s_group_model.item_count;
+    end_y = THEME_MENU_TOP + (last - s_group_view.top) * THEME_ITEM_H;
+    y = DISPLAY_H - THEME_LINE_H - 2;
+    if (end_y + THEME_LINE_H + 2 > DISPLAY_H)
+        return;                           /* the list fills the panel */
+    f = dac_filter_get(s_settings.dac_filter);
+    display_draw_text(THEME_PAD, y + THEME_TEXT_YOFF, f->hint,
+                      THEME_COLOR_DIM, THEME_COLOR_BG);
+}
+
 static void settings_group_draw(void)
 {
     s_list_items = s_group_items;
@@ -593,6 +651,8 @@ static void settings_group_draw(void)
         return;
     }
     menu_draw(&s_group_model, &s_group_view);
+    draw_filter_preview();
+    draw_filter_hint();
 }
 
 static void settings_group_handle_event(const input_event_t *ev)
