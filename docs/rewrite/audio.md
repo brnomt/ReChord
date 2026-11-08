@@ -300,6 +300,24 @@ audio/audio_output.c    -- audio_output_t controller: format coordination
   0x00 = 0 dB; chip resets to -60 dB — DFIU 19b83f5e). Bring-up fades
   0xFF -> 0x00 with the stock's soft ramp. Hardware attenuation is
   available for coarse user volume; ReplayGain stays DSP-scaled.
+- **DAC reconstruction filter** (`audio_output_set_filter`, from EchoPod):
+  Settings → Playback → **DAC filter** 1–5 writes the CS43131 PCM filter
+  `MAP 0x090000` with `{0x02, 0x42, 0x82, 0xC2, 0x22}`. Filter 1 (`0x02`) is
+  the value the bring-up always wrote, so it is the default. The choice is
+  cached in `audio_output.c`, re-written by every `configure()` (the
+  BEFORE_MONO block) and rewritten live on both chips when the user cycles it.
+  It selects the DAC's interpolation/decimation response only — no PCM
+  processing and no change to the bit-exact sample stream.
+- **Bluetooth level** (`audio_output_set_bluetooth_level`, from EchoPod's
+  `OPTION_BLUETOOTH_LEVEL`): the external module takes the DAC's analogue
+  output, so this is only a volume-table difference. **Standard** applies
+  EchoPod's 13-code = 6.5 dB cut below the wired level (added to the
+  PCM_VOLUME attenuation) while the analogue route is active; **Louder**
+  (default, and ReChord's behaviour before this setting) sends the module the
+  wired level. `drivers/bt_hw.c` calls the weak `audio_output_bluetooth_route()`
+  hook when the route changes, so the level lands with the route instead of
+  waiting for the next volume key. `bt_level` (standard/louder) and
+  `dac_filter` (1..5) live in `RECHORD.CFG`; both never touch the PCM data.
 - **Play/pause fade** (BRNOMT-67): `dac_volume_ramp_ms(from, to, ms)` keeps
   the stock 6-code step but paces it over the configured duration
   (off/150/300/500 ms, key `fade`, default 300). `audio_output_fade_in/out`

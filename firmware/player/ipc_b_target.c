@@ -714,6 +714,16 @@ void ipc_b_set_fade_ms(int ms)
     audio_output_set_fade_ms(ms);
 }
 
+void ipc_b_set_dac_filter(int filter)
+{
+    audio_output_set_filter(filter);
+}
+
+void ipc_b_set_bluetooth_level(int louder)
+{
+    audio_output_set_bluetooth_level(louder);
+}
+
 /* ---- hi-res telemetry (perf/core-b-hires) ---------------------------------
  * Every TEL_MS of playback, one log line says which stage of the audio path is
  * short of time: AP ISR underruns, Core B load (decode vs waiting on the file

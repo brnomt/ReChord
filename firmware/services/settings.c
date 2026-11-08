@@ -49,6 +49,8 @@ void settings_defaults(settings_t *s)
     memcpy(s->replaygain, "auto", 5);   /* BRNOMT-106: off/track/album/auto */
     memcpy(s->vol_orient, "normal", 7); /* BRNOMT-107: normal/swapped */
     memcpy(s->hold_vol, "skip", 5);     /* BRNOMT-107: skip/seek */
+    s->dac_filter = 1;                  /* filter 1 = the 0x02 bring-up value */
+    memcpy(s->bt_level, "louder", 7);   /* wired level = ReChord's old behaviour */
 }
 
 /* Copy src into dst (capacity cap), truncating safely. */
@@ -176,6 +178,10 @@ static int parse_line(char *line, settings_t *s)
         copy_value(s->vol_orient, sizeof(s->vol_orient), val);
     } else if (strcmp(key, "hold_vol") == 0) {
         copy_value(s->hold_vol, sizeof(s->hold_vol), val);
+    } else if (strcmp(key, "dac_filter") == 0) {
+        (void)parse_int(val, &s->dac_filter);
+    } else if (strcmp(key, "bt_level") == 0) {
+        copy_value(s->bt_level, sizeof(s->bt_level), val);
     } else {
         return 0;               /* unknown key: ignored by design */
     }
@@ -316,6 +322,10 @@ int settings_serialize_text(const settings_t *s, char *buf, unsigned long cap)
         emit(buf, cap, &pos, s->vol_orient) != 0 ||
         emit(buf, cap, &pos, "\nhold_vol=") != 0 ||
         emit(buf, cap, &pos, s->hold_vol) != 0 ||
+        emit(buf, cap, &pos, "\ndac_filter=") != 0 ||
+        emit_int(buf, cap, &pos, s->dac_filter) != 0 ||
+        emit(buf, cap, &pos, "\nbt_level=") != 0 ||
+        emit(buf, cap, &pos, s->bt_level) != 0 ||
         emit(buf, cap, &pos, "\n") != 0) {
         return SETTINGS_ERR_FULL;
     }

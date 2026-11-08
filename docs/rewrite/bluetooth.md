@@ -131,6 +131,13 @@ Rules:
 - Stream on/off follows the player (PLAYING and a live link), with the
   stock play/pause notices; routing to the module is GPIO2.0 high +
   GPIO2.14 low, with the DAC unmute overridden while routed.
+- **Bluetooth level** (Settings → Playback → Bluetooth level, `bt_level` in
+  `RECHORD.CFG`): **Standard** applies EchoPod's 6.5 dB cut (13 PCM_VOLUME
+  codes) only while the analogue route is active; **Louder** (default) sends
+  the module the wired level. The module takes the DAC's analogue output, so
+  this changes the DAC volume table, never the PCM data. `bt_hw_route()`
+  notifies the audio HAL through a weak hook, so switching the route applies
+  the level immediately.
 - Headphone pause/play/next/previous drive the player, guarded for 3 s after
   a link/stream/local change; a dropped link pauses playback.
 - With no link and the Bluetooth screen closed — or behind a dark display —

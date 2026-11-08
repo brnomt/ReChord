@@ -66,6 +66,8 @@ int         mock_player_prev_count(void);
 int         mock_player_seek_count(void);
 long        mock_player_last_seek_ms(void);
 int         mock_player_volume_db(void);   /* last player_set_volume() dB   */
+int         mock_player_dac_filter(void);  /* last player_set_dac_filter()  */
+int         mock_player_bt_level(void);    /* last player_set_bluetooth_... */
 int         mock_player_replaygain_mode(void); /* last RG mode applied      */
 /* scripted view of the player state */
 void        mock_player_set_state(int state);

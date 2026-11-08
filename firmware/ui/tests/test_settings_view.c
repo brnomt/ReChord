@@ -96,6 +96,8 @@ int main(void)
     CHECK(v.cursor == 3);
     CHECK(v.play_mode == opt_value("play", "repeat_track"));
     CHECK_STR_EQ(v.theme, "companion-bot");
+    CHECK(v.dac_filter == 1);            /* filter 1 = bring-up default */
+    CHECK(v.bt_level == 1);              /* "louder" = wired level */
 
     /* 2. save maps the view back (ints straight across, enums -> text) */
     s_save_count = 0;
@@ -106,6 +108,8 @@ int main(void)
     snprintf(v.theme, sizeof v.theme, "night");
     v.vol_orient = VOL_ORIENT_SWAPPED;
     v.hold_vol = HOLD_VOL_SEEK;
+    v.dac_filter = 4;
+    v.bt_level = 0;
     CHECK(settings_view_save(&v) == 0);
     CHECK(s_save_count == 1);
     CHECK(s_store.screen_off_min == 60);
@@ -116,6 +120,8 @@ int main(void)
     CHECK_STR_EQ(s_store.theme, "night");
     CHECK(strcmp(s_store.vol_orient, "swapped") == 0);
     CHECK(strcmp(s_store.hold_vol, "seek") == 0);
+    CHECK(s_store.dac_filter == 4);
+    CHECK(strcmp(s_store.bt_level, "standard") == 0);
 
     /* 3. round-trip through load again */
     memset(&v, 0, sizeof v);
@@ -126,6 +132,8 @@ int main(void)
     CHECK_STR_EQ(v.theme, "night");
     CHECK(v.vol_orient == VOL_ORIENT_SWAPPED);
     CHECK(v.hold_vol == HOLD_VOL_SEEK);
+    CHECK(v.dac_filter == 4);
+    CHECK(v.bt_level == 0);
 
     /* 4. a timer value outside the option list keeps the default */
     s_store.screen_off_min = 45;         /* not an option */

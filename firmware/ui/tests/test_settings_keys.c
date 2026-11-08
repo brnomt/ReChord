@@ -84,6 +84,8 @@ static void test_defaults_and_format(void)
     CHECK_EQ_INT(s.fade_ms, 300);        /* BRNOMT-67 default */
     CHECK_EQ_INT(s.replaygain_mode, 3);  /* BRNOMT-106: auto */
     CHECK_STR_EQ(s.theme, "");           /* boot falls back to Mono */
+    CHECK_EQ_INT(s.dac_filter, 1);       /* filter 1 = bring-up default */
+    CHECK_EQ_INT(s.bt_level, 1);         /* Louder = wired level */
 
     /* values format exactly like the config file writes them */
     settings_format(&setting_schema[0], &s, buf, (int)sizeof(buf));
@@ -239,7 +241,7 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(ui_stack_depth(), 2);
     group = settings_group_model();
     CHECK_STR_EQ(group->title, "Playback");
-    CHECK_EQ_INT(group->item_count, 8);
+    CHECK_EQ_INT(group->item_count, 10);
     CHECK_STR_EQ(group->items[0].label, "Volume");
     CHECK_STR_EQ(group->items[1].label, "Shuffle");
     CHECK_STR_EQ(group->items[2].label, "Repeat");
@@ -248,6 +250,8 @@ static void test_settings_screen_binding(void)
     CHECK_STR_EQ(group->items[5].label, "Auto-off");
     CHECK_STR_EQ(group->items[6].label, "ReplayGain");
     CHECK_STR_EQ(group->items[7].label, "Equalizer");
+    CHECK_STR_EQ(group->items[8].label, "DAC filter");
+    CHECK_STR_EQ(group->items[9].label, "Bluetooth level");
 
     /* Navigate to Resume (index 3) and cycle it. */
     e = ev(KEY_DOWN); ui_handle_event(&e);
@@ -279,6 +283,23 @@ static void test_settings_screen_binding(void)
     CHECK_EQ_INT(settings_screen_get()->replaygain_mode, 0);
     CHECK_EQ_INT(mock_player_replaygain_mode(), 0);
     CHECK_EQ_INT(settings_screen_get()->auto_off_min, 15);
+
+    /* DAC filter: row 8, 1 -> 2, applied to the audio HAL as index 0..4. */
+    e = ev(KEY_DOWN); ui_handle_event(&e);          /* Equalizer (no action) */
+    e = ev(KEY_DOWN); ui_handle_event(&e);          /* DAC filter            */
+    CHECK_EQ_INT(settings_group_view()->cursor, 8);
+    CHECK_EQ_INT(settings_screen_get()->dac_filter, 1);
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_screen_get()->dac_filter, 2);
+    CHECK_EQ_INT(mock_player_dac_filter(), 1);
+
+    /* Bluetooth level: row 9, Louder -> Standard, applied. */
+    e = ev(KEY_DOWN); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_group_view()->cursor, 9);
+    CHECK_EQ_INT(settings_screen_get()->bt_level, 1);
+    e = ev(KEY_SELECT); ui_handle_event(&e);
+    CHECK_EQ_INT(settings_screen_get()->bt_level, 0);
+    CHECK_EQ_INT(mock_player_bt_level(), 0);
 
     /* The group renders human labels, not config keys. */
     mock_display_reset();

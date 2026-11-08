@@ -36,7 +36,10 @@ byte-mod of the stock binary.
   self-updater. With a cable in, "off" parks the player (dark + silent + still
   charging) and a power press wakes it — the rail cut only works on battery.
 - **Audio** — Core B decodes **FLAC / MP3 / WAV**; the AP owns the DAC/I2S
-  bring-up and feeds the CS43131 from a shared PCM ring.
+  bring-up and feeds the CS43131 from a shared PCM ring. Five selectable
+  CS43131 reconstruction filters (Settings → Playback → DAC filter) and a
+  **Bluetooth level** (Standard/Louder) change DAC registers only — the PCM
+  stream stays bit-exact.
 - **Hi-res** — int32 left-justified end-to-end, source bit depth reported to the
   DAC; 24-bit at 44.1/48/88.2/96 kHz verified on device.
 - **Library** — recursive media index (v4, dual `INDEX.A`/`INDEX.B` slots with a
@@ -242,8 +245,9 @@ firmware from FiiO.
   (`panel_io_rknanoc.c`), and the **Bluetooth implementation** — the external
   module's UART1 wiring and ASCII protocol, the GPIO2.0/2.14 audio routing and
   the stock housekeeping, the connect/scan/retry timings, the
-  play/pause-notice rules and the idle power-down behaviour. ReChord's
-  implementation is its own (`firmware/drivers/bt_hw.c`,
+  play/pause-notice rules and the idle power-down behaviour; the five CS43131
+  DAC filter values and the Bluetooth Standard/Louder level curve also come
+  from EchoPod. ReChord's implementation is its own (`firmware/drivers/bt_hw.c`,
   `firmware/services/bt_proto.c`, `bt_link.c`, `bt_store.c`,
   `ui/screens/bluetooth_screen.c`), but the hardware contract and field
   findings come from EchoPod's `bluetooth-audio` branch. Details:

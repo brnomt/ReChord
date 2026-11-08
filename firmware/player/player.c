@@ -1315,6 +1315,20 @@ void player_set_fade_ms(int ms)
     ipc_b_set_fade_ms(ms);
 }
 
+void player_set_dac_filter(int filter)
+{
+    if (filter < 0)
+        filter = 0;
+    if (filter > 4)
+        filter = 4;
+    ipc_b_set_dac_filter(filter);
+}
+
+void player_set_bluetooth_level(int louder)
+{
+    ipc_b_set_bluetooth_level(louder ? 1 : 0);
+}
+
 void player_seed_shuffle(uint32_t seed)
 {
     playlist_seed(&g.list, seed);

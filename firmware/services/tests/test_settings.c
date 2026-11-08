@@ -66,6 +66,8 @@ static void check_sample_values(const settings_t *s, int auto_off)
     CHECK(strcmp(s->replaygain, "auto") == 0);   /* BRNOMT-106 */
     CHECK(strcmp(s->vol_orient, "normal") == 0); /* BRNOMT-107 */
     CHECK(strcmp(s->hold_vol, "skip") == 0);
+    CHECK(s->dac_filter == 1);                   /* filter 1 = bring-up */
+    CHECK(strcmp(s->bt_level, "louder") == 0);   /* wired level default */
 }
 
 static void check_same(const settings_t *a, const settings_t *b)
@@ -88,6 +90,8 @@ static void check_same(const settings_t *a, const settings_t *b)
     CHECK(strcmp(a->replaygain, b->replaygain) == 0);
     CHECK(strcmp(a->vol_orient, b->vol_orient) == 0);
     CHECK(strcmp(a->hold_vol, b->hold_vol) == 0);
+    CHECK(a->dac_filter == b->dac_filter);
+    CHECK(strcmp(a->bt_level, b->bt_level) == 0);
 }
 
 static void write_cfg(const char *content)
@@ -252,6 +256,16 @@ static void test_controls_keys(void)
     CHECK(settings_serialize_text(&s, text, sizeof(text)) > 0);
     CHECK(strstr(text, "vol_orient=swapped\n") != NULL);
     CHECK(strstr(text, "hold_vol=seek\n") != NULL);
+
+    /* DAC filter (1..5) and Bluetooth level (standard/louder). */
+    settings_defaults(&s);
+    CHECK(settings_parse_text("dac_filter=3\nbt_level=standard\n", &s)
+          == SETTINGS_OK);
+    CHECK(s.dac_filter == 3);
+    CHECK(strcmp(s.bt_level, "standard") == 0);
+    CHECK(settings_serialize_text(&s, text, sizeof(text)) > 0);
+    CHECK(strstr(text, "\ndac_filter=3\n") != NULL);
+    CHECK(strstr(text, "\nbt_level=standard\n") != NULL);
 }
 
 static void test_missing_file_and_args(void)

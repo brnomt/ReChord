@@ -69,6 +69,60 @@ static int s_dac_ready;
 static audio_format_t s_fmt;
 static int s_fmt_valid;
 
+/* DAC reconstruction filter = CS43131 PCM filter MAP 0x090000. The five
+ * values are the ones EchoPod writes on this player; 0x02 (index 0) is the
+ * value ReChord's bring-up has always written, so the default is byte-for-byte
+ * the previous behaviour. The filter selects the DAC's interpolation/
+ * decimation response only — the PCM stream is not processed. */
+static const uint8_t ao_filter_values[5] = { 0x02, 0x42, 0x82, 0xC2, 0x22 };
+static int s_filter;
+
+/* Bluetooth level (EchoPod "Standard" vs "Louder"). The module takes the
+ * DAC's analogue output, so this is only a volume-table difference: Standard
+ * sits 13 codes = 6.5 dB below the wired level, Louder is the wired level.
+ * ReChord has always sent the module the wired level (Louder), and that is
+ * the default; the cut applies only while the route is active. */
+#define AO_BT_STANDARD_EXTRA_CODES 13
+static int s_bt_louder = 1;
+static int s_bt_routed;
+
+static uint8_t ao_filter_value(int filter)
+{
+    if (filter < 0 || filter >= (int)(sizeof ao_filter_values))
+        filter = 0;
+    return ao_filter_values[filter];
+}
+
+/* Effective user attenuation code for the CURRENT route. Everything that
+ * writes the user level (set/fade-in/unmute) goes through this so a Standard
+ * Bluetooth route is attenuated consistently and survives track relocks. */
+static uint8_t ao_user_atten(void)
+{
+    int code = (int)ao_volume_atten_code(s_volume_db);
+
+    if (!s_bt_louder && s_bt_routed)
+        code += AO_BT_STANDARD_EXTRA_CODES;
+    if (code > 255)
+        code = 255;
+    return (uint8_t)code;
+}
+
+/* Re-apply the user level after a route or Bluetooth-level change. Silent
+ * when the DAC is down (the next configure/fade_in picks the new level) or
+ * faded out (the next fade_in does). */
+static void ao_reapply_user_level(void)
+{
+    uint8_t target;
+
+    if (!s_dac_ready || s_volume_atten == 0xFF)
+        return;
+    target = ao_user_atten();
+    if (target == s_volume_atten)
+        return;
+    dac_volume_ramp(s_volume_atten, target);
+    s_volume_atten = target;
+}
+
 /* Ring pull for the IRQ feeder: one int32 stereo frame (8 bytes) per call,
  * split into the two 32-bit left-justified slot words the wire wants. */
 static int ao_ring_pull(uint32_t *left, uint32_t *right, void *user)
@@ -199,7 +253,7 @@ static int ao_configure_rate(uint32_t rate_hz)
     dac_map_write_chan(0, 0x0005000B, 0x07);
     dac_map_write_chan(1, 0x0005000A, 0x0F);
     dac_map_write_chan(1, 0x0005000B, 0x0F);
-    dac_map_write(0x00090000, 0x02);
+    dac_map_write(0x00090000, ao_filter_value(s_filter));
     dac_volume_set(0xFF);            /* ref FUN_03055f28(255): volume mute   */
     dac_map_write(0x00090003, 0xEC);
     dac_map_write(0x00090004, 0x00);
@@ -397,7 +451,7 @@ void audio_output_fade_in(void)
 
     if (!s_dac_ready)
         return;
-    target = ao_volume_atten_code(s_volume_db);
+    target = ao_user_atten();
     if (s_fade_ms > 0)
         dac_volume_ramp_ms(s_volume_atten, target, (unsigned)s_fade_ms);
     else
@@ -414,7 +468,7 @@ void audio_output_unmute(void)
 
     if (!s_dac_ready)
         return;
-    target = ao_volume_atten_code(s_volume_db);
+    target = ao_user_atten();
     dac_volume_set(target);
     s_volume_atten = target;
 }
@@ -431,7 +485,7 @@ void audio_output_quick_mute(void)
 
 void audio_output_set_volume_db(int db)
 {
-    uint8_t code = ao_volume_atten_code(db);
+    uint8_t code;
 
     /* dB -> PCM_VOLUME codes via the pure integer mapping
      * (audio_hal.h ao_volume_atten_code: 2 codes per dB, 0x00 = 0 dB,
@@ -440,6 +494,7 @@ void audio_output_set_volume_db(int db)
      * 0xEC) and the stock volume path (FUN_03055f48) is a soft ramp to
      * the user level — this is that setter. */
     s_volume_db = db;
+    code = ao_user_atten();
     if (!s_dac_ready) {
         s_volume_atten = code;   /* cached -> first configure() unmute ramp */
         return;
@@ -451,6 +506,35 @@ void audio_output_set_volume_db(int db)
         return;
     dac_volume_ramp(s_volume_atten, code);
     s_volume_atten = code;
+}
+
+void audio_output_set_filter(int filter)
+{
+    if (filter < 0)
+        filter = 0;
+    if (filter >= (int)(sizeof ao_filter_values))
+        filter = (int)(sizeof ao_filter_values) - 1;
+    s_filter = filter;
+    /* Before the first configure() the value is only cached: the bring-up
+     * writes it in the BEFORE_MONO block. Live changes rewrite MAP 0x090000
+     * on both chips, exactly as EchoPod's filter picker does. */
+    if (s_dac_ready)
+        dac_map_write(0x00090000, ao_filter_value(s_filter));
+}
+
+void audio_output_set_bluetooth_level(int louder)
+{
+    s_bt_louder = louder ? 1 : 0;
+    ao_reapply_user_level();
+}
+
+void audio_output_bluetooth_route(int routed)
+{
+    routed = routed ? 1 : 0;
+    if (routed == s_bt_routed)
+        return;
+    s_bt_routed = routed;
+    ao_reapply_user_level();
 }
 
 int audio_output_feed_blocking(const int16_t *pcm, int frames)

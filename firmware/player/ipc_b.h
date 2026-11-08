@@ -165,6 +165,12 @@ int ipc_b_set_volume(int db);
 /* BRNOMT-67: play/pause fade duration in milliseconds (0 = off). */
 void ipc_b_set_fade_ms(int ms);
 
+/* DAC reconstruction filter 0..4 (audio HAL MAP 0x090000). */
+void ipc_b_set_dac_filter(int filter);
+
+/* Bluetooth level: 1 = Louder (wired level), 0 = Standard (6.5 dB cut). */
+void ipc_b_set_bluetooth_level(int louder);
+
 /* Announce a new track on an EXISTING stream (gapless continuation). The B
  * core is NOT restarted: the PCM ring keeps its read cursor and the stream
  * keeps flowing, so adjacent same-format tracks join sample-accurately with

@@ -8,7 +8,7 @@
  * user sees and in what order.
  *
  * Playing:   Volume, Shuffle, Repeat, Resume, Fade, Auto-off, ReplayGain,
- *            Equalizer
+ *            Equalizer, DAC filter, Bluetooth level
  * Interface: Brightness, Theme, Controls (BRNOMT-107)
  *
  * System (index maintenance + diagnostics) is the last row of the category
@@ -36,6 +36,9 @@ static rechord_settings_t s_settings;
 /* value_text callbacks must return stable storage. One shared slot is enough:
  * menu_draw() consumes it immediately per row, and set_value() copies it. */
 static char s_value_buf[32];
+
+/* DAC filter labels: options 1..5 (the five CS43131 values; names unknown). */
+static const char *const s_filter_labels[5] = { "1", "2", "3", "4", "5" };
 
 static const char *value_text_for(int k)
 {
@@ -83,6 +86,35 @@ static void on_select_controls(void)
 static void on_select_bt(void)
 {
     ui_push_screen(&bluetooth_screen);
+}
+
+/* DAC filter and Bluetooth level are persisted in the same cfg file but are
+ * not enum/int schema rows: their values come from small helpers and the
+ * changes are applied through the player (which forwards to the audio HAL). */
+static const char *value_text_filter(void)
+{
+    int i = s_settings.dac_filter - 1;
+
+    if (i < 0 || i > 4)
+        i = 0;
+    return s_filter_labels[i];
+}
+
+static const char *value_text_bt_level(void)
+{
+    return s_settings.bt_level ? "Louder" : "Standard";
+}
+
+static void on_select_filter(void)
+{
+    s_settings.dac_filter = (s_settings.dac_filter % 5) + 1;
+    player_set_dac_filter(s_settings.dac_filter - 1);  /* apply live */
+}
+
+static void on_select_bt_level(void)
+{
+    s_settings.bt_level = s_settings.bt_level ? 0 : 1;
+    player_set_bluetooth_level(s_settings.bt_level);   /* apply live */
 }
 
 static const char *(*const s_value_text_fn[SETTING_KEY_COUNT])(void) = {
@@ -227,7 +259,9 @@ typedef enum {
     GROUP_THEME,       /* live theme picker                                  */
     GROUP_EQ,          /* Equalizer screen (BRNOMT-76)                       */
     GROUP_CONTROLS,    /* volume-key mapping (BRNOMT-107)                    */
-    GROUP_BT           /* Bluetooth screen (devices + pairing)               */
+    GROUP_BT,          /* Bluetooth screen (devices + pairing)               */
+    GROUP_FILTER,      /* DAC reconstruction filter 1..5                     */
+    GROUP_BT_LEVEL     /* Bluetooth Standard / Louder                        */
 } setting_group_kind_t;
 
 typedef struct {
@@ -246,6 +280,8 @@ static const setting_group_item_t s_playback_items[] = {
     { "Auto-off", "auto_off", GROUP_KEY },
     { "ReplayGain", "replaygain", GROUP_KEY },
     { "Equalizer", 0, GROUP_EQ },
+    { "DAC filter", 0, GROUP_FILTER },
+    { "Bluetooth level", 0, GROUP_BT_LEVEL },
     { 0, 0, GROUP_KEY },
 };
 
@@ -285,7 +321,7 @@ static menu_item_t s_cat_items[SETTING_CAT_COUNT];
 static menu_view_t s_view;
 static menu_model_t s_model = { "Settings", s_cat_items, SETTING_CAT_COUNT, NULL };
 
-static menu_item_t s_group_items[8];   /* Playback has exactly 8 rows */
+static menu_item_t s_group_items[12];  /* Playback has 10 rows */
 static menu_model_t s_group_model = { "Playback", s_group_items, 0, NULL };
 static menu_view_t s_group_view;
 static int         s_group;
@@ -329,6 +365,12 @@ static void build_group_items(void)
         } else if (spec[n].kind == GROUP_BT) {
             it->value_text = bt_link_status_text;
             it->on_select = on_select_bt;
+        } else if (spec[n].kind == GROUP_FILTER) {
+            it->value_text = value_text_filter;
+            it->on_select = on_select_filter;
+        } else if (spec[n].kind == GROUP_BT_LEVEL) {
+            it->value_text = value_text_bt_level;
+            it->on_select = on_select_bt_level;
         } else {
             const setting_schema_t *sch = settings_schema_find(spec[n].key);
             int k = (sch != 0) ? (int)(sch - setting_schema) : -1;

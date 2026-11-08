@@ -59,6 +59,8 @@ typedef struct rechord_settings {
     int  replaygain_mode;             /* key "replaygain" (0=off..3=auto)   */
     int  vol_orient;                  /* key "vol_orient" (VOL_ORIENT_*)    */
     int  hold_vol;                    /* key "hold_vol"   (HOLD_VOL_*)      */
+    int  dac_filter;                  /* key "dac_filter" (1..5, DAC MAP)   */
+    int  bt_level;                    /* key "bt_level"   (0=std, 1=louder) */
 } rechord_settings_t;
 
 typedef enum setting_kind {
@@ -96,7 +98,10 @@ typedef struct setting_schema {
  * `visible` marks the functional subset the Settings groups offer. Today:
  * brightness, resume, volume, shuffle, repeat_mode, fade, replaygain.
  * `theme` is a live picker
- * outside this table (persisted in the same file under its own key). */
+ * outside this table (persisted in the same file under its own key).
+ * `dac_filter` and `bt_level` are persisted in the same file and offered as
+ * live rows of the Playback group (extra callbacks, not schema enum/int rows,
+ * so the canonical 16-key table and its tests stay untouched). */
 extern const setting_schema_t setting_schema[SETTING_KEY_COUNT];
 
 /* The visible subset (Settings menu order). `index` is 0..count-1. */

@@ -53,6 +53,11 @@
 
 #define BT_ROUTE_SETTLE_MS 500u
 
+/* Audio HAL hook (audio/audio_output.c): the Bluetooth level rides on the
+ * DAC volume table, so the route change must re-apply it. Declared weak so
+ * driver-only builds and host tests link without the audio HAL. */
+void audio_output_bluetooth_route(int routed) __attribute__((weak));
+
 /* GPIO2 bit numbers. */
 #define BT_PIN_POWER   7
 #define BT_PIN_UART_TX 16
@@ -205,6 +210,8 @@ void bt_hw_route(int to_module)
     s_routed = to_module;
     dac_gpio_out(2, BT_PIN_WIRED_MUTE, to_module ? 1 : 0);
     dac_gpio_out(2, BT_PIN_WIRED_OUT, to_module ? 0 : 1);
+    if (audio_output_bluetooth_route != 0)
+        audio_output_bluetooth_route(to_module);
     s_routed_ms = now_ms();
     log_printf("bt: audio route %s", to_module ? "module" : "wired");
 }

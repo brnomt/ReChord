@@ -184,6 +184,8 @@ void settings_view_defaults(rechord_settings_t *s)
     s->replaygain_mode = 3; /* BRNOMT-106: auto (shuffle->track, album->album) */
     s->vol_orient = VOL_ORIENT_NORMAL;
     s->hold_vol = HOLD_VOL_SKIP;
+    s->dac_filter = 1;      /* filter 1 = the 0x02 bring-up value */
+    s->bt_level = 1;        /* Louder = the wired level ReChord always sent */
 }
 
 static void cycle_enum(const setting_schema_t *sch, rechord_settings_t *s,
@@ -298,6 +300,10 @@ void settings_view_from_store(const settings_t *in, rechord_settings_t *out)
                           ? VOL_ORIENT_SWAPPED : VOL_ORIENT_NORMAL;
     out->hold_vol = (strcmp(in->hold_vol, "seek") == 0)
                         ? HOLD_VOL_SEEK : HOLD_VOL_SKIP;
+    out->dac_filter = in->dac_filter;
+    if (out->dac_filter < 1 || out->dac_filter > 5)
+        out->dac_filter = 1;
+    out->bt_level = (strcmp(in->bt_level, "standard") == 0) ? 0 : 1;
     /* ENUM-typed view fields decode the stored text through the schema's
      * option tables; screen_off / auto_off are the exception (the store keeps
      * them as plain integers, same unit) and validate by value instead. */
@@ -355,6 +361,9 @@ void settings_view_to_store(const rechord_settings_t *in, settings_t *out)
              in->vol_orient == VOL_ORIENT_SWAPPED ? "swapped" : "normal");
     snprintf(out->hold_vol, sizeof out->hold_vol, "%s",
              in->hold_vol == HOLD_VOL_SEEK ? "seek" : "skip");
+    out->dac_filter = in->dac_filter;
+    snprintf(out->bt_level, sizeof out->bt_level, "%s",
+             in->bt_level ? "louder" : "standard");
     for (int si = 0; si < SETTING_KEY_COUNT; si++) {
         const setting_schema_t *sc = &setting_schema[si];
         const int *src = (const int *)((const char *)in + sc->offset);

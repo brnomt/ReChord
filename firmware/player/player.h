@@ -139,6 +139,14 @@ int   player_get_track(track_info_t *out);
 /* BRNOMT-67: play/pause fade duration in milliseconds (0 = off). */
 void  player_set_fade_ms(int ms);
 
+/* DAC reconstruction filter (0..4, the five CS43131 values; 0 = the default
+ * the bring-up has always used). Applied by the audio HAL, not the player. */
+void  player_set_dac_filter(int filter);
+
+/* Bluetooth level: 1 = Louder (wired level, default), 0 = Standard (the
+ * EchoPod 6.5 dB cut while audio is routed to the module). */
+void  player_set_bluetooth_level(int louder);
+
 /* Seed the shuffle PRNG (per-boot seed; 0 falls back to a fixed constant). */
 void  player_seed_shuffle(uint32_t seed);
 

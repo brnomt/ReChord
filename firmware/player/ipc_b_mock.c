@@ -179,6 +179,16 @@ void ipc_b_set_fade_ms(int ms)
     (void)ms;                       /* host mock has no DAC fade */
 }
 
+void ipc_b_set_dac_filter(int filter)
+{
+    (void)filter;                   /* host mock has no DAC registers */
+}
+
+void ipc_b_set_bluetooth_level(int louder)
+{
+    (void)louder;                   /* host mock has no DAC registers */
+}
+
 static void mock_consume(void)
 {
     int32_t chunk[MOCK_SINK_CHUNK_FRAMES * 2];

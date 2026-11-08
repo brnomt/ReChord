@@ -94,6 +94,27 @@ void audio_output_set_fade_ms(int ms);
  * only). Survives configure() — tracks relock to the current level. */
 void audio_output_set_volume_db(int db);
 
+/* DAC reconstruction filter, CS43131 PCM filter MAP 0x090000. `filter` is
+ * 0..4, the five values EchoPod writes on this player (the names are not
+ * known, so they are numbered 1..5 in the UI). 0 is the 0x02 value the
+ * bring-up has always used. Applied live when the DAC is up and again by
+ * every configure(); it changes the DAC's filter only — the PCM path and the
+ * bit-exact sample stream are untouched. */
+void audio_output_set_filter(int filter);
+
+/* Bluetooth level. EchoPod's "Standard" Bluetooth curve sits 13 register
+ * codes (6.5 dB) below the wired level; "Louder" sends the module the same
+ * level as the 3.5 mm output. ReChord has always fed the module at the wired
+ * level, so `louder = 1` (the default) preserves that and `louder = 0`
+ * applies the Standard cut while audio is routed to the module. The offset
+ * rides on the existing PCM_VOLUME attenuation, never on the PCM data. */
+void audio_output_set_bluetooth_level(int louder);
+
+/* Route-state hook for drivers/bt_hw.c (weak there, so non-Bluetooth images
+ * and host tests link without it): re-applies the user level with or without
+ * the Standard Bluetooth cut whenever the analogue route changes. */
+void audio_output_bluetooth_route(int routed);
+
 /* Polled feed (DAC test tone): interleaved int16 stereo frames. */
 int  audio_output_feed_blocking(const int16_t *pcm, int frames);
 
