@@ -32,6 +32,16 @@
 
 static rechord_settings_t s_settings;
 
+/* Where packages are installed. A variable rather than the RECHORD_THEMES_DIR
+ * macro so host tests can point it at a temporary tree and exercise the real
+ * apply path (the target never changes it). */
+static const char *s_themes_root = RECHORD_THEMES_DIR;
+
+void settings_screen_set_themes_root(const char *root)
+{
+    s_themes_root = (root != 0 && root[0] != '\0') ? root : RECHORD_THEMES_DIR;
+}
+
 /* ---- per-key callbacks (indexed by the schema table) -------------------- */
 
 /* value_text callbacks must return stable storage. One shared slot is enough:
@@ -210,7 +220,7 @@ static void on_select_theme(void)
     const char *active = theme_pkg_active_id();
     int n, i, cur = -1;
 
-    n = theme_pkg_scan(RECHORD_THEMES_DIR, themes, THEME_PKG_MAX);
+    n = theme_pkg_scan(s_themes_root, themes, THEME_PKG_MAX);
     log_printf("theme: scan %d active '%s'", n, active);
     if (n <= 0)
         return;
@@ -225,7 +235,7 @@ static void on_select_theme(void)
     for (i = 1; i <= n; i++) {
         int idx = (cur + i + n) % n;
 
-        if (theme_pkg_apply(RECHORD_THEMES_DIR, themes[idx].id) != 0) {
+        if (theme_pkg_apply(s_themes_root, themes[idx].id) != 0) {
             log_printf("theme: apply '%s' failed", themes[idx].id);
             continue;                 /* broken package: try the next one */
         }
@@ -467,7 +477,7 @@ int settings_screen_theme_option_apply(void)
 
     if (id[0] == '\0')
         return -1;
-    if (theme_pkg_apply(RECHORD_THEMES_DIR, id) != 0) {
+    if (theme_pkg_apply(s_themes_root, id) != 0) {
         log_printf("theme: opt reapply '%s' failed", id);
         return -1;
     }
@@ -758,26 +768,55 @@ static void settings_group_draw(void)
     draw_filter_hint();
 }
 
+/* Activate the row under the cursor (short press / SELECT). */
+static void activate_group_row(void)
+{
+    if (s_group_view.cursor >= 0 &&
+        s_group_view.cursor < s_group_model.item_count &&
+        s_group_items[s_group_view.cursor].on_select != 0)
+        s_group_items[s_group_view.cursor].on_select();
+    ui_invalidate_all();
+}
+
+static int group_row_is_theme(void)
+{
+    return s_group_view.cursor >= 0 &&
+           s_group_view.cursor < s_group_model.item_count &&
+           s_group_items[s_group_view.cursor].on_select == on_select_theme;
+}
+
 static void settings_group_handle_event(const input_event_t *ev)
 {
     int nav;
     int rows;
 
-    /* Long press on the Theme row opens its option list (short press still
-     * cycles the theme). Handled before the skin branch so it works with or
-     * without a settings skin. A package without options sets the status
-     * line instead of opening an empty screen. */
-    if (ev->kind == INPUT_LONG) {
-        if (ev->type == KEY_SELECT && s_group_view.cursor >= 0 &&
-            s_group_view.cursor < s_group_model.item_count &&
-            s_group_items[s_group_view.cursor].on_select == on_select_theme) {
+    /* The key driver emits PRESS when the key goes down and LONG only ~500 ms
+     * later (services/input.c). Every Settings row acts on PRESS; the Theme
+     * row cannot, because a hold would then cycle the package and open the
+     * options of the theme it just switched TO (the reported bug). So only
+     * the Theme row defers its short action to the release; rows without a
+     * long action keep the press behaviour untouched.
+     *
+     * Stateless on purpose: the release of a hold that OPENED the options
+     * screen is delivered to that screen, never here, so any "was held" flag
+     * would stay set and misfire on the next row. The cursor tells us all we
+     * need. */
+    if (ev->type == KEY_SELECT && group_row_is_theme()) {
+        if (ev->kind == INPUT_PRESS)
+            return;                   /* swallowed: the short action is below */
+        if (ev->kind == INPUT_LONG) {
             if (!theme_options_open())
                 log_printf("theme: '%s' has no options",
                            theme_pkg_active_id());
+            return;
         }
-        return;
+        if (ev->kind == INPUT_RELEASE) {
+            if (!ev->long_press)
+                activate_group_row(); /* short press: cycle the theme */
+            return;
+        }
     }
-    if (ev->kind == INPUT_RELEASE)
+    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
         return;                       /* listings act on PRESS/REPEAT only */
 
     if (s_use_skin) {
@@ -793,11 +832,7 @@ static void settings_group_handle_event(const input_event_t *ev)
                            s_group_model.item_count, rows);
             ui_invalidate_all();
         } else if (nav == THEME_SKIN_SELECT) {
-            if (s_group_view.cursor >= 0 &&
-                s_group_view.cursor < s_group_model.item_count &&
-                s_group_items[s_group_view.cursor].on_select != 0)
-                s_group_items[s_group_view.cursor].on_select();
-            ui_invalidate_all();
+            activate_group_row();
         } else if (nav == THEME_SKIN_BACK) {
             ui_pop_screen();   /* back to the category list */
         }
@@ -816,11 +851,7 @@ static void settings_group_handle_event(const input_event_t *ev)
         ui_invalidate_all();
         break;
     case KEY_SELECT:
-        if (s_group_view.cursor >= 0 &&
-            s_group_view.cursor < s_group_model.item_count &&
-            s_group_items[s_group_view.cursor].on_select != 0)
-            s_group_items[s_group_view.cursor].on_select();
-        ui_invalidate_all();
+        activate_group_row();      /* only reached when not the Theme row */
         break;
     case KEY_BACK:
         ui_pop_screen();   /* back to the category list */
@@ -912,6 +943,14 @@ static void build_opt_items(void)
     }
 }
 
+/* Change option `i` to its next choice, persist it and re-apply the package so
+ * the skins pick it up (live preview).
+ *
+ * ORDER MATTERS: theme_pkg_apply() re-reads theme.cfg, which re-initialises
+ * every option to choice 0; the values then come back from the persisted
+ * `theme_opts` text through the provider. So the new selection has to be
+ * SAVED first — applying before saving restored the previous digits and the
+ * press looked like it did nothing (the "20 fps never becomes 60 fps" bug). */
 static void cycle_theme_option(int i)
 {
     const theme_layout_t *l = theme_layout();
@@ -921,12 +960,12 @@ static void cycle_theme_option(int i)
         return;
     next = (l->opts[i].value + 1) % l->opts[i].count;
     theme_opt_set(l->opts[i].id, next);
-    (void)settings_screen_theme_option_apply();
     (void)settings_screen_theme_option_save();
+    (void)settings_screen_theme_option_apply();
     /* apply() re-loaded the settings skin for the package; this screen's list
      * is the option rows, not the settings rows, so re-register it. */
     if (s_use_skin) {
-        s_opt_source.count = l->opt_count;
+        s_opt_source.count = theme_layout()->opt_count;
         theme_ui_list(&s_opt_source);
     }
     ui_invalidate_all();
@@ -974,8 +1013,22 @@ static void theme_options_handle_event(const input_event_t *ev)
     int nav;
     int rows;
 
+    /* A press that changes a value is deferred to the release: with a
+     * 2-choice option, acting on PRESS + every REPEAT flipped the value back
+     * and forth while PLAY was held. Movement and BACK keep the press
+     * behaviour every other list uses. Stateless for the same reason as the
+     * group screen: the cursor identifies the row. */
+    if (ev->type == KEY_SELECT) {
+        if (ev->kind == INPUT_PRESS || ev->kind == INPUT_LONG)
+            return;
+        if (ev->kind == INPUT_RELEASE) {
+            if (!ev->long_press)
+                cycle_theme_option(s_opt_view.cursor);
+            return;
+        }
+    }
     if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
-        return;                       /* act on PRESS/REPEAT only */
+        return;
 
     if (s_use_skin) {
         theme_ui_note_input();
@@ -989,8 +1042,6 @@ static void theme_options_handle_event(const input_event_t *ev)
             menu_view_move(&s_opt_view, nav == THEME_SKIN_PREV ? -1 : +1,
                            l->opt_count, rows);
             ui_invalidate_all();
-        } else if (nav == THEME_SKIN_SELECT) {
-            cycle_theme_option(s_opt_view.cursor);
         } else if (nav == THEME_SKIN_BACK) {
             ui_pop_screen();
         }
@@ -1006,14 +1057,11 @@ static void theme_options_handle_event(const input_event_t *ev)
         menu_view_move(&s_opt_view, +1, l->opt_count, menu_page_size());
         ui_invalidate_all();
         break;
-    case KEY_SELECT:
-        cycle_theme_option(s_opt_view.cursor);
-        break;
     case KEY_BACK:
         ui_pop_screen();
         break;
     default:
-        break;
+        break;               /* KEY_SELECT was handled on RELEASE above */
     }
 }
 

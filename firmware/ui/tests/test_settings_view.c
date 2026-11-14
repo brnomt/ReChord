@@ -180,6 +180,11 @@ int main(void)
         own.replaygain_mode = 1;  /* BRNOMT-106: track */
         own.dac_filter = 3;       /* Slow-Min */
         snprintf(own.theme, sizeof own.theme, "paper");
+        /* Per-theme option selections ride along in the same file. The UI
+         * tests mock settings_view_load/save, so only this test proves the
+         * real cfg round-trip actually carries them. */
+        snprintf(own.theme_opts, sizeof own.theme_opts,
+                 "oscilloscope:1;glifo:1;");
 
         settings_view_to_store(&own, &store);
         CHECK(strcmp(store.dac_filter, "slow_min") == 0);  /* canonical name */
@@ -189,6 +194,7 @@ int main(void)
             CHECK(strstr(text, key) != NULL);
         }
         CHECK(strstr(text, "\ntheme=") != NULL);
+        CHECK(strstr(text, "\ntheme_opts=oscilloscope:1;glifo:1;\n") != NULL);
         CHECK(strstr(text, "\ndac_filter=slow_min\n") != NULL);
 
         settings_defaults(&store);
@@ -202,6 +208,7 @@ int main(void)
         CHECK_EQ_INT(back.replaygain_mode, 1);
         CHECK_EQ_INT(back.dac_filter, 3);
         CHECK_STR_EQ(back.theme, "paper");
+        CHECK_STR_EQ(back.theme_opts, "oscilloscope:1;glifo:1;");
     }
 
     /* 8. arguments */

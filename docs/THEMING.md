@@ -212,6 +212,21 @@ In **Settings → Interface → Theme**:
 | press in Theme options | cycle that option, re-apply the package and save immediately (live preview) |
 | BACK | return to the Settings list |
 
+The key driver emits `PRESS` when a key goes down and `LONG` only after
+`INPUT_LONG_MS` (500 ms), so "short" and "long" are distinguished by the
+`RELEASE{long_press}` that follows. On the Theme row — the only row here with
+a long action — the short action therefore runs on release, and a hold runs
+only the long one: acting on `PRESS` made a hold cycle the package and then
+open the options of the theme it had just switched to. Every other row keeps
+the press behaviour it always had, and holding PLAY in Theme options changes
+nothing (a two-choice value would otherwise flip back and forth under
+autorepeat).
+
+Because the options screen's re-apply re-reads `theme.cfg` (which
+re-initialises every option to choice 0), a change is **saved before it is
+applied**; the apply then restores it through the persisted digits. Doing it
+the other way round silently discarded the change.
+
 A theme without options logs `theme: '<id>' has no options` and stays on the
 Settings list. The options screen draws through the package's
 `skin_settings` like every other Settings screen (it registers the option
