@@ -190,6 +190,10 @@ int  settings_screen_theme_option_apply(void);
  * press). Returns 1 when the package declares options, 0 when it does not. */
 int  theme_options_open(void);
 
+/* Where theme packages are installed (defaults to RECHORD_THEMES_DIR). Host
+ * tests point it at a temporary tree so the real scan/apply path runs. */
+void settings_screen_set_themes_root(const char *root);
+
 extern const ui_screen_t library_screen;       /* category menu */
 extern const ui_screen_t library_cat_screen;   /* names -> songs  */
 void library_cat_open(int cat);                /* set the category before pushing */

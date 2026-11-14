@@ -58,9 +58,12 @@ literals only: the expression parser has no `0x` numbers.
   lamp, battery and BNC > engine list. 49 sections.
 * **Now Playing** — the cover is "CH2" on the left; the right tube is a
   goniometer: a 48x40 dense X-Y scribble jittered +-2 px with two bright beam
-  slivers, L/R axes and a centred dot when paused. A dark readout window
-  carries title/artist/time/playlist, a progress strip runs underneath, and
-  the status bar shows RUN/STOP + format + SHUF/REP.
+  slivers, L/R axes and a centred dot when paused. It plots mid `(L+R)/2` on
+  the vertical axis and side `(L-R)/2` on the horizontal one, so a signal only
+  in one channel leans onto that channel's diagonal (`L` upper-left, `R`
+  upper-right) instead of collapsing onto the centre line. A dark readout
+  window carries title/artist/time/playlist, a progress strip runs underneath,
+  and the status bar shows RUN/STOP + format + SHUF/REP.
 * **Library / category** — instrument menu (`MENU > LIBRARY`, or
   `MENU > <category>`), position counter, mini sweep line, header knob.
 * **Browser** — same instrument frame with `MENU > <path>`.

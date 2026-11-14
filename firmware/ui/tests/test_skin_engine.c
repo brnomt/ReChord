@@ -306,6 +306,85 @@ void test_skin_engine(void)
         (void)remove("rechord_scope.skin");
     }
 
+    /* ---- goniometer: L leans onto the L diagonal, not through the middle --- */
+    {
+        FILE *fg = fopen("rechord_xy.skin", "w");
+        static const short sine_l[8] = { 0, 700, 1000, 700, 0,
+                                         -700, -1000, -700 };
+        static const short flat[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+        theme_skin_state_t gs;
+        int i, n, minx = 9999, maxx = -9999, miny = 9999, maxy = -9999;
+        int topx = -1, botx = -1;
+
+        if (fg != 0) {
+            fputs("[s]\ntype=scope\nx=0\ny=0\nw=80\nh=80\nch=xy\n"
+                  "gain=1000\ncolor=65535\nhalo=1\nglow=0\n", fg);
+            fclose(fg);
+        }
+        memset(&gs, 0, sizeof gs);
+        gs.playing = 1;
+        gs.wave_l = sine_l;
+        gs.wave_r = flat;
+        gs.wave_n = 8;
+        CHECK_EQ_INT(theme_skin_load(".", "", "rechord_xy.skin"), 0);
+        mock_display_reset();
+        theme_skin_render(0, 0, 0, 0, &gs);
+        /* Left-only must be the upper-left -> lower-right DIAGONAL. Plotting
+         * raw L on X / R on Y drew a flat horizontal line through the middle
+         * (the "left reads as mid" report), which spans no rows at all. */
+        n = mock_display_rect_count();
+        for (i = 0; i < n; i++) {
+            const mock_rect_t *r = mock_display_rect(i);
+
+            if (r->x0 < minx) minx = r->x0;
+            if (r->x1 > maxx) maxx = r->x1;
+            if (r->y0 < miny) miny = r->y0;
+            if (r->y1 > maxy) maxy = r->y1;
+            if (r->y0 <= miny + 1) topx = (r->x0 + r->x1) / 2;
+            if (r->y1 >= maxy - 1) botx = (r->x0 + r->x1) / 2;
+        }
+        CHECK(maxy - miny > 30);         /* it is not a flat line            */
+        CHECK(maxx - minx > 30);
+        CHECK(topx >= 0 && topx < 40);   /* L peak leans upper-LEFT          */
+        CHECK(botx >= 0 && botx > 40);   /* ... and its trough lower-right   */
+        (void)remove("rechord_xy.skin");
+    }
+
+    /* ---- glow meter: core plus halo, still nothing when invisible --------- */
+    {
+        FILE *fgl = fopen("rechord_glow.skin", "w");
+        theme_skin_state_t es;
+
+        if (fgl != 0) {
+            fputs("[a]\ntype=glow\nx=40\ny=40\nw=2\nh=2\ncolor=65535\n"
+                  "[b]\ntype=glow\nx=100\ny=100\nw=2\nh=2\ncolor=65535\n"
+                  "visible=0\n", fgl);
+            fclose(fgl);
+        }
+        memset(&es, 0, sizeof es);
+        CHECK_EQ_INT(theme_skin_load(".", "", "rechord_glow.skin"), 0);
+        mock_display_reset();
+        theme_skin_render(0, 0, 0, 0, &es);
+        {
+            int i, n = mock_display_rect_count();
+            int core = 0, halo = 0;
+
+            for (i = 0; i < n; i++) {
+                const mock_rect_t *r = mock_display_rect(i);
+
+                if (r->x0 == 40 && r->y0 == 40 && r->x1 == 41 && r->y1 == 41)
+                    core++;
+                if (r->x0 < 40 || r->x1 > 41 || r->y0 < 40 || r->y1 > 41)
+                    halo++;
+                /* nothing may reach the `visible=0` meter */
+                CHECK(r->x1 < 90);
+            }
+            CHECK_EQ_INT(core, 1);
+            CHECK(halo >= 3);              /* widening passes around the dot   */
+        }
+        (void)remove("rechord_glow.skin");
+    }
+
 
     (void)remove("rechord_engine.skin");
     (void)remove("rechord_dyn.skin");

@@ -212,6 +212,21 @@ In **Settings → Interface → Theme**:
 | press in Theme options | cycle that option, re-apply the package and save immediately (live preview) |
 | BACK | return to the Settings list |
 
+The key driver emits `PRESS` when a key goes down and `LONG` only after
+`INPUT_LONG_MS` (500 ms), so "short" and "long" are distinguished by the
+`RELEASE{long_press}` that follows. On the Theme row — the only row here with
+a long action — the short action therefore runs on release, and a hold runs
+only the long one: acting on `PRESS` made a hold cycle the package and then
+open the options of the theme it had just switched to. Every other row keeps
+the press behaviour it always had, and holding PLAY in Theme options changes
+nothing (a two-choice value would otherwise flip back and forth under
+autorepeat).
+
+Because the options screen's re-apply re-reads `theme.cfg` (which
+re-initialises every option to choice 0), a change is **saved before it is
+applied**; the apply then restores it through the persisted digits. Doing it
+the other way round silently discarded the change.
+
 A theme without options logs `theme: '<id>' has no options` and stays on the
 Settings list. The options screen draws through the package's
 `skin_settings` like every other Settings screen (it registers the option
@@ -317,6 +332,7 @@ item2=SETTINGS:settings
 | type | properties |
 |---|---|
 | `fill` | `x y w h color` |
+| `glow` | `x y w h color [bg] [glow] [halo]` (a filled rect with the scope trace's phosphor halo: `color` is the core, `bg` what it bleeds into, `glow` strength in permille, `halo` passes 1..6; the halo reaches up to 7 px past the rect) |
 | `roundrect` | `x y w h r color` (filled, true corner arcs) |
 | `triangle` | `x1 y1 x2 y2 x3 y3 color` (filled; degenerate = no draw) |
 | `gradient` | `x y w h from to dir` (two RGB565 colours; `dir=vertical` or `diagonal`; 4x4 ordered dithering hides RGB565 banding; draws only inside the rect) |
@@ -324,6 +340,7 @@ item2=SETTINGS:settings
 | `art` | `x y size` (`small`\|`large`) `color` (placeholder tint, default `surface`) |
 | `text` | `x y text color bg [maxc] [align]` (`maxc` cuts to N chars ending in `~`; `align=right` makes `x` the right edge) |
 | `bar` | `x y w h value max color bg` |
+| `scope` | `x y w h ch gain color [halo] [glow]` (live trace: `ch=l`/`r` is a time sweep, `ch=xy` a goniometer — mid `(L+R)/2` on Y, side `(L-R)/2` on X, so L alone leans onto the upper-left diagonal) |
 | `list` | `axis x y height selected rows source prev next item0..item3` |
 
 Any meter may set `visible=<expr>`; a false value skips it.
