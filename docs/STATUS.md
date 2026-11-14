@@ -81,6 +81,13 @@ plays audio on hardware:
   to the theme.cfg warm grey/cream/amber palette and draws a cassette glyph.
   Engine additions: `gradient` meter, `sqrt`, text `maxc`/`align=right`, and
   the section cap raised 32 -> 52 (parsed, 0 B RAM).
+- **Glifo and Aura themes** (`themes/glifo/`, `themes/aura/`, notes in
+  `docs/themes/`): data only. Glifo is a black dot-matrix Now Playing screen
+  (24-lamp ring, red playhead, bitmap clock digits, level dots from
+  `lvl_l`/`lvl_r`). Aura is a cover-coloured lock screen (dithered diagonal
+  wash, halo, 120 px art, pill progress, transport bitmaps) with a dusk
+  palette when the track has no cover. Both keep dynamic titles on the
+  built-in 8x8 font.
 - **Quick settings**: MENU opens an overlay with Shuffle, Repeat and Playlist
   (BRNOMT-105). The playlist view is the live queue, marks the current track
   and SELECT jumps to/plays the chosen entry. MENU or BACK closes it; MENU

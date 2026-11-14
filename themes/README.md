@@ -272,9 +272,26 @@ for 6 s: line eyes and a drifting "z Z". It sits at ~3.96 KB of the 4 KiB
 home-skin budget, so the shipped `home.skin` has no whitespace inside
 expressions and almost no comments.
 
-Battery: Cassette (home bottom bar, Now Playing title bar), Companion Bot and
-Companion Bot 2 show a bar plus `NN%` (`--` when unknown) and turn red below
-15 %.
+Battery: Cassette (home bottom bar, Now Playing title bar), Companion Bot,
+Companion Bot 2, Glifo and Aura show a percent (`--` when unknown) and turn
+red below 15 %.
+
+## Glifo and Aura
+
+`themes/glifo/` and `themes/aura/` are data-only Now Playing packages (home
+and the list screens are skinned too; nothing is compiled). Strings are
+Spanish, ASCII-only, because the built-in font has no accents.
+
+Glifo is the black / one-red dot-matrix screen. The clock digits are a 5x7
+matrix scaled to 3 px cells and packed two per bitmap (`d01` is 0 over 1, and
+so on) so ten glyphs fit in five of the eight asset slots. The skin shifts
+the bitmap and covers the other half with a black strip. Title, artist and
+album stay on the 8x8 font. See `docs/themes/glifo/README.md`.
+
+Aura is the cover-coloured lock screen. The diagonal wash, the halo rings and
+the info card use `art_bg_a` / `art_bg_b` / `art_glow` / `art_panel`, and the
+dusk palette in `theme.cfg` when `art_ok` is 0. Prev / play / pause / next
+and the home wordmark are 1-bit assets. See `docs/themes/aura/README.md`.
 
 ## Assets
 
