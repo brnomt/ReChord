@@ -296,6 +296,20 @@ int main(int argc, char **argv)
         shot(dir, "np_cover", t, 5000, 0, 0, &st);
         s_art_ok = 0;
         shot(dir, "np_nocover", t, 5000, 0, 0, &st);
+        /* Paused and low-battery frames. Themes that only restyle Now Playing
+         * (Glifo, Aura) need these; older packages just gain extra shots. */
+        st.playing = 0;
+        st.paused = 1;
+        st.stopped = 0;
+        st.state = "Paused";
+        s_art_ok = 1;
+        shot(dir, "np_paused", t, 8000, 0, 0, &st);
+        s_art_ok = 0;
+        shot(dir, "np_paused_nocover", t, 8000, 0, 0, &st);
+        base_state(&st);
+        st.battery_pct = 9;
+        s_art_ok = 1;
+        shot(dir, "np_low", t, 5000, 0, 0, &st);
     }
 
     /* ---- library ------------------------------------------------------- */
