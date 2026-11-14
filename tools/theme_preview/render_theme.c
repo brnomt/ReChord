@@ -236,6 +236,28 @@ static const char *file_label(int i, char *b, int cap)
     return b;
 }
 
+/* The Theme options screen (§3 of THEMING.md) draws through the package's
+ * settings skin with the option rows as its list. */
+static const char *opt_lbl(int i, char *b, int cap)
+{
+    const theme_layout_t *l = theme_layout();
+
+    if (i < 0 || i >= l->opt_count)
+        return "";
+    snprintf(b, (size_t)cap, "%s", l->opts[i].label);
+    return b;
+}
+
+static const char *opt_val(int i, char *b, int cap)
+{
+    const theme_layout_t *l = theme_layout();
+
+    if (i < 0 || i >= l->opt_count)
+        return "";
+    snprintf(b, (size_t)cap, "%s", l->opts[i].choice[l->opts[i].value]);
+    return b;
+}
+
 int main(int argc, char **argv)
 {
     const char *root, *id, *dir;
@@ -245,7 +267,8 @@ int main(int argc, char **argv)
     int i;
 
     if (argc < 4) {
-        fprintf(stderr, "usage: %s <themes-root> <package-id> <out-dir>\n",
+        fprintf(stderr,
+                "usage: %s <themes-root> <package-id> <out-dir> [opt=idx ...]\n",
                 argv[0]);
         return 2;
     }
@@ -259,9 +282,32 @@ int main(int argc, char **argv)
         fprintf(stderr, "package '%s' rejected\n", id);
         return 1;
     }
+    /* Extra args select per-theme option values (name=index), so one run can
+     * compare every variant of a package. */
+    for (i = 4; i < argc; i++) {
+        char *eq = strchr(argv[i], '=');
+
+        if (eq == 0) {
+            fprintf(stderr, "option '%s': expected name=index\n", argv[i]);
+            return 2;
+        }
+        *eq = '\0';
+        /* Accept the skin variable name too (`opt_face=1` == `face=1`). */
+        if (strncmp(argv[i], "opt_", 4) == 0)
+            argv[i] += 4;
+        if (theme_opt_set(argv[i], atoi(eq + 1)) < 0) {
+            fprintf(stderr, "option '%s' not declared by the package\n",
+                    argv[i]);
+            return 2;
+        }
+    }
     k_setv[0] = theme_get()->name;
     printf("theme '%s' name '%s' home %d assets ok\n",
            theme_pkg_active_id(), theme_get()->name, theme_layout()->home);
+    for (i = 0; i < theme_layout()->opt_count; i++)
+        printf("  opt %s = %d (%s)\n", theme_layout()->opts[i].id,
+               theme_layout()->opts[i].value,
+               theme_layout()->opts[i].choice[theme_layout()->opts[i].value]);
 
     /* ---- home: the six moods ------------------------------------------- */
     load(root, id, "home.skin");
@@ -310,6 +356,8 @@ int main(int argc, char **argv)
         st.battery_pct = 9;
         s_art_ok = 1;
         shot(dir, "np_low", t, 5000, 0, 0, &st);
+        base_state(&st);          /* the low-battery frame must not leak into
+                                   * the list/settings shots below */
     }
 
     /* ---- library ------------------------------------------------------- */
@@ -350,6 +398,16 @@ int main(int argc, char **argv)
         src.value = set_value;
         theme_skin_set_list(&src);
         shot(dir, "settings", t, 5000, 0, 0, &st);
+
+        /* Theme options: the same skin, driven by the package's options. */
+        if (theme_layout()->opt_count > 0) {
+            st.heading = "Theme options";
+            src.count = theme_layout()->opt_count;
+            src.label = opt_lbl;
+            src.value = opt_val;
+            theme_skin_set_list(&src);
+            shot(dir, "options", t, 5000, 0, 0, &st);
+        }
     }
 
     (void)lbl_any;

@@ -267,6 +267,114 @@ static int parse_asset_key(const char *key, int klen, const char *v, int vlen,
     return 0;
 }
 
+/* ---- per-theme options -------------------------------------------------- */
+
+static int s_opt_rejected;
+
+int theme_opt_rejected(void)
+{
+    return s_opt_rejected;
+}
+
+/* 1 when `id` contains a byte the theme_opts text format uses as a
+ * separator (the freestanding libc has no strpbrk). */
+static int has_sep(const char *id)
+{
+    for (; *id != '\0'; id++)
+        if (*id == ':' || *id == ';')
+            return 1;
+    return 0;
+}
+
+/* Copy a trimmed span into a fixed buffer; -1 when it does not fit or is
+ * empty. */
+static int span_copy(char *dst, int cap, const char *s, int len)
+{
+    int start = 0;
+    int end = len;
+
+    while (start < end && (s[start] == ' ' || s[start] == '\t'))
+        start++;
+    while (end > start && (s[end - 1] == ' ' || s[end - 1] == '\t'))
+        end--;
+    if (end <= start || end - start > cap - 1)
+        return -1;
+    memcpy(dst, s + start, (size_t)(end - start));
+    dst[end - start] = '\0';
+    return 0;
+}
+
+/* `opt_<id>=<Label>,<choice>|<choice>[|...]`
+ *
+ * Limits: id is a lowercase identifier (a-z0-9_, <= 15 chars) because the
+ * skin reads it as `opt_<id>`; label <= 23 chars; 2..4 choices of <= 15
+ * chars; at most THEME_OPT_MAX options. Any violation drops the line (the
+ * package stays usable) and bumps the rejected counter. */
+static int parse_opt_key(const char *key, int klen, const char *v, int vlen,
+                         theme_layout_t *l)
+{
+    const char *id = key + 4;            /* after "opt_" */
+    int idlen = klen - 4;
+    const char *comma;
+    int i;
+
+    if (idlen <= 0 || idlen >= THEME_OPT_NAME_MAX)
+        return -1;
+    if (id[0] < 'a' || id[0] > 'z')
+        return -1;                       /* must lex as an expression ident */
+    for (i = 0; i < idlen; i++) {
+        char c = id[i];
+
+        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'))
+            return -1;
+    }
+    if (l->opt_count >= THEME_OPT_MAX)
+        return -1;
+    for (i = 0; i < l->opt_count; i++) {
+        if ((int)strlen(l->opts[i].id) == idlen &&
+            strncmp(l->opts[i].id, id, (size_t)idlen) == 0)
+            return -1;                   /* duplicate id */
+    }
+    for (comma = v; comma < v + vlen && *comma != ','; comma++)
+        ;
+    if (comma >= v + vlen)
+        return -1;                       /* no label separator */
+
+    {
+        theme_opt_decl_t opt;
+        const char *p = comma + 1;
+        const char *end = v + vlen;
+
+        memset(&opt, 0, sizeof opt);
+        memcpy(opt.id, id, (size_t)idlen);
+        opt.id[idlen] = '\0';
+        if (span_copy(opt.label, (int)sizeof opt.label, v,
+                      (int)(comma - v)) != 0)
+            return -1;
+        for (;;) {
+            const char *bar = p;
+
+            while (bar < end && *bar != '|')
+                bar++;
+            if (opt.count >= THEME_OPT_CHOICES_MAX)
+                return -1;
+            if (span_copy(opt.choice[opt.count],
+                          (int)sizeof opt.choice[opt.count], p,
+                          (int)(bar - p)) != 0)
+                return -1;
+            opt.count++;
+            if (bar >= end)
+                break;
+            p = bar + 1;
+        }
+        if (opt.count < 2)
+            return -1;                   /* a one-choice option is dead weight */
+        opt.value = 0;                   /* persistence overrides it later */
+        l->opts[l->opt_count++] = opt;
+    }
+    return 0;
+}
+
 int theme_layout_parse(const char *text, theme_layout_t *l)
 {
     theme_layout_t tmp;
@@ -280,6 +388,10 @@ int theme_layout_parse(const char *text, theme_layout_t *l)
     /* All-or-nothing: parse into a copy so a rejected value leaves the caller's
      * layout exactly as it was (a malformed package must never half-apply). */
     tmp = *l;
+    /* Options are declared only by this text: a previous parse's declarations
+     * (and their selected values) must not leak into it. */
+    tmp.opt_count = 0;
+    s_opt_rejected = 0;
 
     while (p != 0 && *p != '\0') {
         const char *eol = p;
@@ -376,6 +488,13 @@ int theme_layout_parse(const char *text, theme_layout_t *l)
             if (klen > 6 && strncmp(p, "asset_", 6) == 0) {
                 if (parse_asset_key(p, klen, v, vlen, &tmp) != 0)
                     return -1;
+                p = (*eol != '\0') ? eol + 1 : eol;
+                continue;
+            }
+            /* Malformed options are dropped, not fatal (see theme_pkg.h). */
+            if (klen > 4 && strncmp(p, "opt_", 4) == 0) {
+                if (parse_opt_key(p, klen, v, vlen, &tmp) != 0)
+                    s_opt_rejected++;
                 p = (*eol != '\0') ? eol + 1 : eol;
                 continue;
             }
@@ -480,4 +599,176 @@ void theme_layout_reset(void)
 {
     theme_layout_defaults(&s_layout);
     s_ready = 1;
+}
+
+/* ---- per-theme options -------------------------------------------------- */
+
+int theme_opt_value(const char *id)
+{
+    int i;
+
+    if (id == 0)
+        return -1;
+    for (i = 0; i < s_layout.opt_count; i++)
+        if (strcmp(s_layout.opts[i].id, id) == 0)
+            return s_layout.opts[i].value;
+    return -1;
+}
+
+int theme_opt_set(const char *id, int value)
+{
+    int i;
+
+    if (id == 0)
+        return -1;
+    for (i = 0; i < s_layout.opt_count; i++) {
+        theme_opt_decl_t *o = &s_layout.opts[i];
+
+        if (strcmp(o->id, id) != 0)
+            continue;
+        if (value < 0)
+            value = 0;
+        if (value >= o->count)
+            value = o->count - 1;
+        o->value = value;
+        return value;
+    }
+    return -1;
+}
+
+/* ---- persisted selections ------------------------------------------------
+ * ONE cfg value holds every theme's choices, so a theme switch never has to
+ * touch a second file:
+ *
+ *     theme_opts=glifo:1000;oscilloscope:0100;
+ *
+ * `<id>:<d><d><d><d>;` — one digit per declared option (0..3), padded with
+ * zeros so the format stays fixed-width and a theme that adds options later
+ * still parses. Unknown ids and unknown digits are ignored, never fatal. A
+ * directory name can never contain ':' or ';' (theme_pkg's id grammar), so
+ * the separators are unambiguous.
+ */
+
+static int opts_id_end(const char *p)
+{
+    int n = 0;
+
+    while (p[n] != '\0' && p[n] != ':' && p[n] != ';')
+        n++;
+    return n;
+}
+
+int theme_opts_decode(const char *text, const char *id, int *out, int max)
+{
+    int idlen, n = 0;
+
+    if (text == 0 || id == 0 || out == 0 || max <= 0)
+        return -1;
+    idlen = (int)strlen(id);
+    if (idlen == 0 || has_sep(id))
+        return -1;                       /* cannot be encoded unambiguously */
+    while (*text != '\0') {
+        int len = opts_id_end(text);
+        const char *body = text + len;
+
+        if (len == idlen && strncmp(text, id, (size_t)idlen) == 0 &&
+            *body == ':') {
+            int i = 0;
+
+            body++;
+            while (i < max && body[i] >= '0' && body[i] <= '9') {
+                out[i] = body[i] - '0';
+                i++;
+            }
+            n = i;
+            break;
+        }
+        while (*text != '\0' && *text != ';')
+            text++;
+        if (*text == ';')
+            text++;
+    }
+    {
+        int got = n;
+
+        while (n < max)
+            out[n++] = 0;
+        return got;                      /* digits found (rest are zeros) */
+    }
+}
+
+int theme_opts_encode_entry(char *text, int cap, const char *id,
+                           const int *vals, int n)
+{
+    int idlen, len = 0, i;
+
+    if (text == 0 || id == 0 || cap <= 0 || n <= 0)
+        return -1;
+    idlen = (int)strlen(id);
+    if (idlen == 0 || has_sep(id))
+        return -1;                       /* cannot be encoded unambiguously */
+    /* Copy every entry except this theme's, bounded by `cap`. */
+    {
+        const char *p = text;
+
+        while (*p != '\0') {
+            const char *start = p;
+
+            while (*p != '\0' && *p != ';')
+                p++;
+            if (*p == ';')
+                p++;
+            if (opts_id_end(start) == idlen &&
+                strncmp(start, id, (size_t)idlen) == 0)
+                continue;                /* drop the stale entry */
+            if (len + (int)(p - start) >= cap)
+                return -1;
+            memcpy(text + len, start, (size_t)(p - start));
+            len += (int)(p - start);
+        }
+    }
+    if (len + idlen + 1 + n + 2 > cap)
+        return -1;
+    memcpy(text + len, id, (size_t)idlen);
+    len += idlen;
+    text[len++] = ':';
+    for (i = 0; i < n; i++) {
+        int v = vals[i];
+
+        if (v < 0)
+            v = 0;
+        if (v > 9)
+            v = 9;
+        text[len++] = (char)('0' + v);
+    }
+    text[len++] = ';';
+    text[len] = '\0';
+    return len;
+}
+
+void theme_opts_apply(const int *vals, int n)
+{
+    int i;
+
+    if (vals == 0)
+        return;
+    for (i = 0; i < s_layout.opt_count && i < n; i++) {
+        int v = vals[i];
+
+        if (v < 0)
+            v = 0;
+        if (v >= s_layout.opts[i].count)
+            v = s_layout.opts[i].count - 1;
+        s_layout.opts[i].value = v;
+    }
+}
+
+void theme_opts_values(int *out, int max)
+{
+    int i;
+
+    if (out == 0)
+        return;
+    for (i = 0; i < max; i++)
+        out[i] = i < s_layout.opt_count ? s_layout.opts[i].value : 0;
 }

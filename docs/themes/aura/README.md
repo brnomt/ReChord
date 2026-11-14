@@ -3,8 +3,8 @@
 `themes/aura/` is the data-only lock screen. With a cover, the diagonal wash
 comes from `art_bg_a` / `art_bg_b`, the halo from `art_glow` and the card
 from `art_panel`. With `art_ok` false, every one of those falls back to the
-dusk palette in `theme.cfg` (deep indigo, lilac accent). Strings are Spanish
-and ASCII (`En pausa`, `SIN PORTADA`, `BIBLIOTECA`, `AHORA`, `AJUSTES`).
+dusk palette in `theme.cfg` (deep indigo, lilac accent). Strings are English
+and ASCII (`Paused`, `NO COVER`, `LIBRARY`, `NOW PLAYING`, `SETTINGS`).
 
 Install by copying the directory to `/.rechord/themes/aura/`.
 
@@ -22,7 +22,7 @@ own `sin()` phase, tinted toward `art_glow`. They sit in a small tray that is
 redrawn with them.
 
 Pause (`playing == 0`) darkens the wash, the halo and the card, swaps the
-pause glyph for play, rests the capsules and shows `En pausa`. A state change
+pause glyph for play, rests the capsules and shows `Paused`. A state change
 already full-redraws Now Playing, so those colours update without marking the
 gradient dynamic. The animated band is only the tray and the progress pill
 (`refresh_ms=80`), which keeps the cover from being re-read every tick.

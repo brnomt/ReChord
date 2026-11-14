@@ -30,6 +30,7 @@
 
 #define RECHORD_BROWSE_PATH_MAX 64
 #define RECHORD_THEME_ID_MAX    32
+#define RECHORD_THEME_OPTS_MAX  96   /* "<id>:<digits>;" list, see theme_pkg.h */
 #define SETTING_KEY_COUNT       16
 
 /* Controls (BRNOMT-107). These are persisted like `theme` (outside the schema
@@ -56,6 +57,7 @@ typedef struct rechord_settings {
     int  repeat_mode;                 /* key "repeat_mode"(0=off,1=all,2=one)*/
     int  fade_ms;                     /* key "fade"       (0/150/300/500 ms) */
     char theme[RECHORD_THEME_ID_MAX]; /* key "theme"      (package id)      */
+    char theme_opts[RECHORD_THEME_OPTS_MAX]; /* key "theme_opts" (per-theme) */
     int  replaygain_mode;             /* key "replaygain" (0=off..3=auto)   */
     int  vol_orient;                  /* key "vol_orient" (VOL_ORIENT_*)    */
     int  hold_vol;                    /* key "hold_vol"   (HOLD_VOL_*)      */

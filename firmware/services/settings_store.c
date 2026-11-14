@@ -20,8 +20,10 @@
 #include "settings.h"
 #include "fs.h"
 
-/* Longest config text read back (the keys live in the first lines). */
-#define CFG_READ_MAX 512
+/* Longest config text read back (the keys live in the first lines). Sized
+ * from the serializer's worst case: ~360 B of keys + theme_opts (96) + a 32-B
+ * theme id, with room to spare. */
+#define CFG_READ_MAX 640
 
 int settings_load(settings_t *s)
 {

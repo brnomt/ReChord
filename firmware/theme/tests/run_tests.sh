@@ -21,4 +21,9 @@ $CC $CFLAGS -I.. -o .work/test_theme_runtime \
     ../theme_pkg.c ../theme_runtime.c ../theme_assets.c ../theme_skin.c
 .work/test_theme_runtime
 
+$CC $CFLAGS -I.. -I../drivers -o .work/test_theme_options \
+    test_theme_options.c ../theme.c ../themes_builtin.c ../theme_file.c \
+    ../theme_pkg.c ../theme_runtime.c ../theme_assets.c ../theme_skin.c
+.work/test_theme_options
+
 echo "ALL THEME TESTS PASSED"

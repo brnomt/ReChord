@@ -42,4 +42,12 @@ int theme_pkg_boot(const char *root, const char *id, const char *fallback_id);
 /* id currently applied (empty when the built-in fallback is active). */
 const char *theme_pkg_active_id(void);
 
+/* Option selections are storage, which this module does not own. The app
+ * installs a provider that fills `out[0..max-1]` with the digits persisted for
+ * theme `id` (zeros when there is no entry). theme_pkg_apply() clamps them to
+ * the declared choice counts, so a theme that shrinks an option list never
+ * gets an out-of-range variant. Without a provider all options are 0. */
+void theme_pkg_set_option_provider(void (*fn)(const char *id, int *out,
+                                              int max));
+
 #endif /* RECHORD_THEME_RUNTIME_H */

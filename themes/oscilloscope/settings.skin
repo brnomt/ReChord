@@ -29,7 +29,8 @@ color=background
 type=text
 x=11
 y=9
-text="UTILITY > SETTINGS"
+text="UTILITY > " + heading
+maxc=27
 color=55292
 bg=background
 [cnt]

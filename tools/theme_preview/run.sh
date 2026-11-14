@@ -1,12 +1,13 @@
 #!/bin/sh
 # Render a theme package through the real skin engine and display driver.
-# Usage: ./run.sh <themes-root> <package-id> <out-dir>
+# Usage: ./run.sh <themes-root> <package-id> <out-dir> ["opt=idx" ...]
 # Produces <out-dir>/*.ppm plus 1x/2x PNGs (PIL) next to them.
 set -e
 cd "$(dirname "$0")"
 ROOT=${1:-../..}
 ID=${2:?package id}
 OUT=${3:?out dir}
+OPTS=${4:-}   # optional per-theme options: "opt_face=1 opt_fps=1"
 
 CC="${CC:-cc}"
 CFLAGS="${CFLAGS:--Wall -Werror -O2}"
@@ -26,7 +27,7 @@ $CC $CFLAGS -I../../firmware/drivers -I../../firmware/theme \
     ../../firmware/theme/theme_assets.c \
     ../../firmware/theme/theme_skin.c -lm
 
-.work/render_theme "$ROOT" "$ID" "$OUT"
+.work/render_theme "$ROOT" "$ID" "$OUT" $OPTS
 python3 - "$OUT" <<'PY'
 import glob, os, sys
 from PIL import Image

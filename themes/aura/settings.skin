@@ -46,6 +46,6 @@ next=down
 type=text
 x=6
 y=156
-text="VOL+/- mueve   PLAY cambia   ATRAS guarda"
+text="VOL+/- move   PLAY change   BACK saves"
 color=text_dim
 bg=background

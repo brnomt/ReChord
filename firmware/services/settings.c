@@ -184,6 +184,10 @@ static int parse_line(char *line, settings_t *s)
         copy_value(s->dac_filter, sizeof(s->dac_filter), val);
     } else if (strcmp(key, "bt_level") == 0) {
         copy_value(s->bt_level, sizeof(s->bt_level), val);
+    } else if (strcmp(key, "theme_opts") == 0) {
+        /* Per-theme option selections ("<id>:<digits>;..."). Opaque text: the
+         * theme module owns the format, so it is stored verbatim. */
+        copy_value(s->theme_opts, sizeof(s->theme_opts), val);
     } else {
         return 0;               /* unknown key: ignored by design */
     }
@@ -328,6 +332,8 @@ int settings_serialize_text(const settings_t *s, char *buf, unsigned long cap)
         emit(buf, cap, &pos, s->dac_filter) != 0 ||
         emit(buf, cap, &pos, "\nbt_level=") != 0 ||
         emit(buf, cap, &pos, s->bt_level) != 0 ||
+        emit(buf, cap, &pos, "\ntheme_opts=") != 0 ||
+        emit(buf, cap, &pos, s->theme_opts) != 0 ||
         emit(buf, cap, &pos, "\n") != 0) {
         return SETTINGS_ERR_FULL;
     }

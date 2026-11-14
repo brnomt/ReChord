@@ -46,6 +46,6 @@ next=down
 type=text
 x=6
 y=156
-text="VOL+/- mueve   PLAY abre   ATRAS sale"
+text="VOL+/- move   PLAY open   BACK exits"
 color=text_dim
 bg=background

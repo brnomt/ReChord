@@ -118,6 +118,6 @@ next=down
 type=text
 x=12
 y=160
-text="VOL+/- SINTONIZAR  PLAY ABRIR"
+text="VOL+/- TUNE   PLAY OPEN"
 color=text_dim
 bg=background
