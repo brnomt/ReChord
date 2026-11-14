@@ -1531,7 +1531,9 @@ static void skin_triangle(int x1, int y1, int x2, int y2, int x3, int y3,
 
 /* Scope trace: the audio tap's waveform drawn as a smooth, glowing line.
  * ch=l|r is a time trace across x (eased between points, so 48 samples look
- * like a curve on a 190 px screen); ch=xy plots L against R (Lissajous).
+ * like a curve on a 190 px screen); ch=xy is a goniometer: mid (L+R) on Y and
+ * side (L-R) on X, so a hard-left signal leans onto the upper-left diagonal
+ * the skins label "L" and a hard-right one onto "R".
  * Glow is a wider dim pass drawn first, the core 1 px line on top. `gain` is a
  * permille amplitude multiplier (skins fold the volume in). */
 static int scope_y(int v, int gain, int y, int h)
@@ -1581,6 +1583,44 @@ static uint16_t mix565(uint16_t a, uint16_t b, int w)
     return (uint16_t)((r << 11) | (g << 5) | bl);
 }
 
+/* Phosphor falloff shared by the scope trace and glowing fills: radius and
+ * halo weight (of the core colour over `bg`) per pass, core last. */
+static const short k_glow_r[7] = { 7, 5, 4, 3, 2, 1, 0 };
+/* Steep falloff: a thin bright core with a faint bloom reads as light; a
+ * bright halo reads as a fat line. */
+static const short k_glow_w[7] = { 22, 45, 80, 130, 200, 310, 1000 };
+
+/* Halo around a filled rect, same falloff as the scope trace so a glowing dot
+ * reads like the phosphor. `glow` is the strength in permille (1000 = the
+ * scope's default), `halo` the number of widening passes (1..6). The halo
+ * passes are discs (a square bloom around a 2 px dot reads as a box); the core
+ * pass is drawn LAST and unrounded so the dot keeps its shape. Draws OUTSIDE
+ * x..x+w-1 / y..y+h-1 by up to 7 px, so the caller's flush band must cover
+ * the halo. */
+static void skin_glow_rect(int x, int y, int w, int h, uint16_t core,
+                           uint16_t bg, int glow, int halo)
+{
+    int pass;
+
+    if (w <= 0 || h <= 0)
+        return;
+    if (halo < 1)
+        halo = 1;
+    if (halo > 6)
+        halo = 6;
+    for (pass = 6 - halo; pass < 7; pass++) {
+        int wt = pass == 6 ? 1000 : k_glow_w[pass] * glow / 1000;
+        int r = k_glow_r[pass];
+        uint16_t col = pass == 6 ? mix565(core, 0xFFFF, 480)
+                                 : mix565(core, bg, wt > 950 ? 950 : wt);
+
+        if (pass == 6)
+            display_fill_rect(x, y, x + w - 1, y + h - 1, col);
+        else
+            skin_roundrect(x - r, y - r, w + 2 * r, h + 2 * r, r + 1, col);
+    }
+}
+
 /* `glow` is the halo strength in permille (1000 = default): three widening
  * passes (up to 11..3 px wide, `halo`=1..6 passes, outer radius up to 7) fade from the
  * core colour into `bg`, so the line bleeds light into the tube. The caller
@@ -1591,10 +1631,6 @@ __attribute__((noinline)) static void skin_scope(
     const theme_skin_state_t *st, uint16_t core, uint16_t bg, int glow,
     int halo)
 {
-    static const short k_r[7] = { 7, 5, 4, 3, 2, 1, 0 };
-    /* Steep falloff: a thin bright core with a faint bloom reads as light; a
-     * bright halo reads as a fat line. */
-    static const short k_w[7] = { 22, 45, 80, 130, 200, 310, 1000 };
     const short *a, *b;
     int n, pass, i;
     int xy = ch != 0 && key_eq(ch, "xy");
@@ -1610,9 +1646,9 @@ __attribute__((noinline)) static void skin_scope(
     if (halo < 1) halo = 1;
     if (halo > 6) halo = 6;
     for (pass = 6 - halo; pass < 7; pass++) {
-        int wt = pass == 6 ? 1000 : k_w[pass] * glow / 1000;
+        int wt = pass == 6 ? 1000 : k_glow_w[pass] * glow / 1000;
         uint16_t col;
-        int r = k_r[pass];
+        int r = k_glow_r[pass];
         int px = 0, py = 0;
 
         if (wt > 950)
@@ -1620,12 +1656,24 @@ __attribute__((noinline)) static void skin_scope(
         /* hot core: phosphor burns whiter at its centre than in its halo */
         col = pass == 6 ? mix565(core, 0xFFFF, 480) : mix565(core, bg, wt);
         if (xy) {
+            /* Goniometer: mid (L+R)/2 on Y, side (L-R)/2 on X — not raw L/R.
+             * The skins draw their L and R axes as the two diagonals, so L
+             * alone has to lean onto the upper-left one and R alone onto the
+             * upper-right; raw L/R put a hard-left signal on a flat horizontal
+             * line, which reads as "mid". The /2 keeps a correlated (mono)
+             * signal inside the box instead of pinning it to the top. */
+            int cxm = x + w / 2, cym = y + h / 2;
+
             for (i = 0; i < n; i++) {
-                int cx = x + w / 2 + (a[i] * gain / 1000) * (w / 2) / 1000;
-                int cy = scope_y(b[i], gain, y, h);
+                int mid = (a[i] + b[i]) * gain / 2000;
+                int side = (a[i] - b[i]) * gain / 2000;
+                int cx = cxm - side * (w / 2) / 1000;
+                int cy = cym - mid * (h / 2) / 1000;
 
                 if (cx < x) cx = x;
                 if (cx > x + w - 1) cx = x + w - 1;
+                if (cy < y) cy = y;
+                if (cy > y + h - 1) cy = y + h - 1;
                 if (i > 0)
                     scope_line(px, py, cx, cy, r, col);
                 px = cx;
@@ -1963,6 +2011,26 @@ static void render_section(const skin_section_t *sec, skin_ctx_t *ctx, int sel)
         display_fill_rect(x, y, x + w - 1, y + h - 1,
                           color_of(prop(sec, "color"), ctx,
                                    theme_get()->text));
+        return;
+    }
+
+    /* `glow`: a filled rect with the scope trace's phosphor halo, so a star or
+     * a dot can read as light. `color`/`bg` are the core and what it bleeds
+     * into (default: the palette background), `glow` the strength in permille,
+     * `halo` the pass count (1..6). Defaults are stronger than the scope's so a
+     * 2 px star still reads at 1:1 on the device. The halo extends up to 7 px
+     * past the rect, so give the meter's dyn band that much slack. */
+    if (key_eq(type, "glow")) {
+        x = eval_int(prop(sec, "x"), ctx, 0);
+        y = eval_int(prop(sec, "y"), ctx, 0);
+        w = eval_int(prop(sec, "w"), ctx, 2);
+        h = eval_int(prop(sec, "h"), ctx, 2);
+        skin_glow_rect(x, y, w, h,
+                       color_of(prop(sec, "color"), ctx, theme_get()->text),
+                       color_of(prop(sec, "bg"), ctx,
+                                theme_get()->background),
+                       eval_int(prop(sec, "glow"), ctx, 3000),
+                       eval_int(prop(sec, "halo"), ctx, 5));
         return;
     }
 

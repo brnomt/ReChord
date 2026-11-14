@@ -317,6 +317,7 @@ item2=SETTINGS:settings
 | type | properties |
 |---|---|
 | `fill` | `x y w h color` |
+| `glow` | `x y w h color [bg] [glow] [halo]` (a filled rect with the scope trace's phosphor halo: `color` is the core, `bg` what it bleeds into, `glow` strength in permille, `halo` passes 1..6; the halo reaches up to 7 px past the rect) |
 | `roundrect` | `x y w h r color` (filled, true corner arcs) |
 | `triangle` | `x1 y1 x2 y2 x3 y3 color` (filled; degenerate = no draw) |
 | `gradient` | `x y w h from to dir` (two RGB565 colours; `dir=vertical` or `diagonal`; 4x4 ordered dithering hides RGB565 banding; draws only inside the rect) |
@@ -324,6 +325,7 @@ item2=SETTINGS:settings
 | `art` | `x y size` (`small`\|`large`) `color` (placeholder tint, default `surface`) |
 | `text` | `x y text color bg [maxc] [align]` (`maxc` cuts to N chars ending in `~`; `align=right` makes `x` the right edge) |
 | `bar` | `x y w h value max color bg` |
+| `scope` | `x y w h ch gain color [halo] [glow]` (live trace: `ch=l`/`r` is a time sweep, `ch=xy` a goniometer — mid `(L+R)/2` on Y, side `(L-R)/2` on X, so L alone leans onto the upper-left diagonal) |
 | `list` | `axis x y height selected rows source prev next item0..item3` |
 
 Any meter may set `visible=<expr>`; a false value skips it.

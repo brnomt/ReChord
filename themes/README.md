@@ -196,6 +196,7 @@ Meter types:
 | `text` | `x y text color bg [maxc] [align]` (`maxc` -> `~` cut, `align=right`) |
 | `bar` | `x y w h value max color bg` |
 | `list` | `axis x y height selected rows source prev next item0..item3` |
+| `glow` | `x y w h color [bg] [glow] [halo]` (fill + the scope trace's phosphor halo; `halo` 1..6 reaches up to 7 px past the rect) |
 
 Any meter can set `visible=<expr>` to skip drawing. A `[vars]` section defines
 named expressions reused by meters (bounded recursion), which keeps complex
@@ -276,8 +277,11 @@ working example.
 eyes, blink, sleep and happy-lid logic). Eyes are layered (rim, body, gloss)
 and take the cover's `art_accent` (cyan without art, `danger` red below 15 %
 battery). While playing it adds blush, a rising note and five bars driven by
-`lvl_l`/`lvl_r` (they bounce on a floor level if the audio tap is absent). Idle
-for 6 s: line eyes and a drifting "z Z". It sits at ~3.96 KB of the 4 KiB
+`lvl_l`/`lvl_r` (they bounce on a floor level if the audio tap is absent). The
+five background stars are `glow` meters (the scope's phosphor halo), and how
+many are lit follows the level: one always twinkles, the rest join above
+~300/650/850 of 1000, so the sky fills up as the music gets louder. Idle
+for 6 s: line eyes and a drifting "z Z". It sits at ~4.0 KB of the 4 KiB
 home-skin budget, so the shipped `home.skin` has no whitespace inside
 expressions and almost no comments.
 

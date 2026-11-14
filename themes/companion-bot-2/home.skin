@@ -47,7 +47,7 @@ to=10378
 dir=vertical
 
 [s1]
-type=fill
+type=glow
 visible=mod(t,1700)<1100
 x=60
 y=14
@@ -56,8 +56,8 @@ h=2
 color=65535
 
 [s2]
-type=fill
-visible=mod(t+500,2300)<900
+type=glow
+visible=(playing?lv:500)>400&&mod(t+500,2300)<900
 x=132
 y=10
 w=2
@@ -65,8 +65,8 @@ h=2
 color=16127
 
 [s3]
-type=fill
-visible=mod(t+900,1900)<1200
+type=glow
+visible=(playing?lv:500)>400&&mod(t+900,1900)<1200
 x=214
 y=18
 w=3
@@ -74,8 +74,8 @@ h=3
 color=64374
 
 [s4]
-type=fill
-visible=mod(t+300,2600)<1000
+type=glow
+visible=(playing?lv:500)>650&&mod(t+300,2600)<1000
 x=300
 y=48
 w=2
@@ -83,8 +83,8 @@ h=2
 color=65322
 
 [s5]
-type=fill
-visible=mod(t+1200,2100)<1000
+type=glow
+visible=(playing?lv:500)>850&&mod(t+1200,2100)<1000
 x=20
 y=94
 w=2

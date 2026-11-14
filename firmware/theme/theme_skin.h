@@ -35,8 +35,9 @@
 #define THEME_SKIN_ITEMS_MAX 4
 
 /* Interpreter revision, logged at boot so a device can prove which engine is
- * running (v2 = vector roundrect/triangle + [vars]). */
-#define THEME_SKIN_ENGINE 4
+ * running (v2 = vector roundrect/triangle + [vars]; v4 = per-screen skins and
+ * the scope; v5 = `glow` meter and the mid/side goniometer mapping). */
+#define THEME_SKIN_ENGINE 5
 
 /* Key codes match input_key_t (services/input.h) without pulling it in. */
 enum {
