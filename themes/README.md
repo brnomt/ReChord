@@ -49,6 +49,11 @@ pad=4                  # list geometry
 title_h=16
 item_h=12
 
+# per-theme options (up to four). The selected index is `opt_<id>` in any
+# skin expression; see docs/THEMING.md §3.
+opt_face=Face,Clock|Artwork
+opt_fps=Refresh,20 fps|60 fps
+
 np_title_y=24          # Now Playing origins
 np_artist_y=36
 np_state_y=48
@@ -241,6 +246,10 @@ Strings concatenate with `+` and ints are converted (`pl_i + "/" + pl_n`).
 | `shuffle`, `repeat` | 0/1 and off/all/one |
 | palette names | `background surface text text_dim accent danger success` |
 
+Per-theme options add one variable per declared `opt_<id>` (§3): its value is
+the selected choice index. It works in any property, in `visible=`, and in
+`[skin] refresh_ms` / `dyn*`.
+
 They come from `player_get_state()/get_track()/get_position_ms()/get_volume()/
 get_shuffle()/get_repeat()` (runtime state in `firmware/player/player.c`),
 `battery_percent()`, the UI selection, and `ap_ms()`. Full guide, meter
@@ -276,17 +285,35 @@ Battery: Cassette (home bottom bar, Now Playing title bar), Companion Bot,
 Companion Bot 2, Glifo and Aura show a percent (`--` when unknown) and turn
 red below 15 %.
 
+## Oscilloscope (one package, two sweep rates)
+
+`themes/oscilloscope/` used to be two packages (`oscilloscope` and
+`oscilloscope-60`). They are now one, with
+
+```
+opt_fps=Refresh,20 fps|60 fps
+```
+
+and every difference between the two — `refresh_ms`, the three `dyn` rects
+and their cadence, the trace band geometry, the scope gain/halo and the
+`OSC-20 RC` / `OSC-60 RC` plate — expressed as `(opt_fps ? A : B)`. The 20 fps
+default renders exactly the old pixels. See
+`docs/themes/oscilloscope/README.md`.
+
 ## Glifo and Aura
 
 `themes/glifo/` and `themes/aura/` are data-only Now Playing packages (home
 and the list screens are skinned too; nothing is compiled). Strings are
-Spanish, ASCII-only, because the built-in font has no accents.
+English, ASCII-only, because the built-in font has no accents.
 
-Glifo is the black / one-red dot-matrix screen. The clock digits are a 5x7
-matrix scaled to 3 px cells and packed two per bitmap (`d01` is 0 over 1, and
-so on) so ten glyphs fit in five of the eight asset slots. The skin shifts
-the bitmap and covers the other half with a black strip. Title, artist and
-album stay on the 8x8 font. See `docs/themes/glifo/README.md`.
+Glifo is the black / one-red dot-matrix screen. It declares
+`opt_face=Face,Clock|Artwork` (Settings → Interface → Theme, long press):
+**Clock** shows the dot-matrix time inside the ring, **Artwork** swaps the
+digits for the album cover (`art size=small`) and keeps the ring and the
+playhead around it. The clock digits are a 5x7 matrix scaled to 3 px cells and
+packed two per bitmap (`d01` is 0 over 1, and so on) so ten glyphs fit in five
+of the eight asset slots. Title and artist stay on the 8x8 font. See
+`docs/themes/glifo/README.md`.
 
 Aura is the cover-coloured lock screen. The diagonal wash, the halo rings and
 the info card use `art_bg_a` / `art_bg_b` / `art_glow` / `art_panel`, and the

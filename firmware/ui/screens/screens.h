@@ -176,6 +176,20 @@ void settings_screen_set_theme_applied(void (*cb)(void));
  * lives in ap_ui.c. */
 void settings_screen_set_system_opener(void (*cb)(void));
 
+/* ---- per-theme options (Settings > Interface > Theme, long press) -------
+ * Install the storage provider once (theme_pkg_apply then restores each
+ * package's saved choices). The options screen uses the next two after a
+ * value change: save writes `theme_opts` in rechord.cfg, apply re-runs the
+ * active package so its skin sees the new `opt_*` values. */
+extern const ui_screen_t theme_options_screen;
+void settings_screen_theme_options_init(void);
+int  settings_screen_theme_option_save(void);
+int  settings_screen_theme_option_apply(void);
+
+/* Open the options screen for the active package (also the Theme row's long
+ * press). Returns 1 when the package declares options, 0 when it does not. */
+int  theme_options_open(void);
+
 extern const ui_screen_t library_screen;       /* category menu */
 extern const ui_screen_t library_cat_screen;   /* names -> songs  */
 void library_cat_open(int cat);                /* set the category before pushing */

@@ -232,8 +232,9 @@ static void on_select_theme(void)
         snprintf(s_settings.theme, sizeof s_settings.theme, "%s",
                  themes[idx].id);
         settings_screen_store();
-        log_printf("theme: applied '%s' home %d", themes[idx].id,
-                   theme_layout()->home);
+        log_printf("theme: applied '%s' home %d opt_lines %d rejected %d",
+                   themes[idx].id, theme_layout()->home,
+                   theme_layout()->opt_count, theme_opt_rejected());
         if (s_theme_applied != 0)
             s_theme_applied();
         /* The settings screen is still on top: load the new theme's settings
@@ -419,6 +420,71 @@ void settings_screen_set_hold_vol(int seek)
     settings_screen_store();
 }
 
+/* ---- theme options ----------------------------------------------------- */
+
+/* The theme module owns the option FORMAT but not the storage; the cfg value
+ * `theme_opts` is one text blob shared by every package:
+ *
+ *     theme_opts=glifo:10;oscilloscope:01;
+ *
+ * This file owns it because it owns s_settings (and therefore the save).
+ * theme_pkg_apply() asks for a theme's digits through this provider. */
+static void theme_options_provider(const char *id, int *out, int max)
+{
+    (void)theme_opts_decode(s_settings.theme_opts, id, out, max);
+}
+
+void settings_screen_theme_options_init(void)
+{
+    theme_pkg_set_option_provider(theme_options_provider);
+}
+
+/* Persist the ACTIVE package's selections. Called after a long-press cycle on
+ * the Theme options screen. */
+int settings_screen_theme_option_save(void)
+{
+    int vals[THEME_OPT_MAX];
+    int n = theme_layout()->opt_count;
+
+    if (n <= 0)
+        return 0;
+    theme_opts_values(vals, THEME_OPT_MAX);
+    if (theme_opts_encode_entry(s_settings.theme_opts,
+                                (int)sizeof s_settings.theme_opts,
+                                theme_pkg_active_id(), vals, n) < 0) {
+        log_printf("theme: opt save full");
+        return -1;
+    }
+    settings_screen_store();
+    return 0;
+}
+
+/* Re-apply the active package so its skin picks up a new selection, then let
+ * the app resync the visible screen. The theme ID does not change. */
+int settings_screen_theme_option_apply(void)
+{
+    const char *id = theme_pkg_active_id();
+
+    if (id[0] == '\0')
+        return -1;
+    if (theme_pkg_apply(RECHORD_THEMES_DIR, id) != 0) {
+        log_printf("theme: opt reapply '%s' failed", id);
+        return -1;
+    }
+    if (s_theme_applied != 0)
+        s_theme_applied();
+    s_use_skin = theme_ui_load(THEME_UI_SETTINGS);
+    s_source.count = s_list_count;
+    if (s_use_skin)
+        theme_ui_list(&s_source);
+    ui_invalidate_all();
+    return 0;
+}
+
+const theme_layout_t *settings_screen_theme_layout(void)
+{
+    return theme_layout();
+}
 /* Quick settings applies these immediately and persists them (the Settings
  * screen's own rows defer the write until BACK). */
 void settings_screen_set_shuffle(int on)
@@ -697,7 +763,21 @@ static void settings_group_handle_event(const input_event_t *ev)
     int nav;
     int rows;
 
-    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
+    /* Long press on the Theme row opens its option list (short press still
+     * cycles the theme). Handled before the skin branch so it works with or
+     * without a settings skin. A package without options sets the status
+     * line instead of opening an empty screen. */
+    if (ev->kind == INPUT_LONG) {
+        if (ev->type == KEY_SELECT && s_group_view.cursor >= 0 &&
+            s_group_view.cursor < s_group_model.item_count &&
+            s_group_items[s_group_view.cursor].on_select == on_select_theme) {
+            if (!theme_options_open())
+                log_printf("theme: '%s' has no options",
+                           theme_pkg_active_id());
+        }
+        return;
+    }
+    if (ev->kind == INPUT_RELEASE)
         return;                       /* listings act on PRESS/REPEAT only */
 
     if (s_use_skin) {
@@ -767,6 +847,192 @@ static void open_group(int group)
 
 static void open_playing(void)   { open_group(0); }
 static void open_interface(void) { open_group(1); }
+
+/* ---- Theme options screen ----------------------------------------------
+ * Long press on the Theme row. Lists the active package's declared options
+ * (label + current choice). A short press on a row cycles that option and
+ * re-applies the package, so the home/screen skins redraw with the new
+ * `opt_<id>` value: a live preview without leaving Settings.
+ *
+ * It is skinnable through the same `skin_settings` path as the rest of
+ * Settings (menu list + heading), and falls back to the built-in list when the
+ * package has no settings skin. A package without options never opens it. */
+
+static menu_item_t s_opt_items[THEME_OPT_MAX];
+static menu_view_t s_opt_view;
+static menu_model_t s_opt_model = { "Theme options", s_opt_items, 0, NULL };
+
+static const char *opt_label(int i, char *buf, int cap)
+{
+    const theme_layout_t *l = theme_layout();
+
+    if (i < 0 || i >= l->opt_count)
+        return "";
+    snprintf(buf, (size_t)cap, "%s", l->opts[i].label);
+    return buf;
+}
+
+static const char *opt_value(int i, char *buf, int cap)
+{
+    const theme_layout_t *l = theme_layout();
+
+    if (i < 0 || i >= l->opt_count)
+        return "";
+    snprintf(buf, (size_t)cap, "%s", l->opts[i].choice[l->opts[i].value]);
+    return buf;
+}
+
+/* menu_item_t.value_text has no index argument, so each row gets a tiny
+ * callback over a shared slot (menu_draw consumes it immediately). */
+static char s_opt_value_buf[THEME_OPT_CHOICE_MAX];
+
+static const char *opt_value_0(void) { return opt_value(0, s_opt_value_buf, (int)sizeof s_opt_value_buf); }
+static const char *opt_value_1(void) { return opt_value(1, s_opt_value_buf, (int)sizeof s_opt_value_buf); }
+static const char *opt_value_2(void) { return opt_value(2, s_opt_value_buf, (int)sizeof s_opt_value_buf); }
+static const char *opt_value_3(void) { return opt_value(3, s_opt_value_buf, (int)sizeof s_opt_value_buf); }
+
+static const char *(*const s_opt_value_text[THEME_OPT_MAX])(void) = {
+    opt_value_0, opt_value_1, opt_value_2, opt_value_3,
+};
+
+static theme_skin_list_source_t s_opt_source = { 0, opt_label, opt_value };
+
+/* The built-in renderer reads menu_item_t rows (label + value_text callback),
+ * so the same declarations are mirrored into this fixed array on entry. The
+ * pointers are the layout's own strings: stable for the life of the package. */
+static void build_opt_items(void)
+{
+    const theme_layout_t *l = theme_layout();
+    int i;
+
+    for (i = 0; i < l->opt_count && i < THEME_OPT_MAX; i++) {
+        s_opt_items[i].label = l->opts[i].label;
+        s_opt_items[i].value_text = s_opt_value_text[i];
+        s_opt_items[i].on_select = 0;
+    }
+}
+
+static void cycle_theme_option(int i)
+{
+    const theme_layout_t *l = theme_layout();
+    int next;
+
+    if (i < 0 || i >= l->opt_count)
+        return;
+    next = (l->opts[i].value + 1) % l->opts[i].count;
+    theme_opt_set(l->opts[i].id, next);
+    (void)settings_screen_theme_option_apply();
+    (void)settings_screen_theme_option_save();
+    /* apply() re-loaded the settings skin for the package; this screen's list
+     * is the option rows, not the settings rows, so re-register it. */
+    if (s_use_skin) {
+        s_opt_source.count = l->opt_count;
+        theme_ui_list(&s_opt_source);
+    }
+    ui_invalidate_all();
+}
+
+static void theme_options_on_enter(void)
+{
+    const theme_layout_t *l = theme_layout();
+
+    build_opt_items();
+    menu_view_init(&s_opt_view);
+    s_opt_model.item_count = l->opt_count;
+    s_list_items = s_opt_items;
+    s_list_count = s_opt_model.item_count;
+    s_use_skin = theme_ui_load(THEME_UI_SETTINGS);
+    s_opt_source.count = s_list_count;
+    if (s_use_skin)
+        theme_ui_list(&s_opt_source);
+    ui_invalidate_all();
+}
+
+static void theme_options_draw(void)
+{
+    const theme_layout_t *l = theme_layout();
+
+    build_opt_items();
+    s_opt_model.item_count = l->opt_count;
+    s_list_items = s_opt_items;
+    s_list_count = s_opt_model.item_count;
+    if (s_use_skin) {
+        theme_skin_state_t st;
+
+        s_opt_source.count = s_list_count;
+        theme_ui_list(&s_opt_source);
+        theme_ui_fill_state(&st, "Theme options");
+        theme_ui_draw(&st, s_opt_view.cursor, s_opt_view.top);
+        return;
+    }
+    menu_draw(&s_opt_model, &s_opt_view);
+}
+
+static void theme_options_handle_event(const input_event_t *ev)
+{
+    const theme_layout_t *l = theme_layout();
+    int nav;
+    int rows;
+
+    if (ev->kind == INPUT_LONG || ev->kind == INPUT_RELEASE)
+        return;                       /* act on PRESS/REPEAT only */
+
+    if (s_use_skin) {
+        theme_ui_note_input();
+        s_opt_source.count = l->opt_count;
+        theme_ui_list(&s_opt_source);
+        rows = theme_ui_rows();
+        if (rows <= 0)
+            rows = menu_page_size();
+        nav = theme_ui_nav(ev->type);
+        if (nav == THEME_SKIN_PREV || nav == THEME_SKIN_NEXT) {
+            menu_view_move(&s_opt_view, nav == THEME_SKIN_PREV ? -1 : +1,
+                           l->opt_count, rows);
+            ui_invalidate_all();
+        } else if (nav == THEME_SKIN_SELECT) {
+            cycle_theme_option(s_opt_view.cursor);
+        } else if (nav == THEME_SKIN_BACK) {
+            ui_pop_screen();
+        }
+        return;
+    }
+
+    switch (ev->type) {
+    case KEY_UP:
+        menu_view_move(&s_opt_view, -1, l->opt_count, menu_page_size());
+        ui_invalidate_all();
+        break;
+    case KEY_DOWN:
+        menu_view_move(&s_opt_view, +1, l->opt_count, menu_page_size());
+        ui_invalidate_all();
+        break;
+    case KEY_SELECT:
+        cycle_theme_option(s_opt_view.cursor);
+        break;
+    case KEY_BACK:
+        ui_pop_screen();
+        break;
+    default:
+        break;
+    }
+}
+
+const ui_screen_t theme_options_screen = {
+    "theme-options",
+    theme_options_on_enter,
+    NULL,
+    theme_options_draw,
+    theme_options_handle_event,
+    1,
+};
+
+int theme_options_open(void)
+{
+    if (theme_layout()->opt_count <= 0)
+        return 0;
+    ui_push_screen(&theme_options_screen);
+    return 1;
+}
 
 /* ---- accessors --------------------------------------------------------- */
 

@@ -115,6 +115,6 @@ next=down
 type=text
 x=12
 y=160
-text="VOL+/- MOVER  PLAY AJUSTAR"
+text="VOL+/- MOVE   PLAY ADJUST"
 color=text_dim
 bg=background

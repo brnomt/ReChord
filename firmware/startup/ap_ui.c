@@ -1957,6 +1957,10 @@ void ap_ui_loop(void)
     /* Active package: the `theme=` id in rechord.cfg (empty = Mono). Settings
      * reload first because the id lives there. */
     settings_screen_reload();
+    /* Per-theme option selections live in rechord.cfg (`theme_opts`); the
+     * provider must be installed BEFORE the package is applied, otherwise the
+     * theme would boot with its defaults instead of the saved choices. */
+    settings_screen_theme_options_init();
     {
         const char *theme_id = settings_screen_get()->theme;
 
@@ -1970,6 +1974,17 @@ void ap_ui_loop(void)
                theme_pkg_active_id(), theme_layout()->home,
                theme_layout()->home_nav, THEME_SKIN_ENGINE,
                theme_layout()->skin);
+    if (theme_layout()->opt_count > 0 || theme_opt_rejected() > 0) {
+        int i;
+
+        for (i = 0; i < theme_layout()->opt_count; i++)
+            log_printf("boot: opt %s=%d/%d", theme_layout()->opts[i].id,
+                       theme_layout()->opts[i].value,
+                       theme_layout()->opts[i].count);
+        if (theme_opt_rejected() > 0)
+            log_printf("boot: theme ignored %d malformed option line(s)",
+                       theme_opt_rejected());
+    }
     /* Volume is runtime state: the player owns it while playing, so load the
      * saved value into the player here and let the loop below persist later
      * changes. The settings view was already reloaded for the theme id. */

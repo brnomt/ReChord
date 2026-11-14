@@ -210,6 +210,33 @@ int theme_pkg_scan(const char *root, theme_pkg_info_t *out, int max)
 
 /* ---- application / persistence ----------------------------------------- */
 
+/* The selected option digits for `id` come from the app, not from here: the
+ * theme module has no storage access (it must stay host-testable and free of
+ * service dependencies). The firmware installs a provider that reads the
+ * `theme_opts` value of rechord.cfg; without one, every option stays at 0. */
+static void (*s_opt_provider)(const char *id, int *out, int max);
+
+void theme_pkg_set_option_provider(void (*fn)(const char *id, int *out,
+                                              int max))
+{
+    s_opt_provider = fn;
+}
+
+static void apply_options(const char *id, theme_layout_t *layout)
+{
+    int vals[THEME_OPT_MAX];
+    int i;
+
+    if (layout->opt_count <= 0)
+        return;
+    for (i = 0; i < THEME_OPT_MAX; i++)
+        vals[i] = 0;
+    if (s_opt_provider != 0)
+        s_opt_provider(id, vals, (int)(sizeof vals / sizeof vals[0]));
+    /* theme_layout() already holds `layout` at this point. */
+    theme_opts_apply(vals, (int)(sizeof vals / sizeof vals[0]));
+}
+
 int theme_pkg_apply(const char *root, const char *id)
 {
     char path[256];
@@ -247,6 +274,7 @@ int theme_pkg_apply(const char *root, const char *id)
 
     theme_set(&t);
     theme_layout_set(&layout);
+    apply_options(id, &layout);
     copy_str(s_active, (int)sizeof s_active, id);
     return 0;
 }

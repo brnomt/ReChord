@@ -182,6 +182,7 @@ void settings_view_defaults(rechord_settings_t *s)
     s->repeat_mode = 0;    /* off */
     s->fade_ms = 300;      /* BRNOMT-67: 300 ms play/pause fade */
     s->theme[0] = '\0';    /* no explicit choice: boot uses Mono */
+    s->theme_opts[0] = '\0'; /* no per-theme option selections yet */
     s->replaygain_mode = 3; /* BRNOMT-106: auto (shuffle->track, album->album) */
     s->vol_orient = VOL_ORIENT_NORMAL;
     s->hold_vol = HOLD_VOL_SKIP;
@@ -297,6 +298,7 @@ void settings_view_from_store(const settings_t *in, rechord_settings_t *out)
 {
     settings_view_defaults(out);
     snprintf(out->theme, sizeof out->theme, "%s", in->theme);
+    snprintf(out->theme_opts, sizeof out->theme_opts, "%s", in->theme_opts);
     out->vol_orient = (strcmp(in->vol_orient, "swapped") == 0)
                           ? VOL_ORIENT_SWAPPED : VOL_ORIENT_NORMAL;
     out->hold_vol = (strcmp(in->hold_vol, "seek") == 0)
@@ -357,6 +359,7 @@ void settings_view_to_store(const rechord_settings_t *in, settings_t *out)
 {
     settings_defaults(out);
     snprintf(out->theme, sizeof out->theme, "%s", in->theme);
+    snprintf(out->theme_opts, sizeof out->theme_opts, "%s", in->theme_opts);
     snprintf(out->vol_orient, sizeof out->vol_orient, "%s",
              in->vol_orient == VOL_ORIENT_SWAPPED ? "swapped" : "normal");
     snprintf(out->hold_vol, sizeof out->hold_vol, "%s",

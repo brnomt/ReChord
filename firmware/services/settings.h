@@ -10,7 +10,8 @@
  * The keys (fixed schema, stable order on save):
  *   play, brightness, screen_off, auto_off, usb, resume,
  *   strip, tags, cpu, volume, browse, cursor, shuffle, repeat_mode,
- *   fade, theme, replaygain, vol_orient, hold_vol, dac_filter, bt_level
+ *   fade, theme, replaygain, vol_orient, hold_vol, dac_filter, bt_level,
+ *   theme_opts (per-theme option selections, e.g. "glifo:10;")
  *
  * API contract (other modules code against exactly this):
  *   settings_load   — read and parse \RECHORD.CFG into a settings_t
@@ -20,7 +21,7 @@
 #ifndef RECHORD_SERVICES_SETTINGS_H
 #define RECHORD_SERVICES_SETTINGS_H
 
-typedef struct { char play[16]; int brightness; int screen_off_min; int auto_off_min; char usb[8]; char resume[8]; char strip[8]; char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor; char shuffle[8]; char repeat_mode[8]; char fade[8]; char theme[32]; char replaygain[8]; char vol_orient[8]; char hold_vol[8]; char dac_filter[16]; char bt_level[12]; } settings_t;
+typedef struct { char play[16]; int brightness; int screen_off_min; int auto_off_min; char usb[8]; char resume[8]; char strip[8]; char tags[8]; char cpu[8]; int volume; char browse[64]; int cursor; char shuffle[8]; char repeat_mode[8]; char fade[8]; char theme[32]; char replaygain[8]; char vol_orient[8]; char hold_vol[8]; char dac_filter[16]; char bt_level[12]; char theme_opts[96]; } settings_t;
 
 /* Config file location: the internal eMMC volume, in the user-visible
  * .rechord folder (BRNOMT-71). Plain text, so it can be edited/copied from a

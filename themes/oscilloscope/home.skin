@@ -1,11 +1,12 @@
 [skin]
-refresh_ms=50
+# opt_fps: 0 = 20 fps sweep, 1 = 60 fps (narrower band, tighter dyn rects).
+refresh_ms=(opt_fps?16:50)
 idle_refresh_ms=500
-dyn=13,13,213,121
-dyn2=222,20,319,105
-dyn2_every=20
+dyn=(opt_fps?18:13),(opt_fps?50:13),(opt_fps?209:213),(opt_fps?97:121)
+dyn2=(opt_fps?13:222),(opt_fps?13:20),319,105
+dyn2_every=(opt_fps?59:20)
 dyn3=13,129,319,169
-dyn3_every=20
+dyn3_every=(opt_fps?60:20)
 [vars]
 a1=(!playing?(idle>60000?3:4):(volume>-6?5:0))
 md=(battery<15?1:(idle<700?2:a1))
@@ -163,14 +164,14 @@ color=g1
 dyn=1
 [sc]
 type=scope
-x=26
-y=34
-w=176
-h=78
+x=(opt_fps?22:26)
+y=(opt_fps?54:34)
+w=(opt_fps?184:176)
+h=(opt_fps?40:78)
 ch=l
-gain=(900+1700*(volume+60)/60)
+gain=((opt_fps?1500:900)+(opt_fps?2500:1700)*(volume+60)/60)
 color=(md==1?danger:ac)
-halo=6
+halo=(opt_fps?3:6)
 glow=(1000+lvl_l/2)
 dyn=1
 [trg]
@@ -230,7 +231,7 @@ color=4291
 type=text
 x=231
 y=8
-text="OSC-20  RC"
+text=(opt_fps?"OSC-60  RC":"OSC-20  RC")
 color=57117
 bg=4291
 [kv]

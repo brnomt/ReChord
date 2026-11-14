@@ -1,4 +1,4 @@
-# Oscilloscope — OSC-20 RC laboratory scope
+# Oscilloscope — laboratory scope (20 or 60 fps)
 
 `themes/oscilloscope/` is a data-only package that turns the 320x170 panel
 into the front of a 1980s lab oscilloscope: a green CRT with an 8x6
@@ -10,6 +10,29 @@ input. It is the implementation of the approved `fosforo` mockup
 Every pixel is drawn by the generic skin interpreter: the package contains no
 code. The three trace shapes are 1-bit assets baked with their halo; the
 theme switches the asset *name* per frame, so no extra sections are spent.
+
+## One package, two sweep rates
+
+The scope trace runs on a redrawn-by-the-app animation; how fast it moves and
+how much of the panel is re-flushed per frame is a trade-off between smoothness
+and battery. That used to be two separate packages
+(`oscilloscope` = 20 fps, `oscilloscope-60` = 60 fps). It is now one package
+with an option:
+
+```
+opt_fps=Refresh,20 fps|60 fps
+```
+
+`opt_fps` is read by `[skin] refresh_ms`, by all three `dyn` rects and their
+cadence, by the trace band geometry, by the scope `gain`/`halo`, and by the
+`OSC-20 RC` / `OSC-60 RC` plate label. The **20 fps** choice is the default and
+renders byte-identically to the old `oscilloscope` package; **60 fps** matches
+the old `oscilloscope-60`.
+
+Switch it with a long press on **Settings → Interface → Theme** (see
+`docs/THEMING.md` §3). The choice is stored per theme id
+(`theme_opts=oscilloscope:1;`), so it survives switching to another theme and
+back.
 
 ## Palette
 
@@ -88,8 +111,8 @@ now evaluates both operands before combining them; a regression case lives in
 
 | file | bytes / 4096 | sections / 52 |
 |---|---|---|
-| home.skin | 4055 | 48 |
-| now_playing.skin | 4028 | 47 |
+| home.skin | 3871 | 44 |
+| now_playing.skin | 3617 | 44 |
 | library.skin | 1010 | 13 |
 | library_cat.skin | 1022 | 13 |
 | browser.skin | 1018 | 13 |
@@ -115,10 +138,20 @@ Screenshots: `home_*.png`, `np_*.png`, `library*.png`, `settings.png`,
 `tools/theme_preview/run.sh` through the real interpreter + display driver;
 covers are placeholders drawn by the previewer.
 
+`options_2x.png` is the **Theme options** sub-screen for this package (the
+`skin_settings` skin driving the option rows), and `pair_fps_home_2x.png` /
+`pair_fps_np_2x.png` compare the two `opt_fps` values side by side
+(20 fps | 60 fps), produced with:
+
+```
+tools/theme_preview/run.sh ../../themes oscilloscope /tmp/o20
+tools/theme_preview/run.sh ../../themes oscilloscope /tmp/o60 opt_fps=1
+```
+
 ```
 tools/theme_preview/check_theme.py themes oscilloscope
 tools/theme_preview/run.sh ../../themes oscilloscope \
-    ../../docs/themes/oscilloscope
+    docs/themes/oscilloscope
 tools/theme_preview/compare.py ~/rechord-themes-mockups-v3/fosforo \
     docs/themes/oscilloscope
 ```

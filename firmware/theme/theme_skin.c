@@ -74,6 +74,17 @@ static int  s_loaded;
  * meter draw its placeholder. */
 static const theme_skin_art_t *s_art;
 
+/* 1 when `s` is a plain unsigned decimal (the fast path for a literal
+ * refresh_ms; the freestanding libc has no strspn). */
+static int is_uint(const char *s)
+{
+    if (s == 0 || *s < '0' || *s > '9')
+        return 0;
+    while (*s >= '0' && *s <= '9')
+        s++;
+    return *s == '\0';
+}
+
 static struct {
     int count;
     int axis;
@@ -95,6 +106,13 @@ void theme_skin_set_list(const theme_skin_list_source_t *src)
 static int s_refresh_ms = 125;
 static int s_refresh_h = -1;
 static int s_idle_refresh_ms;      /* slower refresh while not playing (0 = same) */
+/* `refresh_ms` / `idle_refresh_ms` may be EXPRESSIONS (a theme that ships a
+ * 20 fps and a 60 fps variant in one package writes
+ * `refresh_ms=(opt_fps ? 16 : 50)`). They are evaluated on demand instead of
+ * at load, because the package's options are committed by the runtime after
+ * the main skin has been validated. Empty = the plain integer above. */
+static char s_refresh_expr[SKIN_VAR_EXPR_MAX];
+static char s_idle_expr[SKIN_VAR_EXPR_MAX];
 /* Static/dynamic split: the app re-renders only the sections marked `dyn=1`
  * and flushes the declared rects, leaving the background, art and labels
  * untouched from the last full draw. */
@@ -104,6 +122,13 @@ static int s_dyn_only;
 static uint16_t s_dyn_off[SKIN_SECTIONS];
 static int s_dyn_secs;
 static int s_dyn_n;
+/* The rects and their cadence may be EXPRESSIONS over the package's options
+ * (`dyn=18,(opt_fps?50:13),209,(opt_fps?97:121)`), so a single package can
+ * ship two completely different animation bands. Raw text is kept at load and
+ * evaluated on the (per-frame) accessors; a plain literal costs one cache
+ * miss more than a parsed int, and both are cheap next to a flush. */
+static char s_dyn_src[3][SKIN_VAR_EXPR_MAX];
+static char s_dyn_every_src[3][32];
 static int s_dyn_rect[3][4];
 static int s_dyn_every[3] = { 1, 1, 1 };   /* flush rect every Nth frame */
 static int s_animated;
@@ -376,6 +401,17 @@ static skin_val_t variable(const char *name)
         return v_int(1);
     if (IS("false"))
         return v_int(0);
+
+    /* Per-theme options: `opt_<id>` is the selected choice index. Resolved
+     * from the active package layout, so it works in every property, in
+     * `visible=` and in `[skin] refresh_ms` / `dyn*` (one package can ship a
+     * 20 fps and a 60 fps variant). */
+    if (name[0] == 'o' && name[1] == 'p' && name[2] == 't' && name[3] == '_') {
+        int ov = theme_opt_value(name + 4);
+
+        if (ov >= 0)
+            return v_int(ov);
+    }
 
     if (IS("background"))
         return v_int(t->background);
@@ -1000,30 +1036,6 @@ static const char *prop(const skin_section_t *sec, const char *key)
     return 0;
 }
 
-/* "x0,y0,x1,y1" -> four ints (comma or space separated). */
-static int parse_rect(const char *v, int *r)
-{
-    int i = 0;
-
-    if (v == 0)
-        return -1;
-    while (i < 4) {
-        int neg = 0;
-
-        while (*v == ' ' || *v == ',')
-            v++;
-        if (*v == '-') { neg = 1; v++; }
-        if (*v < '0' || *v > '9')
-            return -1;
-        r[i] = 0;
-        while (*v >= '0' && *v <= '9')
-            r[i] = r[i] * 10 + (*v++ - '0');
-        r[i] = neg ? -r[i] : r[i];
-        i++;
-    }
-    return 0;
-}
-
 /* --------------------------------------------------------------- loading */
 
 static int read_text(const char *path)
@@ -1156,11 +1168,16 @@ int theme_skin_load(const char *root, const char *id, const char *path)
     s_refresh_ms = 125;
     s_idle_refresh_ms = 0;
     s_refresh_h = -1;
+    s_refresh_expr[0] = '\0';
+    s_idle_expr[0] = '\0';
     s_animated = 0;
     s_var_count = 0;
     s_dyn_n = 0;
     s_dyn_only = 0;
     s_dyn_every[0] = s_dyn_every[1] = s_dyn_every[2] = 1;
+    s_dyn_src[0][0] = s_dyn_src[1][0] = s_dyn_src[2][0] = '\0';
+    s_dyn_every_src[0][0] = s_dyn_every_src[1][0] = '\0';
+    s_dyn_every_src[2][0] = '\0';
 
     p = s_text;
     s_dyn_secs = 0;
@@ -1182,33 +1199,53 @@ int theme_skin_load(const char *root, const char *id, const char *path)
         if (key_eq(sec.name, "skin")) {
             const char *v = prop(&sec, "refresh_ms");
             if (v != 0) {
-                s_refresh_ms = as_int(v_str(v));
-                s_animated = s_refresh_ms > 0;
+                /* A bare integer keeps the old fast path; anything with an
+                 * operator/identifier is kept as an expression. */
+                if (is_uint(v)) {
+                    s_refresh_ms = as_int(v_str(v));
+                    s_refresh_expr[0] = '\0';
+                    s_animated = s_refresh_ms > 0;
+                } else {
+                    skin_copy(s_refresh_expr, (int)sizeof s_refresh_expr, v);
+                    s_animated = 1;
+                }
             }
             v = prop(&sec, "idle_refresh_ms");
-            if (v != 0)
-                s_idle_refresh_ms = as_int(v_str(v));
+            if (v != 0) {
+                if (is_uint(v)) {
+                    s_idle_refresh_ms = as_int(v_str(v));
+                    s_idle_expr[0] = '\0';
+                } else {
+                    skin_copy(s_idle_expr, (int)sizeof s_idle_expr, v);
+                }
+            }
             v = prop(&sec, "refresh_h");
             if (v != 0)
                 s_refresh_h = as_int(v_str(v));
             v = prop(&sec, "dyn");
-            if (v != 0 && parse_rect(v, s_dyn_rect[0]) == 0)
+            if (v != 0) {
+                skin_copy(s_dyn_src[0], (int)sizeof s_dyn_src[0], v);
                 s_dyn_n = 1;
+            }
             v = prop(&sec, "dyn2");
-            if (v != 0 && parse_rect(v, s_dyn_rect[1]) == 0)
+            if (v != 0) {
+                skin_copy(s_dyn_src[1], (int)sizeof s_dyn_src[1], v);
                 s_dyn_n = 2;
+            }
             v = prop(&sec, "dyn3");
-            if (v != 0 && parse_rect(v, s_dyn_rect[2]) == 0)
+            if (v != 0) {
+                skin_copy(s_dyn_src[2], (int)sizeof s_dyn_src[2], v);
                 s_dyn_n = 3;
+            }
             v = prop(&sec, "dyn_every");
-            if (v != 0 && as_int(v_str(v)) > 0)
-                s_dyn_every[0] = as_int(v_str(v));
+            if (v != 0)
+                skin_copy(s_dyn_every_src[0], (int)sizeof s_dyn_every_src[0], v);
             v = prop(&sec, "dyn2_every");
-            if (v != 0 && as_int(v_str(v)) > 0)
-                s_dyn_every[1] = as_int(v_str(v));
+            if (v != 0)
+                skin_copy(s_dyn_every_src[1], (int)sizeof s_dyn_every_src[1], v);
             v = prop(&sec, "dyn3_every");
-            if (v != 0 && as_int(v_str(v)) > 0)
-                s_dyn_every[2] = as_int(v_str(v));
+            if (v != 0)
+                skin_copy(s_dyn_every_src[2], (int)sizeof s_dyn_every_src[2], v);
         } else if (key_eq(sec.name, "vars") ||
                    key_eq(sec.name, "vars2") ||
                    key_eq(sec.name, "vars3")) {
@@ -1225,7 +1262,7 @@ int theme_skin_load(const char *root, const char *id, const char *path)
             parse_list(&sec);
         }
     }
-    if (s_animated && s_refresh_ms < 16)
+    if (s_animated && s_refresh_expr[0] == '\0' && s_refresh_ms < 16)
         s_refresh_ms = 16;
     s_loaded = 1;
     return 0;
@@ -1239,11 +1276,18 @@ void theme_skin_reset(void)
     s_list_src = 0;
     s_refresh_ms = 125;
     s_refresh_h = -1;
+    s_idle_refresh_ms = 0;
+    s_refresh_expr[0] = '\0';
+    s_idle_expr[0] = '\0';
     s_animated = 0;
     s_var_count = 0;
     s_dyn_n = 0;
     s_dyn_secs = 0;
     s_dyn_only = 0;
+    s_dyn_src[0][0] = s_dyn_src[1][0] = s_dyn_src[2][0] = '\0';
+    s_dyn_every_src[0][0] = s_dyn_every_src[1][0] = '\0';
+    s_dyn_every_src[2][0] = '\0';
+    s_dyn_every[0] = s_dyn_every[1] = s_dyn_every[2] = 1;
 }
 
 const char *theme_skin_text(void)
@@ -1258,18 +1302,50 @@ void theme_skin_set_dynamic_only(int on)
 
 int theme_skin_idle_refresh_ms(void)
 {
+    if (s_idle_expr[0] != '\0') {
+        int ms = eval_int(s_idle_expr, 0, 0);
+
+        return ms > 0 ? ms : 0;
+    }
     return s_idle_refresh_ms;
 }
 
 int theme_skin_dyn_every(int idx)
 {
-    return idx >= 0 && idx < 3 ? s_dyn_every[idx] : 1;
+    if (idx < 0 || idx >= 3)
+        return 1;
+    if (s_dyn_every_src[idx][0] != '\0') {
+        int v = eval_int(s_dyn_every_src[idx], 0, 0);
+
+        return v > 0 ? v : 1;
+    }
+    return s_dyn_every[idx];
 }
 
 int theme_skin_dyn_rect(int idx, int *x0, int *y0, int *x1, int *y1)
 {
     if (idx < 0 || idx >= s_dyn_n || x0 == 0 || y0 == 0 || x1 == 0 || y1 == 0)
         return -1;
+    if (s_dyn_src[idx][0] != '\0') {
+        /* Split on the three top-level commas and evaluate each field on its
+         * own: `18,(opt_fps?50:13),209,97` is four expressions, and `?:`
+         * arms may themselves contain no commas (the expression grammar has
+         * none), so a plain scan is exact. */
+        const char *p = s_dyn_src[idx];
+        int i;
+
+        for (i = 0; i < 4; i++) {
+            char field[SKIN_VAL_MAX];
+            int n = 0;
+
+            while (*p == ' ' || *p == ',')
+                p++;
+            while (*p != '\0' && *p != ',' && n < (int)sizeof field - 1)
+                field[n++] = *p++;
+            field[n] = '\0';
+            s_dyn_rect[idx][i] = eval_int(field, 0, 0);
+        }
+    }
     *x0 = s_dyn_rect[idx][0];
     *y0 = s_dyn_rect[idx][1];
     *x1 = s_dyn_rect[idx][2];
@@ -1352,6 +1428,12 @@ int theme_skin_animated(void)
 
 int theme_skin_refresh_ms(void)
 {
+    if (s_refresh_expr[0] != '\0') {
+        int ms = eval_int(s_refresh_expr, 0, 0);
+
+        /* Same floor as a literal refresh_ms: 16 ms is one frame. */
+        return ms < 16 ? 16 : ms;
+    }
     return s_refresh_ms;
 }
 

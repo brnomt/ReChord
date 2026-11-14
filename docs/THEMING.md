@@ -27,7 +27,8 @@ The reference theme is `themes/companion-bot/`.
 1. **Boot**: `ap_ui_loop()` reads `theme=<id>` from `/.rechord/rechord.cfg`.
    If the key is absent or names a broken package, Mono is used.
 2. `theme_pkg_apply()` reads `theme.cfg` **once**, parses palette + layout into
-   scratch structs, validates both, and only then commits them together.
+   scratch structs, validates both, and only then commits them together. The
+   saved option digits for that package id are applied at the same time.
 3. If the package declares `home=skin`, the `skin=` file and every declared
    asset are loaded from the same directory. A missing/invalid file or asset
    rejects the whole package.
@@ -35,6 +36,7 @@ The reference theme is `themes/companion-bot/`.
    palette/default layout. The UI is never left half-themed.
 5. **Settings → Theme** enumerates the installed packages, applies the next one
    atomically, persists `theme=<id>`, and inserts/removes the skin home live.
+   A **long press** there opens the package's option list (§3).
 6. The skin text is cached for the active theme; there is no per-frame file
    I/O. The engine evaluates expressions and draws meters each refresh.
 
@@ -42,8 +44,10 @@ Firmware log markers:
 
 ```
 boot: m9e theme 'companion-bot' home 1 nav 1 skin v4 'home.skin'
+boot: opt fps=1/2
 theme: scan 5 active 'companion-bot'
-theme: applied 'night' home 0
+theme: applied 'night' home 0 opt_lines 1 rejected 0
+theme: 'plain' has no options
 theme: apply 'broken' failed
 ```
 
@@ -74,6 +78,7 @@ are allowed (the flat parser ignores section headers). Keys:
 | list geometry | `pad title_h item_h` |
 | Now Playing origins | `np_title_y np_artist_y np_state_y np_info_y np_bar_y np_bar_h np_time_y np_mode_y np_vol_y np_vol_h` |
 | `asset_<name>` | `<relative path>,<w>,<h>` — optional 1-bit asset |
+| `opt_<id>` | `<Label>,<choice>|<choice>[|...]` — a per-theme option (see §3) |
 
 Limits: 8 assets, 64x64 px, stride <= 8 bytes, asset cache <= 1 KiB. Asset
 paths are relative, may not contain `..`, and a declared-but-unreadable asset
@@ -90,7 +95,133 @@ compatible.
 
 ---
 
-## 3. Per-screen skins
+## 3. Per-theme options
+
+A package can ship **variants** of itself as data instead of as separate
+packages. Each option is one `opt_<id>` line in `theme.cfg`:
+
+```
+opt_face=Face,Clock|Artwork
+opt_fps=Refresh,20 fps|60 fps
+```
+
+```
+opt_<id>=<Label>,<choice>|<choice>[|<choice>...]
+```
+
+| part | rule |
+|---|---|
+| `id` | lowercase identifier: `a-z`, `0-9`, `_`; **must start with a letter**; <= 15 chars. It is exposed to skins as `opt_<id>`, so it must lex as an expression identifier. |
+| `Label` | English UI label, <= 23 chars (no accents: the built-in font is ASCII) |
+| choices | 2..4 per option, each <= 15 chars, separated by `\|` |
+| count | at most 4 options per package |
+
+The selected index (0-based) is the option's value, and defaults to 0 for
+every package that has no saved choice. So a theme with no options, and a
+theme whose options are untouched, render exactly as before.
+
+**A malformed `opt_` line is dropped, not fatal.** This is the one deliberate
+exception to the package's otherwise atomic policy: an unreadable option
+never costs the user the theme. The rest of the manifest still applies, the
+line is skipped, and the package runtime logs a count:
+
+```
+theme: applied 'glifo' home 1 opt_lines 1 rejected 0
+theme: 'broken' ignored 2 malformed option line(s)
+```
+
+Reasons a line is dropped: bad id (uppercase, leading digit, `_` first,
+> 15 chars, duplicate), missing `,`, empty label, label/choice too long,
+fewer than 2 or more than 4 choices, or more than 4 options.
+
+### Reading an option from a skin
+
+Every declared option is a **variable** holding its selected index, usable
+anywhere an expression is: any property, `visible=`, `[vars]`, and the
+`[skin]` block.
+
+```
+[clock]
+type=bitmap
+...
+visible=!opt_face           # 0 = Clock
+
+[cover]
+type=art
+x=34
+y=52
+size=small
+visible=opt_face            # 1 = Artwork
+
+[rem]
+type=text
+x=(opt_face?140:40)
+text=(opt_face?pos_fmt:"-"+rl/60+":"+(rl%60<10?"0":"")+rl%60)
+```
+
+An option the package does not declare evaluates like any unknown identifier:
+an empty string, which reads as 0 in a numeric context and as false in a
+condition. `opt_none` is therefore a harmless probe.
+
+### Options that change the refresh rate
+
+`[skin] refresh_ms`, `idle_refresh_ms`, `dyn`, `dyn2`, `dyn3`,
+`dyn_every`, `dyn2_every` and `dyn3_every` accept **expressions**, evaluated
+on demand, so one package can ship two animation profiles:
+
+```
+[skin]
+refresh_ms=(opt_fps?16:50)
+dyn=(opt_fps?18:13),(opt_fps?50:13),(opt_fps?209:213),(opt_fps?97:121)
+dyn2=(opt_fps?13:222),(opt_fps?13:20),319,105
+dyn2_every=(opt_fps?59:20)
+dyn3=13,129,319,169
+dyn3_every=(opt_fps?60:20)
+```
+
+That is exactly what replaced the old `oscilloscope` + `oscilloscope-60`
+pair: one package, `opt_fps=Refresh,20 fps|60 fps`. A plain integer
+(`refresh_ms=50`) is still the fast path and behaves as before; the 16 ms
+floor applies to both forms.
+
+### Persistence
+
+Selections are stored **per theme id** and survive switching away and back.
+They live in `/.rechord/rechord.cfg` as one fixed-width text value:
+
+```
+theme_opts=glifo:10;oscilloscope:01;
+```
+
+`<id>:<one digit per declared option>;`. Unknown ids and unknown digits read
+as 0, so a package that adds, removes or reorders options degrades to a
+clamped value instead of an invalid variant. The theme module owns the format
+but not the file: the app installs a provider
+(`theme_pkg_set_option_provider`) and the Settings screen feeds it the
+`theme_opts` value before `theme_pkg_apply()` runs, so a theme boots with its
+saved choices.
+
+### Settings UX
+
+In **Settings → Interface → Theme**:
+
+| input | effect |
+|---|---|
+| short press (PLAY) | cycle the theme, as before |
+| long press (hold PLAY ~0.5 s) | open **Theme options** for the current theme; does not switch themes |
+| press in Theme options | cycle that option, re-apply the package and save immediately (live preview) |
+| BACK | return to the Settings list |
+
+A theme without options logs `theme: '<id>' has no options` and stays on the
+Settings list. The options screen draws through the package's
+`skin_settings` like every other Settings screen (it registers the option
+rows as the dynamic list, with the choice in the right-hand column) and falls
+back to the built-in list when the package ships no settings skin, so it is
+skinnable without any new file.
+
+---
+
+## 4. Per-screen skins
 
 A theme may ship one skin per screen. They all use the same interpreter and
 state variables; what changes is the layout, the animation and the list data
@@ -148,7 +279,7 @@ and the theme's visuals independent.
 
 ---
 
-## 4. `home.skin` / screen skin syntax
+## 5. `home.skin` / screen skin syntax
 
 ```
 [background]
@@ -273,7 +404,7 @@ the global setting), and Now Playing always keeps VOL+ = louder.
 
 ---
 
-## 5. Runtime state available to the theme
+## 6. Runtime state available to the theme
 
 The UI adapter fills a read-only `theme_skin_state_t` before drawing:
 
@@ -298,8 +429,7 @@ The UI adapter fills a read-only `theme_skin_state_t` before drawing:
 | `art_glow` / `art_panel` | RGB565 | mid glow (V=0.55) / card panel (mean V=0.16) |
 | `art_label` | RGB565 | cream label (cream mixed 10 % with the mean) |
 | `art_ink` / `art_ink_dim` | RGB565 | fixed label inks (#221E1C / #706860) |
-| `title` | string | `player_get_track().title` |
-| `artist` | string | `player_get_track().artist` |
+| `title` | string | `player_get_track().title` || `artist` | string | `player_get_track().artist` |
 | `album` | string | `player_get_track().album` |
 | `path` | string | `player_get_track().path` |
 | `heading` | string | screen title/path (Library, Settings, browser path, category) |
@@ -312,6 +442,7 @@ The UI adapter fills a read-only `theme_skin_state_t` before drawing:
 | `pl_i` / `pl_n` | int | 1-based playlist position / count (0 = no list) |
 | `shuffle` | 0/1 | `player_get_shuffle()` |
 | `repeat` | 0/1/2 | off / all / one (`player_get_repeat()`) |
+| `opt_<id>` | int | selected index of the package's option `id` (§3) |
 | palette names | RGB565 | active theme colors |
 
 Where the values live:
@@ -439,7 +570,7 @@ refresh, which costs sectors — keep covers outside the animated band.
 
 ---
 
-## 6. Animation model
+## 7. Animation model
 
 There is no compiled animation state. Motion is a function of `t`, `idle`,
 `playing` and the package's expressions. The Companion Bot is the reference:
@@ -493,7 +624,7 @@ top; the home keeps its own tick. A theme can animate any screen by declaring
 
 ---
 
-## 7. Assets (optional)
+## 8. Assets (optional)
 
 Raw 1-bit rows, MSB-first, stride = `(w + 7) / 8`. Declare in `theme.cfg`:
 
@@ -519,25 +650,32 @@ bg=background
 
 ---
 
-## 8. Limits and safety
+## 9. Limits and safety
 
 - Skin text 4 KiB, 52 sections, 12 properties/section, 144-byte values.
   (Sections are parsed, not stored, so the section cap costs no RAM; the
   Cassette home uses 50.)
 - Expressions: 2048 steps, recursion depth 12.
 - 8 assets max, 64x64, stride <= 8 B, 1 KiB cache.
+- 4 options max, 2..4 choices each, ids <= 15 chars, labels <= 23 chars,
+  choices <= 15 chars. A malformed `opt_` line is dropped with a log count
+  (the package still applies); that is the only non-atomic manifest value.
 - A malformed `theme.cfg`, skin, or declared asset rejects the package
   atomically; the active theme stays.
 - No theme can execute code, allocate memory, or take the player keys.
 - Boot fallback is always the built-in Mono palette/default layout.
 
-Measured on the current AP build: `.bss_end 0x03049CA8` (gate `0x0304A000`),
-with the engine, per-screen bridge and the additional manifest paths. The
-interpreter keeps fixed buffers only; no per-theme allocation and no heap.
+Measured on the current AP build: `.bss_end 0x0303A6E0` (gate `0x0304A000`,
+~61 KiB headroom) with `.text 214,312 B` of the 229,376 B `FW_CODE` region,
+with the engine, per-screen bridge, options and the additional manifest
+paths. The interpreter keeps fixed buffers only; no
+per-theme allocation and no heap. Adding the option store costs 2 structs
+(4 x `theme_opt_decl_t`, 104 B) in the layout plus the dynamic-rect/refresh
+text buffers (3 x 112 B + 3 x 32 B) in the engine.
 
 ---
 
-## 9. Current scope
+## 10. Current scope
 
 The declarative interpreter drives the **home/main, Now Playing, Library,
 library category, browser and Settings** screens when the package declares

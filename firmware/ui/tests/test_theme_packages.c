@@ -58,8 +58,16 @@ void test_theme_packages(void)
     ui_init();
     mock_services_reset();
 
+    /* One oscilloscope package now ships both sweep rates as `opt_fps`;
+     * oscilloscope-60 no longer exists (BRNOMT per-theme options). */
     check_package("oscilloscope", "Oscilloscope", 0, 0, 0);
-    check_package("oscilloscope-60", "Oscilloscope 60", 0, 0, 0);
+    CHECK_EQ_INT(theme_layout()->opt_count, 1);
+    CHECK_STR_EQ(theme_layout()->opts[0].id, "fps");
+    CHECK_EQ_INT(theme_layout()->opts[0].count, 2);
+    CHECK_STR_EQ(theme_layout()->opts[0].label, "Refresh");
+    CHECK_STR_EQ(theme_layout()->opts[0].choice[0], "20 fps");
+    CHECK_STR_EQ(theme_layout()->opts[0].choice[1], "60 fps");
+
     check_package("vu-meter", "VU Meter", "vu_a", 64, 40);
     check_package("808", "808", "ring", 32, 32);
 }

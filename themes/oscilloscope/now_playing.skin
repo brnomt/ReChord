@@ -1,11 +1,12 @@
 [skin]
-refresh_ms=50
+# opt_fps: 0 = 20 fps, 1 = 60 fps (the two rect pairs swap cadence).
+refresh_ms=(opt_fps?16:50)
 idle_refresh_ms=500
 dyn=141,7,225,89
-dyn2=234,20,317,92
-dyn2_every=20
-dyn3=0,96,319,169
-dyn3_every=20
+dyn2=(opt_fps?137:234),(opt_fps?93:20),(opt_fps?317:317),(opt_fps?169:92)
+dyn2_every=(opt_fps?59:20)
+dyn3=(opt_fps?234:0),(opt_fps?5:96),(opt_fps?317:319),(opt_fps?92:169)
+dyn3_every=(opt_fps?60:20)
 [vars]
 ac=(art_ok?art_accent:2047)
 g1=mix(ac,background,150)
@@ -155,7 +156,7 @@ y=11
 w=76
 h=74
 ch=xy
-gain=(800+1500*(volume+60)/60)
+gain=((opt_fps?1200:800)+(opt_fps?2000:1500)*(volume+60)/60)
 color=ac
 halo=4
 glow=(1000+lvl_l/2)
